@@ -58,22 +58,20 @@ npx expo start
 
 Sign-in needs a development build or a TestFlight build; it does not run in Expo Go.
 
-## First TestFlight build
+## Build and submit to TestFlight with Xcode
 
-The app is already linked to the Expo project `@kojo_toku54/community`. The production EAS environment contains the three `EXPO_PUBLIC_*` values from `.env`; `.env` itself is ignored and must not be committed.
-
-Before the first build, configure and validate an iOS distribution certificate and provisioning profile for the Apple Developer team in `eas.json`. Then, from a computer signed in to the Expo account, run:
+The iOS app is built and uploaded from Xcode (not EAS). On a Mac with Xcode and CocoaPods installed:
 
 ```
 npm ci
-npx eas-cli build --platform ios --profile production --auto-submit
+npx expo prebuild --platform ios
+npx pod-install
+open ios/Community.xcworkspace
 ```
 
-The bundle identifier is `com.khojokin.community`. EAS submits the completed build to TestFlight; Apple must process it before testers can install it.
+In Xcode, select the **Community** scheme and an iOS device destination. Under the app target's **Signing & Capabilities**, select the Apple Developer team that owns `com.khojokin.community`, and enable automatic signing. Choose **Product → Archive**. In Organizer, select the archive, choose **Distribute App → App Store Connect → Upload**, and complete the upload. Apple processes the build before it appears in TestFlight.
 
-## Later builds from GitHub
-
-Add a repository secret named `EXPO_TOKEN` and run the **TestFlight** workflow from the Actions tab, or push a tag such as `v1.0.1`. The EAS iOS signing credentials must also be configured for non-interactive builds.
+The local `.env` supplies the Expo public Supabase and Clerk values during the Xcode build. Keep `.env` on the developer machine; it is ignored by Git. The Supabase project must have Clerk configured as a third-party auth provider before sign-in can access protected data.
 
 ## Notes
 
