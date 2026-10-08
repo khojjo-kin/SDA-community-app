@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+.export-check/
+ios/
+android/
+*.ipa
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+.env.local
+.env
+.DS_Store
+npm-debug.*
+expo-env.d.ts

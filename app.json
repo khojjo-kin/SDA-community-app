@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Community",
+    "slug": "community",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "community",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#0b1014",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.khojokin.community",
+      "infoPlist": {
+        "CFBundleDisplayName": "Community",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Community uses your photo library so you can choose photos and videos for posts, stories, messages and your profile picture.",
+        "NSCameraUsageDescription": "Community uses your camera so you can take photos and videos to share.",
+        "NSMicrophoneUsageDescription": "Community uses your microphone when you record a video with sound."
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#0b1014"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Community uses your photo library so you can choose photos and videos for posts, stories, messages and your profile picture.",
+          "cameraPermission": "Community uses your camera so you can take photos and videos to share.",
+          "microphonePermission": "Community uses your microphone when you record a video with sound."
+        }
+      ]
+    ]
+  }
+}
