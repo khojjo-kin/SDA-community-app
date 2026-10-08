@@ -52,7 +52,7 @@ The schema lives in the Supabase project `SDA` under tables named `community_*`.
 ## Run it on your computer
 
 ```
-npm install
+npm ci
 npx expo start
 ```
 
@@ -60,22 +60,20 @@ Sign-in needs a development build or a TestFlight build; it does not run in Expo
 
 ## First TestFlight build
 
-Do this once from a computer, signed in to your Expo account:
+The app is already linked to the Expo project `@kojo_toku54/community`. The production EAS environment contains the three `EXPO_PUBLIC_*` values from `.env`; `.env` itself is ignored and must not be committed.
+
+Before the first build, configure and validate an iOS distribution certificate and provisioning profile for the Apple Developer team in `eas.json`. Then, from a computer signed in to the Expo account, run:
 
 ```
-npm install
-npx eas-cli login
-npx eas-cli init          # links the folder to an Expo project named "community"
+npm ci
 npx eas-cli build --platform ios --profile production --auto-submit
 ```
 
-EAS asks to sign in to your Apple Developer account, then creates the bundle identifier `com.khojokin.community`, the signing certificate, the provisioning profile and the App Store Connect app record. When the build finishes it is uploaded to TestFlight, and Apple emails you once it has been processed (usually 10 to 30 minutes).
-
-After `eas init`, commit the `extra.eas.projectId` it adds to `app.json`.
+The bundle identifier is `com.khojokin.community`. EAS submits the completed build to TestFlight; Apple must process it before testers can install it.
 
 ## Later builds from GitHub
 
-Once the first build has gone through, add a repository secret named `EXPO_TOKEN` and run the **TestFlight** workflow from the Actions tab, or push a tag such as `v1.0.1`.
+Add a repository secret named `EXPO_TOKEN` and run the **TestFlight** workflow from the Actions tab, or push a tag such as `v1.0.1`. The EAS iOS signing credentials must also be configured for non-interactive builds.
 
 ## Notes
 

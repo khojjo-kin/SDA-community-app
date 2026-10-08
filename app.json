@@ -41,6 +41,13 @@
           "microphonePermission": "Community uses your microphone when you record a video with sound."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f56a229f-bb59-4e2d-9222-1e3282392287"
+      }
+    },
+    "owner": "kojo_toku54"
   }
 }
