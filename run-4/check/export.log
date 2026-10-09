@@ -1,0 +1,37 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+Starting Metro Bundler
+iOS ./index.js ▓▓░░░░░░░░░░░░░░ 15.0% ( 60/292)
+iOS ./index.js ▓▓▓░░░░░░░░░░░░░ 20.4% (201/445)
+iOS ./index.js ▓▓▓▓▓▓░░░░░░░░░░ 37.6% (422/688)
+iOS ./index.js ▓▓▓▓▓▓▓▓░░░░░░░░ 52.4% (625/863)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 67.7% ( 848/1031)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 73.6% (1012/1180)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 77.5% (1185/1346)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 86.0% (1266/1365)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1510/1510)
+iOS Bundled 35444ms index.js (1510 modules)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1510/1510)
+
+› Assets (24):
+assets/splash-icon.png (69.3 kB)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.png (653 B)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon.png (4 variations | 566 B)
+node_modules/@react-navigation/elements/lib/module/assets/clear-icon.png (4 variations | 425 B)
+node_modules/@react-navigation/elements/lib/module/assets/close-icon.png (4 variations | 235 B)
+node_modules/@react-navigation/elements/lib/module/assets/search-icon.png (3 variations | 582 B)
+node_modules/expo-router/assets/arrow_down.png (9.46 kB)
+node_modules/expo-router/assets/error.png (469 B)
+node_modules/expo-router/assets/file.png (138 B)
+node_modules/expo-router/assets/forward.png (188 B)
+node_modules/expo-router/assets/pkg.png (364 B)
+node_modules/expo-router/assets/sitemap.png (465 B)
+node_modules/expo-router/assets/unmatched.png (4.75 kB)
+
+› ios bundles (1):
+_expo/static/js/ios/index-71915ed5b862e98dda9dc5b7f91ddc09.hbc (4.95 MB)
+
+› Files (1):
+metadata.json (1.84 kB)
+
+Exported: .export-check
