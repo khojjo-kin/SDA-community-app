@@ -14,10 +14,18 @@ npx expo install --check > "$LOG_DIR/expo-check.log" 2>&1
 echo "expo install --check: $?" >> "$LOG_DIR/status.txt"
 
 npx tsc --noEmit > "$LOG_DIR/tsc.log" 2>&1
-echo "tsc: $?" >> "$LOG_DIR/status.txt"
+tsc_code=$?
+echo "tsc: $tsc_code" >> "$LOG_DIR/status.txt"
 
 npx expo export --platform ios --output-dir .export-check > "$LOG_DIR/export.log" 2>&1
 code=$?
 echo "expo export: $code" >> "$LOG_DIR/status.txt"
+
+# The bundler strips types without checking them, so a type error still produces a bundle. It is
+# still a mistake that should stop the build: it either is a real bug or hides one.
+if [ $code -eq 0 ] && [ $tsc_code -ne 0 ]; then
+  echo "RESULT: FAILED (type errors: see tsc.log)" >> "$LOG_DIR/status.txt"
+  code=$tsc_code
+fi
 echo "finished $(date -u +%FT%TZ)" >> "$LOG_DIR/status.txt"
 exit $code

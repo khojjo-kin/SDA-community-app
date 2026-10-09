@@ -15,7 +15,7 @@ function ok<T>(res: { data: T | null; error: any }): T {
  * answer and no error, so anything the app waits on before it can show a screen goes through here:
  * the wait ends, the person sees what went wrong, and they can try again.
  */
-export function withTimeout<T>(work: Promise<T>, ms = 15000): Promise<T> {
+export function withTimeout<T>(work: PromiseLike<T>, ms = 15000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('The server did not answer. Check your internet connection and try again.')), ms);
     const done = (fn: (v: any) => void) => (v: any) => {
