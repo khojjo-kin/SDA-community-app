@@ -2,7 +2,7 @@
   "expo": {
     "name": "Community",
     "slug": "community",
-    "version": "1.0.0",
+    "version": "1.0",
     "orientation": "portrait",
     "scheme": "community",
     "userInterfaceStyle": "dark",
@@ -12,6 +12,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.sdacommunity.app",
+      "buildNumber": "2",
       "infoPlist": {
         "CFBundleDisplayName": "Community",
         "ITSAppUsesNonExemptEncryption": false,
