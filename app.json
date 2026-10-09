@@ -2,7 +2,7 @@
   "expo": {
     "name": "Community",
     "slug": "community",
-    "version": "1.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "scheme": "community",
     "userInterfaceStyle": "dark",
@@ -11,18 +11,21 @@
     "backgroundColor": "#0b1014",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sdacommunity.app",
-      "buildNumber": "2",
+      "bundleIdentifier": "Kojo.SDAAPPGEMINI",
       "infoPlist": {
         "CFBundleDisplayName": "Community",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "Community uses your photo library so you can choose photos and videos for posts, stories, messages and your profile picture.",
+        "NSPhotoLibraryUsageDescription": "Community shows your photos and videos so you can choose what to share in posts, stories, messages and your profile picture.",
         "NSCameraUsageDescription": "Community uses your camera so you can take photos and videos to share.",
-        "NSMicrophoneUsageDescription": "Community uses your microphone when you record a video with sound."
-      }
+        "NSMicrophoneUsageDescription": "Community uses your microphone when you record a video with sound or a voice message.",
+        "NSPhotoLibraryAddUsageDescription": "Community saves a photo to your library when you tap Save on a photo in a chat."
+      },
+      "appleTeamId": "QRMLKZR9B8",
+      "usesAppleSignIn": true
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       "expo-secure-store",
       "expo-video",
       [
@@ -37,14 +40,26 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Community uses your photo library so you can choose photos and videos for posts, stories, messages and your profile picture.",
+          "photosPermission": "Community shows your photos and videos so you can choose what to share in posts, stories, messages and your profile picture.",
           "cameraPermission": "Community uses your camera so you can take photos and videos to share.",
-          "microphonePermission": "Community uses your microphone when you record a video with sound."
+          "microphonePermission": "Community uses your microphone when you record a video with sound or a voice message."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Community shows your photos and videos so you can choose what to share in posts, stories, messages and your profile picture.",
+          "savePhotosPermission": "Community saves a photo to your library when you tap Save on a photo in a chat.",
+          "isAccessMediaLocationEnabled": false,
+          "preventAutomaticLimitedAccessAlert": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Community uses your microphone when you record a video with sound or a voice message."
         }
       ]
-    ],
-    "extra": {
-      "router": {}
-    }
+    ]
   }
 }

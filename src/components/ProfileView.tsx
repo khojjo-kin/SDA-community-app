@@ -3,12 +3,14 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { fetchReposts, fetchUserPosts, getProfile, openThread, report, setBlock, setFollow } from '../lib/api';
+import { fetchReposts, fetchStats, fetchUserPosts, getProfile, openThread, report, setBlock, setCloseFriend, setFollow } from '../lib/api';
 import { useSession } from '../lib/session';
 import { listen } from '../lib/store';
 import { C, errText, fmt } from '../lib/theme';
 import type { Post, Profile } from '../lib/types';
+import { CreateSheet } from './CreateSheet';
 import { PostGrid } from './Grid';
+import { HighlightsRow } from './HighlightsRow';
 import { Icon, IconName } from './Icon';
 import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Loading, Screen, Sheet, SheetRow, useToast } from './ui';
 
@@ -40,7 +42,10 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading');
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [menu, setMenu] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [views, setViews] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -53,13 +58,18 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       setPosts(own);
       setReposts(rep);
       setStatus('ready');
+      if (mine && p.account_type === 'creator') {
+        fetchStats(new Date(Date.now() - 30 * 86400e3), new Date())
+          .then((s) => setViews(s.views))
+          .catch(() => {});
+      }
     } catch (e) {
       setError(errText(e));
       setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
     } finally {
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [userId, mine]);
 
   useFocusEffect(
     useCallback(() => {
@@ -110,7 +120,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
           <Pressable
-            onPress={() => (profile.has_story ? router.push(`/story/${userId}`) : mine ? router.push('/create?mode=story') : undefined)}
+            onPress={() => (profile.has_story ? router.push(`/story/${userId}`) : mine ? router.push('/add-story') : undefined)}
             disabled={!profile.has_story && !mine}
             accessibilityRole={profile.has_story || mine ? 'button' : 'image'}
             accessibilityLabel={profile.has_story ? 'View story' : mine ? 'Add to your story' : 'Profile photo'}>
@@ -130,13 +140,22 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             </View>
           </View>
         </View>
-        {profile.bio ? <Text style={{ color: C.fg2, marginTop: 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
+        {profile.account_type === 'creator' && profile.category ? <Text style={{ color: C.fg2, marginTop: 12, fontSize: 15 }}>{profile.category}</Text> : null}
+        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.account_type === 'creator' && profile.category ? 2 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
         {profile.website ? (
           <Text style={{ color: C.accent2, marginTop: 4 }} numberOfLines={1} onPress={() => Linking.openURL(/^https?:\/\//.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast('That link could not be opened'))}>
             {profile.website.replace(/^https?:\/\//, '')}
           </Text>
         ) : null}
         {!mine && profile.follows_me ? <Text style={{ color: C.fg3, marginTop: 6, fontSize: 13 }}>Follows you</Text> : null}
+
+        {mine && profile.account_type === 'creator' ? (
+          <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel="Your dashboard" style={({ pressed }) => ({ marginTop: 14, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface })}>
+            <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>Your dashboard</Text>
+            <Text style={{ color: C.fg2, marginTop: 2, fontSize: 14 }}>{views === null ? 'Views, followers and your tools.' : `${fmt(views)} ${views === 1 ? 'view' : 'views'} in the last 30 days.`}</Text>
+          </Pressable>
+        ) : null}
+
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           {mine ? (
             <>
@@ -153,6 +172,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           )}
         </View>
       </View>
+
+      {profile.is_blocked ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} />}
+
       <View style={{ flexDirection: 'row', marginTop: 14 }} accessibilityRole="tablist">
         {TABS.map((t) => (
           <Pressable key={t.key} onPress={() => setTab(t.key)} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: tab === t.key }} style={{ flex: 1, height: 46, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1.5, borderBottomColor: tab === t.key ? C.fg : 'transparent' }}>
@@ -168,49 +190,62 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       <Header
         title={profile.username}
         center
-        left={mine && isTab ? <IconButton name="plus" size={28} label="New post" onPress={() => router.push('/create')} /> : undefined}
-        right={mine ? <IconButton name="menu" size={26} label="Menu" onPress={() => setMenu(true)} /> : <IconButton name="more" label="More options" onPress={() => setMenu(true)} />}
+        left={mine && isTab ? <IconButton name="plus" size={28} label="Create" onPress={() => setCreating(true)} /> : undefined}
+        right={mine ? <IconButton name="menu" size={26} label="Settings and activity" onPress={() => router.push('/settings')} /> : <IconButton name="more" label="More options" onPress={() => setMenu(true)} />}
       />
-      <PostGrid posts={profile.is_blocked ? [] : list} header={head} refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} empty={profile.is_blocked ? <Empty title="You blocked this account" body="Unblock them to see their posts." /> : <Empty title={emptyFor[tab][0]} body={emptyFor[tab][1]} />} />
+      <PostGrid
+        posts={profile.is_blocked ? [] : list}
+        header={head}
+        refreshing={refreshing}
+        onRefresh={() => { setRefreshing(true); setRefreshKey((k) => k + 1); load(); }}
+        empty={profile.is_blocked ? <Empty title="You blocked this account" body="Unblock them to see their posts." /> : <Empty title={emptyFor[tab][0]} body={emptyFor[tab][1]} />}
+      />
+
+      <CreateSheet visible={creating} onClose={() => setCreating(false)} />
 
       <Sheet visible={menu} onClose={() => setMenu(false)}>
-        {mine ? (
-          <>
-            <SheetRow icon="bookmark" label="Saved" onPress={later(() => router.push('/saved'))} />
-            <SheetRow icon="heart" label="Your likes" onPress={later(() => router.push('/saved?which=liked'))} />
-            <SheetRow icon="settings" label="Settings" sub="Log out, blocked accounts, delete account" onPress={later(() => router.push('/settings'))} />
-          </>
-        ) : (
-          <>
-            <SheetRow icon="link" label="Copy profile link" onPress={later(() => { Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast('Profile link copied')); })} />
-            <SheetRow
-              icon="flag"
-              label="Report"
-              danger
-              onPress={later(() =>
-                Alert.alert('Report this account', 'Why are you reporting it?', [
-                  ...['Spam', 'Pretending to be someone else', 'Harassment or hate', 'Something else'].map((r) => ({ text: r, onPress: () => { report(me, { userId }, r).then(() => toast('Thanks. We will review this account.')).catch((e) => toast(errText(e))); } })),
-                  { text: 'Cancel', style: 'cancel' as const },
-                ]),
-              )}
-            />
-            <SheetRow
-              icon="block"
-              label={profile.is_blocked ? `Unblock ${profile.username}` : `Block ${profile.username}`}
-              danger
-              onPress={later(() => {
-                if (profile.is_blocked) {
-                  setBlock(me, userId, false).then(() => { toast(`Unblocked ${profile.username}`); load(); }).catch((e) => toast(errText(e)));
-                  return;
-                }
-                Alert.alert(`Block ${profile.username}?`, 'You will stop seeing their posts, stories and comments. They are not told.', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Block', style: 'destructive', onPress: () => { setBlock(me, userId, true).then(() => { toast(`Blocked ${profile.username}`); load(); }).catch((e) => toast(errText(e))); } },
-                ]);
-              })}
-            />
-          </>
+        <SheetRow first icon="link" label="Copy profile link" onPress={later(() => { Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast('Profile link copied')); })} />
+        {profile.is_blocked ? null : (
+          <SheetRow
+            icon="star"
+            label={profile.is_close_friend ? 'Remove from close friends' : 'Add to close friends'}
+            onPress={later(() => {
+              const next = !profile.is_close_friend;
+              setCloseFriend(me, userId, next)
+                .then(() => {
+                  setProfile({ ...profile, is_close_friend: next });
+                  toast(next ? `${profile.username} is now a close friend` : `Removed ${profile.username} from close friends`);
+                })
+                .catch((e) => toast(errText(e)));
+            })}
+          />
         )}
+        <SheetRow
+          icon="flag"
+          label="Report"
+          danger
+          onPress={later(() =>
+            Alert.alert('Report this account', 'Why are you reporting it?', [
+              ...['Spam', 'Pretending to be someone else', 'Harassment or hate', 'Something else'].map((r) => ({ text: r, onPress: () => { report(me, { userId }, r).then(() => toast('Thanks. We will review this account.')).catch((e) => toast(errText(e))); } })),
+              { text: 'Cancel', style: 'cancel' as const },
+            ]),
+          )}
+        />
+        <SheetRow
+          icon="block"
+          label={profile.is_blocked ? `Unblock ${profile.username}` : `Block ${profile.username}`}
+          danger
+          onPress={later(() => {
+            if (profile.is_blocked) {
+              setBlock(me, userId, false).then(() => { toast(`Unblocked ${profile.username}`); load(); }).catch((e) => toast(errText(e)));
+              return;
+            }
+            Alert.alert(`Block ${profile.username}?`, 'You will stop seeing their posts, stories and comments. They are not told.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Block', style: 'destructive', onPress: () => { setBlock(me, userId, true).then(() => { toast(`Blocked ${profile.username}`); load(); }).catch((e) => toast(errText(e))); } },
+            ]);
+          })}
+        />
       </Sheet>
     </Screen>
   );

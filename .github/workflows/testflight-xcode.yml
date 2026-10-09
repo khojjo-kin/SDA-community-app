@@ -1,0 +1,93 @@
+name: Community TestFlight (Xcode)
+
+# Checks the app on Linux, then builds it with Xcode on a GitHub Mac and uploads it to TestFlight.
+# Runs on every push to the community-app branch that changes the app. A failed run can be started
+# again from the Actions tab with "Re-run all jobs". (The "Run workflow" button only appears for
+# workflows that live on the repository's default branch, which this one does not.)
+
+on:
+  push:
+    branches: [community-app]
+    paths-ignore:
+      - README.md
+      - supabase/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-testflight
+  cancel-in-progress: true
+
+env:
+  ASC_KEY_ID: PD6DWK7T4C
+  ASC_ISSUER_ID: 232fdb99-c796-444e-8430-34452fd67484
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install, type-check and bundle
+        run: bash scripts/ci-check.sh
+      - name: Save logs
+        if: always()
+        run: bash scripts/ci-publish-logs.sh check
+
+  testflight:
+    needs: check
+    runs-on: macos-15
+    timeout-minutes: 110
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Use the newest Xcode 26 on this Mac
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"; exec > >(tee -a "$RUNNER_TEMP/logs/setup.txt") 2>&1
+          ls -ld /Applications/Xcode*.app
+          # A beta can hide behind a tidy name (Xcode_26.3.app -> Xcode_26.3_beta.app), so look at where each one really lives.
+          resolve() { for x in "$@"; do if [ -d "$x" ]; then (cd "$x" && pwd -P); fi; done | { grep -viE 'beta|candidate' || true; } | sort -u -V | tail -1; }
+          XC=$(resolve /Applications/Xcode_26*.app)
+          if [ -z "$XC" ]; then XC=$(resolve /Applications/Xcode_*.app); fi
+          echo "using $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+      - name: Fetch the Apple key, certificate and profile from the main branch
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"; exec > >(tee -a "$RUNNER_TEMP/logs/setup.txt") 2>&1
+          git fetch --quiet --depth 1 origin main
+          mkdir -p "$RUNNER_TEMP/signing"
+          git show FETCH_HEAD:ios/fastlane/AuthKey_PD6DWK7T4C.p8 > "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8"
+          git show FETCH_HEAD:ios/PRZR6A95J9.p12 > "$RUNNER_TEMP/signing/dist.p12" || true
+          git show FETCH_HEAD:ios/PRZR6A95J9.cer > "$RUNNER_TEMP/signing/dist.cer" || true
+          git show FETCH_HEAD:ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision > "$RUNNER_TEMP/signing/app.mobileprovision" || true
+          chmod 600 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" "$RUNNER_TEMP"/signing/*
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" >> "$GITHUB_ENV"
+          echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
+      - name: Build with Xcode and upload to TestFlight
+        timeout-minutes: 95
+        run: bash scripts/ci-testflight.sh
+      - name: Remove the key and certificate
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" "$RUNNER_TEMP/signing" "$HOME/.appstoreconnect/private_keys"
+          security delete-keychain "$RUNNER_TEMP/community-signing.keychain-db" > /dev/null 2>&1 || true
+      - name: Save logs
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"; echo "job status: $JOB_STATUS" >> "$RUNNER_TEMP/logs/job.txt"
+          bash scripts/ci-publish-logs.sh testflight

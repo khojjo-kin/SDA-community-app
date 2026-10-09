@@ -1,86 +1,115 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
-import { useAuth, useUser } from '@clerk/clerk-expo';
-import Constants from 'expo-constants';
-import { SectionTitle } from '../../src/components/Grid';
-import { PersonRow } from '../../src/components/PersonRow';
-import { Button, Header, Screen, useToast } from '../../src/components/ui';
-import { deleteAccount, listBlocked, setBlock } from '../../src/lib/api';
+import React, { useCallback, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import type { IconName } from '../../src/components/Icon';
+import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, useToast } from '../../src/components/ui';
+import { countCloseFriends, listBlocked } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
-import type { Profile } from '../../src/lib/types';
 
+type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string };
+type Section = { label: string; items: Item[] };
+
+const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Off' } as const;
+
+/** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
-  const { signOut } = useAuth();
-  const { user } = useUser();
-  const { me, profile } = useSession();
+  const { me, profile, signOut } = useSession();
+  const router = useRouter();
   const toast = useToast();
-  const [blocked, setBlocked] = useState<Profile[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState('');
+  const [friends, setFriends] = useState<number | null>(null);
+  const [blocked, setBlocked] = useState<number | null>(null);
 
-  const load = useCallback(() => {
-    listBlocked(me).then(setBlocked).catch(() => {});
-  }, [me]);
-  useEffect(load, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      countCloseFriends(me).then(setFriends).catch(() => {});
+      listBlocked(me).then((b) => setBlocked(b.length)).catch(() => {});
+    }, [me]),
+  );
+
+  const creator = profile?.account_type === 'creator';
+  const sections: Section[] = [
+    {
+      label: 'Your account',
+      items: [{ icon: 'account', title: 'Account', sub: 'Email, password and deleting your account', href: '/account', words: 'email password security delete personal details profile' }],
+    },
+    {
+      label: 'How you use Community',
+      items: [
+        { icon: 'bookmark', title: 'Saved', href: '/saved', words: 'bookmarks' },
+        { icon: 'archive', title: 'Archive', href: '/archive', words: 'stories old expired' },
+        { icon: 'activity', title: 'Your activity', href: '/activity', words: 'likes comments reposts history' },
+        { icon: 'bell', title: 'Notifications', href: '/notifications', words: 'likes follows comments' },
+      ],
+    },
+    {
+      label: 'Who can see your content',
+      items: [
+        { icon: 'star', title: 'Close friends', value: friends === null ? undefined : String(friends), href: '/close-friends', words: 'stories list' },
+        { icon: 'block', title: 'Blocked', value: blocked === null ? undefined : String(blocked), href: '/blocked', words: 'block unblock accounts' },
+        { icon: 'story', title: 'Story replies', value: REPLIES[profile?.story_replies ?? 'everyone'], href: '/story-settings', words: 'stories reply messages' },
+      ],
+    },
+    {
+      label: 'Your app and media',
+      items: [{ icon: 'camera', title: 'Story and camera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' }],
+    },
+    {
+      label: 'Your insights and tools',
+      items: creator
+        ? [
+            { icon: 'chart', title: 'Dashboard', href: '/dashboard', words: 'insights views followers analytics' },
+            { icon: 'tag', title: 'Creator tools and controls', href: '/creator', words: 'saved reply faq questions view counts category account type' },
+          ]
+        : [{ icon: 'chart', title: 'Account type and tools', sub: 'Switch to a creator account for insights, saved replies and more', href: '/account-type', words: 'creator professional dashboard insights' }],
+    },
+    {
+      label: 'More info and support',
+      items: [{ icon: 'info', title: 'About', href: '/about', words: 'version privacy data help' }],
+    },
+  ];
 
   function logOut() {
     Alert.alert('Log out of Community?', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => { signOut().catch((e) => toast(errText(e))); } },
+      { text: 'Log out', style: 'destructive', onPress: () => { signOut().catch((e: unknown) => toast(errText(e))); } },
     ]);
   }
 
-  async function reallyDelete() {
-    setBusy(true);
-    try {
-      await deleteAccount(me);
-      try {
-        await user?.delete();
-      } catch {
-        // The profile and everything shared are already gone. Only the sign-in record is left.
-        Alert.alert('Almost done', 'Your profile and everything you shared were deleted, but the sign-in record could not be removed. Contact support to finish removing it.');
-      }
-      await signOut();
-    } catch (e) {
-      toast(errText(e));
-      setBusy(false);
-    }
-  }
-
-  function removeAccount() {
-    Alert.alert('Delete your account?', 'This permanently deletes your profile, posts, stories, comments and messages. You cannot undo it.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete account', style: 'destructive', onPress: reallyDelete },
-    ]);
-  }
+  const needle = q.trim().toLowerCase();
+  const matches = needle ? sections.flatMap((s) => s.items).filter((i) => `${i.title} ${i.sub ?? ''} ${i.words ?? ''}`.toLowerCase().includes(needle)) : [];
+  const row = (i: Item) => <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} onPress={() => router.push(i.href as any)} />;
 
   return (
     <Screen>
-      <Header title="Settings" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-        <SectionTitle>Account</SectionTitle>
-        <View style={{ paddingHorizontal: 16, gap: 4 }}>
-          <Text style={{ color: C.fg }}>{profile?.username}</Text>
-          <Text style={{ color: C.fg2 }}>{user?.primaryEmailAddress?.emailAddress ?? ''}</Text>
-        </View>
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 10 }}>
-          <Button label="Log out" kind="ghost" onPress={logOut} />
-        </View>
-
-        <SectionTitle>Blocked accounts</SectionTitle>
-        {blocked.length ? (
-          blocked.map((p) => <PersonRow key={p.id} person={p} right={<Button small kind="ghost" label="Unblock" onPress={() => setBlock(me, p.id, false).then(() => { toast(`Unblocked ${p.username}`); load(); }).catch((e) => toast(errText(e)))} />} />)
+      <ScreenHeader title="Settings and activity" />
+      <View style={{ paddingTop: 4, paddingBottom: 4 }}>
+        <SearchField value={q} onChangeText={setQ} label="Search settings" />
+      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+        {needle ? (
+          matches.length ? (
+            <View style={{ paddingTop: 8 }}>{matches.map(row)}</View>
+          ) : (
+            <Empty title="No settings found" body="Try a different word." />
+          )
         ) : (
-          <Text style={{ color: C.fg2, paddingHorizontal: 16 }}>You haven't blocked anyone.</Text>
+          <>
+            {sections.map((s) => (
+              <View key={s.label}>
+                <SectionLabel>{s.label}</SectionLabel>
+                {s.items.map(row)}
+                <Divider />
+              </View>
+            ))}
+            <SectionLabel>Login</SectionLabel>
+            <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+              <Text style={{ color: '#ff4d67', fontSize: 17.5 }}>Log out</Text>
+            </Pressable>
+            <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6 }}>Logged in as {profile?.username}</Text>
+          </>
         )}
-
-        <SectionTitle>Delete account</SectionTitle>
-        <View style={{ paddingHorizontal: 16, gap: 10 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>Deleting your account removes your profile and everything you have shared. This cannot be undone.</Text>
-          <Button label="Delete account" kind="danger" onPress={removeAccount} busy={busy} />
-        </View>
-
-        <Text style={{ color: C.fg3, textAlign: 'center', marginTop: 32, fontSize: 12.5 }}>Community {Constants.expoConfig?.version ?? ''}</Text>
       </ScrollView>
     </Screen>
   );

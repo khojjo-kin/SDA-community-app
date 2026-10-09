@@ -28,7 +28,7 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 14 }}>
-      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/create?mode=story')} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} style={{ width: 76, alignItems: 'center', gap: 5 }}>
+      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} style={{ width: 76, alignItems: 'center', gap: 5 }}>
         <View>
           <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? 'seen' : null} />
           {!mine ? (
@@ -41,7 +41,7 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
       </Pressable>
       {others.map((g) => (
         <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} style={{ width: 76, alignItems: 'center', gap: 5 }}>
-          <Avatar uri={g.avatar_url} name={g.username} size={66} ring={g.seen ? 'seen' : 'new'} />
+          <Avatar uri={g.avatar_url} name={g.username} size={66} ring={g.seen ? 'seen' : g.close ? 'close' : 'new'} />
           <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76 }}>{g.username}</Text>
         </Pressable>
       ))}

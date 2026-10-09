@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, AppState, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { setFlag, setFollow } from '../lib/api';
+import { recordView, setFlag, setFollow } from '../lib/api';
+import { setPrefs, usePrefs } from '../lib/prefs';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
 import { C, errText, fmt } from '../lib/theme';
@@ -31,6 +32,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
   const player = useVideoPlayer(media?.type === 'video' ? media.url : null, (p) => {
     p.loop = true;
   });
+  const { reelsMuted } = usePrefs();
   const [paused, setPaused] = useState(false);
   const [menu, setMenu] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -46,6 +48,36 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
       // the player was released while the list recycled this row
     }
   }, [active, paused, player]);
+
+  useEffect(() => {
+    try {
+      player.muted = reelsMuted;
+    } catch {
+      // the player was released
+    }
+  }, [player, reelsMuted]);
+
+  // iOS pauses video when the app goes to the background and does not start it again by itself.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !active || paused) return;
+      try {
+        player.play();
+      } catch {
+        // the player was released
+      }
+    });
+    return () => sub.remove();
+  }, [active, paused, player]);
+
+  // Being the reel on screen for a moment counts as a view.
+  const postId = post?.id;
+  const ownerId = post?.user_id;
+  useEffect(() => {
+    if (!active || !postId || !ownerId) return;
+    const t = setTimeout(() => recordView(me, { id: postId, user_id: ownerId }), 800);
+    return () => clearTimeout(t);
+  }, [active, postId, ownerId, me]);
 
   useEffect(() => {
     if (!active) {
@@ -77,7 +109,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
       safe(() => setFlag(me, post!, 'liked', true));
       setBurst({ x, y });
       anim.setValue(0);
-      Animated.sequence([Animated.spring(anim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(320), Animated.timing(anim, { toValue: 2, duration: 240, useNativeDriver: true })]).start(() => setBurst(null));
+      Animated.sequence([Animated.spring(anim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(320), Animated.timing(anim, { toValue: 2, duration: 240, useNativeDriver: true })]).start(({ finished }) => { if (finished) setBurst(null); });
       return;
     }
     tapTimer.current = setTimeout(() => {
@@ -109,6 +141,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
         <Rail icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />
         <Rail icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? C.ok : '#fff'} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Rail icon="send" label="Share" onPress={() => router.push(`/share/${post.id}`)} />
+        {media?.type === 'video' ? <Rail icon={reelsMuted ? 'mute' : 'sound'} label={reelsMuted ? 'Turn sound on' : 'Turn sound off'} onPress={() => setPrefs({ reelsMuted: !reelsMuted })} /> : null}
         <Rail icon="more" label="More options" onPress={() => setMenu(true)} />
       </View>
 
@@ -125,6 +158,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
           ) : null}
         </View>
         {post.caption ? <Text numberOfLines={2} style={{ color: '#fff', lineHeight: 20 }}>{post.caption}</Text> : null}
+        {post.view_count ? <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4 }}>{fmt(post.view_count)} {post.view_count === 1 ? 'view' : 'views'}</Text> : null}
       </View>
 
       <View style={{ position: 'absolute', left: 14, right: 14, bottom: bottomInset + 4, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.3)' }}>

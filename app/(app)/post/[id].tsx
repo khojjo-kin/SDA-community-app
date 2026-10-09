@@ -4,7 +4,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { SectionTitle } from '../../../src/components/Grid';
 import { PostCard } from '../../../src/components/PostCard';
 import { Empty, ErrorNote, Header, Loading, Screen } from '../../../src/components/ui';
-import { fetchPost, fetchUserPosts } from '../../../src/lib/api';
+import { fetchPost, fetchUserPosts, recordView } from '../../../src/lib/api';
+import { useSession } from '../../../src/lib/session';
 import { usePost } from '../../../src/lib/store';
 import { errText } from '../../../src/lib/theme';
 
@@ -12,6 +13,7 @@ export default function PostScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const postId = String(id);
   const post = usePost(postId);
+  const { me } = useSession();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>(post ? 'ready' : 'loading');
   const [error, setError] = useState('');
   const [more, setMore] = useState<string[]>([]);
@@ -24,13 +26,14 @@ export default function PostScreen() {
         return;
       }
       setStatus('ready');
+      recordView(me, p);
       const others = await fetchUserPosts(p.user_id);
       setMore(others.filter((o) => o.id !== postId && o.kind === 'post').map((o) => o.id));
     } catch (e) {
       setError(errText(e));
       setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
     }
-  }, [postId]);
+  }, [postId, me]);
 
   useEffect(() => {
     load();

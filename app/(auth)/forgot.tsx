@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
-import { useSignIn } from '@clerk/clerk-expo';
 import { Link } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
 import { Button, Field } from '../../src/components/ui';
+import { supabase } from '../../src/lib/supabase';
 import { C, errText } from '../../src/lib/theme';
 
 export default function Forgot() {
-  const { signIn, setActive, isLoaded } = useSignIn();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -16,12 +15,13 @@ export default function Forgot() {
   const [err, setErr] = useState('');
 
   async function send() {
-    if (!isLoaded || busy) return;
+    if (busy) return;
     if (!email.trim()) return setErr('Enter the email you signed up with.');
     setBusy(true);
     setErr('');
     try {
-      await signIn!.create({ strategy: 'reset_password_email_code', identifier: email.trim() } as any);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (error) throw error;
       setStage('reset');
     } catch (e) {
       setErr(errText(e));
@@ -31,15 +31,17 @@ export default function Forgot() {
   }
 
   async function reset() {
-    if (!isLoaded || busy) return;
+    if (busy) return;
     if (!code.trim()) return setErr('Enter the code from your email.');
     if (password.length < 8) return setErr('Use a password with at least 8 characters.');
     setBusy(true);
     setErr('');
     try {
-      const res: any = await signIn!.attemptFirstFactor({ strategy: 'reset_password_email_code', code: code.trim(), password } as any);
-      if (res.status === 'complete') await setActive!({ session: res.createdSessionId });
-      else setErr('Your password was changed. Go back and log in with it.');
+      // The code proves it's them and signs them in; then the new password is saved.
+      const { error } = await supabase.auth.verifyOtp({ type: 'recovery', email: email.trim(), token: code.trim() });
+      if (error) throw error;
+      const res = await supabase.auth.updateUser({ password });
+      if (res.error) throw res.error;
     } catch (e) {
       setErr(errText(e));
     } finally {

@@ -10,7 +10,6 @@ android/
 *.mobileprovision
 *.cer
 .env.local
-.env
 .DS_Store
 npm-debug.*
 expo-env.d.ts

@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, RefreshControl, Text, View, ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Wordmark } from '../../../src/components/AuthShell';
+import { CreateSheet } from '../../../src/components/CreateSheet';
 import { PostCard } from '../../../src/components/PostCard';
 import { StoryTray } from '../../../src/components/StoryTray';
 import { Button, Empty, ErrorNote, IconButton, Loading, Screen } from '../../../src/components/ui';
-import { countUnreadNotices, fetchExplore, fetchFeed } from '../../../src/lib/api';
+import { countUnreadNotices, fetchExplore, fetchFeed, recordView } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { listen } from '../../../src/lib/store';
+import { getPostNow, listen } from '../../../src/lib/store';
 import { C, errText } from '../../../src/lib/theme';
 
 export default function Home() {
@@ -20,6 +21,17 @@ export default function Home() {
   const [suggested, setSuggested] = useState(false);
   const [unread, setUnread] = useState(false);
   const [trayKey, setTrayKey] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const meRef = useRef(me);
+  meRef.current = me;
+  // A post counts as seen once at least half of it has been on screen for half a second.
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    for (const v of viewableItems) {
+      const post = typeof v.item === 'string' ? getPostNow(v.item) : undefined;
+      if (post) recordView(meRef.current, post);
+    }
+  }).current;
+  const viewConfig = useRef({ itemVisiblePercentThreshold: 50, minimumViewTime: 500 }).current;
   const cursor = useRef<string | undefined>(undefined);
   const done = useRef(false);
   const busy = useRef(false);
@@ -77,7 +89,7 @@ export default function Home() {
   return (
     <Screen>
       <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }}>
-        <IconButton name="plus" size={28} label="New post" onPress={() => router.push('/create')} />
+        <IconButton name="plus" size={28} label="Create" onPress={() => setCreating(true)} />
         <Wordmark size={34} />
         <IconButton name="heart" size={26} label="Notifications" badge={unread} onPress={() => { setUnread(false); router.push('/notifications'); }} />
       </View>
@@ -97,7 +109,7 @@ export default function Home() {
           ) : status === 'error' ? (
             <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} />
           ) : (
-            <Empty icon="image" title="Welcome to Community" body="Nobody has posted yet. Share the first photo, or find people to follow." action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label="Share a photo" onPress={() => router.push('/create')} /><Button small kind="ghost" label="Find people" onPress={() => router.push('/explore')} /></View>} />
+            <Empty icon="image" title="Welcome to Community" body="Nobody has posted yet. Share the first photo, or find people to follow." action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label="Share a photo" onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label="Find people" onPress={() => router.push('/explore')} /></View>} />
           )
         }
         ListFooterComponent={status === 'ready' && ids.length > 0 && done.current ? <Text style={{ color: C.fg2, textAlign: 'center', padding: 28 }}>You're all caught up</Text> : null}
@@ -108,7 +120,10 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.fg2} />}
         windowSize={7}
         initialNumToRender={3}
+        onViewableItemsChanged={onViewable}
+        viewabilityConfig={viewConfig}
       />
+      <CreateSheet visible={creating} onClose={() => setCreating(false)} />
     </Screen>
   );
 }

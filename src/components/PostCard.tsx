@@ -32,7 +32,7 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
   };
   return (
     <Sheet visible={visible} onClose={onClose}>
-      <SheetRow icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} onPress={act(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
+      <SheetRow first icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} onPress={act(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
       <SheetRow icon="link" label="Copy link" onPress={act(async () => { await Clipboard.setStringAsync(`community://post/${post.id}`); toast('Link copied'); })} />
       {mine ? (
         <SheetRow
@@ -122,7 +122,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
       like(true);
       setBurst({ x, y });
       anim.setValue(0);
-      Animated.sequence([Animated.spring(anim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(320), Animated.timing(anim, { toValue: 2, duration: 240, useNativeDriver: true })]).start(() => setBurst(null));
+      Animated.sequence([Animated.spring(anim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(320), Animated.timing(anim, { toValue: 2, duration: 240, useNativeDriver: true })]).start(({ finished }) => { if (finished) setBurst(null); });
     } else {
       lastTap.current = now;
     }

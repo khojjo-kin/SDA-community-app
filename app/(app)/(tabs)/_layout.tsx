@@ -22,7 +22,7 @@ function useUnreadThreads() {
   const [unread, setUnread] = useState(false);
   const check = useCallback(() => {
     fetchThreads()
-      .then((t) => setUnread(t.some((x) => x.unread_count > 0)))
+      .then((t) => setUnread(t.some((x) => x.unread_count > 0 && x.has_messages && !x.muted)))
       .catch(() => {});
   }, []);
   useEffect(() => {

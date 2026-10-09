@@ -1,18 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HighlightPicker } from '../../../src/components/HighlightPicker';
 import { Icon } from '../../../src/components/Icon';
-import { Avatar, Empty, IconButton, Loading, useToast } from '../../../src/components/ui';
-import { deleteStory, fetchStoryTray, fetchUserStories, markStorySeen, openThread, sendMessage } from '../../../src/lib/api';
+import { PlayerCtx, PlayerGroup, StoryPlayer } from '../../../src/components/StoryPlayer';
+import { StoryReply } from '../../../src/components/StoryReply';
+import { Avatar, Empty, IconButton, Loading, Sheet, useToast } from '../../../src/components/ui';
+import { addToHighlight, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewers, fetchUserStories, markStorySeen } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { announce } from '../../../src/lib/store';
-import { ago, C, errText, fmt } from '../../../src/lib/theme';
-import type { StoryGroup } from '../../../src/lib/types';
-
-const DURATION = 5000;
+import { C, errText, fmt } from '../../../src/lib/theme';
+import type { Profile, Story } from '../../../src/lib/types';
 
 export default function StoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,28 +18,22 @@ export default function StoryScreen() {
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const [groups, setGroups] = useState<StoryGroup[] | null>(null);
-  const [gi, setGi] = useState(0);
-  const [si, setSi] = useState(0);
-  const [reply, setReply] = useState('');
-  const [liked, setLiked] = useState(false);
-  const progress = useRef(new Animated.Value(0)).current;
-  const paused = useRef(false);
-  const closed = useRef(false);
+  const [groups, setGroups] = useState<PlayerGroup<Story>[] | null>(null);
+  const [start, setStart] = useState({ g: 0, s: 0 });
+  const [viewers, setViewers] = useState<Profile[] | null>(null);
+  const [sheet, setSheet] = useState<'viewers' | 'highlight' | null>(null);
+  const live = useRef<PlayerCtx<Story> | null>(null);
 
   const close = useCallback(() => {
-    if (closed.current) return;
-    closed.current = true;
-    progress.stopAnimation();
-    announce('stories');
     if (router.canGoBack()) router.back();
     else router.replace('/');
-  }, [progress, router]);
+  }, [router]);
+
+  // However the screen is left (Close, the last story ending, or a swipe down), the rings on the home screen update.
+  useEffect(() => () => announce('stories'), []);
 
   useEffect(() => {
-    let live = true;
+    let on = true;
     (async () => {
       try {
         const tray = await fetchStoryTray(me);
@@ -51,160 +43,146 @@ export default function StoryScreen() {
           list = await fetchUserStories(userId, me);
           at = 0;
         }
-        if (!live) return;
-        setGroups(list);
-        setGi(at);
+        if (!on) return;
         const g = list[at];
         const firstNew = g ? g.stories.findIndex((s) => !s.seen) : -1;
-        setSi(g && g.user_id !== me && firstNew > 0 ? firstNew : 0);
+        setStart({ g: at, s: g && g.user_id !== me && firstNew > 0 ? firstNew : 0 });
+        setGroups(list.map((x) => ({ key: x.user_id, user_id: x.user_id, username: x.username, avatar_url: x.avatar_url, entries: x.stories })));
       } catch (e) {
-        if (live) {
+        if (on) {
           toast(errText(e));
           setGroups([]);
         }
       }
     })();
     return () => {
-      live = false;
+      on = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, me]);
 
-  const group = groups?.[gi];
-  const story = group?.stories[si];
-
-  const step = useCallback(
-    (dir: 1 | -1) => {
-      if (!groups || !group) return;
-      if (dir === 1) {
-        if (si < group.stories.length - 1) setSi(si + 1);
-        else if (gi < groups.length - 1) {
-          setGi(gi + 1);
-          setSi(0);
-        } else close();
-      } else if (si > 0) setSi(si - 1);
-      else if (gi > 0) {
-        setGi(gi - 1);
-        setSi(0);
-      } else {
-        progress.setValue(0);
-        run(0);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups, group, gi, si, close],
-  );
-
-  const stepRef = useRef(step);
-  stepRef.current = step;
-
-  function run(from: number) {
-    Animated.timing(progress, { toValue: 1, duration: Math.max(1, (1 - from) * DURATION), easing: Easing.linear, useNativeDriver: false }).start(({ finished }) => {
-      if (finished && !closed.current) stepRef.current(1);
-    });
+  function openProfile(uid: string) {
+    router.replace(`/user/${uid}`);
   }
 
-  useEffect(() => {
-    if (!story) return;
-    setLiked(false);
-    setReply('');
-    paused.current = false;
-    progress.setValue(0);
-    run(0);
-    if (story.user_id !== me) markStorySeen(me, story.id);
-    return () => progress.stopAnimation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story?.id]);
-
-  const pause = () => {
-    if (paused.current) return;
-    paused.current = true;
-    progress.stopAnimation();
-  };
-  const resume = () => {
-    if (!paused.current) return;
-    paused.current = false;
-    progress.stopAnimation((v) => run(v));
-  };
-
-  async function send(text: string) {
-    if (!group || !text.trim()) return;
-    try {
-      const tid = await openThread(group.user_id);
-      await sendMessage(me, tid, { text });
-      setReply('');
-      toast('Reply sent');
-    } catch (e) {
-      toast(errText(e));
-    }
+  function closeSheet() {
+    setSheet(null);
+    live.current?.resume();
   }
 
-  function remove() {
-    if (!story) return;
-    pause();
-    Alert.alert('Delete this story?', undefined, [
-      { text: 'Cancel', style: 'cancel', onPress: resume },
-      { text: 'Delete', style: 'destructive', onPress: () => { deleteStory(story.id).then(() => { toast('Story deleted'); close(); }).catch((e) => { toast(errText(e)); resume(); }); } },
+  function showViewers(ctx: PlayerCtx<Story>) {
+    ctx.pause();
+    live.current = ctx;
+    setViewers(null);
+    setSheet('viewers');
+    fetchStoryViewers(ctx.entry.id).then(setViewers).catch(() => setViewers([]));
+  }
+
+  function remove(ctx: PlayerCtx<Story>) {
+    ctx.pause();
+    Alert.alert('Delete this story?', 'It stays in any highlight you added it to.', [
+      { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
+      { text: 'Delete', style: 'destructive', onPress: () => { deleteStory(ctx.entry.id).then(() => { toast('Story deleted'); close(); }).catch((e) => { toast(errText(e)); ctx.resume(); }); } },
     ]);
   }
 
+  function chooseHighlight(ctx: PlayerCtx<Story>) {
+    if (ctx.entry.audience === 'close_friends') {
+      toast('Close friends stories stay out of highlights, because highlights are for everyone.');
+      return;
+    }
+    ctx.pause();
+    live.current = ctx;
+    setSheet('highlight');
+  }
+
+  async function keep(choice: { id?: string; title: string }) {
+    const ctx = live.current;
+    setSheet(null);
+    if (!ctx) return;
+    try {
+      if (choice.id) await addToHighlight(me, choice.id, ctx.entry.item);
+      else await createHighlight(me, choice.title, [ctx.entry.item]);
+      toast(`Added to ${choice.title}`);
+    } catch (e) {
+      toast(errText(e));
+    }
+    ctx.resume();
+  }
+
   if (groups === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><Loading /></View>;
-  if (!group || !story) {
+  if (!groups.length || !groups[start.g]?.entries.length) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <Empty title="No story to show" body="Stories disappear 24 hours after they are shared." />
-        <View style={{ position: 'absolute', top: insets.top + 6, right: 8 }}>
+        <View style={{ position: 'absolute', top: 60, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
       </View>
     );
   }
 
-  const mine = group.user_id === me;
-
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Image source={{ uri: story.item.url }} style={{ position: 'absolute', width, height }} contentFit="cover" transition={120} />
-      <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} locations={[0, 0.22, 0.72, 1]} style={{ position: 'absolute', width, height }} />
-
-      <View style={{ flex: 1, flexDirection: 'row' }}>
-        <Pressable style={{ flex: 1 }} onPress={() => step(-1)} onLongPress={() => {}} delayLongPress={220} onPressIn={pause} onPressOut={resume} accessibilityLabel="Previous story" />
-        <Pressable style={{ flex: 2 }} onPress={() => step(1)} onLongPress={() => {}} delayLongPress={220} onPressIn={pause} onPressOut={resume} accessibilityLabel="Next story" />
-      </View>
-
-      <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 6, left: 0, right: 0 }}>
-        <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: 10 }}>
-          {group.stories.map((s, i) => (
-            <View key={s.id} style={{ flex: 1, height: 2.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
-              {i < si ? <View style={{ flex: 1, backgroundColor: '#fff' }} /> : i === si ? <Animated.View style={{ height: 2.5, backgroundColor: '#fff', width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} /> : null}
+    <>
+      <StoryPlayer
+        groups={groups}
+        startGroup={start.g}
+        startEntry={start.s}
+        onClose={close}
+        onOpenProfile={openProfile}
+        onMention={openProfile}
+        onShow={(story) => { if (story.user_id !== me) markStorySeen(me, story.id); }}
+        badge={(ctx) =>
+          ctx.entry.audience === 'close_friends' ? (
+            <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="star" size={13} color="#fff" fill />
             </View>
-          ))}
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 12, paddingRight: 6, paddingTop: 10 }}>
-          <Pressable onPress={() => { close(); setTimeout(() => router.push(`/user/${group.user_id}`), 60); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${group.username}'s profile`}>
-            <Avatar uri={group.avatar_url} name={group.username} size={34} />
-            <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '600', flexShrink: 1 }}>{group.username}</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13.5 }}>{ago(story.created_at)}</Text>
-          </Pressable>
-          <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
-        </View>
-      </View>
+          ) : null
+        }
+        footer={(ctx) =>
+          ctx.group.user_id === me ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14, paddingRight: 8 }}>
+              <Pressable onPress={() => showViewers(ctx)} accessibilityRole="button" accessibilityLabel="See who viewed this story" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 46 }}>
+                <Icon name="eye" size={20} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{ctx.entry.view_count === 1 ? 'Seen by 1 person' : `Seen by ${fmt(ctx.entry.view_count)} people`}</Text>
+              </Pressable>
+              <IconButton name="highlight" label="Add to a highlight" color="#fff" onPress={() => chooseHighlight(ctx)} />
+              <IconButton name="trash" label="Delete story" color="#fff" onPress={() => remove(ctx)} />
+            </View>
+          ) : (
+            <StoryReply
+              key={ctx.entry.id}
+              ownerId={ctx.entry.user_id}
+              username={ctx.entry.username}
+              allowed={ctx.entry.story_replies === 'everyone' || (ctx.entry.story_replies === 'following' && ctx.entry.follows_viewer)}
+              cover={coverOf(ctx.entry.item)}
+              onFocus={ctx.pause}
+              onBlur={ctx.resume}
+            />
+          )
+        }
+      />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingBottom: insets.bottom + 12, paddingTop: 8 }}>
-        {mine ? (
-          <>
-            <Icon name="eye" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', flex: 1 }}>{story.view_count === 1 ? 'Seen by 1 person' : `Seen by ${fmt(story.view_count)} people`}</Text>
-            <IconButton name="trash" label="Delete story" color="#fff" onPress={remove} />
-          </>
+      <Sheet visible={sheet === 'viewers'} onClose={closeSheet} title="Viewers" tall>
+        {viewers === null ? (
+          <Loading />
+        ) : viewers.length === 0 ? (
+          <Empty icon="eye" title="No views yet" body="People who see this story will be listed here." />
         ) : (
-          <>
-            <TextInput value={reply} onChangeText={setReply} onFocus={pause} onBlur={resume} onSubmitEditing={() => send(reply)} returnKeyType="send" placeholder={`Reply to ${group.username}…`} placeholderTextColor="rgba(255,255,255,0.8)" maxLength={300} keyboardAppearance="dark" style={{ flex: 1, height: 46, paddingHorizontal: 18, borderRadius: 23, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)', color: '#fff', fontSize: 16 }} accessibilityLabel="Reply to story" />
-            <IconButton name="heart" label="Send a heart" size={28} color={liked ? C.like : '#fff'} fill={liked} onPress={() => { if (!liked) { setLiked(true); send('❤️'); } }} />
-            <IconButton name="send" label="Send reply" size={26} color="#fff" onPress={() => send(reply)} />
-          </>
+          <ScrollView>
+            {viewers.map((p) => (
+              <Pressable key={p.id} onPress={() => { setSheet(null); openProfile(p.id); }} accessibilityRole="button" accessibilityLabel={`${p.full_name}, ${p.username}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}>
+                <Avatar uri={p.avatar_url} name={p.full_name} size={46} />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600' }}>{p.username}</Text>
+                  <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{p.full_name}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
         )}
-      </View>
-    </KeyboardAvoidingView>
+      </Sheet>
+      <HighlightPicker visible={sheet === 'highlight'} onClose={closeSheet} onPick={keep} />
+    </>
   );
 }

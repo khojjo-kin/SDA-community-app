@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { AuthShell } from '../src/components/AuthShell';
 import { Avatar, Button, Field } from '../src/components/ui';
@@ -10,18 +9,16 @@ import { useSession } from '../src/lib/session';
 import { C, errText } from '../src/lib/theme';
 
 export default function Onboarding() {
-  const { isSignedIn, signOut } = useAuth();
-  const { user } = useUser();
-  const { me, profile, loading, refresh } = useSession();
-  const guess = (user?.primaryEmailAddress?.emailAddress ?? '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30);
-  const [name, setName] = useState(user?.fullName ?? '');
+  const { me, email, fullName, profile, loading, refresh, signOut } = useSession();
+  const guess = (email ?? '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30);
+  const [name, setName] = useState(fullName);
   const [username, setUsername] = useState(guess.length >= 3 ? guess : '');
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  if (!isSignedIn) return <Redirect href="/sign-in" />;
   if (loading) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+  if (!me) return <Redirect href="/sign-in" />;
   if (profile) return <Redirect href="/" />;
 
   async function choose() {

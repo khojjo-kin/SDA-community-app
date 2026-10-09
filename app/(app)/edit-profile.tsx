@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar, Field, IconButton, Screen, useToast } from '../../src/components/ui';
@@ -18,6 +18,8 @@ export default function EditProfile() {
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
 
   async function choose() {
     try {
@@ -41,8 +43,9 @@ export default function EditProfile() {
       await updateProfile(me, patch);
       await refresh();
       toast('Profile saved');
-      router.back();
+      if (alive.current) router.back();
     } catch (e) {
+      if (!alive.current) return toast(errText(e));
       setErr(errText(e));
       setBusy(false);
     }

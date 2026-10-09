@@ -5,21 +5,26 @@ A photo and video sharing app for iPhone: feed, stories, reels, direct messages,
 - **App:** Expo (React Native) with Expo Router, in `app/` and `src/`
 - **Sign-in:** Clerk (email and password, with email codes)
 - **Data and media:** Supabase (Postgres with row-level security, Storage, Realtime), project `SDA`
-- **Builds:** EAS Build, submitted to TestFlight
+- **Builds:** Xcode on GitHub's Macs, uploaded to TestFlight
 
 ## What works
 
 | Area | Details |
 | --- | --- |
-| Accounts | Sign up, email verification, log in, password reset, profile setup, edit profile, log out, delete account |
+| Accounts | Sign up, email verification, log in, password reset, profile setup, edit profile, change password, log out, delete account |
 | Feed | Posts from people you follow, pull to refresh, endless scroll, double-tap to like, like, comment, repost, save, share, report, block |
 | Posts | Up to 10 photos in a swipeable carousel, or one video (a reel) up to 60 seconds, with a caption |
-| Stories | Add a photo story, 24-hour expiry, tap and hold controls, seen counts, reply by message, delete |
-| Reels | Full-screen vertical video feed, tap to pause, double-tap to like, Friends tab |
-| Messages | One-to-one chats with text, photos, hearts and shared posts, unread badges, live updates |
+| Stories | "Add to story" gallery of your own photos and videos, camera, text stories, collages, several at once. Editor with text, emoji stickers, @mentions, drawing and a caption. Share to everyone or to Close Friends, send as a message, add to a highlight. Viewers list, replies, 24-hour expiry, archive |
+| Highlights | Keep stories on your profile under a name; rename, remove a story, delete |
+| Reels | Full-screen vertical video feed, tap to pause, double-tap to like, sound on or off, view counts, Friends tab |
+| Messages | One-to-one chats with text, photos (sent together they stack), voice messages, hearts, quick reactions, shared posts, forwarding, save to Photos, mute, delete for me, unread badges, live updates |
 | Search | Find people by name or username, explore grid of recent posts, saved posts and likes |
-| Profile | Posts, reels and reposts tabs, followers and following lists, follow and message buttons |
+| Profile | Posts, reels and reposts tabs, highlights, followers and following lists, follow and message buttons |
 | Activity | Likes, comments, reposts and new followers, with follow back |
+| Settings and activity | Account, saved, archive, your activity, notifications, close friends, blocked, story replies, story and camera, about, with search |
+| Creator account | Switch between personal and creator, category label, dashboard (views, followers, content, monthly recap), saved replies, frequently asked questions that answer themselves, view-count visibility |
+
+Left out on purpose, because they need things this app does not have: anything that links to Facebook, Threads or WhatsApp, ads and payments, shops, live video, fundraisers, broadcast channels, a music library, and adding a second account.
 
 ## Configuration
 
@@ -47,36 +52,49 @@ Before a public release, create a Clerk production instance, put its `pk_live_` 
 
 ## Database
 
-The schema lives in the Supabase project `SDA` under tables named `community_*`. Changes are in `supabase/migrations/`. Every table has row-level security keyed on the Clerk user id (`auth.jwt()->>'sub'`). Media is stored in the public `community-media` bucket, in a folder per user.
+The schema lives in the Supabase project `SDA` under tables named `community_*`. `supabase/migrations/` holds all of it, in order: the base tables, then versions 2, 3 and 4. Applied to an empty project, those four files rebuild the database.
+
+Every table has row-level security keyed on the Clerk user id (`auth.jwt()->>'sub'`), and nothing is readable without signing in. The rules the app promises are enforced in the database, not only in the app:
+
+- A chat's messages can be read and written only by its two people.
+- Close friends stories are visible only to the author and the people on the author's list, and nobody can find out whose list they are on.
+- Blocking works both ways: neither person sees the other's posts, stories, highlights or comments, and neither can follow, like, comment on or message the other.
+- Saved posts, saved replies, block lists, who viewed a post, and dashboard numbers are private to their owner.
+- Stories stop being readable by others after 24 hours; the author keeps them in the archive.
+
+Media is stored in the public `community-media` bucket, in a folder per user that only that user can upload to, list or delete from. Each file has a long random address. A file is not listed anywhere public, but anyone who is given its address can open it; that includes photos and voice messages sent in chats. Making those truly private would mean a private bucket with signed addresses.
+
+Two things worth doing in the Supabase dashboard before a public release: turn off email sign-ups under Authentication (the app signs people in through Clerk, so Supabase's own sign-up should not be open), and keep the service role key out of the app and this repository.
 
 ## Run it on your computer
 
 ```
-npm ci
+npm install
 npx expo start
 ```
 
 Sign-in needs a development build or a TestFlight build; it does not run in Expo Go.
 
-## Build and submit to TestFlight with Xcode
+## TestFlight builds
 
-The iOS app is built and uploaded from Xcode (not EAS). On a Mac with Xcode and CocoaPods installed:
+Every push to the `community-app` branch runs the **Community TestFlight (Xcode)** workflow:
 
-```
-npm ci
-npx expo prebuild --platform ios
-npx pod-install
-open ios/Community.xcworkspace
-```
+1. A Linux job installs packages, type-checks, and bundles the app. If the app does not bundle, the Mac is never started.
+2. A GitHub Mac runs `expo prebuild`, compiles the app once with Xcode, signs it, and uploads it to App Store Connect as the next build of the existing app `Kojo.SDAAPPGEMINI` (team `QRMLKZR9B8`).
 
-In Xcode, select the **Community** scheme and an iOS device destination. Under the app target's **Signing & Capabilities**, select the Apple Developer team that owns `com.sdacommunity.app`, and enable automatic signing. Choose **Product → Archive**. In Organizer, select the archive, choose **Distribute App → App Store Connect → Upload**, and complete the upload. Apple processes the build before it appears in TestFlight.
+Signing uses what is already stored on the `main` branch of this repository: the App Store Connect key, the Apple Distribution certificate with its private key, and the App Store provisioning profile for `Kojo.SDAAPPGEMINI` (certificate and profile are valid until September 2027). If Apple refuses those, the script falls back to a certificate that Xcode manages in the cloud. Keep this repository private: anyone who can read `main` can sign and upload as this team.
 
-The app's iOS bundle identifier is `com.sdacommunity.app`, matching the existing **SDA Community Gemini** App Store Connect record; its on-device display name remains **Community**. Keep the Expo `version` in `app.json` matched to the App Store Connect version record and increment `ios.buildNumber` for every upload. The local `.env` supplies the Expo public Supabase and Clerk values during the Xcode build. Keep `.env` on the developer machine; it is ignored by Git.
+Logs from each run are saved to the `community-build-logs` branch; `status.txt` there ends with a `RESULT:` line. Apple emails you when a build has finished processing, usually 10 to 30 minutes after upload.
 
-The Supabase client sends the signed-in Clerk session token to project `SDA`. Enable **Authentication → Sign In / Providers → Third-party auth → Clerk** in the Supabase dashboard and set the Clerk domain to `glad-tiger-2142.clerk.accounts.dev`.
+Pushes that only change this README or `supabase/` do not start a build. GitHub charges Mac minutes at ten times the normal rate on a private repository, so one build uses roughly 250 to 400 of the account's monthly minutes.
+
+If a run shows "The job was not started because your account is locked due to a billing issue", nothing in this repository is wrong: GitHub will not start any job for the account until the billing problem is cleared under GitHub → Settings → Billing and licensing. Then open the failed run in the Actions tab and choose "Re-run all jobs".
+
+To build on your own Mac instead: `npm install`, `npx expo prebuild --platform ios`, open `ios/Community.xcworkspace` in Xcode, then Product → Archive → Distribute App → TestFlight.
 
 ## Notes
 
 - The app is iPhone-only and dark-only by design.
+- There is no `package-lock.json` yet, because one can only be generated where npm can reach the internet. The Linux job saves the lock file it produces to the logs branch; copying that file into the repository makes later builds repeatable.
 - Post and profile links use the `community://` scheme and open inside the app.
 - For public App Store release, Apple also expects a privacy policy URL and a support contact. The in-app report, block and delete-account features it requires for apps with user content are already built.

@@ -7,20 +7,47 @@ export const C = {
   fg: '#f3f5f7',
   fg2: '#a4adb9',
   fg3: '#6d7783',
-  accent: '#4f5df8',
+  accent: '#4a5df6',
   accent2: '#8690ff',
   like: '#ff3040',
   ok: '#3ddc84',
   glass: 'rgba(40,46,55,0.78)',
+  /** Bottom sheets. */
+  sheet: '#191b1f',
+  /** Search fields and the thick bands between settings sections. */
+  field: '#24292e',
+  /** Round buttons in screen headers. */
+  round: '#25282b',
+  /** Close friends. */
+  green: '#60d250',
+  /** The message box in a chat. */
+  inputBar: '#1c1d1f',
 };
+
+/** Your own chat bubbles. */
+export const BUBBLE = ['#983bd9', '#863be3'] as const;
+export const CLOSE_RING = ['#7be36c', '#3fc23a'] as const;
 
 export const RING = ['#ffb13d', '#ff3d77', '#7a4dff'] as const;
 
 export function fmt(n: number): string {
   if (!n) return '0';
-  if (n < 10000) return n.toLocaleString('en-GB');
-  if (n < 1e6) return (n / 1e3).toFixed(n < 1e5 ? 1 : 0).replace(/\.0$/, '') + 'K';
-  return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if (abs < 10000) return sign + abs.toLocaleString('en-GB');
+  if (abs < 1e6) {
+    const k = abs / 1e3;
+    if (k >= 999.5) return sign + '1M';
+    const value = k < 100 ? k.toFixed(1).replace(/\.0$/, '') : k.toFixed(0);
+    return sign + value + 'K';
+  }
+  const m = abs / 1e6;
+  return sign + (m < 10 ? m.toFixed(1).replace(/\.0$/, '') : m.toFixed(0)) + 'M';
+}
+
+/** "1 like", "2 likes", "1.2K likes". */
+export function count(n: number, word: string): string {
+  return fmt(n) + ' ' + word + (n === 1 ? '' : 's');
 }
 
 export function ago(iso: string): string {
@@ -40,13 +67,57 @@ export function agoLong(iso: string): string {
   return n + ' ' + unit + (n > 1 ? 's' : '') + ' ago';
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** "9 Sep" */
+export function dayLabel(d: Date): string {
+  return d.getDate() + ' ' + MONTHS[d.getMonth()];
+}
+
+/** "9 Sep" from a calendar day written as 2026-09-09, with no time-zone shift. */
+export function dayLabelISO(day: string): string {
+  const [, m, d] = day.split('-').map(Number);
+  return d + ' ' + (MONTHS[m - 1] ?? '');
+}
+
+export function monthName(d: Date): string {
+  return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getMonth()];
+}
+
+/** The line between groups of chat messages: "TODAY AT 08:24", "21 MAR AT 06:14". */
+export function chatStamp(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const time = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(d)) / 86400e3);
+  if (days === 0) return 'TODAY AT ' + time;
+  if (days === 1) return 'YESTERDAY AT ' + time;
+  const year = d.getFullYear() === now.getFullYear() ? '' : ' ' + d.getFullYear();
+  return d.getDate() + ' ' + MONTHS[d.getMonth()].toUpperCase() + year + ' AT ' + time;
+}
+
+/** Seconds as "1:15". */
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return Math.floor(s / 60) + ':' + pad(s % 60);
+}
+
 /** Turns any thrown value into a sentence a person can act on. */
 export function errText(e: unknown): string {
   const anyE = e as any;
-  const clerk = anyE?.errors?.[0];
-  if (clerk) return clerk.longMessage || clerk.message || 'Something went wrong. Try again.';
-  if (anyE?.code === '23505') return 'That username is taken. Try another.';
-  if (anyE?.code === '23514') return 'Usernames use 3 to 30 lowercase letters, numbers or underscores.';
+  const msg = String(anyE?.message ?? '');
+  // Sign-in errors from Supabase, said plainly.
+  if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
+  if (/email not confirmed/i.test(msg)) return 'Confirm your email first. Check your inbox for the code we sent.';
+  if (/(otp|token).*(expired|invalid)|(expired|invalid).*(otp|token)/i.test(msg)) return 'That code is wrong or has expired. Request a new one.';
+  if (/user already registered/i.test(msg)) return 'There is already an account with that email. Log in instead.';
+  if (anyE?.code === '23505') return /username/.test(String(anyE?.message ?? '') + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
+  if (anyE?.code === '23514') return /username/.test(String(anyE?.message ?? '')) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
+  // Refused by the database's access rules: usually someone has blocked someone, or the thing is gone.
+  if (anyE?.code === '42501') return "That isn't available for this account.";
+  if (/Network request failed|Failed to fetch|FetchError|network error/i.test(String(anyE?.message ?? ''))) return 'No connection. Check your internet and try again.';
   if (typeof anyE?.message === 'string' && anyE.message) return anyE.message;
   return 'Something went wrong. Check your connection and try again.';
 }

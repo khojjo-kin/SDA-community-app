@@ -2,7 +2,7 @@ import React from 'react';
 import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { C } from '../lib/theme';
+import { C, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { Icon } from './Icon';
 
@@ -26,6 +26,12 @@ export function GridCell({ post, size }: { post: Post; size: number }) {
       ) : post.media.length > 1 ? (
         <View style={{ position: 'absolute', right: 6, top: 6 }}>
           <Icon name="copy" size={18} />
+        </View>
+      ) : null}
+      {video && post.view_count ? (
+        <View style={{ position: 'absolute', left: 6, bottom: 5, flexDirection: 'row', alignItems: 'center', gap: 3 }} accessibilityLabel={`${post.view_count} views`}>
+          <Icon name="play" size={13} />
+          <Text style={{ color: C.fg, fontSize: 12.5, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{fmt(post.view_count)}</Text>
         </View>
       ) : null}
     </Pressable>
