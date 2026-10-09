@@ -63,16 +63,27 @@ jobs:
           echo "using $XC"
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
-      - name: Fetch the Apple key, certificate and profile from the main branch
+      - name: Collect the Apple key, certificate and profile
         run: |
           mkdir -p "$RUNNER_TEMP/logs"; exec > >(tee -a "$RUNNER_TEMP/logs/setup.txt") 2>&1
-          git fetch --quiet --depth 1 origin main
           mkdir -p "$RUNNER_TEMP/signing"
-          git show FETCH_HEAD:ios/fastlane/AuthKey_PD6DWK7T4C.p8 > "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8"
-          git show FETCH_HEAD:ios/PRZR6A95J9.p12 > "$RUNNER_TEMP/signing/dist.p12" || true
-          git show FETCH_HEAD:ios/PRZR6A95J9.cer > "$RUNNER_TEMP/signing/dist.cer" || true
-          git show FETCH_HEAD:ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision > "$RUNNER_TEMP/signing/app.mobileprovision" || true
-          chmod 600 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" "$RUNNER_TEMP"/signing/*
+          # These live on the branch being built. Older copies of this project kept them only on
+          # main, so main is still tried as a fallback.
+          git fetch --quiet --depth 1 origin main || true
+          take() { # $1 = path in the repository, $2 = where to put it
+            if [ -s "$1" ]; then cp "$1" "$2" && echo "$1: from this branch"; return 0; fi
+            if git show "FETCH_HEAD:$1" > "$2" 2> /dev/null && [ -s "$2" ]; then echo "$1: from main"; return 0; fi
+            rm -f "$2"; echo "$1: MISSING"; return 1
+          }
+          take ios/fastlane/AuthKey_PD6DWK7T4C.p8 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" || {
+            echo "The App Store Connect key is not in the repository, so nothing could be uploaded."
+            exit 1
+          }
+          take ios/PRZR6A95J9.p12 "$RUNNER_TEMP/signing/dist.p12" || true
+          take ios/PRZR6A95J9.cer "$RUNNER_TEMP/signing/dist.cer" || true
+          take ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision "$RUNNER_TEMP/signing/app.mobileprovision" || true
+          chmod 600 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8"
+          chmod 600 "$RUNNER_TEMP"/signing/* 2> /dev/null || true
           echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" >> "$GITHUB_ENV"
           echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"

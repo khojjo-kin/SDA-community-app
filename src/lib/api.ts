@@ -10,12 +10,29 @@ function ok<T>(res: { data: T | null; error: any }): T {
   return res.data as T;
 }
 
+/**
+ * Gives a request a deadline. A phone on a flaky connection can leave a request hanging with no
+ * answer and no error, so anything the app waits on before it can show a screen goes through here:
+ * the wait ends, the person sees what went wrong, and they can try again.
+ */
+export function withTimeout<T>(work: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('The server did not answer. Check your internet connection and try again.')), ms);
+    const done = (fn: (v: any) => void) => (v: any) => {
+      clearTimeout(timer);
+      fn(v);
+    };
+    work.then(done(resolve), done(reject));
+  });
+}
+
 const PAGE = 12;
 
 /* ---------- profiles ---------- */
 
+// The whole app waits on this one before it can show anything, so it gets a deadline.
 export async function getProfile(id: string): Promise<Profile | null> {
-  return ok(await supabase.from('community_profile_cards').select('*').eq('id', id).maybeSingle());
+  return ok(await withTimeout(supabase.from('community_profile_cards').select('*').eq('id', id).maybeSingle()));
 }
 
 export async function createProfile(row: { id: string; username: string; full_name: string; avatar_url?: string }) {

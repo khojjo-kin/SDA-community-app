@@ -12,6 +12,17 @@ import { SessionProvider } from '../src/lib/session';
 import { CLERK_KEY, SUPABASE_KEY, SUPABASE_URL } from '../src/lib/supabase';
 import { C } from '../src/lib/theme';
 
+/**
+ * The native launch screen sits on top of the app until it is told to go away, so nothing React
+ * draws is visible until then. Every path through this file calls this, including the ones that
+ * give up early: otherwise the person is left looking at the launch screen with no way to know why.
+ */
+function useHideLaunchScreen() {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+}
+
 function SetupNeeded() {
   const missing = [!CLERK_KEY && 'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY', !SUPABASE_URL && 'EXPO_PUBLIC_SUPABASE_URL', !SUPABASE_KEY && 'EXPO_PUBLIC_SUPABASE_KEY'].filter(Boolean);
   return (
@@ -27,7 +38,6 @@ function SetupNeeded() {
 function Starting({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
     const t = setTimeout(() => setSlow(true), 6000);
     return () => clearTimeout(t);
   }, []);
@@ -53,8 +63,16 @@ function Starting({ failed, onRetry }: { failed: boolean; onRetry: () => void })
 /** Shows the app once sign-in has loaded. If it could not load, offers to try again instead of a blank screen. */
 function Gate({ children, onRetry }: { children: React.ReactNode; onRetry: () => void }) {
   const clerk = useClerk();
+  // Sign-in can fail without ever saying so — a key that points at an instance which no longer
+  // exists just never answers. Waiting forever looks like a broken app, so the wait has an end.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (clerk.loaded) return;
+    const t = setTimeout(() => setGaveUp(true), 20000);
+    return () => clearTimeout(t);
+  }, [clerk.loaded]);
   if (clerk.loaded) return <>{children}</>;
-  return <Starting failed={clerk.status === 'error'} onRetry={onRetry} />;
+  return <Starting failed={clerk.status === 'error' || gaveUp} onRetry={onRetry} />;
 }
 
 // Saved choices (camera side, sound) are read once, as the app starts.
@@ -63,6 +81,7 @@ loadPrefs();
 export default function RootLayout() {
   // Changing the key starts sign-in again from scratch, which is what "Try again" does.
   const [attempt, setAttempt] = useState(0);
+  useHideLaunchScreen();
   if (!CLERK_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
     return (
       <>
