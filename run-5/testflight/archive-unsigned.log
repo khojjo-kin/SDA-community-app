@@ -1,0 +1,325 @@
+=== errors
+10:note: Using codesigning identity override: 
+1020:GatherProvisioningInputs
+9324:/Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/libdav1d/dav1d/src/decode.c:2654:32: warning: incompatible pointer types assigning to 'coef *' (aka 'short *') from 'uint8_t *' (aka 'unsigned char *') [-Wincompatible-pointer-types]
+20341:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:43:26: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+20344:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:44:20: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+20347:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:45:28: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+30533:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30536:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30539:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30554:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30557:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30560:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30575:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30578:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+30581:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35626:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35629:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35633:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35637:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35640:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35644:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35648:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35651:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35655:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35867:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35870:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35874:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35878:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35881:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35885:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35889:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35892:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+35896:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36215:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36218:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36222:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36226:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36229:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36233:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36237:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36240:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36244:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36424:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36427:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36431:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36435:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36438:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36442:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36446:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36449:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36453:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36759:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36762:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36766:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36770:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36773:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36777:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36781:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36784:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+36788:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37002:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37005:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37009:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37013:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37016:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37020:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37024:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37027:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+37031:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+43091:ScanDependencies /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'EXApplication' from project 'Pods')
+43096:    builtin-ScanDependencies -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o.scan -- /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/EXApplication/EXApplication-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o
+43576:CompileC /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'EXApplication' from project 'Pods')
+43581:    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/EXApplication/EXApplication-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o
+=== tail
+...  renderState: isHidden ? VirtualViewRenderState.None : VirtualViewRenderS...
+                             ^~~~~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:66984:21: warning: the variable "Image" was not declared in anonymous arrow function " 1951#"
+      var img = new Image();
+                    ^~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:67462:42: warning: the variable "fetch" was not declared in anonymous function " 1970#"
+      value: wrapFetchWithWindowLocation(fetch)
+                                         ^~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:68232:19: warning: the variable "setInterval" was not declared in anonymous arrow function " 1988#"
+      var timer = setInterval(check, 30000);
+                  ^~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:68235:9: warning: the variable "clearInterval" was not declared in anonymous arrow function " 1989#"
+        clearInterval(timer);
+        ^~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:71321:38: warning: the variable "document" was not declared in anonymous function " 2140#"
+...r useClientLayoutEffect = typeof document !== 'undefined' || typeof naviga...
+                                    ^~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:71321:73: warning: the variable "navigator" was not declared in anonymous function " 2140#"
+...cument !== 'undefined' || typeof navigator !== 'undefined' && navigator.pr...
+                                    ^~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:78238:9: warning: the variable "REACT_NAVIGATION_DEVTOOLS" was not declared in anonymous arrow function " 2520#"
+        REACT_NAVIGATION_DEVTOOLS.set(refContainer.current, {
+        ^~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:86074:16: warning: the variable "requestIdleCallback" was not declared in anonymous arrow function " 2863#"
+      var id = requestIdleCallback(() => {
+               ^~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:86077:20: warning: the variable "cancelIdleCallback" was not declared in anonymous arrow function " 2865#"
+      return () => cancelIdleCallback(id);
+                   ^~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:91671:9: warning: the variable "cancelAnimationFrame" was not declared in anonymous arrow function " 3084#"
+        cancelAnimationFrame(handle);
+        ^~~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:93392:16: warning: the variable "$$EXPO_INITIAL_PROPS" was not declared in function "emitDomEvent"
+    if (typeof $$EXPO_INITIAL_PROPS !== 'undefined' && typeof ReactNativeWebV...
+               ^~~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:93392:63: warning: the variable "ReactNativeWebView" was not declared in function "emitDomEvent"
+...S !== 'undefined' && typeof ReactNativeWebView !== 'undefined') {
+                               ^~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:119472:20: warning: the variable "ReadableStream" was not declared in function "readableStream"
+        return new ReadableStream(new _streams.FileSystemReadableStreamSource...
+                   ^~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:119477:20: warning: the variable "WritableStream" was not declared in function "writableStream"
+        return new WritableStream(new _streams.FileSystemWritableSink((0, _su...
+                   ^~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:122172:26: warning: the variable "Headers" was not declared in function "PostgrestClient"
+      this.headers = new Headers(headers);
+                         ^~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:124324:30: warning: the variable "Worker" was not declared in function "_startWorkerHeartbeat"
+        this.workerRef = new Worker(objectUrl);
+                             ^~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:124576:20: warning: the variable "WebSocket" was not declared in function "detectEnvironment"
+        if (typeof WebSocket !== 'undefined') {
+                   ^~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:126992:20: warning: the variable "Buffer" was not declared in function "toBase64"
+        if (typeof Buffer !== 'undefined') {
+                   ^~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:126995:16: warning: the variable "btoa" was not declared in function "toBase64"
+        return btoa(data);
+               ^~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:127304:16: warning: the variable "Response" was not declared in function "?anon_0_ 178#"
+    if (typeof Response === 'undefined') {
+               ^~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:127671:14: warning: the variable "Deno" was not declared in anonymous function " 4415#"
+  if (typeof Deno !== 'undefined') {
+             ^~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:128976:16: warning: the variable "crypto" was not declared in function "generatePKCEVerifier"
+    if (typeof crypto === 'undefined') {
+               ^~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:133188:7: warning: the variable "__magic__" was not declared in function "polyfillGlobalThis"
+      __magic__.globalThis = __magic__;
+      ^~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:138843:30: warning: the variable "DOMException" was not declared in function "setItem 1#"
+          if (err instanceof DOMException && (err.name === "QuotaExceededErro...
+                             ^~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:143549:38: warning: the variable "CustomEvent" was not declared in function "eP"
+...       window.dispatchEvent(new CustomEvent(eU)), window.location.href = t...
+                                   ^~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:151484:47: warning: the variable "isSecureContext" was not declared in function "?anon_0_ 366#"
+                  if ("locks" in navigator && isSecureContext) {
+                                              ^~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:143935:136: warning: the variable "Event" was not declared in function "tn"
+..._P)[_P]), window.dispatchEvent(new Event("eip6963:requestProvider"));
+                                      ^~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:144395:33: warning: the variable "MutationObserver" was not declared in anonymous arrow function " 5229#"
+                    var t = new MutationObserver(() => {
+                                ^~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:145323:53: warning: the variable "BroadcastChannel" was not declared in arrow function "r 3#"
+... n || ("undefined" == typeof BroadcastChannel ? null : ((n = new Broadcast...
+                                ^~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:162056:25: warning: the variable "__BUILD_DISABLE_RHC__" was not declared in function "?anon_0_ 681#"
+            } else if (!__BUILD_DISABLE_RHC__) {
+                        ^~~~~~~~~~~~~~~~~~~~~
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/main.jsbundle:197733:7: warning: the variable "alert" was not declared in function "throwOrAlert"
+      alert(msg);
+      ^~~~~
++ [[ '' == true ]]
++ BUNDLE_FILE=/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app/main.jsbundle
++ [[ false != true ]]
++ [[ ! -f /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app/main.jsbundle ]]
+
+GenerateDSYMFile /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app.dSYM /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/dsymutil /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app.dSYM
+
+PhaseScriptExecution [CP]\ Copy\ Pods\ Resources /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-800E24972A6A228C8D4807E9.sh (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /bin/sh -c /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-800E24972A6A228C8D4807E9.sh
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/EXApplication/ExpoApplication_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/EXConstants/EXConstants.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/EXConstants/ExpoConstants_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/ExpoFileSystem/ExpoFileSystem_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/ExpoSystemUI/ExpoSystemUI_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/RNCAsyncStorage/RNCAsyncStorage_resources.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/RNSVG/RNSVGFilters.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/React-Core/React-Core_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/React-cxxreact/React-cxxreact_privacy.bundle
+/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/SDWebImage/SDWebImage.bundle
+Transfer starting: 34 files
+EXConstants.bundle/
+EXConstants.bundle/Info.plist
+EXConstants.bundle/app.config
+ExpoApplication_privacy.bundle/
+ExpoApplication_privacy.bundle/Info.plist
+ExpoApplication_privacy.bundle/PrivacyInfo.xcprivacy
+ExpoConstants_privacy.bundle/
+ExpoConstants_privacy.bundle/Info.plist
+ExpoConstants_privacy.bundle/PrivacyInfo.xcprivacy
+ExpoFileSystem_privacy.bundle/
+ExpoFileSystem_privacy.bundle/Info.plist
+ExpoFileSystem_privacy.bundle/PrivacyInfo.xcprivacy
+ExpoMediaLibrary_privacy.bundle/
+ExpoMediaLibrary_privacy.bundle/Info.plist
+ExpoMediaLibrary_privacy.bundle/PrivacyInfo.xcprivacy
+ExpoSystemUI_privacy.bundle/
+ExpoSystemUI_privacy.bundle/Info.plist
+ExpoSystemUI_privacy.bundle/PrivacyInfo.xcprivacy
+RNCAsyncStorage_resources.bundle/
+RNCAsyncStorage_resources.bundle/Info.plist
+RNCAsyncStorage_resources.bundle/PrivacyInfo.xcprivacy
+RNSVGFilters.bundle/
+RNSVGFilters.bundle/Info.plist
+RNSVGFilters.bundle/RNSVGArithmeticFilter.iphoneos.metallib
+RNSVGFilters.bundle/RNSVGCompositeXor.iphoneos.metallib
+React-Core_privacy.bundle/
+React-Core_privacy.bundle/Info.plist
+React-Core_privacy.bundle/PrivacyInfo.xcprivacy
+React-cxxreact_privacy.bundle/
+React-cxxreact_privacy.bundle/Info.plist
+React-cxxreact_privacy.bundle/PrivacyInfo.xcprivacy
+SDWebImage.bundle/
+SDWebImage.bundle/Info.plist
+SDWebImage.bundle/PrivacyInfo.xcprivacy
+
+sent 27622 bytes  received 592 bytes  2541801 bytes/sec
+total size is 24318  speedup is 0.86
+Transfer starting: 34 files
+
+sent 2180 bytes  received 20 bytes  1999999 bytes/sec
+total size is 24318  speedup is 11.05
+
+PhaseScriptExecution [CP]\ Embed\ Pods\ Frameworks /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-8926A874618C8346D576B379.sh (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /bin/sh -c /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-8926A874618C8346D576B379.sh
+mkdir -p /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app/Frameworks
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/React-Core-prebuilt/React.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 3 files
+React.framework/
+React.framework/Info.plist
+React.framework/React
+
+sent 11268609 bytes  received 70 bytes  127907820 bytes/sec
+total size is 11266845  speedup is 1.00
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/ReactNativeDependencies/ReactNativeDependencies.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 12 files
+ReactNativeDependencies.framework/
+ReactNativeDependencies.framework/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/PrivacyInfo.xcprivacy
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/PrivacyInfo.xcprivacy
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/PrivacyInfo.xcprivacy
+
+sent 1265535 bytes  received 220 bytes  104607851 bytes/sec
+total size is 1263674  speedup is 1.00
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/hermes-engine/Pre-built/hermes.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 3 files
+hermes.framework/
+hermes.framework/Info.plist
+hermes.framework/hermes
+
+sent 4702235 bytes  received 70 bytes  109102204 bytes/sec
+total size is 4701267  speedup is 1.00
+
+CopySwiftLibs /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/PlugIns --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/SystemExtensions --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Extensions --platform iphoneos --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.bOmKE0/Metal.xctoolchain --toolchain /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks --unsigned-destination /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/SwiftSupport --strip-bitcode --strip-bitcode-tool /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.bOmKE0/Metal.xctoolchain --module-name Community --sdk-root /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk --xcode-version 17C529 --platform-family iOS --deployment-target 15.1 --bundle-identifier Kojo.SDAAPPGEMINI --output /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app --target-triple arm64-apple-ios15.1 --binary-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community --dependency-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community_dependency_info.dat --stringsdata-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community.SwiftFileList --metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyMetadataFileList --static-metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyStaticMetadataFileList --swift-const-vals-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-09 22:01:02.792 appintentsmetadataprocessor[18226:60151] Starting appintentsmetadataprocessor export
+2026-10-09 22:01:02.799 appintentsmetadataprocessor[18226:60151] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Info.plist --temp-dir-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/ssu --bundle-id Kojo.SDAAPPGEMINI --product-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app --extracted-metadata-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Metadata.appintents --deployment-postprocessing --metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyMetadataFileList --archive-ssu-assets
+2026-10-09 22:01:02.841 appintentsnltrainingprocessor[18231:60156] Parsing options for appintentsnltrainingprocessor
+2026-10-09 22:01:02.842 appintentsnltrainingprocessor[18231:60156] No AppShortcuts found - Skipping.
+
+Strip /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -D /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community
+
+SetOwnerAndGroup runner:staff /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /usr/sbin/chown -RH runner:staff /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+SetMode u+w,go-w,a+rX /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /bin/chmod -RH u+w,go-w,a+rX /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+RegisterExecutionPolicyException /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-RegisterExecutionPolicyException /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+Validate /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-validationUtility /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app -validate-for-store -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /usr/bin/touch -c /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+warning: Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+note: Run script build phase '[CP-User] [RNDeps] Replace React Native Dependencies for the right configuration, if needed' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'ReactNativeDependencies' from project 'Pods')
+note: Run script build phase '[CP-User] [RN]Check FBReactNativeSpec' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'React-RCTFBReactNativeSpec' from project 'Pods')
+note: Run script build phase '[CP-User] [RNDeps] Replace React Native Core for the right configuration, if needed' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'React-Core-prebuilt' from project 'Pods')
+note: Run script build phase 'Bundle React Native code and images' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Community' from project 'Community')
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Community' from project 'Community')
+/Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 26.2.99. (in target 'SDWebImage-SDWebImage' from project 'Pods')
+note: Run script build phase '[CP-User] Generate app.config for prebuilt Constants.manifest' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'EXConstants' from project 'Pods')
+** ARCHIVE SUCCEEDED **
+
