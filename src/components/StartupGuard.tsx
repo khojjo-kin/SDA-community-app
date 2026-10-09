@@ -13,7 +13,9 @@ import * as SplashScreen from 'expo-splash-screen';
  * itself so that whatever is on screen can be seen.
  *
  * Deliberately depends on nothing but React, React Native and the splash screen module, so a
- * fault anywhere else in the app cannot stop it from reporting that fault.
+ * fault anywhere else in the app cannot stop it from reporting that fault. The deadline that
+ * takes the launch image down when nothing else has lives in launch-deadline.ts, which the entry
+ * point loads before anything else.
  */
 
 const BG = '#0b1014';
@@ -81,21 +83,9 @@ type State = { error: unknown; attempt: number };
 
 export class StartupGuard extends React.Component<{ children: React.ReactNode }, State> {
   state: State = { error: null, attempt: 0 };
-  private watchdog: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError(error: unknown): Partial<State> {
     return { error };
-  }
-
-  componentDidMount() {
-    // The router normally takes the launch image down as soon as the first screen is ready. If
-    // that has not happened after eight seconds, take it down anyway: a dark screen or a message
-    // is something a person can act on; a launch image that never moves is not.
-    this.watchdog = setTimeout(show, 8000);
-  }
-
-  componentWillUnmount() {
-    if (this.watchdog) clearTimeout(this.watchdog);
   }
 
   componentDidCatch(error: unknown, info: { componentStack?: string | null }) {

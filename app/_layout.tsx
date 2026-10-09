@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { ClerkProvider, useClerk } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Mark } from '../src/components/Icon';
 import { Button, ToastProvider } from '../src/components/ui';
 import { loadPrefs } from '../src/lib/prefs';
 import { SessionProvider } from '../src/lib/session';
@@ -23,11 +22,20 @@ function useHideLaunchScreen() {
   }, []);
 }
 
+/**
+ * The logo on the screens shown before sign-in has loaded. These are the first things the app
+ * draws, so they use the launch image itself — a plain picture — rather than the vector logo the
+ * rest of the app uses, which needs a native drawing component that has not yet proved itself.
+ */
+function LaunchLogo() {
+  return <Image source={require('../assets/splash-icon.png')} style={{ width: 160, height: 160 }} accessibilityIgnoresInvertColors />;
+}
+
 function SetupNeeded() {
   const missing = [!CLERK_KEY && 'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY', !SUPABASE_URL && 'EXPO_PUBLIC_SUPABASE_URL', !SUPABASE_KEY && 'EXPO_PUBLIC_SUPABASE_KEY'].filter(Boolean);
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
-      <Mark size={72} />
+      <LaunchLogo />
       <Text style={{ color: C.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>Community isn't connected yet</Text>
       <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>This build is missing {missing.join(' and ')}. Add the value to the .env file in the project, then make a new build.</Text>
     </View>
@@ -43,7 +51,7 @@ function Starting({ failed, onRetry }: { failed: boolean; onRetry: () => void })
   }, []);
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
-      <Mark size={72} />
+      <LaunchLogo />
       {failed ? (
         <>
           <Text style={{ color: C.fg, fontSize: 19, fontWeight: '800', textAlign: 'center' }}>Community can't connect</Text>
