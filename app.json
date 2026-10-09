@@ -11,7 +11,7 @@
     "backgroundColor": "#0b1014",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.khojokin.community",
+      "bundleIdentifier": "com.sdacommunity.app",
       "infoPlist": {
         "CFBundleDisplayName": "Community",
         "ITSAppUsesNonExemptEncryption": false,

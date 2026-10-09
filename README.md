@@ -69,9 +69,11 @@ npx pod-install
 open ios/Community.xcworkspace
 ```
 
-In Xcode, select the **Community** scheme and an iOS device destination. Under the app target's **Signing & Capabilities**, select the Apple Developer team that owns `com.khojokin.community`, and enable automatic signing. Choose **Product → Archive**. In Organizer, select the archive, choose **Distribute App → App Store Connect → Upload**, and complete the upload. Apple processes the build before it appears in TestFlight.
+In Xcode, select the **Community** scheme and an iOS device destination. Under the app target's **Signing & Capabilities**, select the Apple Developer team that owns `com.sdacommunity.app`, and enable automatic signing. Choose **Product → Archive**. In Organizer, select the archive, choose **Distribute App → App Store Connect → Upload**, and complete the upload. Apple processes the build before it appears in TestFlight.
 
-The local `.env` supplies the Expo public Supabase and Clerk values during the Xcode build. Keep `.env` on the developer machine; it is ignored by Git. The Supabase project must have Clerk configured as a third-party auth provider before sign-in can access protected data.
+The app's iOS bundle identifier is `com.sdacommunity.app`, matching the existing **SDA Community Gemini** App Store Connect record; its on-device display name remains **Community**. The local `.env` supplies the Expo public Supabase and Clerk values during the Xcode build. Keep `.env` on the developer machine; it is ignored by Git.
+
+The Supabase client sends the signed-in Clerk session token to project `SDA`. Enable **Authentication → Sign In / Providers → Third-party auth → Clerk** in the Supabase dashboard and set the Clerk domain to `glad-tiger-2142.clerk.accounts.dev`.
 
 ## Notes
 
