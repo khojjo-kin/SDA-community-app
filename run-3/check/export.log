@@ -1,0 +1,32 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+Starting Metro Bundler
+iOS ./index.js ▓▓░░░░░░░░░░░░░░ 12.8% ( 80/340)
+iOS ./index.js ▓▓▓▓▓░░░░░░░░░░░ 35.1% (401/677)
+iOS ./index.js ▓▓▓▓▓▓▓▓░░░░░░░░ 55.6% (708/954)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 73.5% ( 926/1104)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 86.2% (1265/1363)
+iOS ./index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1508/1508)
+iOS Bundled 24003ms index.js (1508 modules)
+
+› Assets (23):
+node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.png (653 B)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon.png (4 variations | 566 B)
+node_modules/@react-navigation/elements/lib/module/assets/clear-icon.png (4 variations | 425 B)
+node_modules/@react-navigation/elements/lib/module/assets/close-icon.png (4 variations | 235 B)
+node_modules/@react-navigation/elements/lib/module/assets/search-icon.png (3 variations | 582 B)
+node_modules/expo-router/assets/arrow_down.png (9.46 kB)
+node_modules/expo-router/assets/error.png (469 B)
+node_modules/expo-router/assets/file.png (138 B)
+node_modules/expo-router/assets/forward.png (188 B)
+node_modules/expo-router/assets/pkg.png (364 B)
+node_modules/expo-router/assets/sitemap.png (465 B)
+node_modules/expo-router/assets/unmatched.png (4.75 kB)
+
+› ios bundles (1):
+_expo/static/js/ios/index-337b8fbf6931296d99b0272e5c2deb42.hbc (4.95 MB)
+
+› Files (1):
+metadata.json (1.78 kB)
+
+Exported: .export-check
