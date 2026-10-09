@@ -1,0 +1,37 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+Starting Metro Bundler
+iOS node_modules/expo-router/entry.js ▓▓▓░░░░░░░░░░░░░ 19.4% ( 53/285)
+iOS node_modules/expo-router/entry.js ▓▓▓░░░░░░░░░░░░░ 19.4% (170/433)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 34.5% (400/681)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 44.1% (559/842)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 62.3% ( 796/1011)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 73.7% ( 915/1087)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 76.9% (1122/1318)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 86.1% (1264/1362)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.4% (1495/1507)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1507/1507)
+iOS Bundled 37362ms node_modules/expo-router/entry.js (1507 modules)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1507/1507)
+
+› Assets (23):
+node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.png (653 B)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon.png (4 variations | 566 B)
+node_modules/@react-navigation/elements/lib/module/assets/clear-icon.png (4 variations | 425 B)
+node_modules/@react-navigation/elements/lib/module/assets/close-icon.png (4 variations | 235 B)
+node_modules/@react-navigation/elements/lib/module/assets/search-icon.png (3 variations | 582 B)
+node_modules/expo-router/assets/arrow_down.png (9.46 kB)
+node_modules/expo-router/assets/error.png (469 B)
+node_modules/expo-router/assets/file.png (138 B)
+node_modules/expo-router/assets/forward.png (188 B)
+node_modules/expo-router/assets/pkg.png (364 B)
+node_modules/expo-router/assets/sitemap.png (465 B)
+node_modules/expo-router/assets/unmatched.png (4.75 kB)
+
+› ios bundles (1):
+_expo/static/js/ios/entry-eae91dc77c50422f6dbd80882a9bc5af.hbc (4.94 MB)
+
+› Files (1):
+metadata.json (1.78 kB)
+
+Exported: .export-check
