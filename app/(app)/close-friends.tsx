@@ -98,7 +98,7 @@ export default function CloseFriends() {
                   <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600' }}>{p.username}</Text>
                   <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{p.full_name}</Text>
                 </View>
-                <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: picked ? C.green : '#7d848e', backgroundColor: picked ? C.green : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: picked ? C.close : '#7d848e', backgroundColor: picked ? C.close : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                   {picked ? <Icon name="check" size={15} color="#fff" weight={3} /> : null}
                 </View>
               </Pressable>

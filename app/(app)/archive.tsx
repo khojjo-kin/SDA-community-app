@@ -67,7 +67,7 @@ export default function Archive() {
                   <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{dayLabel(new Date(s.created_at))}</Text>
                 </View>
                 {s.audience === 'close_friends' ? (
-                  <View style={{ position: 'absolute', right: 6, top: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ position: 'absolute', right: 6, top: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name="star" size={12} color="#fff" fill />
                   </View>
                 ) : null}

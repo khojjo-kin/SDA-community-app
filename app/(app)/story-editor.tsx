@@ -431,7 +431,7 @@ export default function StoryEditor() {
             <ShareRow left={<Avatar uri={profile?.avatar_url} name={profile?.full_name} size={44} />} title="Your story" sub={`Replies: ${REPLY_LABEL[replies]}`} onSub={chooseReplies} onPress={() => setAudience('everyone')} right={<Radio on={audience === 'everyone'} />} />
             <ShareRow
               left={
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="star" size={22} color="#fff" fill />
                 </View>
               }
@@ -567,7 +567,7 @@ export default function StoryEditor() {
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' }}>Your story</Text>
           </Pressable>
           <Pressable onPress={() => share('close_friends', false)} disabled={!!busy} accessibilityRole="button" accessibilityLabel="Share with close friends" style={({ pressed }) => ({ flex: 1, height: 46, borderRadius: 23, backgroundColor: '#2e2f2f', flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 9, paddingRight: 12, opacity: pressed ? 0.7 : 1 })}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="star" size={15} color="#fff" fill />
             </View>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' }}>Close Friends</Text>

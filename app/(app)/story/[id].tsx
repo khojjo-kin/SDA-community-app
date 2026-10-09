@@ -134,7 +134,7 @@ export default function StoryScreen() {
         onShow={(story) => { if (story.user_id !== me) markStorySeen(me, story.id); }}
         badge={(ctx) =>
           ctx.entry.audience === 'close_friends' ? (
-            <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+            <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="star" size={13} color="#fff" fill />
             </View>
           ) : null

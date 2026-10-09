@@ -7,8 +7,10 @@ export const C = {
   fg: '#f3f5f7',
   fg2: '#a4adb9',
   fg3: '#6d7783',
-  accent: '#4a5df6',
-  accent2: '#8690ff',
+  /** The app's colour: buttons, links, switches, the "New" pill. */
+  accent: '#1fbf5a',
+  /** The same green where it sits on dark text-sized elements, a little lighter so it reads. */
+  accent2: '#4fe08a',
   like: '#ff3040',
   ok: '#3ddc84',
   glass: 'rgba(40,46,55,0.78)',
@@ -18,17 +20,22 @@ export const C = {
   field: '#24292e',
   /** Round buttons in screen headers. */
   round: '#25282b',
-  /** Close friends. */
-  green: '#60d250',
+  /** The app's green, by name, for places that want it even if the accent ever changes. */
+  green: '#1fbf5a',
+  /** Close friends: badges and the ring on a story shared only with them. */
+  close: '#3d8bff',
+  /** The verified tick. */
+  verified: '#3d8bff',
   /** The message box in a chat. */
   inputBar: '#1c1d1f',
 };
 
 /** Your own chat bubbles. */
-export const BUBBLE = ['#983bd9', '#863be3'] as const;
-export const CLOSE_RING = ['#7be36c', '#3fc23a'] as const;
-
-export const RING = ['#ffb13d', '#ff3d77', '#7a4dff'] as const;
+export const BUBBLE = ['#1fbf5a', '#149a62'] as const;
+/** The ring on a story shared with close friends only. */
+export const CLOSE_RING = ['#5aa9ff', '#2f6df6'] as const;
+/** The ring on a new story. */
+export const RING = ['#9be15d', '#1fbf5a', '#0f8f45'] as const;
 
 export function fmt(n: number): string {
   if (!n) return '0';

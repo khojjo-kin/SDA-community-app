@@ -106,7 +106,7 @@ export default function NewHighlight() {
                   </View>
                   {order >= 0 ? <View style={{ position: 'absolute', left: 0, top: 0, width: cw, height: ch, backgroundColor: 'rgba(74,93,246,0.28)' }} /> : null}
                   {friendsOnly ? (
-                    <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="star" size={14} color="#fff" fill />
                     </View>
                   ) : (

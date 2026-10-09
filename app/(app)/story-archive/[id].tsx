@@ -137,7 +137,7 @@ export default function ArchivedStories() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13.5 }}>{dayLabel(new Date(ctx.entry.created_at))}</Text>
             {ctx.entry.audience === 'close_friends' ? (
-              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="star" size={13} color="#fff" fill />
               </View>
             ) : null}

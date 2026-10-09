@@ -3,6 +3,7 @@ import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
+import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
 import { C, errText } from '../../src/lib/theme';
 
@@ -82,7 +83,7 @@ export default function SignUp() {
 
   return (
     <AuthShell
-      title="Sign up to share photos and videos with your community."
+      title="Join your church family: share, pray and grow together."
       footer={
         <Link href="/sign-in" replace asChild>
           <Pressable>
@@ -95,6 +96,7 @@ export default function SignUp() {
       <Field value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
       <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
       <Button label="Sign up" onPress={create} busy={busy} />
+      <SsoButtons onError={setErr} />
     </AuthShell>
   );
 }

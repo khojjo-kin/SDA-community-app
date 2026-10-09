@@ -11,7 +11,7 @@ import type { Post, Profile } from '../lib/types';
 import { CreateSheet } from './CreateSheet';
 import { PostGrid } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
-import { Icon, IconName } from './Icon';
+import { Icon, IconName, VerifiedTick } from './Icon';
 import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Loading, Screen, Sheet, SheetRow, useToast } from './ui';
 
 type Tab = 'grid' | 'reels' | 'reposts';
@@ -132,7 +132,11 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             ) : null}
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '700', marginBottom: 8 }}>{profile.full_name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '700', flexShrink: 1 }}>{profile.full_name}</Text>
+              {profile.verified ? <VerifiedTick size={17} /> : null}
+              {profile.pronouns ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, flexShrink: 1 }}>{profile.pronouns}</Text> : null}
+            </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Stat n={profile.posts_count} label="posts" />
               <Stat n={profile.followers_count} label="followers" onPress={() => router.push(`/people?id=${userId}&which=followers`)} />
@@ -140,8 +144,30 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             </View>
           </View>
         </View>
-        {profile.account_type === 'creator' && profile.category ? <Text style={{ color: C.fg2, marginTop: 12, fontSize: 15 }}>{profile.category}</Text> : null}
-        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.account_type === 'creator' && profile.category ? 2 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
+        {profile.admin_role || profile.plus || (profile.account_type === 'creator' && profile.category) ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            {profile.plus ? (
+              <Pressable onPress={() => (mine ? router.push('/plus') : undefined)} accessibilityRole={mine ? 'button' : 'text'} accessibilityLabel="Community Plus member" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(61,139,255,0.16)' }}>
+                <Icon name="crown" size={13} color={C.close} weight={2.2} />
+                <Text style={{ color: C.close, fontSize: 12.5, fontWeight: '700' }}>Plus</Text>
+              </Pressable>
+            ) : null}
+            {profile.admin_role ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(31,191,90,0.16)' }}>
+                <Icon name="shield" size={13} color={C.accent2} weight={2.2} />
+                <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{profile.admin_role === 'owner' ? 'App owner' : 'Admin'}</Text>
+              </View>
+            ) : null}
+            {profile.account_type === 'creator' && profile.category ? <Text style={{ color: C.fg2, fontSize: 15 }}>{profile.category}</Text> : null}
+          </View>
+        ) : null}
+        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.admin_role || profile.plus || (profile.account_type === 'creator' && profile.category) ? 6 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
+        {profile.church_name ? (
+          <Pressable onPress={() => (profile.church_id ? router.push(`/church/${profile.church_id}`) : undefined)} accessibilityRole="button" accessibilityLabel={`Church: ${profile.church_name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            <Icon name="church" size={15} color={C.fg2} weight={2} />
+            <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, flexShrink: 1 }}>{profile.church_name}</Text>
+          </Pressable>
+        ) : null}
         {profile.website ? (
           <Text style={{ color: C.accent2, marginTop: 4 }} numberOfLines={1} onPress={() => Linking.openURL(/^https?:\/\//.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast('That link could not be opened'))}>
             {profile.website.replace(/^https?:\/\//, '')}
@@ -171,6 +197,12 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             </>
           )}
         </View>
+        {!mine && !profile.is_blocked && (profile.contact_email || profile.contact_phone) ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            {profile.contact_email ? <Button small kind="ghost" label="Email" style={{ flex: 1 }} onPress={() => Linking.openURL(`mailto:${profile.contact_email}`).catch(() => toast('Mail could not be opened'))} /> : null}
+            {profile.contact_phone ? <Button small kind="ghost" label="Call" style={{ flex: 1 }} onPress={() => Linking.openURL(`tel:${profile.contact_phone.replace(/\s+/g, '')}`).catch(() => toast('The phone could not be opened'))} /> : null}
+          </View>
+        ) : null}
       </View>
 
       {profile.is_blocked ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} />}

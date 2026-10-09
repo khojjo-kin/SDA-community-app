@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Image } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { C } from '../lib/theme';
 
@@ -79,6 +80,19 @@ const ICONS = {
   smile: '<circle cx="12" cy="12" r="8.6"/><path d="M8.4 13.6c.9 1.5 2.1 2.2 3.6 2.2s2.7-.7 3.6-2.2"/><circle cx="9" cy="9.6" r="1.1" fill="COLOR" stroke="none"/><circle cx="15" cy="9.6" r="1.1" fill="COLOR" stroke="none"/>',
   phone: '<rect x="6.5" y="3" width="11" height="18" rx="2.6"/><path d="M10.5 6h3"/>',
   camerafill: '<path d="M8.2 6.5 9.6 4.2h4.8l1.4 2.3H19A2.5 2.5 0 0 1 21.5 9v8.5A2.5 2.5 0 0 1 19 20H5a2.5 2.5 0 0 1-2.5-2.5V9A2.5 2.5 0 0 1 5 6.5z" fill="COLOR"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="INK" stroke-width="2"/>',
+  /** The verified seal: a scalloped badge with a tick. Pass the badge colour as `color` and the tick colour as `ink`. */
+  verified: '<path d="M12 1.4 14.87 3.16 18.23 3.42 19.52 6.53 22.08 8.72 21.3 12 22.08 15.28 19.52 17.47 18.23 20.58 14.87 20.84 12 22.6 9.13 20.84 5.77 20.58 4.48 17.47 1.92 15.28 2.7 12 1.92 8.72 4.48 6.53 5.77 3.42 9.13 3.16Z" fill="COLOR" stroke="none"/><path d="m7.6 12.4 2.9 2.9 5.9-6.2" fill="none" stroke="INK" stroke-width="2.3"/>',
+  bible: '<path d="M4.5 5.2A2.2 2.2 0 0 1 6.7 3h12.8v15.4H6.7a2.2 2.2 0 0 0-2.2 2.2z"/><path d="M4.5 18.4a2.2 2.2 0 0 0 2.2 2.2h12.8M12 7v6M9.3 9.7h5.4"/>',
+  hymnal: '<path d="M9 17.5V6.2l10-2.2v11.3"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.3" r="2.5"/><path d="M9 9.4l10-2.2"/>',
+  lesson: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/><path d="M7 9h3M7 12h3M14 9h3M14 12h3"/>',
+  church: '<path d="M12 2.5v4M10 4.5h4M7 21v-8.5l5-4 5 4V21M3.5 21v-6l3.5-2.5M20.5 21v-6L17 12.5M3 21h18M10.5 21v-4h3v4"/>',
+  location: '<path d="M12 21.5s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10.5" r="2.4"/>',
+  sparkle: '<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M19 16.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="COLOR" stroke="none"/>',
+  crown: '<path d="M4 17.5 3 7.5l5 3.5 4-6 4 6 5-3.5-1 10z"/><path d="M4.5 20.5h15"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.6"/><path d="M3.5 9.8h17M8 3v4M16 3v4"/>',
+  book: '<path d="M4.5 5.2A2.2 2.2 0 0 1 6.7 3h12.8v15.4H6.7a2.2 2.2 0 0 0-2.2 2.2z"/><path d="M4.5 18.4a2.2 2.2 0 0 0 2.2 2.2h12.8"/>',
+  users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17.2" cy="9.4" r="2.4"/><path d="M17 14.6c2.2.1 3.6 1.5 4 4"/>',
+  gavel: '<path d="m13.5 4.5 6 6M9.5 8.5l6 6M3.5 20.5l8-8M15.5 2.5l6 6"/><path d="M11 7 17 13"/>',
 };
 
 export type IconName = keyof typeof ICONS;
@@ -93,9 +107,14 @@ export function Icon({ name, size = 24, color = C.fg, fill = false, weight = 1.9
   return <SvgXml xml={xml} width={size} height={size} />;
 }
 
+/** The app's logo: the church's mark in white. A plain picture, so it needs nothing beyond React Native to draw. */
 export function Mark({ size = 64 }: { size?: number }) {
-  const xml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="mk" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffb13d"/><stop offset="0.5" stop-color="#ff3d77"/><stop offset="1" stop-color="#7a4dff"/></linearGradient></defs><path d="M47 18a21 21 0 1 0 0 28" fill="none" stroke="url(#mk)" stroke-width="9" stroke-linecap="round"/><circle cx="47" cy="32" r="5.5" fill="url(#mk)"/></svg>`;
-  return <SvgXml xml={xml} width={size} height={size} />;
+  return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
+}
+
+/** The verified tick shown next to a verified account's name. */
+export function VerifiedTick({ size = 16 }: { size?: number }) {
+  return <Icon name="verified" size={size} color={C.verified} ink="#ffffff" />;
 }
 
 export function BurstHeart({ size = 110 }: { size?: number }) {

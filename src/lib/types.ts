@@ -59,6 +59,8 @@ export type Post = {
   following_author: boolean;
   /** How many other people have seen it. Null when the owner hides view counts. */
   view_count: number | null;
+  /** The author has the tick. */
+  verified: boolean;
 };
 
 export type StoryReplies = 'everyone' | 'following' | 'off';
@@ -85,7 +87,104 @@ export type Profile = {
   faq_enabled: boolean;
   /** This person is on your close friends list. */
   is_close_friend: boolean;
+  pronouns: string;
+  gender: string;
+  contact_email: string;
+  contact_phone: string;
+  church_id: string | null;
+  church_name: string | null;
+  /** The blue tick. */
+  verified: boolean;
+  /** Community Plus is active. */
+  plus: boolean;
+  plus_until: string | null;
+  suspended: boolean;
+  admin_role: 'owner' | 'admin' | null;
 };
+
+export type Church = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  website: string;
+  service_times: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type Hymn = { number: number; title: string; section: string; lyrics: string; author: string };
+
+export type PlusRequest = {
+  id: string;
+  user_id: string;
+  kind: 'verify' | 'plus';
+  note: string;
+  status: 'pending' | 'approved' | 'declined';
+  decided_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+  /** Only on the admin's list. */
+  username?: string;
+  full_name?: string;
+  avatar_url?: string;
+};
+
+export type ReportCard = {
+  id: string;
+  reporter_id: string;
+  reason: string;
+  created_at: string;
+  status: 'open' | 'dismissed' | 'actioned';
+  reported_user: string | null;
+  reported_post: string | null;
+  reported_post_owner: string | null;
+  reporter_username: string | null;
+  reported_username: string | null;
+  reported_full_name: string | null;
+  reported_avatar_url: string | null;
+  post_caption: string | null;
+  post_media: Media | null;
+  post_exists: boolean;
+};
+
+export type MemberCard = {
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  created_at: string;
+  verified: boolean;
+  plus: boolean;
+  plus_until: string | null;
+  suspended: boolean;
+  admin_note: string;
+  admin_role: 'owner' | 'admin' | null;
+  church_name: string | null;
+  posts_count: number;
+  reports_count: number;
+};
+
+export type AdminStats = {
+  members: number;
+  members_week: number;
+  posts: number;
+  posts_week: number;
+  stories_live: number;
+  messages_week: number;
+  reports_open: number;
+  requests_open: number;
+  verified: number;
+  plus: number;
+  suspended: number;
+  churches: number;
+  hymns: number;
+};
+
+export type ErhaMessage = { id: string; user_id: string; role: 'user' | 'assistant'; content: string; created_at: string };
 
 export type Comment = {
   id: string;
@@ -98,6 +197,7 @@ export type Comment = {
   avatar_url: string;
   like_count: number;
   liked: boolean;
+  verified: boolean;
 };
 
 export type Audience = 'everyone' | 'close_friends';
@@ -142,6 +242,7 @@ export type Thread = {
   muted: boolean;
   /** Messages up to this moment are hidden for you (you deleted the chat). */
   hidden_before: string | null;
+  verified: boolean;
 };
 
 export type Message = {

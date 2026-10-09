@@ -9,7 +9,7 @@ import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
 import { agoLong, C, errText, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
-import { BurstHeart, Icon, IconName } from './Icon';
+import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
 import { Avatar, Button, IconButton, Sheet, SheetRow, useToast } from './ui';
 
 const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', 'Something else'];
@@ -137,7 +137,10 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
         <Pressable onPress={() => router.push(`/user/${post.user_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${post.username}'s profile`}>
           <Avatar uri={post.avatar_url} name={post.full_name} size={34} />
           <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600' }}>{post.username}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{post.username}</Text>
+              {post.verified ? <VerifiedTick size={14} /> : null}
+            </View>
             {!mine && !post.following_author ? <Text style={{ color: C.fg2, fontSize: 12.5 }}>Suggested for you</Text> : null}
           </View>
         </Pressable>

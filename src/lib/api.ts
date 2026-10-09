@@ -3,7 +3,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { ArchivedStory, Audience, Comment, Faq, Highlight, HighlightItem, Media, Message, Notice, Post, Profile, SavedReply, Stats, Story, StoryGroup, StoryItem, Thread } from './types';
+import type { AdminStats, ArchivedStory, Audience, Church, Comment, ErhaMessage, Faq, Highlight, HighlightItem, Hymn, Media, MemberCard, Message, Notice, PlusRequest, Post, Profile, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, Thread } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -39,7 +39,7 @@ export async function createProfile(row: { id: string; username: string; full_na
   ok(await supabase.from('community_profiles').insert({ avatar_url: '', ...row }));
 }
 
-type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled'>>;
+type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id'>>;
 
 export async function updateProfile(id: string, patch: ProfilePatch) {
   ok(await supabase.from('community_profiles').update(patch).eq('id', id));
@@ -613,4 +613,164 @@ export async function peopleToMessage(me: string): Promise<Profile[]> {
   const all = [...extra, ...following];
   const ordered = [...recentIds.map((id) => all.find((p) => p.id === id)).filter(Boolean), ...following.filter((p) => !recentIds.includes(p.id))] as Profile[];
   return ordered.filter((p) => !p.is_blocked);
+}
+
+/* ---------- churches ---------- */
+
+export async function fetchChurches(): Promise<Church[]> {
+  return ok(await supabase.from('community_churches').select('*').order('name')) ?? [];
+}
+
+export async function fetchChurch(id: string): Promise<Church | null> {
+  return ok(await supabase.from('community_churches').select('*').eq('id', id).maybeSingle());
+}
+
+export async function addChurch(me: string, church: Omit<Church, 'id' | 'created_by' | 'created_at'>): Promise<Church> {
+  return ok(await supabase.from('community_churches').insert({ ...church, created_by: me }).select('*').single());
+}
+
+export async function updateChurch(id: string, patch: Partial<Omit<Church, 'id' | 'created_by' | 'created_at'>>) {
+  ok(await supabase.from('community_churches').update(patch).eq('id', id));
+}
+
+export async function deleteChurch(id: string) {
+  ok(await supabase.from('community_churches').delete().eq('id', id));
+}
+
+export async function fetchChurchMembers(churchId: string): Promise<Profile[]> {
+  return ok(await supabase.from('community_profile_cards').select('*').eq('church_id', churchId).order('full_name')) ?? [];
+}
+
+/** Straight-line distance in kilometres. Close enough to sort a list of churches by. */
+export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+/* ---------- hymnal ---------- */
+
+export async function fetchHymns(): Promise<Pick<Hymn, 'number' | 'title' | 'section'>[]> {
+  return ok(await supabase.from('community_hymns').select('number,title,section').order('number')) ?? [];
+}
+
+export async function fetchHymn(number: number): Promise<Hymn | null> {
+  return ok(await supabase.from('community_hymns').select('*').eq('number', number).maybeSingle());
+}
+
+export async function saveHymn(me: string, hymn: Hymn) {
+  ok(await supabase.from('community_hymns').upsert({ ...hymn, updated_by: me, updated_at: new Date().toISOString() }));
+}
+
+export async function deleteHymn(number: number) {
+  ok(await supabase.from('community_hymns').delete().eq('number', number));
+}
+
+/* ---------- the tick and Community Plus ---------- */
+
+export async function myPlusRequests(me: string): Promise<PlusRequest[]> {
+  return ok(await supabase.from('community_plus_requests').select('*').eq('user_id', me).order('created_at', { ascending: false })) ?? [];
+}
+
+export async function requestPlus(me: string, kind: 'verify' | 'plus', note: string) {
+  ok(await supabase.from('community_plus_requests').insert({ user_id: me, kind, note: note.trim().slice(0, 500) }));
+}
+
+/* ---------- admin ---------- */
+
+export async function fetchAdminStats(): Promise<AdminStats> {
+  return ok(await supabase.rpc('community_admin_stats'));
+}
+
+export async function fetchReports(status: 'open' | 'all' = 'open'): Promise<ReportCard[]> {
+  let q = supabase.from('community_report_cards').select('*').order('created_at', { ascending: false }).limit(200);
+  if (status === 'open') q = q.eq('status', 'open');
+  return ok(await q) ?? [];
+}
+
+export async function decideReport(me: string, id: string, status: 'dismissed' | 'actioned') {
+  ok(await supabase.from('community_reports').update({ status, decided_by: me, decided_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function fetchMembers(q = ''): Promise<MemberCard[]> {
+  let query = supabase.from('community_member_cards').select('*').order('created_at', { ascending: false }).limit(100);
+  const needle = q.trim().toLowerCase();
+  if (needle) query = query.or(`username.ilike.%${needle}%,full_name.ilike.%${needle}%`);
+  return ok(await query) ?? [];
+}
+
+export async function fetchMember(id: string): Promise<MemberCard | null> {
+  return ok(await supabase.from('community_member_cards').select('*').eq('id', id).maybeSingle());
+}
+
+/** What an admin can set on an account. Everything else on a profile stays the account's own. */
+export async function adminSetAccount(id: string, patch: { verified?: boolean; plus_until?: string | null; suspended?: boolean; admin_note?: string }) {
+  ok(await supabase.from('community_profiles').update(patch).eq('id', id));
+  announce('profile');
+}
+
+export async function fetchPlusRequests(): Promise<PlusRequest[]> {
+  const rows: PlusRequest[] = ok(await supabase.from('community_plus_requests').select('*').eq('status', 'pending').order('created_at')) ?? [];
+  if (!rows.length) return [];
+  const people = await profilesInOrder([...new Set(rows.map((r) => r.user_id))]);
+  return rows.map((r) => {
+    const p = people.find((x) => x.id === r.user_id);
+    return { ...r, username: p?.username, full_name: p?.full_name, avatar_url: p?.avatar_url };
+  });
+}
+
+/** Approving grants what was asked for; a Plus approval also gives the tick, for the month. */
+export async function decidePlusRequest(me: string, req: PlusRequest, approve: boolean) {
+  if (approve) {
+    if (req.kind === 'verify') await adminSetAccount(req.user_id, { verified: true });
+    else {
+      const until = new Date();
+      until.setMonth(until.getMonth() + 1);
+      await adminSetAccount(req.user_id, { verified: true, plus_until: until.toISOString() });
+    }
+  }
+  ok(await supabase.from('community_plus_requests').update({ status: approve ? 'approved' : 'declined', decided_by: me, decided_at: new Date().toISOString() }).eq('id', req.id));
+}
+
+export async function listAdmins(): Promise<{ user_id: string; role: 'owner' | 'admin'; profile: Profile | null }[]> {
+  const rows: { user_id: string; role: 'owner' | 'admin' }[] = ok(await supabase.from('community_admins').select('user_id,role').order('created_at')) ?? [];
+  const people = await profilesInOrder(rows.map((r) => r.user_id));
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.user_id) ?? null }));
+}
+
+export async function addAdmin(me: string, userId: string) {
+  ok(await supabase.from('community_admins').insert({ user_id: userId, role: 'admin', granted_by: me }));
+}
+
+export async function removeAdmin(userId: string) {
+  ok(await supabase.from('community_admins').delete().eq('user_id', userId).eq('role', 'admin'));
+}
+
+/* ---------- Erha ---------- */
+
+export async function fetchErhaHistory(me: string): Promise<ErhaMessage[]> {
+  return ok(await supabase.from('community_erha_messages').select('*').eq('user_id', me).order('created_at').limit(200)) ?? [];
+}
+
+export async function clearErhaHistory(me: string) {
+  ok(await supabase.from('community_erha_messages').delete().eq('user_id', me));
+}
+
+/** Sends a message to Erha and returns the reply. The conversation is kept on the server. */
+export async function askErha(text: string): Promise<{ reply: string; remaining: number | null }> {
+  const { data, error } = await withTimeout(supabase.functions.invoke('erha', { body: { text } }), 60000);
+  if (error) {
+    // The function sends a readable reason in the body when it refuses.
+    const ctx = (error as any)?.context;
+    try {
+      const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
+      if (body?.error) throw new Error(body.error);
+    } catch (e) {
+      if (e instanceof Error && e.message && !/JSON/.test(e.message)) throw e;
+    }
+    throw error;
+  }
+  return data as { reply: string; remaining: number | null };
 }

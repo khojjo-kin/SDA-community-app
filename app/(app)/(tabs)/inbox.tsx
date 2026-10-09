@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Icon } from '../../../src/components/Icon';
+import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
+import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, Screen, SearchField, useToast } from '../../../src/components/ui';
 import { fetchThreads, hideThread, setThreadMuted } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
@@ -74,11 +75,31 @@ export default function Inbox() {
       <FlatList
         data={shown}
         keyExtractor={(t) => t.id}
+        ListHeaderComponent={
+          needle && !'erha'.includes(needle) ? null : (
+            <Pressable onPress={() => router.push('/erha')} accessibilityRole="button" accessibilityLabel="Chat with Erha, your church assistant" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 9, marginBottom: 4, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              <ErhaAvatar size={56} />
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>Erha</Text>
+                  <View style={{ height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: 'rgba(31,191,90,0.16)', justifyContent: 'center' }}>
+                    <Text style={{ color: C.accent2, fontSize: 11, fontWeight: '700' }}>AI</Text>
+                  </View>
+                </View>
+                <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14 }}>Ask about the Bible, Sabbath School, hymns and church life</Text>
+              </View>
+              <Icon name="sparkle" size={20} color={C.accent2} />
+            </Pressable>
+          )
+        }
         renderItem={({ item: t }) => (
           <Pressable onPress={() => router.push(`/chat/${t.id}`)} onLongPress={() => options(t)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={`Chat with ${t.full_name}`} accessibilityHint="Touch and hold for options" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
             <Avatar uri={t.avatar_url} name={t.full_name} size={56} />
             <View style={{ flex: 1 }}>
-              <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: t.unread_count ? '700' : '400' }}>{t.full_name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: t.unread_count ? '700' : '400', flexShrink: 1 }}>{t.full_name}</Text>
+                {t.verified ? <VerifiedTick size={14} /> : null}
+              </View>
               <Text numberOfLines={1} style={{ color: t.unread_count ? C.fg : C.fg2, fontSize: 14, fontWeight: t.unread_count ? '700' : '400' }}>
                 {t.unread_count > 1 ? `${t.unread_count} new messages` : t.last_message} · {ago(t.last_message_at)}
               </Text>

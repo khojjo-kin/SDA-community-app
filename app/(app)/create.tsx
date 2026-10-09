@@ -16,7 +16,7 @@ type Mode = 'post' | 'reel';
 
 /** Share a post (up to 10 photos) or a reel (one video up to 60 seconds). Stories have their own screen. */
 export default function Create() {
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; text?: string }>();
   const { me } = useSession();
   const prefs = usePrefs();
   const router = useRouter();
@@ -24,7 +24,8 @@ export default function Create() {
   const { width } = useWindowDimensions();
   const [mode, setMode] = useState<Mode>(params.mode === 'reel' ? 'reel' : 'post');
   const [items, setItems] = useState<Picked[]>([]);
-  const [caption, setCaption] = useState('');
+  // A verse or a hymn line can arrive as a ready-made caption.
+  const [caption, setCaption] = useState(typeof params.text === 'string' ? params.text.slice(0, 2200) : '');
   const [poster, setPoster] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');

@@ -3,6 +3,7 @@ import { Pressable, Text } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Link } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
+import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
 import { C, errText } from '../../src/lib/theme';
 
@@ -90,10 +91,11 @@ export default function SignIn() {
       <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
       <Button label="Log in" onPress={submit} busy={busy} />
       <Link href="/forgot" replace asChild>
-        <Pressable style={{ padding: 10 }}>
+        <Pressable style={{ padding: 6 }}>
           <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Forgot password?</Text>
         </Pressable>
       </Link>
+      <SsoButtons onError={setErr} />
     </AuthShell>
   );
 }
