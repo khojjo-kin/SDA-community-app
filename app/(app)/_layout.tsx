@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Stack } from 'expo-router';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
@@ -7,7 +8,10 @@ import { useSession } from '../../src/lib/session';
 import { C } from '../../src/lib/theme';
 
 export default function AppLayout() {
-  const { me, loading, profile, error, refresh, signOut } = useSession();
+  const { isSignedIn, signOut } = useAuth();
+  const { loading, profile, error, refresh } = useSession();
+
+  if (!isSignedIn) return <Redirect href="/sign-in" />;
 
   if (loading) {
     return (
@@ -17,8 +21,6 @@ export default function AppLayout() {
       </View>
     );
   }
-
-  if (!me) return <Redirect href="/sign-in" />;
 
   if (error && !profile) {
     return (

@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { Slot } from 'expo-router';
+import { ClerkProvider, useClerk } from '@clerk/clerk-expo';
+import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Mark } from '../src/components/Icon';
-import { ToastProvider } from '../src/components/ui';
+import { Button, ToastProvider } from '../src/components/ui';
 import { loadPrefs } from '../src/lib/prefs';
 import { SessionProvider } from '../src/lib/session';
-import { SUPABASE_KEY, SUPABASE_URL } from '../src/lib/supabase';
+import { CLERK_KEY, SUPABASE_KEY, SUPABASE_URL } from '../src/lib/supabase';
 import { C } from '../src/lib/theme';
 
 function SetupNeeded() {
-  const missing = [!SUPABASE_URL && 'EXPO_PUBLIC_SUPABASE_URL', !SUPABASE_KEY && 'EXPO_PUBLIC_SUPABASE_KEY'].filter(Boolean);
+  const missing = [!CLERK_KEY && 'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY', !SUPABASE_URL && 'EXPO_PUBLIC_SUPABASE_URL', !SUPABASE_KEY && 'EXPO_PUBLIC_SUPABASE_KEY'].filter(Boolean);
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
       <Mark size={72} />
@@ -21,11 +23,47 @@ function SetupNeeded() {
   );
 }
 
+/** Shown while sign-in is starting up, so a phone with no signal doesn't sit on a blank screen. */
+function Starting({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+    const t = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
+      <Mark size={72} />
+      {failed ? (
+        <>
+          <Text style={{ color: C.fg, fontSize: 19, fontWeight: '800', textAlign: 'center' }}>Community can't connect</Text>
+          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>Check your internet connection, then try again.</Text>
+          <Button label="Try again" onPress={onRetry} style={{ alignSelf: 'stretch' }} />
+        </>
+      ) : slow ? (
+        <>
+          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>Still connecting. Check your internet connection.</Text>
+          <Button label="Try again" kind="ghost" onPress={onRetry} style={{ alignSelf: 'stretch' }} />
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** Shows the app once sign-in has loaded. If it could not load, offers to try again instead of a blank screen. */
+function Gate({ children, onRetry }: { children: React.ReactNode; onRetry: () => void }) {
+  const clerk = useClerk();
+  if (clerk.loaded) return <>{children}</>;
+  return <Starting failed={clerk.status === 'error'} onRetry={onRetry} />;
+}
+
 // Saved choices (camera side, sound) are read once, as the app starts.
 loadPrefs();
 
 export default function RootLayout() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
+  // Changing the key starts sign-in again from scratch, which is what "Try again" does.
+  const [attempt, setAttempt] = useState(0);
+  if (!CLERK_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
     return (
       <>
         <StatusBar style="light" />
@@ -36,11 +74,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <StatusBar style="light" />
-      <SessionProvider>
-        <ToastProvider>
-          <Slot />
-        </ToastProvider>
-      </SessionProvider>
+      <ClerkProvider key={attempt} publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+        <Gate onRetry={() => setAttempt((n) => n + 1)}>
+          <SessionProvider>
+            <ToastProvider>
+              <Slot />
+            </ToastProvider>
+          </SessionProvider>
+        </Gate>
+      </ClerkProvider>
     </GestureHandlerRootView>
   );
 }

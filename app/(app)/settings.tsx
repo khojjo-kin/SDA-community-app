@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useAuth } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, useToast } from '../../src/components/ui';
@@ -14,7 +15,8 @@ const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Of
 
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
-  const { me, profile, signOut } = useSession();
+  const { signOut } = useAuth();
+  const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
   const [q, setQ] = useState('');

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
+import { useSignUp } from '@clerk/clerk-expo';
 import { Link } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
-import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
-import { supabase } from '../../src/lib/supabase';
 import { C, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
+  const { signUp, setActive, isLoaded } = useSignUp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -16,16 +16,19 @@ export default function SignUp() {
   const [err, setErr] = useState('');
 
   async function create() {
-    if (busy) return;
+    if (!isLoaded || busy) return;
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr('Enter a valid email address.');
     if (password.length < 8) return setErr('Use a password with at least 8 characters.');
     setBusy(true);
     setErr('');
     try {
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
-      if (error) throw error;
-      // With email confirmation turned on there is no session yet; a code is in their inbox.
-      if (!data.session) setStage('verify');
+      const res = await signUp!.create({ emailAddress: email.trim(), password });
+      if (res.status === 'complete') {
+        await setActive!({ session: res.createdSessionId });
+        return;
+      }
+      await signUp!.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setStage('verify');
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -34,13 +37,18 @@ export default function SignUp() {
   }
 
   async function verify() {
-    if (busy) return;
+    if (!isLoaded || busy) return;
     if (!code.trim()) return setErr('Enter the code from your email.');
     setBusy(true);
     setErr('');
     try {
-      const { error } = await supabase.auth.verifyOtp({ type: 'signup', email: email.trim(), token: code.trim() });
-      if (error) throw error;
+      const res = await signUp!.attemptEmailAddressVerification({ code: code.trim() });
+      if (res.status === 'complete') {
+        await setActive!({ session: res.createdSessionId });
+      } else {
+        const missing = ((res as any).missingFields ?? []).join(', ');
+        setErr(missing ? `Sign-up also needs: ${missing}. Ask the app owner to turn those requirements off in Clerk.` : 'That code did not finish sign-up. Request a new code and try again.');
+      }
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -50,8 +58,7 @@ export default function SignUp() {
 
   async function resend() {
     try {
-      const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
-      if (error) throw error;
+      await signUp!.prepareEmailAddressVerification({ strategy: 'email_code' });
       setErr('');
     } catch (e) {
       setErr(errText(e));
@@ -88,7 +95,6 @@ export default function SignUp() {
       <Field value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
       <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
       <Button label="Sign up" onPress={create} busy={busy} />
-      <SsoButtons onError={setErr} />
     </AuthShell>
   );
 }

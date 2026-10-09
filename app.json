@@ -20,12 +20,10 @@
         "NSMicrophoneUsageDescription": "Community uses your microphone when you record a video with sound or a voice message.",
         "NSPhotoLibraryAddUsageDescription": "Community saves a photo to your library when you tap Save on a photo in a chat."
       },
-      "appleTeamId": "QRMLKZR9B8",
-      "usesAppleSignIn": true
+      "appleTeamId": "QRMLKZR9B8"
     },
     "plugins": [
       "expo-router",
-      "expo-apple-authentication",
       "expo-secure-store",
       "expo-video",
       [

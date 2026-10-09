@@ -107,12 +107,8 @@ export function clock(seconds: number): string {
 /** Turns any thrown value into a sentence a person can act on. */
 export function errText(e: unknown): string {
   const anyE = e as any;
-  const msg = String(anyE?.message ?? '');
-  // Sign-in errors from Supabase, said plainly.
-  if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
-  if (/email not confirmed/i.test(msg)) return 'Confirm your email first. Check your inbox for the code we sent.';
-  if (/(otp|token).*(expired|invalid)|(expired|invalid).*(otp|token)/i.test(msg)) return 'That code is wrong or has expired. Request a new one.';
-  if (/user already registered/i.test(msg)) return 'There is already an account with that email. Log in instead.';
+  const clerk = anyE?.errors?.[0];
+  if (clerk) return clerk.longMessage || clerk.message || 'Something went wrong. Try again.';
   if (anyE?.code === '23505') return /username/.test(String(anyE?.message ?? '') + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
   if (anyE?.code === '23514') return /username/.test(String(anyE?.message ?? '')) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
   // Refused by the database's access rules: usually someone has blocked someone, or the thing is gone.
