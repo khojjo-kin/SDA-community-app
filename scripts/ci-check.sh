@@ -27,5 +27,13 @@ if [ $code -eq 0 ] && [ $tsc_code -ne 0 ]; then
   echo "RESULT: FAILED (type errors: see tsc.log)" >> "$LOG_DIR/status.txt"
   code=$tsc_code
 fi
+
+# The EXPO_PUBLIC values from .env are baked into the bundle as it is made. A bundle made without
+# them can only ever show "Community isn't connected yet", so a missing value stops the build here
+# rather than on someone's phone.
+if [ $code -eq 0 ] && ! grep -rqa "sb_publishable" .export-check/_expo; then
+  echo "RESULT: FAILED (the bundle is missing the EXPO_PUBLIC values from .env)" >> "$LOG_DIR/status.txt"
+  code=1
+fi
 echo "finished $(date -u +%FT%TZ)" >> "$LOG_DIR/status.txt"
 exit $code
