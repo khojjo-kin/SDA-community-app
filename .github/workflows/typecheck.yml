@@ -1,0 +1,53 @@
+name: Community typecheck
+
+# Type-checks and bundles the main branch on its own, every ten minutes, whenever main has a
+# commit that has not been checked yet. The result goes to the community-build-logs branch under
+# typecheck/, so it can be read without the Actions page and without anyone starting a run.
+# (Pushes made with an app token do not start workflows, which is why this is on a schedule.)
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-typecheck
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: See whether this commit was already checked
+        id: seen
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          git fetch --quiet --depth 1 origin community-build-logs 2>/dev/null || true
+          last=$(git show FETCH_HEAD:typecheck/LATEST.txt 2>/dev/null | awk '{print $1}')
+          if [ "$last" = "$sha" ]; then echo "already checked $sha"; echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.seen.outputs.skip != 'true'
+        with:
+          node-version: 22
+      - name: Install, type-check and bundle
+        if: steps.seen.outputs.skip != 'true'
+        run: bash scripts/ci-check.sh
+      - name: Publish the result
+        if: always() && steps.seen.outputs.skip != 'true'
+        env:
+          SHA: ${{ steps.seen.outputs.sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          echo "job status: $JOB_STATUS" >> "$RUNNER_TEMP/logs/status.txt"
+          LOG_DEST="typecheck/$SHA" LATEST_NOTE="$SHA $JOB_STATUS $(date -u +%FT%TZ)" bash scripts/ci-publish-logs.sh typecheck
