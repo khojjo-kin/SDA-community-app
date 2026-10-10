@@ -1,0 +1,3 @@
+src/lib/rtc.ts(103,6): error TS2339: Property 'addEventListener' does not exist on type 'RTCPeerConnection'.
+src/lib/rtc.ts(106,6): error TS2339: Property 'addEventListener' does not exist on type 'RTCPeerConnection'.
+src/lib/rtc.ts(110,6): error TS2339: Property 'addEventListener' does not exist on type 'RTCPeerConnection'.
