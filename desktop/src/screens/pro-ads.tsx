@@ -4,41 +4,47 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchUserPosts, myPromotions, promotePost, settlePayment } from 'shared/api';
 import type { PaymentsConfig, Post, Promotion } from 'shared/types';
+import { dateLocale, t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { money, paymentsConfig } from '../lib/pay';
 import { nav } from '../lib/router';
 import { AccountSwitcher } from '../ui/accounts';
 import { errText } from 'shared/theme';
 import { Failed, Icon, Link, Modal, Spinner, toast, useLoad } from '../ui/kit';
-import { Dropdown, longDay, Notice, oneOff, pay, plural, shortDay } from './pro-kit';
+import { Dropdown, longDay, Notice, oneOff, pay, shortDay } from './pro-kit';
 import { PaymentHistory, PayoutBox, SavedCards } from './pro-money';
 
 type Filter = 'all' | 'active' | 'ended' | 'refunded';
 type Sort = 'latest' | 'oldest' | 'views' | 'spend' | 'ending';
 type Col = 'views' | 'goal' | 'spend' | 'status' | 'ends' | 'days' | 'started';
 
+// The labels in these lists are keys for t(), read where the menus are drawn.
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'All ads' },
-  { value: 'active', label: 'Active' },
-  { value: 'ended', label: 'Ended' },
-  { value: 'refunded', label: 'Refunded' },
+  { value: 'all', label: 'd.pro.allAds' },
+  { value: 'active', label: 'd.pro.adActive' },
+  { value: 'ended', label: 'd.pro.adEnded' },
+  { value: 'refunded', label: 'd.pro.adRefunded' },
 ];
 const SORTS: { value: Sort; label: string }[] = [
-  { value: 'latest', label: 'Latest' },
-  { value: 'oldest', label: 'Oldest' },
-  { value: 'views', label: 'Most views' },
-  { value: 'spend', label: 'Most spent' },
-  { value: 'ending', label: 'Ending soonest' },
+  { value: 'latest', label: 'd.pro.sortLatest' },
+  { value: 'oldest', label: 'd.pro.sortOldest' },
+  { value: 'views', label: 'd.pro.sortViews' },
+  { value: 'spend', label: 'd.pro.sortSpend' },
+  { value: 'ending', label: 'd.pro.sortEnding' },
 ];
 const COLUMNS: { value: Col; label: string }[] = [
-  { value: 'views', label: 'Views' },
-  { value: 'goal', label: 'Ad goal' },
-  { value: 'spend', label: 'Spend' },
-  { value: 'status', label: 'Status' },
-  { value: 'ends', label: 'Ends' },
-  { value: 'days', label: 'Days' },
-  { value: 'started', label: 'Started' },
+  { value: 'views', label: 'd.pro.views' },
+  { value: 'goal', label: 'd.pro.adGoal' },
+  { value: 'spend', label: 'd.pro.spend' },
+  { value: 'status', label: 'd.pro.status' },
+  { value: 'ends', label: 'd.pro.ends' },
+  { value: 'days', label: 'd.pro.days' },
+  { value: 'started', label: 'd.pro.started' },
 ];
+/** A list's labels in the app's language, for a menu. */
+const shown = <T extends string>(list: { value: T; label: string }[]) => list.map((x) => ({ value: x.value, label: t(x.label) }));
+/** What the table says when a filter leaves nothing to show. */
+const NONE_LABEL: Record<Filter, string> = { all: 'd.pro.noAds', active: 'd.pro.noActiveAds', ended: 'd.pro.noEndedAds', refunded: 'd.pro.noRefundedAds' };
 const DEFAULT_COLS: Col[] = ['views', 'goal', 'spend', 'status', 'ends'];
 const COLS_KEY = 'community.adColumns';
 const NEW_LOOK_KEY = 'community.adToolsNewLook';
@@ -64,7 +70,7 @@ function standing(p: Promotion): 'active' | 'ended' | 'refunded' {
   if (p.status === 'active' && p.ends_at && new Date(p.ends_at) > new Date()) return 'active';
   return 'ended';
 }
-const STANDING_LABEL = { active: 'Active', ended: 'Ended', refunded: 'Refunded' };
+const STANDING_LABEL = { active: 'd.pro.adActive', ended: 'd.pro.adEnded', refunded: 'd.pro.adRefunded' };
 
 const thumbOf = (post?: Post | null) => {
   const first = post?.media?.[0];
@@ -136,15 +142,15 @@ export function AdTools() {
           <table className="table pro-table pro-ads-table">
             <thead>
               <tr>
-                <th>Ads</th>
-                {has('views') ? <th className="num">Views</th> : null}
-                {has('goal') ? <th>Ad goal</th> : null}
-                {has('spend') ? <th className="num">Spend</th> : null}
-                {has('status') ? <th>Status</th> : null}
-                {has('ends') ? <th>Ends</th> : null}
-                {has('days') ? <th className="num">Days</th> : null}
-                {has('started') ? <th>Started</th> : null}
-                <th aria-label="Actions" />
+                <th>{t('d.pro.ads')}</th>
+                {has('views') ? <th className="num">{t('d.pro.views')}</th> : null}
+                {has('goal') ? <th>{t('d.pro.adGoal')}</th> : null}
+                {has('spend') ? <th className="num">{t('d.pro.spend')}</th> : null}
+                {has('status') ? <th>{t('d.pro.status')}</th> : null}
+                {has('ends') ? <th>{t('d.pro.ends')}</th> : null}
+                {has('days') ? <th className="num">{t('d.pro.days')}</th> : null}
+                {has('started') ? <th>{t('d.pro.started')}</th> : null}
+                <th aria-label={t('d.pro.actions')} />
               </tr>
             </thead>
             <tbody>
@@ -156,15 +162,15 @@ export function AdTools() {
                     <td>
                       <span className="pro-ad-cell">
                         <span className="pro-ad-thumb">{thumb ? <img src={thumb} alt="" /> : <Icon name={p.post ? 'image' : 'trash'} size={18} />}</span>
-                        <span className="pro-ad-caption">{p.post ? p.post.caption || 'Post' : 'Post deleted'}</span>
+                        <span className="pro-ad-caption">{p.post ? p.post.caption || t('d.pro.post') : t('ssPub.deleted')}</span>
                       </span>
                     </td>
-                    {has('views') ? <td className="num">{p.post?.view_count != null ? p.post.view_count.toLocaleString('en-GB') : '–'}</td> : null}
-                    {has('goal') ? <td className="pro-nowrap">Reach more people</td> : null}
+                    {has('views') ? <td className="num">{p.post?.view_count != null ? p.post.view_count.toLocaleString(dateLocale()) : '–'}</td> : null}
+                    {has('goal') ? <td className="pro-nowrap pro-ad-goal">{t('d.pro.reachMore')}</td> : null}
                     {has('spend') ? <td className="num">{money(p.amount_pence, p.currency)}</td> : null}
                     {has('status') ? (
                       <td>
-                        <span className={'pro-tag ' + (st === 'active' ? 'ok' : st === 'refunded' ? 'bad' : '')}>{STANDING_LABEL[st]}</span>
+                        <span className={'pro-tag ' + (st === 'active' ? 'ok' : st === 'refunded' ? 'bad' : '')}>{t(STANDING_LABEL[st])}</span>
                       </td>
                     ) : null}
                     {has('ends') ? <td className="pro-nowrap">{p.ends_at ? shortDay(p.ends_at) : '–'}</td> : null}
@@ -179,7 +185,7 @@ export function AdTools() {
                             setCreating({ postId: p.post!.id });
                           }}
                         >
-                          Promote again
+                          {t('d.pro.promoteAgain')}
                         </button>
                       ) : null}
                     </td>
@@ -194,8 +200,8 @@ export function AdTools() {
             <span className="pro-empty-ring">
               <Icon name="image" size={30} stroke={1.6} />
             </span>
-            <h3>{ads.data.length === 0 ? 'No ads available' : `No ${FILTERS.find((f) => f.value === filter)!.label.toLowerCase()} ads`}</h3>
-            <p>{ads.data.length === 0 ? 'Ads that you create will appear here.' : 'Try another filter.'}</p>
+            <h3>{t(ads.data.length === 0 ? 'd.pro.noAds' : NONE_LABEL[filter])}</h3>
+            <p>{ads.data.length === 0 ? t('d.pro.noAdsBody') : t('d.pro.tryAnotherFilter')}</p>
           </div>
         ) : null}
       </>
@@ -206,27 +212,27 @@ export function AdTools() {
       <section className="pro-main">
         <div className="pro-section-head">
           <h2 className="pro-with-info">
-            Manage ads
-            <span className="pro-info" tabIndex={0} aria-label="About ads" data-tip="An ad shows one of your posts at the top of For you and Explore, labelled Sponsored, for the days you pay for.">
+            {t('d.pro.manageAds')}
+            <span className="pro-info" tabIndex={0} aria-label={t('d.pro.aboutAds')} data-tip={t('d.pro.aboutAdsTip')}>
               <Icon name="info" size={18} />
             </span>
           </h2>
           <div className="pro-filters">
-            <Dropdown label={FILTERS.find((f) => f.value === filter)!.label} items={FILTERS} value={filter} onChange={setFilter} menuLabel="Show" />
-            <Dropdown label={SORTS.find((s) => s.value === sort)!.label} items={SORTS} value={sort} onChange={setSort} menuLabel="Sort by" />
-            <Dropdown label="Columns" icon={<Icon name="sliders" size={18} />} items={COLUMNS} multi chosen={cols} onToggle={toggleCol} align="right" />
+            <Dropdown label={t(FILTERS.find((f) => f.value === filter)!.label)} items={shown(FILTERS)} value={filter} onChange={setFilter} menuLabel={t('d.pro.show')} />
+            <Dropdown label={t(SORTS.find((s) => s.value === sort)!.label)} items={shown(SORTS)} value={sort} onChange={setSort} menuLabel={t('d.pro.sortBy')} />
+            <Dropdown label={t('d.pro.columns')} icon={<Icon name="sliders" size={18} />} items={shown(COLUMNS)} multi chosen={cols} onToggle={toggleCol} align="right" />
           </div>
         </div>
         {table}
       </section>
 
       <aside className="pro-aside">
-        <h3 className="pro-aside-h">Create your next ad</h3>
+        <h3 className="pro-aside-h">{t('d.pro.nextAd')}</h3>
         <button className="pro-next" disabled={!top} onClick={() => top && setCreating({ postId: top.id })}>
           <span className="pro-next-thumb">{top && thumbOf(top) ? <img src={thumbOf(top)} alt="" /> : <Icon name="image" size={22} />}</span>
           <span className="grow">
-            <b>Your current top post</b>
-            <span>{top ? 'Reach more people with your most liked post in the last 28 days.' : posts.data ? 'Share a post to see your top post here.' : 'Finding your top post…'}</span>
+            <b>{t('d.pro.topPost')}</b>
+            <span>{top ? t('d.pro.topPostBody') : posts.data ? t('d.pro.topPostNone') : t('d.pro.topPostFinding')}</span>
           </span>
           <Icon name="right" size={20} />
         </button>
@@ -235,37 +241,37 @@ export function AdTools() {
             <Icon name="plus" size={26} stroke={1.6} />
           </span>
           <span className="grow">
-            <b>Create ad</b>
+            <b>{t('d.pro.createAd')}</b>
           </span>
           <Icon name="right" size={20} />
         </button>
 
-        <h3 className="pro-aside-h">Billing and payments</h3>
-        <p className="muted-text small pro-aside-p">Each ad is paid once by card. It doesn't renew.</p>
+        <h3 className="pro-aside-h">{t('d.pro.billing')}</h3>
+        <p className="muted-text small pro-aside-p">{t('d.pro.billingNote')}</p>
         <SavedCards compact />
         <Link to="/dashboard/billing" className="pro-link-row">
           <Icon name="receipt" size={20} />
-          <span className="grow">Billing and payments</span>
+          <span className="grow">{t('d.pro.billing')}</span>
           <Icon name="right" size={18} />
         </Link>
 
-        <h3 className="pro-aside-h">Payouts</h3>
-        <p className="muted-text small pro-aside-p">For gifts to your fundraisers.</p>
+        <h3 className="pro-aside-h">{t('creatorSubs.payouts')}</h3>
+        <p className="muted-text small pro-aside-p">{t('d.pro.payoutsFor')}</p>
         <PayoutBox compact />
         <Link to="/dashboard/fundraisers" className="pro-link-row">
           <Icon name="heart" size={20} />
-          <span className="grow">Your fundraisers</span>
+          <span className="grow">{t('d.pro.yourFundraisers')}</span>
           <Icon name="right" size={18} />
         </Link>
 
-        <h3 className="pro-aside-h">Ad account</h3>
+        <h3 className="pro-aside-h">{t('d.pro.adAccount')}</h3>
         <div className="pro-account">
           <div className="grow">
             <b>{me.full_name || me.username}</b>
             <span className="muted-text small">@{me.username} · GBP</span>
           </div>
           <button className="link-btn" onClick={() => setSwitching(true)}>
-            Switch
+            {t('d.pro.switch')}
           </button>
         </div>
       </aside>
@@ -311,11 +317,11 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
       const r = await promotePost(post.id, days);
       const total = money(r.amount, r.currency);
       setPaying(true);
-      const ok = await pay({ title: `Promote your post for ${plural(days, 'day')}`, detail: oneOff(total), amountPence: r.amount, currency: r.currency, clientSecret: r.client_secret, intent: 'payment', action: `Pay ${total}` });
+      const ok = await pay({ title: tn('d.pro.promoteFor', days), detail: oneOff(total), amountPence: r.amount, currency: r.currency, clientSecret: r.client_secret, intent: 'payment', action: t('checkout.pay', { price: total }) });
       setPaying(false);
       if (!ok) return;
       const settled = await settlePayment(r.payment_intent_id).catch(() => null);
-      toast(settled?.settled ? 'Your post is being promoted' : 'Payment received — it may take a minute to show');
+      toast(settled?.settled ? t('d.pro.promoting') : t('d.pro.paymentReceived'));
       onDone();
     } catch (e) {
       setPaying(false);
@@ -330,14 +336,14 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
   // Step 1: choose one of your posts.
   if (!post) {
     return (
-      <Modal title="Create ad" onClose={onClose} wide className="pro-modal">
+      <Modal title={t('d.pro.createAd')} onClose={onClose} wide className="pro-modal">
         <div className="pro-modal-body">
-          <p className="muted-text">Choose a post to promote. It will be shown at the top of For you and Explore, labelled Sponsored.</p>
+          <p className="muted-text">{t('d.pro.choosePost')}</p>
           {posts.length ? (
-            <div className="pro-pick-grid" role="listbox" aria-label="Your posts">
+            <div className="pro-pick-grid" role="listbox" aria-label={t('d.pro.yourPosts')}>
               {posts.map((p) => (
                 <button key={p.id} role="option" aria-selected={false} className="pro-pick" title={p.caption} onClick={() => setPostId(p.id)}>
-                  {thumbOf(p) ? <img src={thumbOf(p)} alt={p.caption || 'Post'} /> : <Icon name="image" size={24} />}
+                  {thumbOf(p) ? <img src={thumbOf(p)} alt={p.caption || t('d.pro.post')} /> : <Icon name="image" size={24} />}
                   {p.kind === 'reel' ? (
                     <span className="pro-pick-badge">
                       <Icon name="reels" size={14} color="#fff" />
@@ -348,8 +354,8 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
             </div>
           ) : (
             <div className="pro-empty small">
-              <h3>No posts yet</h3>
-              <p>Share a post first, then promote it here.</p>
+              <h3>{t('profile.emptyNoPosts')}</h3>
+              <p>{t('d.pro.shareFirst')}</p>
             </div>
           )}
         </div>
@@ -361,18 +367,20 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
   const c = config.data;
   const total = c ? money(days * c.ad_day_pence, c.currency) : '';
   const until = post.boosted_until && new Date(post.boosted_until) > new Date() ? longDay(post.boosted_until) : '';
+  // The words either side of the Privacy link.
+  const privacy = tSplit('d.pro.privateNotice', 'privacy');
   return (
-    <Modal title="Promote post" onClose={() => !busy && onClose()} wide className="pro-modal" closeOutside={!busy}>
+    <Modal title={t('d.pro.promotePost')} onClose={() => !busy && onClose()} wide className="pro-modal" closeOutside={!busy}>
       <div className="pro-modal-body">
         <div className="pro-promo-post">
           <span className="pro-promo-thumb">{thumbOf(post) ? <img src={thumbOf(post)} alt="" /> : <Icon name="image" size={24} />}</span>
           <div className="grow">
-            <p className={post.caption ? '' : 'muted-text'}>{post.caption || 'No caption'}</p>
-            {until ? <p className="pro-ok-text small">Promoted until {until}</p> : null}
+            <p className={post.caption ? '' : 'muted-text'}>{post.caption || t('d.pro.noCaption')}</p>
+            {until ? <p className="pro-ok-text small">{t('d.pro.promotedUntil', { day: until })}</p> : null}
           </div>
           {initialPostId ? null : (
             <button className="link-btn" onClick={() => setPostId('')} disabled={busy}>
-              Change
+              {t('d.pro.changePost')}
             </button>
           )}
         </div>
@@ -381,53 +389,55 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
         ) : !c ? (
           <Spinner />
         ) : !c.ready ? (
-          <Notice>Payments aren't available yet.</Notice>
+          <Notice>{t('pay.unavailable')}</Notice>
         ) : (
           <>
             <div>
-              <h3 className="pro-sub-h">How long</h3>
-              <div className="pro-chips" role="radiogroup" aria-label="How long">
+              <h3 className="pro-sub-h">{t('d.pro.howLong')}</h3>
+              <div className="pro-chips" role="radiogroup" aria-label={t('d.pro.howLong')}>
                 {CHOICES.map((n) => (
                   <button key={n} role="radio" aria-checked={days === n} className={'pro-chip' + (days === n ? ' on' : '')} onClick={() => setDays(n)} disabled={busy}>
-                    {plural(n, 'day')}
+                    {tn('d.pro.dayCount', n)}
                   </button>
                 ))}
               </div>
               <div className="pro-stepper">
-                <button className="icon-btn" aria-label="One day fewer" disabled={days <= 1 || busy} onClick={() => step(-1)}>
+                <button className="icon-btn" aria-label={t('d.pro.oneDayFewer')} disabled={days <= 1 || busy} onClick={() => step(-1)}>
                   <span className="pro-minus" />
                 </button>
-                <b aria-live="polite">{plural(days, 'day')}</b>
-                <button className="icon-btn" aria-label="One day more" disabled={days >= MAX_DAYS || busy} onClick={() => step(1)}>
+                <b aria-live="polite">{tn('d.pro.dayCount', days)}</b>
+                <button className="icon-btn" aria-label={t('d.pro.oneDayMore')} disabled={days >= MAX_DAYS || busy} onClick={() => step(1)}>
                   <Icon name="plus" size={20} stroke={2.2} />
                 </button>
               </div>
             </div>
             <div className="pro-total">
               <div>
-                <b>Total</b>
-                <span className="muted-text small">
-                  {plural(days, 'day')} × {money(c.ad_day_pence, c.currency)} a day
-                </span>
+                <b>{t('pay.total')}</b>
+                <span className="muted-text small">{tn('d.pro.daysTimes', days, { price: money(c.ad_day_pence, c.currency) })}</span>
               </div>
               <strong>{total}</strong>
             </div>
             <p className="pro-explain">
               <Icon name="boost" size={20} />
               <span>
-                Your post is shown at the top of For you and Explore, labelled Sponsored, until the days run out. Ad goal: reach more people. It runs straight after paying.
-                {until ? ` It's already promoted until ${until}, so these days are added on after that.` : ''}
+                {t('d.pro.promoteExplain')}
+                {until ? ' ' + t('d.pro.promoteExplainMore', { day: until }) : ''}
               </span>
             </p>
             {me.is_private ? (
               <Notice kind="warn" icon={<Icon name="lock" size={18} />}>
-                Your account is private, so new people can't see your posts. Make it public in <Link to="/accounts/privacy" className="link-btn inline">Privacy</Link> to promote this post.
+                {privacy[0]}
+                <Link to="/accounts/privacy" className="link-btn inline">
+                  {t('d.pro.privacy')}
+                </Link>
+                {privacy[1]}
               </Notice>
             ) : (
               <>
                 {error ? <p className="form-error">{error}</p> : null}
                 <button className="btn block big" disabled={busy} onClick={go}>
-                  {busy ? 'Starting payment…' : `Pay ${total}`}
+                  {busy ? t('d.pro.startingPayment') : t('checkout.pay', { price: total })}
                 </button>
                 <p className="pro-terms center">{oneOff(total)}</p>
               </>
@@ -468,11 +478,11 @@ function NewLook({ onClose }: { onClose: () => void }) {
             <Icon name="card" size={20} />
           </span>
         </div>
-        <h2>Ad tools has a new look</h2>
-        <p>We've made it easier to compare how your ads do, act on them and focus on what matters most, all in one place. You may notice updates over time.</p>
+        <h2>{t('d.pro.newLook')}</h2>
+        <p>{t('d.pro.newLookBody')}</p>
       </div>
       <button className="pro-newlook-ok" onClick={onClose}>
-        Got it
+        {t('d.pro.gotIt')}
       </button>
     </Modal>
   );
@@ -488,21 +498,21 @@ export function Billing() {
   return (
     <div className="pro-billing">
       <Link to="/dashboard/ads" className="pro-back">
-        <Icon name="back" size={18} /> Ad tools
+        <Icon name="back" size={18} /> {t('d.pro.adTools')}
       </Link>
       <div className="pro-split">
         <section className="pro-main">
           <div className="pro-section-head">
             <div>
-              <h2>Payment history</h2>
-              <p className="muted-text">Ads, gifts and Community Plus, newest first.</p>
+              <h2>{t('plus.paymentHistory')}</h2>
+              <p className="muted-text">{t('d.pro.historySub')}</p>
             </div>
           </div>
           <PaymentHistory />
         </section>
         <aside className="pro-aside">
-          <h3 className="pro-aside-h">Payment methods</h3>
-          <p className="muted-text small pro-aside-p">Plus renews with your default card. Payments are handled by Stripe; Community never sees your card number.</p>
+          <h3 className="pro-aside-h">{t('plus.paymentMethods')}</h3>
+          <p className="muted-text small pro-aside-p">{t('d.pro.methodsNote')}</p>
           <SavedCards />
         </aside>
       </div>

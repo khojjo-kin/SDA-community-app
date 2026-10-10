@@ -3,6 +3,7 @@
 // saved card, and opening posts from the dashboard's grids.
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { FriendlyError } from 'shared/theme';
+import { dateLocale, languageCode, t, tSplit } from '../lib/i18n';
 import { confirmPay, money, type PayRequest, stripe } from '../lib/pay';
 import { nav } from '../lib/router';
 import { Icon, Link, toast, useOutside } from '../ui/kit';
@@ -36,13 +37,13 @@ export async function payWithSavedCard(clientSecret: string, cardId: string, int
   }
   const s = await stripe();
   const res = intent === 'setup' ? await s.confirmCardSetup(clientSecret, { payment_method: cardId }) : await s.confirmCardPayment(clientSecret, { payment_method: cardId });
-  if (res?.error) throw new FriendlyError(res.error.message || 'The payment did not go through. Try another card.');
+  if (res?.error) throw new FriendlyError(res.error.message || t('d.pro.paymentFailed'));
 }
 
 /** Opens a Stripe page (payout setup, the payout dashboard) in the browser. */
 export function openExternal(url: string) {
   if (__DEMO__) {
-    toast('Demo: Stripe would open in your browser here.');
+    toast(t('d.pro.demoStripe'));
     return;
   }
   window.open(url, '_blank', 'noopener');
@@ -87,34 +88,38 @@ export function useOpenPost() {
 
 /* ---------- words and dates ---------- */
 
-export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
+// English keeps its own month names ("9 Sep"): the browser's British English says "Sept". Other
+// languages write the date the browser's way for that language.
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/** "9 November", with the year when it is not this year. */
-export function longDay(iso: string | Date | null | undefined): string {
+function dayText(iso: string | Date | null | undefined, month: 'long' | 'short'): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() === new Date().getFullYear() ? '' : ' ' + d.getFullYear()}`;
+  const otherYear = d.getFullYear() !== new Date().getFullYear();
+  if (languageCode() !== 'en') return d.toLocaleDateString(dateLocale(), { day: 'numeric', month, ...(otherYear ? { year: 'numeric' } : {}) });
+  const name = month === 'long' ? MONTHS[d.getMonth()] : MONTHS[d.getMonth()].slice(0, 3);
+  return `${d.getDate()} ${name}${otherYear ? ' ' + d.getFullYear() : ''}`;
+}
+
+/** "9 November", with the year when it is not this year. */
+export function longDay(iso: string | Date | null | undefined): string {
+  return dayText(iso, 'long');
 }
 
 /** "9 Nov", with the year when it is not this year. */
 export function shortDay(iso: string | Date | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}${d.getFullYear() === new Date().getFullYear() ? '' : ' ' + d.getFullYear()}`;
+  return dayText(iso, 'short');
 }
 
 /** The words under one-off payments (ads, gifts), as on the iPhone. */
-export const oneOff = (amount: string) => `${amount}, one-off. It doesn't renew.`;
+export const oneOff = (amount: string) => t('legal.oneOff', { amount });
 
 /* ---------- saved cards ---------- */
 
 const BRAND_NAMES: Record<string, string> = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', discover: 'Discover', diners: 'Diners Club', jcb: 'JCB', unionpay: 'UnionPay' };
 /** As on the iPhone: "Visa", "Mastercard", "American Express". */
-export const brandName = (brand: string) => BRAND_NAMES[(brand || '').toLowerCase()] ?? (brand ? brand[0].toUpperCase() + brand.slice(1) : 'Card');
+export const brandName = (brand: string) => BRAND_NAMES[(brand || '').toLowerCase()] ?? (brand ? brand[0].toUpperCase() + brand.slice(1) : t('d.pro.card'));
 
 /** "Visa •••• 4242", or "Apple Pay · Visa •••• 4242" for a card saved from Apple Pay. */
 export function cardTitle(card: { brand: string; last4: string; wallet?: string | null }): string {
@@ -285,21 +290,31 @@ export function Dropdown<T extends string>({ label, icon, items, value, onChange
  * price and how often (after a free week if there is one), that it renews by itself, and the Terms.
  */
 export function RenewalTerms({ pricePence, currency, cadence, trialDays = 0, freeUntil = '' }: { pricePence: number; currency: string; cadence: 'month' | 'year'; trialDays?: number; freeUntil?: string }) {
-  const price = money(pricePence, currency);
-  const every = cadence === 'year' ? 'a year' : 'a month';
-  const head = freeUntil ? `Free until ${freeUntil}, then ${price} ${every}` : trialDays > 0 ? `Free for ${trialDays} days, then ${price} ${every}` : `${price} ${every}`;
+  const head = priceTerms(pricePence, currency, cadence, trialDays, freeUntil);
+  const [before, after] = tSplit('legal.renewLine', 'terms');
   return (
     <p className="pro-terms">
-      <b>{head}</b> · Renews automatically until cancelled · <Link to="/legal/terms" className="pro-terms-link">Terms</Link>
+      <b>{head}</b> · {before}
+      <Link to="/legal/terms" className="pro-terms-link">
+        {t('legal.termsLink')}
+      </Link>
+      {after}
     </p>
   );
 }
 
+/** "£4.99 a month", "Free for 7 days, then £49.99 a year" or "Free until 17 October, then £4.99 a month", as on the iPhone. */
+function priceTerms(pricePence: number, currency: string, cadence: 'month' | 'year', trialDays = 0, freeUntil = ''): string {
+  const price = money(pricePence, currency);
+  const year = cadence === 'year';
+  if (freeUntil) return t(year ? 'legal.freeUntilYearly' : 'legal.freeUntilMonthly', { day: freeUntil, price });
+  if (trialDays > 0) return t(year ? 'legal.trialYearly' : 'legal.trialMonthly', { days: trialDays, price });
+  return t(year ? 'legal.priceYearly' : 'legal.priceMonthly', { price });
+}
+
 /** Words for the renewal terms, for the pay dialog's line under its heading. */
 export function renewalText(pricePence: number, currency: string, cadence: 'month' | 'year', trialDays = 0): string {
-  const price = money(pricePence, currency);
-  const every = cadence === 'year' ? 'a year' : 'a month';
-  return `${trialDays > 0 ? `Free for ${trialDays} days, then ${price} ${every}` : `${price} ${every}`}. Renews automatically until cancelled.`;
+  return t('d.pro.renewalText', { cost: priceTerms(pricePence, currency, cadence, trialDays) });
 }
 
 /** A labelled section heading with an optional link or button on the right. */
