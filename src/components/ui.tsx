@@ -1,18 +1,38 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppFont } from '../lib/fonts';
+import { tap } from '../lib/haptics';
+// Plain t(), not useT(): these pieces are on every screen, and every screen is drawn again from the
+// root when the language changes, so they needn't each listen for it.
+import { t } from '../lib/i18n';
 import { C, CLOSE_RING, RING } from '../lib/theme';
 import { Icon, IconName } from './Icon';
 
 /* ---------- avatar ---------- */
 
-export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null }) {
+/**
+ * `ringColors` replaces the green of a 'new' ring: a Plus member's chosen colour (src/lib/styling.ts).
+ * `online` adds the green dot of someone active now (see isOnline in src/lib/api.ts).
+ */
+export function Avatar({ uri, name, size = 36, ring, ringColors, online }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[]; online?: boolean }) {
+  const face = <AvatarFace uri={uri} name={name} size={size} ring={ring} ringColors={ringColors} />;
+  if (!online) return face;
+  const dot = Math.max(10, Math.round(size * 0.28));
+  return (
+    <View>
+      {face}
+      <View accessibilityLabel={t('common.activeNow')} style={{ position: 'absolute', right: ring ? 2 : 0, bottom: ring ? 2 : 0, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: C.ok, borderWidth: Math.max(2, dot * 0.18), borderColor: C.bg }} />
+    </View>
+  );
+}
+
+function AvatarFace({ uri, name, size, ring, ringColors }: { uri?: string | null; name?: string; size: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[] }) {
   const inner = uri ? (
-    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
+    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
   ) : (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: C.fg, fontWeight: '700', fontSize: size * 0.44 }}>{(name || '?').trim().charAt(0).toUpperCase() || '?'}</Text>
@@ -22,7 +42,8 @@ export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; na
   const pad = 2.5;
   const body = <View style={{ borderRadius: size, borderWidth: 2.5, borderColor: C.bg }}>{inner}</View>;
   if (ring === 'seen') return <View style={{ padding: pad, borderRadius: size, backgroundColor: C.surface2 }}>{body}</View>;
-  const colors = ring === 'close' ? ([CLOSE_RING[0], CLOSE_RING[1]] as const) : ([RING[0], RING[1], RING[2]] as const);
+  const chosen = ring === 'close' ? CLOSE_RING : ringColors && ringColors.length >= 2 ? ringColors : RING;
+  const colors = chosen as unknown as readonly [string, string, ...string[]];
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={{ padding: pad, borderRadius: size }}>
       {body}
@@ -32,17 +53,21 @@ export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; na
 
 /* ---------- buttons and fields ---------- */
 
-export function Button({ label, onPress, kind = 'primary', small, busy, disabled, style }: { label: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; small?: boolean; busy?: boolean; disabled?: boolean; style?: ViewStyle }) {
+/** `textColor` is for a button given its own background in `style` (e.g. the red Go live button). */
+export function Button({ label, onPress, kind = 'primary', small, busy, disabled, style, textColor }: { label: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; small?: boolean; busy?: boolean; disabled?: boolean; style?: ViewStyle; textColor?: string }) {
   const bg = kind === 'primary' ? C.accent : kind === 'danger' ? C.like : C.surface2;
+  // Ghost buttons sit on the page colour, so their words follow the theme; the others are on a strong colour.
+  const fg = textColor ?? (kind === 'primary' ? C.onAccent : kind === 'danger' ? '#ffffff' : C.fg);
   const font = useAppFont('bold');
   return (
     <Pressable
-      onPress={busy || disabled ? undefined : onPress}
+      // A light tap under the finger (if the member has haptics on); nothing while the button can't be pressed.
+      onPress={busy || disabled || !onPress ? undefined : () => { tap('light'); onPress(); }}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       style={({ pressed }) => [{ height: small ? 32 : 46, paddingHorizontal: small ? 14 : 18, borderRadius: small ? 10 : 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : pressed ? 0.75 : 1 }, style]}>
-      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
+      {busy ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
     </Pressable>
   );
 }
@@ -52,7 +77,7 @@ export function Field({ label, error, style, ...rest }: TextInputProps & { label
   return (
     <View style={{ gap: 6 }}>
       {label ? <Text style={{ color: C.fg2, fontSize: 12.5, fontFamily: font }}>{label}</Text> : null}
-      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance="dark" accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface, fontFamily: font }, style]} />
+      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance={C.blurTint} accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface, fontFamily: font }, style]} />
       {error ? <Text style={{ color: C.like, fontSize: 13, fontFamily: font }}>{error}</Text> : null}
     </View>
   );
@@ -60,7 +85,7 @@ export function Field({ label, error, style, ...rest }: TextInputProps & { label
 
 export function IconButton({ name, onPress, size = 24, color = C.fg, label, fill, badge, bg }: { name: IconName; onPress?: () => void; size?: number; color?: string; label: string; fill?: boolean; badge?: boolean; bg?: string }) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, backgroundColor: bg })}>
+    <Pressable onPress={onPress ? () => { tap('light'); onPress(); } : undefined} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, backgroundColor: bg })}>
       <Icon name={name} size={size} color={color} fill={fill} />
       {badge ? <View style={{ position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: C.like, borderWidth: 2, borderColor: C.bg }} /> : null}
     </Pressable>
@@ -71,21 +96,21 @@ export function IconButton({ name, onPress, size = 24, color = C.fg, label, fill
 export function RoundButton({ name, onPress, label, size = 44, bg = C.round, color = C.fg, iconSize = 24 }: { name: IconName; onPress?: () => void; label: string; size?: number; bg?: string; color?: string; iconSize?: number }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={onPress ? () => { tap('light'); onPress(); } : undefined}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)', opacity: pressed ? 0.65 : 1 })}>
+      style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline, opacity: pressed ? 0.65 : 1 })}>
       <Icon name={name} size={iconSize} color={color} />
     </Pressable>
   );
 }
 
-export function SearchField({ value, onChangeText, placeholder = 'Search', autoFocus, label }: { value: string; onChangeText: (t: string) => void; placeholder?: string; autoFocus?: boolean; label?: string }) {
+export function SearchField({ value, onChangeText, placeholder = t('common.search'), autoFocus, label }: { value: string; onChangeText: (t: string) => void; placeholder?: string; autoFocus?: boolean; label?: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, paddingHorizontal: 12, height: 38, borderRadius: 12, backgroundColor: C.field }}>
       <Icon name="search" size={17} color={C.fg2} weight={2.2} />
-      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={C.fg2} autoFocus={autoFocus} style={{ flex: 1, color: C.fg, fontSize: 17, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" keyboardAppearance="dark" accessibilityLabel={label ?? placeholder} />
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={C.fg2} autoFocus={autoFocus} style={{ flex: 1, color: C.fg, fontSize: 17, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" keyboardAppearance={C.blurTint} accessibilityLabel={label ?? placeholder} />
     </View>
   );
 }
@@ -97,7 +122,8 @@ export function Toggle({ value, onChange, label, disabled }: { value: boolean; o
     Animated.timing(pos, { toValue: value ? 1 : 0, duration: 140, useNativeDriver: true }).start();
   }, [value, pos]);
   return (
-    <Pressable onPress={disabled ? undefined : () => onChange(!value)} hitSlop={8} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: !!disabled }} style={{ width: 62, height: 28, borderRadius: 14, backgroundColor: value ? C.accent : '#b7bdc7', justifyContent: 'center', opacity: disabled ? 0.5 : 1 }}>
+    // 'select' is the crisp click a switch makes; felt before the change so it lands with the finger.
+    <Pressable onPress={disabled ? undefined : () => { tap('select'); onChange(!value); }} hitSlop={8} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: !!disabled }} style={{ width: 62, height: 28, borderRadius: 14, backgroundColor: value ? C.accent : C.surface2, justifyContent: 'center', opacity: disabled ? 0.5 : 1 }}>
       <Animated.View style={{ width: 36, height: 24, borderRadius: 12, marginLeft: 2, backgroundColor: value ? '#ffffff' : C.bg, transform: [{ translateX: pos.interpolate({ inputRange: [0, 1], outputRange: [0, 22] }) }] }} />
     </Pressable>
   );
@@ -105,16 +131,16 @@ export function Toggle({ value, onChange, label, disabled }: { value: boolean; o
 
 export function Radio({ on }: { on: boolean }) {
   return (
-    <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: on ? 2 : 1.5, borderColor: on ? C.fg : '#7d848e', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: on ? 2 : 1.5, borderColor: on ? C.fg : C.fg3, alignItems: 'center', justifyContent: 'center' }}>
       {on ? <View style={{ width: 13, height: 13, borderRadius: 7, backgroundColor: C.fg }} /> : null}
     </View>
   );
 }
 
-export function NewPill({ label = 'New' }: { label?: string }) {
+export function NewPill({ label = t('common.new') }: { label?: string }) {
   return (
     <View style={{ height: 30, paddingHorizontal: 13, borderRadius: 15, backgroundColor: C.accent, justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14.5 }}>{label}</Text>
+      <Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 14.5 }}>{label}</Text>
     </View>
   );
 }
@@ -126,7 +152,7 @@ export function Header({ title, left, right, center }: { title?: string; left?: 
   const font = useAppFont('bold');
   return (
     <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
-      {left === undefined ? <IconButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} /> : left}
+      {left === undefined ? <IconButton name="back" label={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} /> : left}
       <Text numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: center ? 'center' : 'left', fontFamily: font }}>
         {title}
       </Text>
@@ -142,11 +168,12 @@ export function ScreenHeader({ title, right, onBack, noBack }: { title: string; 
   const back = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-      <View style={{ width: 44 }}>{noBack ? null : <RoundButton name="back" label="Back" onPress={back} />}</View>
+      {/* Both sides take the same room, so the title stays centred; neither squeezes a word like "Done" onto two lines. */}
+      <View style={{ minWidth: 64, flexShrink: 0 }}>{noBack ? null : <RoundButton name="back" label={t('common.back')} onPress={back} />}</View>
       <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8, fontFamily: font }}>
         {title}
       </Text>
-      <View style={{ width: 44, alignItems: 'flex-end' }}>{right}</View>
+      <View style={{ minWidth: 64, flexShrink: 0, alignItems: 'flex-end' }}>{right}</View>
     </View>
   );
 }
@@ -175,7 +202,7 @@ export function Row({ icon, title, sub, value, onPress, right, color, chevron = 
   const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, minHeight: 48 };
   if (!onPress) return <View style={style}>{body}</View>;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${title}, ${value}` : title} style={({ pressed }) => [style, { backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${title}, ${value}` : title} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
       {body}
     </Pressable>
   );
@@ -195,7 +222,7 @@ export function SectionLabel({ children, right, strong }: { children: string; ri
 
 /** The band between sections in a settings list, or a hairline when thin. */
 export function Divider({ thin }: { thin?: boolean }) {
-  return <View style={{ height: thin ? StyleSheet.hairlineWidth : 5, backgroundColor: thin ? '#2a3038' : C.field, marginTop: thin ? 8 : 6 }} />;
+  return <View style={{ height: thin ? StyleSheet.hairlineWidth : 5, backgroundColor: thin ? C.line : C.field, marginTop: thin ? 8 : 6 }} />;
 }
 
 export function Empty({ title, body, icon, action }: { title: string; body?: string; icon?: IconName; action?: React.ReactNode }) {
@@ -222,9 +249,9 @@ export function Loading() {
 export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={{ padding: 28, alignItems: 'center', gap: 12 }}>
-      <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>This didn't load</Text>
+      <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{t('common.didNotLoad')}</Text>
       <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{message}</Text>
-      {onRetry ? <Button label="Try again" kind="ghost" small onPress={onRetry} /> : null}
+      {onRetry ? <Button label={t('common.tryAgain')} kind="ghost" small onPress={onRetry} /> : null}
     </View>
   );
 }
@@ -236,7 +263,7 @@ export function Sheet({ visible, onClose, title, children, tall, footer }: { vis
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,7,10,0.55)' }]} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: C.scrim }]} onPress={onClose} accessibilityLabel={t('common.close')} />
         <View style={{ backgroundColor: C.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingBottom: insets.bottom + 12, maxHeight: '88%', height: tall ? '78%' : undefined }}>
           <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: title ? 0 : 10 }}>
             <View style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: C.fg2 }} />
@@ -258,9 +285,9 @@ export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { 
   const color = danger ? C.like : C.fg;
   const font = useAppFont();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={() => { tap('light'); onPress(); }} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Icon name={icon} size={26} color={color} />
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: '#2c3138' }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.line }}>
         <View style={{ flex: 1, paddingVertical: sub ? 8 : 0 }}>
           <Text style={{ color, fontSize: 18, fontFamily: font }}>{label}</Text>
           {sub ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
@@ -269,6 +296,51 @@ export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { 
       </View>
     </Pressable>
   );
+}
+
+/* ---------- a question with several answers ---------- */
+
+/** One answer offered by useChoices. */
+export type Choice = { label: string; onPress: () => void };
+
+/**
+ * A question with several answers, such as why something is being reported. On iPhone it is the
+ * system alert, as before. Android's alert shows no more than three buttons and quietly drops the
+ * rest, so there the answers are rows in a bottom sheet instead, as the story viewer's reasons are,
+ * with Cancel last. Render `element` in the screen, then call `ask`.
+ */
+export function useChoices() {
+  const [asked, setAsked] = useState<{ title: string; message?: string; icon: IconName; choices: Choice[] } | null>(null);
+  const [visible, setVisible] = useState(false);
+  const ask = useCallback((q: { title: string; message?: string; icon: IconName; choices: Choice[] }) => {
+    if (Platform.OS !== 'android') {
+      Alert.alert(q.title, q.message, [...q.choices.map((c) => ({ text: c.label, onPress: c.onPress })), { text: t('common.cancel'), style: 'cancel' as const }]);
+      return;
+    }
+    setAsked(q);
+    setVisible(true);
+  }, []);
+  // The rows stay in place while the sheet slides away, so it doesn't empty as it goes.
+  const close = useCallback(() => setVisible(false), []);
+  const element = (
+    <Sheet visible={visible} onClose={close} title={asked?.title}>
+      {asked?.message ? <Text style={{ color: C.fg2, fontSize: 15, textAlign: 'center', paddingHorizontal: 24, marginTop: -10, paddingBottom: 14 }}>{asked.message}</Text> : null}
+      {asked?.choices.map((c, i) => (
+        <SheetRow
+          key={`${i}:${c.label}`}
+          first={i === 0}
+          icon={asked.icon}
+          label={c.label}
+          onPress={() => {
+            close();
+            c.onPress();
+          }}
+        />
+      ))}
+      <SheetRow icon="close" label={t('common.cancel')} onPress={close} />
+    </Sheet>
+  );
+  return { ask, element };
 }
 
 /* ---------- toast ---------- */
@@ -310,8 +382,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {msg ? (
         <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 24, right: 24, bottom: keyboard ? keyboard + 16 : insets.bottom + 96, alignItems: 'center', opacity: fade }}>
-          <View style={{ backgroundColor: '#f3f5f7', paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 }}>
-            <Text style={{ color: '#0b1014', fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
+          {/* The opposite of the page: light on dark themes, dark on White. */}
+          <View style={{ backgroundColor: C.fg, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 }}>
+            <Text style={{ color: C.bg, fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
           </View>
         </Animated.View>
       ) : null}

@@ -77,7 +77,39 @@ export type Post = {
   audio_title: string | null;
   audio_artist: string | null;
   audio_url: string | null;
+  /** Marked sensitive by its author or an admin: never shown to members under 14. */
+  sensitive: boolean;
+  /** 'subscribers' posts are only for the author's subscribers. */
+  audience: 'everyone' | 'subscribers';
+  /** Clips: timed caption lines made from the audio, in captions_lang. */
+  captions: CaptionLine[] | null;
+  captions_lang: string;
+  captions_status: '' | 'pending' | 'ready' | 'none' | 'failed';
+  /* Version 20. Optional: posts kept from before it arrived have none of them. */
+  /** People tagged in it. */
+  tagged_ids?: string[];
+  /** Made or changed with AI: shows "AI info". */
+  ai_label?: boolean;
+  /** Plus: kept off feeds and Explore, only on the author's profile. */
+  profile_only?: boolean;
+  /** The like count shows to the author only. */
+  hide_likes?: boolean;
+  /** Only the author can comment. */
+  comments_off?: boolean;
+  /** A question others answer in the comments; '' for none. */
+  prompt?: string;
+  poll?: PostPoll | null;
+  /** Votes per option, in the order of poll.options. */
+  poll_counts?: number[] | null;
+  /** The option I voted for, or null. */
+  my_vote?: number | null;
 };
+
+/** A poll on a post: 2 to 4 options and an optional question. */
+export type PostPoll = { question?: string; options: string[] };
+
+/** One caption line: start and end in seconds, and the words. */
+export type CaptionLine = { s: number; e: number; t: string };
 
 export type StoryReplies = 'everyone' | 'following' | 'off';
 
@@ -130,6 +162,45 @@ export type Profile = {
   is_live: boolean;
   /** How many people looked at this profile in the last 7 days (the list itself is a Plus perk). */
   views_week: number;
+  /** Chat streaks are shown (both people must have them on). */
+  streaks_enabled: boolean;
+  /** Plus: the colour of the ring round this account's highlights and stories. '' is the app's green. See src/lib/styling.ts. */
+  ring_color: string;
+  /** Plus: the look of this profile page. '' is the plain one. See src/lib/styling.ts. */
+  profile_theme: string;
+  /** Your own profile only (null on anyone else's): the under-14 rules apply to you. */
+  restricted: boolean | null;
+  /** Your own profile only (null on anyone else's): the app still needs your birth date. */
+  needs_birth_date: boolean | null;
+  /** The account's running fundraiser, if it has one. */
+  fundraiser_id: string | null;
+  /** They let others see when they're online (Settings → Activity status). */
+  show_activity: boolean;
+  /** When they were last in the app, or null when either of you hides activity status. Online = within 3 minutes. */
+  active_at: string | null;
+  /** Your own profile only: you're verified but have hidden the tick (Plus). */
+  tick_hidden: boolean | null;
+  /** How the tick was earned: 'notable' (applied), 'plus' (verified with Plus), 'admin', or ''. */
+  verified_via: '' | 'notable' | 'plus' | 'admin';
+  /** An admin who hides their follower and following lists: the counts don't open. */
+  hide_connections: boolean;
+  /** Where the account is based (a country name), for About this account. '' until known. */
+  country: string;
+  /** A creator's monthly subscription price in pence, or null when they don't offer one. */
+  sub_price_pence: number | null;
+  /** I subscribe to this creator (active). */
+  subscribed: boolean;
+  /** Your own profile only: how many people subscribe to you. */
+  subscriber_count: number | null;
+  /** How many of their posts are for subscribers only. */
+  subscriber_posts: number;
+  /** Your own profile only: topics you want more or less of in For you and Clips. */
+  interests_more: string[] | null;
+  interests_less: string[] | null;
+  /** 'less' hides posts marked sensitive from For you, Explore and Clips. */
+  sensitive_filter: 'less' | 'standard';
+  /** I get notifications when they post, share a story, a clip or go live. */
+  alerts_on: boolean;
 };
 
 export type Church = {
@@ -144,6 +215,10 @@ export type Church = {
   service_times: string;
   created_by: string | null;
   created_at: string;
+  /** New churches wait for an admin. Members see their own while pending; everyone sees approved ones. */
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 };
 
 export type Hymn = { number: number; title: string; section: string; lyrics: string; author: string };
@@ -157,11 +232,25 @@ export type PlusRequest = {
   decided_by: string | null;
   decided_at: string | null;
   created_at: string;
+  /** Identity check for the tick: files in the private community-verification bucket. */
+  selfie_path: string;
+  document_path: string;
+  document_type: '' | DocumentType;
+  legal_name: string;
+  /** Verification form: 'notable' (free application) or 'plus' (verified with Plus). */
+  path: '' | 'notable' | 'plus';
+  category: string;
+  country: string;
+  audience: string;
+  known_as: string;
+  links: string[];
   /** Only on the admin's list. */
   username?: string;
   full_name?: string;
   avatar_url?: string;
 };
+
+export type DocumentType = 'passport' | 'driving_licence' | 'national_id' | 'other';
 
 export type ReportCard = {
   id: string;
@@ -205,6 +294,8 @@ export type AdminStats = {
   groups: number;
   income_pence: number;
   income_month_pence: number;
+  /** Gifts to members' fundraisers (their money, not the app's). */
+  donations_pence?: number;
   deactivated: number;
   members: number;
   members_week: number;
@@ -255,7 +346,13 @@ export type Story = {
   story_replies: StoryReplies;
   /** The story's owner follows you. */
   follows_viewer: boolean;
+  /** The owner has Plus: their stories come first in the tray. */
+  author_plus: boolean;
+  verified: boolean;
 };
+
+/** Someone who watched one of your stories. Rewatches and times are shown to Plus members. */
+export type StoryViewer = { viewer_id: string; viewed_at: string; last_viewed_at: string; view_count: number; profile: Profile | null };
 
 export type StoryGroup = { user_id: string; username: string; avatar_url: string; seen: boolean; close: boolean; stories: Story[] };
 
@@ -280,6 +377,37 @@ export type Thread = {
   /** Messages up to this moment are hidden for you (you deleted the chat). */
   hidden_before: string | null;
   verified: boolean;
+  /** Days in a row you have both written. 0 when either of you has streaks off. Shown from 3. */
+  streak: number;
+  /** When they were last in the app, or null when either of you hides activity status. */
+  active_at: string | null;
+  /** They have Plus: screenshots of the chat are announced to them. */
+  other_plus: boolean;
+};
+
+/** A short line above the inbox for 24 hours, seen by mutual followers or close friends. */
+export type Note = {
+  user_id: string;
+  /** '' when the note is a song alone. */
+  text: string;
+  audience: 'mutuals' | 'close_friends';
+  created_at: string;
+  expires_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  mine: boolean;
+  /** A song from Pod with the note (null when none, or when the song has since been taken off Pod). */
+  song_id: string | null;
+  song_title: string | null;
+  song_artist: string | null;
+  song_url: string | null;
+  song_cover: string | null;
+  /** A place, up to 80 characters; '' for none. */
+  place: string;
+  /** The bubble's colour (a hex colour); '' is the theme's own. */
+  color: string;
 };
 
 export type Message = {
@@ -295,13 +423,18 @@ export type Message = {
   call_url: string;
   call_kind: '' | 'voice' | 'video';
   created_at: string;
+  /** A photo that can be opened once; after that its file is gone and media_url is ''. */
+  view_once: boolean;
+  opened_at: string | null;
+  /** 'screenshot': a notice that the sender took a screenshot of the chat. */
+  system: '' | 'screenshot';
 };
 
 export type Notice = {
   id: string;
   user_id: string;
   actor_id: string;
-  kind: 'like' | 'comment' | 'follow' | 'repost' | 'request' | 'accept';
+  kind: 'like' | 'comment' | 'follow' | 'repost' | 'request' | 'accept' | 'new_post' | 'new_clip' | 'new_story' | 'live' | 'story_watch' | 'subscriber' | 'tag' | 'live_soon';
   post_id: string | null;
   body: string;
   created_at: string;
@@ -403,6 +536,25 @@ export type LiveCard = {
   avatar_url: string;
   verified: boolean;
   following: boolean;
+  /** Who may watch: followers, close friends, or 'practice' (only the broadcaster). */
+  audience?: LiveAudience;
+  /** A fundraiser of the broadcaster's that viewers can give to. */
+  fundraiser_id?: string | null;
+};
+
+export type LiveAudience = 'followers' | 'close_friends' | 'practice';
+
+/** A live planned ahead, shown on the broadcaster's profile. Starts within 90 days. */
+export type LiveSchedule = { id: string; user_id: string; title: string; starts_at: string; created_at: string };
+
+/** A comment on a live. The row carries who wrote it; their name is looked up from their profile. */
+export type LiveComment = {
+  id: string;
+  live_id: string;
+  user_id: string;
+  text: string;
+  /** Set by the server, so the order can't be faked. */
+  created_at: string;
 };
 
 /** A voice or video call between two people. Signalling goes over Realtime; this row says who is calling whom. */
@@ -421,7 +573,7 @@ export type Call = {
 export type Transaction = {
   id: string;
   user_id: string | null;
-  kind: 'plus' | 'donation' | 'refund' | 'other';
+  kind: 'plus' | 'donation' | 'refund' | 'other' | 'ad' | 'subscription';
   amount_pence: number;
   currency: string;
   note: string;
@@ -449,6 +601,12 @@ export type BillingStatus = {
   current_period_end: string | null;
   cancel_at_period_end: boolean;
   has_customer: boolean;
+  /** 'monthly' or 'yearly' once subscribed. */
+  plan: 'monthly' | 'yearly' | null;
+  /** A new member's first week is free. */
+  trial_available: boolean;
+  /** In the free week with no card saved for after it: offer to add one, or Plus ends with the week. */
+  needs_card?: boolean;
 };
 
 export type PaymentsConfig = BillingStatus & {
@@ -461,7 +619,81 @@ export type PaymentsConfig = BillingStatus & {
   currency: string;
   /** Test keys: no real money moves; Stripe's test cards work. */
   test_mode: boolean;
+  /** What a day of promoting a post costs, in pence. */
+  ad_day_pence: number;
+  /** The yearly plan, in pence. */
+  yearly_pence: number;
+  /** Length of the free first week, in days. */
+  trial_days: number;
+  /** The app's share of a creator subscription, in per cent. */
+  creator_fee_percent: number;
 };
+
+/** A one-off payment started by the payments function, to confirm with a card or Apple Pay. */
+export type OneOffPayment = { payment_intent_id: string; client_secret: string; amount: number; currency: string };
+
+/** Someone you might want to follow. */
+export type SuggestedPerson = {
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  /** People you follow who follow them. */
+  mutual_count: number;
+  /** Up to two of those people, newest first. */
+  mutual_avatars: string[];
+  mutual_names: string[];
+  /** They already follow you ("Follow back"). */
+  follows_me: boolean;
+};
+
+/** A paid promotion (an ad) of one of your posts. */
+export type Promotion = {
+  id: string;
+  post_id: string | null;
+  user_id: string;
+  days: number;
+  amount_pence: number;
+  currency: string;
+  status: 'pending' | 'active' | 'ended' | 'failed' | 'refunded';
+  payment_intent_id: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  /** Joined in the app: the post, when it still exists. */
+  post?: Post | null;
+};
+
+export type Fundraiser = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  goal_pence: number;
+  currency: string;
+  cover_url: string;
+  ends_at: string | null;
+  status: 'active' | 'closed';
+  created_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  raised_pence: number;
+  donor_count: number;
+  /** The owner's payout account is ready, so donations can be taken. */
+  accepting: boolean;
+};
+
+/** A recent gift to a fundraiser. Anonymous gifts have no username and say "Anonymous". */
+export type Supporter = { id: string; amount_pence: number; currency: string; message: string; created_at: string; username: string | null; full_name: string; avatar_url: string | null };
+
+/** The member's own Stripe account for receiving donations. */
+export type PayoutStatus = { has_account: boolean; charges_enabled: boolean; payouts_enabled: boolean; details_submitted: boolean };
+
+/** What is waiting for the admins. */
+export type AdminQueue = { churches_pending: number; verifications_pending: number; ads_active: number; fundraisers_active: number };
 
 export type SupportTicket = {
   id: string;
@@ -479,3 +711,17 @@ export type SupportTicket = {
 
 /** One line of the admin console's activity feed. */
 export type ActivityRow = { at: string; kind: 'joined' | 'post' | 'reel' | 'live' | 'report' | 'transaction' | 'support' | 'plus_request' | 'group'; user_id: string | null; username: string | null; detail: string | null };
+
+/** What notifications you get from someone you follow. */
+export type FollowAlerts = { posts: boolean; stories: boolean; clips: boolean; live: boolean };
+
+export type SupportChat = { id: string; user_id: string; status: 'open' | 'closed'; agent_id: string | null; agent_name: string; ai_paused_until: string | null; created_at: string; updated_at: string; profile?: Profile | null };
+export type SupportMessage = { id: string; chat_id: string; sender_id: string | null; role: 'member' | 'ai' | 'agent'; agent_name: string; text: string; created_at: string };
+
+export type Feedback = { id: string; user_id: string | null; kind: 'review' | 'idea' | 'problem'; rating: number | null; text: string; app_version: string; platform: string; created_at: string; username?: string | null; full_name?: string | null; avatar_url?: string | null };
+
+/** A friend sharing where they are (or you, with mine). */
+export type FriendLocation = { user_id: string; lat: number; lng: number; accuracy: number | null; audience: 'mutuals' | 'close_friends'; updated_at: string; username: string; full_name: string; avatar_url: string; verified: boolean; mine: boolean };
+
+/** A subscription between a member and a creator. */
+export type CreatorSub = { id: string; creator_id: string; subscriber_id: string; status: string; current_period_end: string | null; cancel_at_period_end: boolean; amount_pence: number; created_at: string; profile?: Profile | null };

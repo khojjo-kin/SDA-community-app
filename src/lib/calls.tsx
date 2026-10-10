@@ -212,8 +212,15 @@ class CallSession {
   /* ----- signalling ----- */
 
   private async openChannel() {
+    // Both phones must meet on this exact name, so unlike the ring channel it can't be made unique to
+    // this phone. If an earlier channel of the same name is still leaving (a screen torn down and put
+    // back), realtime-js would hand that one back and joining it would silently do nothing: let it go first.
+    const name = `call:${this.call.id}`;
+    const stale = supabase.getChannels().find((c) => c.topic === `realtime:${name}`);
+    if (stale) await supabase.removeChannel(stale).catch(() => {});
+    if (this.done) return;
     this.channel = await joinChannel(
-      `call:${this.call.id}`,
+      name,
       {
         ringing: (p) => {
           if (p.from !== this.me && this.role === 'caller' && this.view.phase === 'calling') this.set({ note: 'Ringing…' });
@@ -353,7 +360,10 @@ class CallSession {
   private fail(e: unknown) {
     if (this.done) return;
     const text = errText(e);
-    const denied = /permission|denied|not allowed|NotAllowed|SecurityError/i.test(text);
+    // The camera's refusal is read from the error itself, since errText keeps its technical words off
+    // screen. A database refusal (which has a code) is not the camera's.
+    const raw = `${(e as any)?.name ?? ''} ${(e as any)?.message ?? ''}`;
+    const denied = !(e as any)?.code && /permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw);
     const incoming = this.view.phase === 'incoming';
     this.finish(denied ? 'Camera or microphone not allowed. Turn them on in Settings.' : text, incoming ? 'declined' : 'ended', { linger: 3200, tellPeer: !incoming });
   }
@@ -419,7 +429,10 @@ class CallSession {
 /* ---------- the provider ---------- */
 
 export function CallProvider({ children }: { children: React.ReactNode }) {
-  const { me } = useSession();
+  const { me, profile } = useSession();
+  // Read only when a call is refused, so a profile reload doesn't hand every call button a new startCall.
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
   const toast = useToast();
   const [view, setView] = useState<CallView | null>(null);
   const session = useRef<CallSession | null>(null);
@@ -463,8 +476,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {})
       .then(() => {
         if (!live) return;
+        // A name of its own each time, as the chat's channel has. The provider is put back after a
+        // theme change while the old channel is still leaving; with the same name realtime-js would hand
+        // back that leaving channel, subscribe() would do nothing, and calls would stop ringing.
         channel = supabase
-          .channel(`calls:${me}`)
+          .channel(`calls:${me}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`)
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_calls', filter: `callee_id=eq.${me}` }, (payload) => {
             if (live) onIncoming(payload.new as Call);
           })
@@ -522,15 +538,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       starting.current = true;
       // The screen comes up at once; the row and the other person's details follow.
       setView({ kind, role: 'caller', phase: 'calling', note: 'Calling…', other: null, localStream: null, remoteStream: null, muted: false, cameraOff: false, speaker: false, front: true, connectedAt: null });
+      // Asked for before the call is placed, so it is there to explain a refusal as well as for the screen.
+      const asking = getProfile(calleeId).catch(() => null);
       try {
-        const [other, call] = await Promise.all([getProfile(calleeId).catch(() => null), placeCall(me, calleeId, kind, threadId)]);
+        const call = await placeCall(me, calleeId, kind, threadId);
+        const other = await asking;
         const s = new CallSession({ me, call, role: 'caller', other, emit });
         session.current = s;
         setView(s.view);
         s.ring();
       } catch (e) {
         setView(null);
-        toast(errText(e));
+        // The database refuses a call (42501) when the callee is under 14 and doesn't follow the caller, or
+        // the caller is under 14 and doesn't follow the callee. It also refuses a suspended caller and calls
+        // across a block, so the under-14 reason is only given when it can be the one: the caller isn't
+        // suspended, and a follow that rule needs is known to be missing. Otherwise the usual text.
+        const other = await asking;
+        const mine = profileRef.current;
+        const refused = (e as any)?.code === '42501' || /row-level security/i.test(String((e as any)?.message ?? ''));
+        // `follows_me`: they follow me (needed if they are under 14). `is_following`: I follow them (needed if I am).
+        const followMissing = !!other && !other.is_blocked && (!other.follows_me || (mine?.restricted === true && !other.is_following));
+        toast(refused && !mine?.suspended && followMissing ? 'Calls with members under 14 are only possible with people they follow.' : errText(e));
       } finally {
         starting.current = false;
       }

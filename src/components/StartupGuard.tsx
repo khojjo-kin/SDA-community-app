@@ -8,7 +8,8 @@ import * as SplashScreen from 'expo-splash-screen';
  * In a release build, Expo Router has no screen for a failure that happens before the first
  * route appears: the launch image simply stays up, and the person can't tell whether the app is
  * slow, broken, or offline. This component makes every such failure visible. It catches anything
- * thrown while the app starts and prints it; it shows a waiting screen if the first screen
+ * thrown while the app starts and says so (printing the error itself on screen only in development
+ * builds); it shows a waiting screen if the first screen
  * suspends; and if nothing has taken the launch image down after a few seconds, it takes it down
  * itself so that whatever is on screen can be seen.
  *
@@ -59,6 +60,18 @@ function Waiting() {
 }
 
 function Failed({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  // The error and its stack are for developers: shown in development builds only. A release build
+  // says what to do instead (the console still gets the error, from componentDidCatch).
+  if (!__DEV__) {
+    return (
+      <Frame>
+        <Text style={{ color: FG, fontSize: 20, fontWeight: '800' }}>Community couldn't start</Text>
+        <Text style={{ color: FG2, marginTop: 10, lineHeight: 21 }}>Something went wrong before the first screen could appear. Try again, and if it keeps happening, close Community and open it again.</Text>
+        <View style={{ flex: 1 }} />
+        <Retry onPress={onRetry} />
+      </Frame>
+    );
+  }
   const { title, detail } = describe(error);
   return (
     <Frame>
@@ -68,14 +81,20 @@ function Failed({ error, onRetry }: { error: unknown; onRetry: () => void }) {
         <Text selectable style={{ color: FG, fontWeight: '700', lineHeight: 20 }}>{title}</Text>
         {detail ? <Text selectable style={{ color: FG3, fontFamily: 'Menlo', fontSize: 11, lineHeight: 16, marginTop: 10 }}>{detail}</Text> : null}
       </ScrollView>
-      <Pressable
-        onPress={onRetry}
-        accessibilityRole="button"
-        style={({ pressed }) => ({ marginTop: 16, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? '#2a3440' : '#1a222c' })}
-      >
-        <Text style={{ color: FG, fontWeight: '700', fontSize: 16 }}>Try again</Text>
-      </Pressable>
+      <Retry onPress={onRetry} />
     </Frame>
+  );
+}
+
+function Retry({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => ({ marginTop: 16, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? '#2a3440' : '#1a222c' })}
+    >
+      <Text style={{ color: FG, fontWeight: '700', fontSize: 16 }}>Try again</Text>
+    </Pressable>
   );
 }
 

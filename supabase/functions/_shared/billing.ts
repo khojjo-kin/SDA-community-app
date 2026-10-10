@@ -1,18 +1,27 @@
 // Shared by the payments and stripe-webhook functions: Stripe over plain HTTPS, and bringing the
-// app in line with a subscription (Plus, the tick, the billing row and the books).
+// app in line with a subscription (Plus, the billing row and the books), ads and donations.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /** Pinned so the shapes below (latest_invoice.payment_intent, current_period_end) stay put. */
 export const STRIPE_VERSION = '2024-06-20';
 export const PRICE_LOOKUP = 'community_plus_monthly';
-export const PRICE_PENCE = Number(Deno.env.get('PLUS_PRICE_PENCE') ?? '499');
+export const PRICE_PENCE = Number(Deno.env.get('PLUS_PRICE_PENCE') ?? '299');
+/** The yearly plan: twelve months for the price of about nine and a half. */
+export const YEARLY_LOOKUP = 'community_plus_yearly';
+export const YEARLY_PENCE = Number(Deno.env.get('PLUS_YEARLY_PENCE') ?? '2849');
+/** New members' first week of Plus is free. */
+export const TRIAL_DAYS = Number(Deno.env.get('PLUS_TRIAL_DAYS') ?? '7');
+/** The app's share of a creator subscription, in per cent (the rest goes to the creator). */
+export const CREATOR_FEE_PERCENT = Number(Deno.env.get('CREATOR_FEE_PERCENT') ?? '10');
 export const CURRENCY = (Deno.env.get('PLUS_CURRENCY') ?? 'gbp').toLowerCase();
 /** A day of grace after the paid month, so a renewal that lands a little late never drops Plus. */
 const GRACE_MS = 86400e3;
-export const WEBHOOK_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'charge.refunded'];
+export const WEBHOOK_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'charge.refunded', 'payment_intent.succeeded', 'payment_intent.payment_failed'];
+/** What a day of promotion costs, in pence. */
+export const AD_DAY_PENCE = Number(Deno.env.get('AD_DAY_PENCE') ?? '200');
 
 export function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', Connection: 'keep-alive' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', Connection: 'keep-alive' } });
 }
 
 /** The person's id from the session token Supabase already verified (verify_jwt). */
@@ -81,12 +90,28 @@ function methodLabel(pm: any): string {
   return `${wallet}${brand} •••• ${card.last4}`.slice(0, 60);
 }
 
+/** Statuses in which a subscription is still running (paid up, in its free week, or retrying a payment). */
+const LIVE = ['active', 'trialing', 'past_due'];
+
+/** A creator subscription carries kind 'creator' in its metadata; anything else is Community Plus. */
+export function isCreatorSub(sub: any): boolean {
+  return sub?.metadata?.kind === 'creator';
+}
+
+/** 'yearly' or 'monthly', from the subscription's price. */
+function planOf(sub: any): 'monthly' | 'yearly' {
+  return sub?.items?.data?.[0]?.price?.recurring?.interval === 'year' ? 'yearly' : 'monthly';
+}
+
 /**
- * Brings the app in line with a Stripe subscription: Plus and the tick until the paid month ends,
+ * Brings the app in line with a Stripe subscription: Plus until the paid month ends,
  * the billing row, and one line on the books for its latest paid invoice. Safe to run any number
  * of times (the app runs it after paying, the webhook on every renewal).
  */
 export async function applySubscription(db: SupabaseClient, userId: string, sub: any) {
+  // News about an old subscription (an abandoned checkout expiring, say) must not replace a live one.
+  const { data: row } = await db.from('community_billing').select('stripe_subscription_id, status').eq('user_id', userId).maybeSingle();
+  if (row?.stripe_subscription_id && row.stripe_subscription_id !== sub?.id && LIVE.includes(row.status) && !LIVE.includes(sub?.status)) return;
   const end = sub?.current_period_end ? new Date(sub.current_period_end * 1000) : null;
   // past_due means the renewal failed: its new period is not paid for, so it does not extend Plus.
   const paidUp = ['active', 'trialing'].includes(sub?.status);
@@ -98,16 +123,17 @@ export async function applySubscription(db: SupabaseClient, userId: string, sub:
       status: sub.status,
       current_period_end: end?.toISOString() ?? null,
       cancel_at_period_end: !!sub.cancel_at_period_end,
+      plan: planOf(sub),
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
   );
+  // Plus only: the tick is never bought. It comes from an identity check an admin approves.
   if (paidUp && end) {
     const until = new Date(end.getTime() + GRACE_MS).toISOString();
     const { data: p } = await db.from('community_profiles').select('plus_until').eq('id', userId).maybeSingle();
     // Never shorten Plus an admin granted for longer.
-    if (!p?.plus_until || new Date(p.plus_until) < new Date(until)) await db.from('community_profiles').update({ plus_until: until, verified: true }).eq('id', userId);
-    else await db.from('community_profiles').update({ verified: true }).eq('id', userId);
+    if (!p?.plus_until || new Date(p.plus_until) < new Date(until)) await db.from('community_profiles').update({ plus_until: until }).eq('id', userId);
   }
   const invoice = typeof sub.latest_invoice === 'object' ? sub.latest_invoice : null;
   if (invoice) await recordInvoice(db, userId, invoice);
@@ -128,7 +154,7 @@ export async function recordInvoice(db: SupabaseClient, userId: string, invoice:
       kind: 'plus',
       amount_pence: invoice.amount_paid,
       currency: String(invoice.currency ?? CURRENCY).toUpperCase(),
-      note: invoice.billing_reason === 'subscription_create' ? 'Community Plus · first month' : 'Community Plus · monthly renewal',
+      note: invoice.billing_reason === 'subscription_create' ? 'Community Plus · first payment' : 'Community Plus · renewal',
       provider: 'stripe',
       status: 'succeeded',
       method: methodLabel(pm),
@@ -140,3 +166,116 @@ export async function recordInvoice(db: SupabaseClient, userId: string, invoice:
   );
 }
 
+
+/* ---------- one-off payments: ads and donations ---------- */
+
+/**
+ * Settles a one-off payment once Stripe says it went through: an ad starts running, a donation is
+ * counted. Safe to run more than once (the app runs it after paying, the webhook when Stripe says so).
+ */
+export async function settlePaymentIntent(db: SupabaseClient, pi: any) {
+  const kind = pi?.metadata?.kind;
+  if (!pi?.id || (kind !== 'ad' && kind !== 'donation')) return { settled: false };
+  if (pi.status !== 'succeeded') {
+    if (pi.status === 'canceled' || pi.last_payment_error) {
+      if (kind === 'ad') await db.from('community_promotions').update({ status: 'failed' }).eq('payment_intent_id', pi.id).eq('status', 'pending');
+      else await db.from('community_donations').update({ status: 'failed' }).eq('payment_intent_id', pi.id).eq('status', 'pending');
+    }
+    return { settled: false };
+  }
+  let pm = pi.payment_method;
+  if (typeof pm === 'string') pm = await stripe('GET', `payment_methods/${pm}`).catch(() => null);
+  const method = methodLabel(pm);
+  const userId = pi.metadata.user_id as string;
+
+  if (kind === 'ad') {
+    const { data: promo } = await db.from('community_promotions').select('*').eq('payment_intent_id', pi.id).maybeSingle();
+    // 'failed' too: a card declined first and then accepted on the same payment (Apple Pay retries) still runs the ad.
+    if (promo && (promo.status === 'pending' || promo.status === 'failed')) {
+      // The app and the webhook settle the same payment at nearly the same moment: only the one that
+      // moves the ad out of pending/failed goes on to add its days, so they are never added twice.
+      const { data: claimed } = await db.from('community_promotions').update({ status: 'active', starts_at: new Date().toISOString() }).eq('id', promo.id).in('status', ['pending', 'failed']).select('id');
+      if (claimed?.length) {
+        const { data: post } = await db.from('community_posts').select('boosted_until').eq('id', promo.post_id).maybeSingle();
+        const from = post?.boosted_until && new Date(post.boosted_until) > new Date() ? new Date(post.boosted_until) : new Date();
+        const ends = new Date(from.getTime() + promo.days * 86400e3);
+        await db.from('community_promotions').update({ ends_at: ends.toISOString() }).eq('id', promo.id);
+        if (promo.post_id) await db.from('community_posts').update({ boosted_until: ends.toISOString() }).eq('id', promo.post_id);
+      }
+    }
+  } else {
+    await db.from('community_donations').update({ status: 'succeeded' }).eq('payment_intent_id', pi.id).neq('status', 'refunded');
+  }
+
+  await db.from('community_transactions').upsert(
+    {
+      user_id: userId ?? null,
+      kind,
+      amount_pence: pi.amount_received || pi.amount,
+      currency: String(pi.currency ?? CURRENCY).toUpperCase(),
+      note: kind === 'ad' ? `Ad · ${pi.metadata.days ?? '?'} day${pi.metadata.days === '1' ? '' : 's'}` : `Donation · ${String(pi.metadata.title ?? 'fundraiser').slice(0, 80)}`,
+      provider: 'stripe',
+      status: 'succeeded',
+      method,
+      stripe_invoice_id: `pi:${pi.id}`,
+      stripe_payment_intent_id: pi.id,
+    },
+    { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },
+  );
+  return { settled: true };
+}
+
+
+/* ---------- creator subscriptions ---------- */
+
+/**
+ * Brings the app in line with a member's subscription to a creator: the subscription row (which
+ * unlocks the creator's subscriber-only posts), a note to the creator when it starts, and one line
+ * on the books per paid invoice. Safe to run any number of times.
+ */
+export async function applyCreatorSub(db: SupabaseClient, sub: any) {
+  const creator = sub?.metadata?.creator_id;
+  const subscriber = sub?.metadata?.user_id;
+  if (!creator || !subscriber) return;
+  const { data: before } = await db.from('community_creator_subs').select('status, stripe_subscription_id').eq('creator_id', creator).eq('subscriber_id', subscriber).maybeSingle();
+  // An older subscription to the same creator ending must not undo the one now running.
+  if (before?.stripe_subscription_id && before.stripe_subscription_id !== sub.id && LIVE.includes(before.status) && !LIVE.includes(sub.status)) return;
+  const live = ['active', 'trialing'].includes(sub.status);
+  await db.from('community_creator_subs').upsert(
+    {
+      creator_id: creator,
+      subscriber_id: subscriber,
+      stripe_subscription_id: sub.id,
+      status: sub.status,
+      current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+      cancel_at_period_end: !!sub.cancel_at_period_end,
+      amount_pence: sub.items?.data?.[0]?.price?.unit_amount ?? 0,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'creator_id,subscriber_id' },
+  );
+  if (live && !['active', 'trialing'].includes(before?.status ?? '')) {
+    await db.from('community_notifications').insert({ user_id: creator, actor_id: subscriber, kind: 'subscriber' });
+  }
+  const invoice = typeof sub.latest_invoice === 'object' ? sub.latest_invoice : null;
+  if (invoice?.id && invoice.status === 'paid' && invoice.amount_paid > 0) {
+    let pm = invoice.payment_intent?.payment_method;
+    if (typeof pm === 'string') pm = await stripe('GET', `payment_methods/${pm}`).catch(() => null);
+    const { data: c } = await db.from('community_profiles').select('username').eq('id', creator).maybeSingle();
+    await db.from('community_transactions').upsert(
+      {
+        user_id: subscriber,
+        kind: 'subscription',
+        amount_pence: invoice.amount_paid,
+        currency: String(invoice.currency ?? CURRENCY).toUpperCase(),
+        note: `Subscription to @${c?.username ?? 'creator'}`,
+        provider: 'stripe',
+        status: 'succeeded',
+        method: methodLabel(pm),
+        stripe_invoice_id: invoice.id,
+        stripe_payment_intent_id: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id ?? null,
+      },
+      { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },
+    );
+  }
+}

@@ -89,7 +89,7 @@ export default function BibleChapter() {
         <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 40 }}>
           <Text style={{ color: C.fg3, fontSize: 12.5, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 14 }}>{TRANSLATIONS.find((t) => t.id === text.translation)?.name}</Text>
           {text.verses.map((v) => (
-            <Pressable key={v.verse} onPress={() => setPicked(picked === v.verse ? null : v.verse)} accessibilityRole="button" accessibilityLabel={`Verse ${v.verse}`} style={{ marginBottom: 6, borderRadius: 10, backgroundColor: picked === v.verse ? 'rgba(31,191,90,0.12)' : 'transparent', paddingHorizontal: 6, marginHorizontal: -6, paddingVertical: 2 }}>
+            <Pressable key={v.verse} onPress={() => setPicked(picked === v.verse ? null : v.verse)} accessibilityRole="button" accessibilityLabel={`Verse ${v.verse}`} style={{ marginBottom: 6, borderRadius: 10, backgroundColor: picked === v.verse ? C.accentSoft : 'transparent', paddingHorizontal: 6, marginHorizontal: -6, paddingVertical: 2 }}>
               <Text selectable style={{ color: C.fg, fontSize: size, lineHeight: size * 1.55 }}>
                 <Text style={{ color: C.accent2, fontSize: size * 0.72, fontWeight: '700' }}>{v.verse} </Text>
                 {v.text}
@@ -125,7 +125,7 @@ export default function BibleChapter() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 20 }}>
           {Array.from({ length: book.chapters }, (_, i) => i + 1).map((n) => (
             <Pressable key={n} onPress={() => { setSheet(null); setChapter(n); }} accessibilityRole="button" accessibilityLabel={`Chapter ${n}`} style={{ width: 52, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: n === chapter ? C.accent : C.surface }}>
-              <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>{n}</Text>
+              <Text style={{ color: n === chapter ? C.onAccent : C.fg, fontWeight: '600', fontSize: 16 }}>{n}</Text>
             </Pressable>
           ))}
         </ScrollView>

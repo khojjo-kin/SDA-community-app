@@ -10,7 +10,6 @@ export default function Activity() {
     <Screen>
       <ScreenHeader title="Your activity" />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-        <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 4, lineHeight: 20 }}>Look back at what you have done on Community.</Text>
         <SectionLabel>Interactions</SectionLabel>
         <Row icon="heart" title="Likes" onPress={() => router.push('/saved?which=liked')} />
         <Row icon="comment" title="Comments" onPress={() => router.push('/my-comments')} />

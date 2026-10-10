@@ -68,9 +68,9 @@ export default function SavedReplies() {
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 12, lineHeight: 20 }}>Save answers you send often. In any chat, tap + to pick one and it is placed in the message box, ready to send or change.</Text>}
-          ListEmptyComponent={<Empty icon="reply" title="No saved replies yet" body="For example: your opening hours, a thank-you, or where to find your work." action={<Button small label="Add a saved reply" onPress={add} style={{ marginTop: 8 }} />} />}
+          ListEmptyComponent={<Empty icon="reply" title="No saved replies yet" action={<Button small label="Add a saved reply" onPress={add} style={{ marginTop: 8 }} />} />}
           renderItem={({ item: r }) => (
-            <Pressable onPress={() => setEditing({ id: r.id, shortcut: r.shortcut, body: r.body })} accessibilityRole="button" accessibilityLabel={`Edit saved reply: ${r.body}`} style={({ pressed }) => ({ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+            <Pressable onPress={() => setEditing({ id: r.id, shortcut: r.shortcut, body: r.body })} accessibilityRole="button" accessibilityLabel={`Edit saved reply: ${r.body}`} style={({ pressed }) => ({ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent' })}>
               {r.shortcut ? <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 14 }}>{r.shortcut}</Text> : null}
               <Text numberOfLines={3} style={{ color: C.fg, fontSize: 16.5, lineHeight: 22 }}>{r.body}</Text>
             </Pressable>

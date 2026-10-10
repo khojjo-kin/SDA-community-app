@@ -13,11 +13,8 @@ export default function ViewCounts() {
     <Screen>
       <ScreenHeader title="View counts on profile" />
       <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 60 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, gap: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg, fontSize: 17.5 }}>Show view counts</Text>
-            <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 4 }}>When this is on, everyone can see how many people have watched each of your reels. When it is off, only you can see the numbers, here and in your dashboard.</Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, gap: 16 }}>
+          <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>Show view counts</Text>
           <Toggle value={on} onChange={(v) => updateProfile(me, { show_view_counts: v }).catch((e) => toast(errText(e)))} label="Show view counts on your profile" />
         </View>
       </ScrollView>

@@ -74,8 +74,8 @@ export default function FollowRequests() {
               <Button small kind="ghost" label="Delete" onPress={() => answer(p, false)} />
             </View>
           )}
-          ListHeaderComponent={list.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 10, lineHeight: 20 }}>People you confirm can see your posts and stories. They are not told when you delete a request.</Text> : null}
-          ListEmptyComponent={<Empty icon="request" title="No requests" body="When someone asks to follow your private account, they will appear here." />}
+          ListHeaderComponent={null}
+          ListEmptyComponent={<Empty icon="request" title="No requests" />}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}
         />

@@ -62,7 +62,7 @@ export default function ProfileViewers() {
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : gated ? (
-        <Empty icon="eye" title="See who viewed your profile" body="Seeing who has looked at your profile is part of Community Plus." action={<Button label="Get Community Plus" small style={{ marginTop: 8 }} onPress={() => router.push('/plus')} />} />
+        <Empty icon="eye" title="See who viewed your profile" action={<Button label="Get Community Plus" small style={{ marginTop: 8 }} onPress={() => router.push('/plus')} />} />
       ) : (
         <SectionList
           sections={sections}
@@ -74,7 +74,7 @@ export default function ProfileViewers() {
               onPress={() => router.push(`/user/${v.viewer_id}`)}
               accessibilityRole="button"
               accessibilityLabel={`${v.full_name}, ${v.username}, viewed ${ago(v.viewed_at)} ago`}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Avatar uri={v.avatar_url} name={v.full_name} size={50} />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -86,7 +86,7 @@ export default function ProfileViewers() {
               <Text style={{ color: C.fg2, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{ago(v.viewed_at)}</Text>
             </Pressable>
           )}
-          ListEmptyComponent={<Empty icon="eye" title="Nobody yet" body="People who look at your profile will appear here." />}
+          ListEmptyComponent={<Empty icon="eye" title="Nobody yet" />}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}
         />

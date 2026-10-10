@@ -32,13 +32,13 @@ export function FeedVideo({ post, media, width, height, active, onTap }: Props) 
   return (
     <View style={{ width, height, overflow: 'hidden' }}>
       {/* The poster stays underneath while the video loads, so starting never flashes black. */}
-      {media.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" transition={150} /> : null}
+      {media.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" transition={150} cachePolicy="memory-disk" /> : null}
       {active && media.url ? (
         <ActiveVideo media={media} width={width} height={height} onTap={onTap} onOpen={open} />
       ) : (
         <Pressable onPress={open} style={{ position: 'absolute', width, height, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="Play video">
           <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="play" size={34} />
+            <Icon name="play" size={34} color="#fff" />
           </View>
         </Pressable>
       )}

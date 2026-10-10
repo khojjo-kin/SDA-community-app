@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
+import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon, IconName } from '../../../src/components/Icon';
+import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
-import { Empty, IconButton, Loading, useToast } from '../../../src/components/ui';
+import { IconButton, useToast } from '../../../src/components/ui';
 import { addStory, addToHighlight, createHighlight, deleteStory, fetchArchive } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { C, dayLabel, errText } from '../../../src/lib/theme';
+import { DARK, dayLabel, errText } from '../../../src/lib/theme';
 import type { ArchivedStory } from '../../../src/lib/types';
 
 function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
@@ -58,7 +60,7 @@ export default function ArchivedStories() {
 
   function remove(ctx: PlayerCtx<ArchivedStory>) {
     ctx.pause();
-    Alert.alert('Delete this story?', 'It is removed from your archive, and from your story if it is still showing. Highlights keep their copy.', [
+    Alert.alert('Delete this story?', 'It is removed from your archive, and from your story if it is still showing. Memories keep their copy.', [
       { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
       {
         text: 'Delete',
@@ -92,7 +94,7 @@ export default function ArchivedStories() {
 
   function chooseHighlight(ctx: PlayerCtx<ArchivedStory>) {
     if (ctx.entry.audience === 'close_friends') {
-      toast('Close friends stories stay out of highlights, because highlights are for everyone.');
+      toast('Close friends stories stay out of memories, because memories are for everyone.');
       return;
     }
     ctx.pause();
@@ -106,7 +108,11 @@ export default function ArchivedStories() {
     if (!ctx) return;
     try {
       if (choice.id) await addToHighlight(me, choice.id, ctx.entry.item);
-      else await createHighlight(me, choice.title, [ctx.entry.item]);
+      else {
+        const made = await createHighlight(me, choice.title, [ctx.entry.item]);
+        // A new memory: its ring turns once when the profile next shows it, as from New memory.
+        markMemoryJustMade(made);
+      }
       toast(`Added to ${choice.title}`);
     } catch (e) {
       toast(errText(e));
@@ -114,11 +120,12 @@ export default function ArchivedStories() {
     ctx.resume();
   }
 
-  if (entries === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><Loading /></View>;
+  if (entries === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><DarkStatusBar /><DarkLoading /></View>;
   if (!entries.length) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <Empty title="Nothing in your archive" body="Stories you share are kept here." />
+        <DarkStatusBar />
+        <DarkEmpty title="Nothing in your archive" body="Stories you share are kept here." />
         <View style={{ position: 'absolute', top: 60, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
@@ -128,6 +135,7 @@ export default function ArchivedStories() {
 
   return (
     <>
+      <DarkStatusBar />
       <StoryPlayer
         groups={[{ key: 'archive', user_id: me, username: profile?.username ?? '', avatar_url: profile?.avatar_url ?? '', entries }]}
         startEntry={start}
@@ -137,7 +145,7 @@ export default function ArchivedStories() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13.5 }}>{dayLabel(new Date(ctx.entry.created_at))}</Text>
             {ctx.entry.audience === 'close_friends' ? (
-              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
+              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: DARK.close, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="star" size={13} color="#fff" fill />
               </View>
             ) : null}
@@ -145,7 +153,7 @@ export default function ArchivedStories() {
         )}
         footer={(ctx) => (
           <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-            <Action icon="highlight" label="Highlight" onPress={() => chooseHighlight(ctx)} />
+            <Action icon="highlight" label="Memory" onPress={() => chooseHighlight(ctx)} />
             <Action icon="story" label="Share again" onPress={() => again(ctx)} />
             <Action icon="trash" label="Delete" onPress={() => remove(ctx)} />
           </View>

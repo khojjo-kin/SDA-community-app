@@ -10,8 +10,9 @@ const PAD = 3;
 /**
  * A compact segmented pill: a dark track with a light thumb that slides under the chosen label.
  * Every segment is the same width, so the thumb can move with one native-driven transform.
+ * With `plain`, it is just the words side by side: the chosen one bold and full colour, the others dimmer.
  */
-export function FeedSwitch<T extends string>({ value, onChange, options, style }: { value: T; onChange: (next: T) => void; options: readonly FeedOption<T>[]; style?: ViewStyle }) {
+export function FeedSwitch<T extends string>({ value, onChange, options, style, plain }: { value: T; onChange: (next: T) => void; options: readonly FeedOption<T>[]; style?: ViewStyle; plain?: boolean }) {
   const [track, setTrack] = useState(0);
   const index = Math.max(0, options.findIndex((o) => o.key === value));
   const pos = useRef(new Animated.Value(index)).current;
@@ -22,6 +23,21 @@ export function FeedSwitch<T extends string>({ value, onChange, options, style }
   }, [index, pos]);
 
   const onLayout = (e: LayoutChangeEvent) => setTrack(e.nativeEvent.layout.width);
+
+  if (plain) {
+    return (
+      <View accessibilityRole="tablist" style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, height: HEIGHT }, style]}>
+        {options.map((o) => {
+          const on = o.key === value;
+          return (
+            <Pressable key={o.key} onPress={() => { if (!on) onChange(o.key); }} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={o.label} hitSlop={8}>
+              <Text numberOfLines={1} style={{ color: on ? C.fg : C.fg3, fontSize: 16, fontWeight: on ? '800' : '600' }}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
 
   return (
     <View onLayout={onLayout} accessibilityRole="tablist" style={[{ height: HEIGHT, borderRadius: HEIGHT / 2, padding: PAD, backgroundColor: C.surface, flexDirection: 'row' }, style]}>

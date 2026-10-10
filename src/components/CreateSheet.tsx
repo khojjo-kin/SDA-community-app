@@ -1,10 +1,13 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
+import { t } from '../lib/i18n';
+import { useSession } from '../lib/session';
 import { Sheet, SheetRow } from './ui';
 
 /** The "Create" sheet behind every + button. */
 export function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const router = useRouter();
+  const { profile } = useSession();
   const go = (path: string) => () => {
     onClose();
     // Let the sheet finish sliding away before the next screen arrives.
@@ -12,11 +15,13 @@ export function CreateSheet({ visible, onClose }: { visible: boolean; onClose: (
   };
   return (
     <Sheet visible={visible} onClose={onClose} title="Create">
-      <SheetRow first icon="reels" label="Reel" onPress={go('/create?mode=reel')} />
-      <SheetRow icon="grid" label="Post" onPress={go('/create?mode=post')} />
+      {/* One way in for photos and videos: a video shared on its own becomes a clip. */}
+      <SheetRow first icon="grid" label="Post" sub="Photos, videos and shorts" onPress={go('/create?mode=post')} />
+      <SheetRow icon="reels" label={t('createFlow.short')} onPress={go('/create?mode=shorts')} />
       <SheetRow icon="story" label="Story" onPress={go('/add-story')} />
-      <SheetRow icon="live" label="Live" sub="Broadcast to everyone, right now" onPress={go('/go-live')} />
-      <SheetRow icon="highlight" label="Highlight" onPress={go('/new-highlight')} />
+      {/* Members under 14 can't broadcast. */}
+      {profile?.restricted !== true ? <SheetRow icon="live" label="Live" sub="Broadcast to everyone, right now" onPress={go('/go-live')} /> : null}
+      <SheetRow icon="highlight" label="Memory" onPress={go('/new-highlight')} />
     </Sheet>
   );
 }

@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { deletePodItem, setPodSaved } from '../lib/api';
-import { next, patchQueued, removeQueued, toggle, usePlayer, useProgress } from '../lib/player';
+import { next, patchQueued, removeQueued, toggle, useBuffering, usePlayer, useProgress } from '../lib/player';
 import { useSession } from '../lib/session';
 import { C, errText } from '../lib/theme';
 import type { PodItem } from '../lib/types';
@@ -33,7 +33,7 @@ export function kindLabel(kind: PodItem['kind']): string {
 export function Cover({ uri, kind, size, radius = Math.round(size * 0.18) }: { uri?: string | null; kind: PodItem['kind']; size: number; radius?: number }) {
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2 }} contentFit="cover" transition={160} accessibilityIgnoresInvertColors />;
   return (
-    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.08)' }}>
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline }}>
       <Icon name={kind === 'podcast' ? 'podcast' : 'music'} size={Math.round(size * 0.42)} color={C.fg2} />
     </View>
   );
@@ -57,7 +57,7 @@ export function PodRow({ item, onPress, onMore, compact }: { item: PodItem; onPr
   const size = compact ? 48 : 56;
   const sub = item.artist ? `${item.artist} · ${kindLabel(item.kind)}` : kindLabel(item.kind);
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${isCurrent ? (playing ? 'Playing, ' : 'Paused, ') : 'Play '}${item.title} by ${item.artist || 'unknown'}, ${durationLabel(item.duration_seconds)}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: onMore ? 4 : 16, minHeight: size + 14, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${isCurrent ? (playing ? 'Playing, ' : 'Paused, ') : 'Play '}${item.title} by ${item.artist || 'unknown'}, ${durationLabel(item.duration_seconds)}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: onMore ? 4 : 16, minHeight: size + 14, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Cover uri={item.cover_url} kind={item.kind} size={size} radius={10} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -158,7 +158,7 @@ function ProgressLine() {
   const { position, duration } = useProgress();
   const fraction = duration > 0 ? Math.min(1, position / duration) : 0;
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 30, right: 30, bottom: 0, height: 2, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+    <View pointerEvents="none" style={{ position: 'absolute', left: 30, right: 30, bottom: 0, height: 2, backgroundColor: C.hairline }}>
       <View style={{ width: `${Math.round(fraction * 100)}%`, height: 2, backgroundColor: C.accent2 }} />
     </View>
   );
@@ -171,11 +171,13 @@ function ProgressLine() {
 export function NowPlayingBar({ style }: { style?: ViewStyle }) {
   const router = useRouter();
   const { current, playing, upNext, repeat } = usePlayer();
-  const { buffering } = useProgress();
+  // Not useProgress(): this bar floats over every tab, and the clock ticks a few times a second while a track plays.
+  // ProgressLine below takes the ticks on its own.
+  const buffering = useBuffering();
   if (!current) return null;
   const canSkip = upNext.length > 0 || repeat !== 'off';
   return (
-    <BlurView intensity={50} tint="dark" style={[{ width: '92%', maxWidth: 420, height: 60, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' }, style]}>
+    <BlurView intensity={50} tint={C.blurTint} style={[{ width: '92%', maxWidth: 420, height: 60, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: C.hairline }, style]}>
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.glass, paddingLeft: 10, paddingRight: 8, gap: 10 }}>
         <Pressable onPress={() => router.push(`/pod/${current.id}` as any)} accessibilityRole="button" accessibilityLabel={`Now playing: ${current.title} by ${current.artist || 'unknown'}. Open the player`} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
           <Cover uri={current.cover_url} kind={current.kind} size={40} radius={10} />

@@ -5,7 +5,7 @@
     "version": "3.0.0",
     "orientation": "portrait",
     "scheme": "community",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "backgroundColor": "#0b1014",
@@ -25,7 +25,7 @@
         "NSCameraUsageDescription": "Community uses your camera so you can take photos and videos to share, make video calls and broadcast live.",
         "NSMicrophoneUsageDescription": "Community uses your microphone for voice and video calls, live broadcasts, and when you record a video with sound or a voice message.",
         "NSPhotoLibraryAddUsageDescription": "Community saves a photo to your library when you tap Save on a photo in a chat.",
-        "NSLocationWhenInUseUsageDescription": "Community uses your location to show churches near you. It is not stored or shared.",
+        "NSLocationWhenInUseUsageDescription": "Community uses your location to show churches near you, to add a place to your note when you ask, and, only when you turn on live location, to show your friends where you are.",
         "UIBackgroundModes": [
           "audio"
         ]
@@ -33,16 +33,21 @@
       "appleTeamId": "QRMLKZR9B8"
     },
     "plugins": [
+      "./plugins/fmt-on-new-xcode.js",
       "expo-router",
       "expo-secure-store",
       "expo-video",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/splash-icon-dark.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#0b1014"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#000000"
+          }
         }
       ],
       [
@@ -71,7 +76,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Community uses your location to show churches near you. It is not stored or shared.",
+          "locationWhenInUsePermission": "Community uses your location to show churches near you, to add a place to your note when you ask, and, only when you turn on live location, to show your friends where you are.",
           "locationAlwaysPermission": false,
           "locationAlwaysAndWhenInUsePermission": false,
           "isIosBackgroundLocationEnabled": false
@@ -90,7 +95,8 @@
           "merchantIdentifier": "",
           "enableGooglePay": false
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "extra": {
       "applePayMerchantId": ""

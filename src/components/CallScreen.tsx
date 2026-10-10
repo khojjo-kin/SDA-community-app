@@ -3,10 +3,11 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MediaStream } from 'react-native-webrtc';
 import { RTCView } from 'react-native-webrtc';
-import { C, clock } from '../lib/theme';
+import { clock, DARK } from '../lib/theme';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { Avatar } from './ui';
 
@@ -116,6 +117,8 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      {/* Dark in every theme. Shown in its own modal only during a call, so this needs no focus check. */}
+      <StatusBar style="light" />
       {/* Background: the other side's video, else your own, else their picture blurred. */}
       {remoteVideo && view.remoteStream ? (
         <RTCView streamURL={view.remoteStream.toURL()} objectFit="cover" style={StyleSheet.absoluteFill} />
@@ -123,7 +126,7 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
         <RTCView streamURL={view.localStream.toURL()} objectFit="cover" mirror={view.front} style={StyleSheet.absoluteFill} />
       ) : (
         <>
-          {other?.avatar_url ? <Image source={{ uri: other.avatar_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={30} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg2 }]} />}
+          {other?.avatar_url ? <Image source={{ uri: other.avatar_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={30} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: DARK.bg2 }]} />}
           <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
         </>
       )}
@@ -152,8 +155,8 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
 
       {/* Your own picture, small, once theirs fills the screen. */}
       {remoteVideo && view.localStream ? (
-        <View style={{ position: 'absolute', top: insets.top + 64, right: 16, width: 108, height: 160, borderRadius: 16, overflow: 'hidden', backgroundColor: C.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }} accessibilityLabel="Your camera">
-          {localVideo ? <RTCView streamURL={view.localStream.toURL()} objectFit="cover" mirror={view.front} style={{ flex: 1 }} /> : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Icon name="videooff" size={26} color={C.fg2} /></View>}
+        <View style={{ position: 'absolute', top: insets.top + 64, right: 16, width: 108, height: 160, borderRadius: 16, overflow: 'hidden', backgroundColor: DARK.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }} accessibilityLabel="Your camera">
+          {localVideo ? <RTCView streamURL={view.localStream.toURL()} objectFit="cover" mirror={view.front} style={{ flex: 1 }} /> : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Icon name="videooff" size={26} color={DARK.fg2} /></View>}
         </View>
       ) : null}
 
@@ -162,7 +165,7 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
         {phase === 'incoming' ? (
           <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingHorizontal: 24 }}>
             <Round name="endcall" label="Decline" caption="Decline" size={74} bg={RED} onPress={actions.decline} />
-            <Round name="phone" label="Accept" caption="Accept" size={74} bg={C.accent} onPress={actions.accept} />
+            <Round name="phone" label="Accept" caption="Accept" size={74} bg={DARK.accent} onPress={actions.accept} />
           </View>
         ) : phase === 'ended' ? (
           <View style={{ alignItems: 'center' }}>

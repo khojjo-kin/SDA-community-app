@@ -45,8 +45,8 @@ export default function Inspiration() {
           posts={posts}
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(); }}
-          header={posts.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>The most liked posts and reels from other people on Community in the last 30 days.</Text> : null}
-          empty={<Empty icon="bulb" title="Nothing to show yet" body="When other people's posts collect likes, the most liked ones from the last 30 days appear here." />}
+          header={posts.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>The most liked posts and shorts from other people on Community in the last 30 days.</Text> : null}
+          empty={<Empty icon="bulb" title="Nothing to show yet" />}
         />
       )}
     </Screen>

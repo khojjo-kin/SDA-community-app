@@ -180,7 +180,7 @@ export default function GroupPage() {
       {group.cover_url ? (
         <Image source={{ uri: group.cover_url }} style={{ width: '100%', height: 150, backgroundColor: C.surface }} contentFit="cover" transition={150} />
       ) : (
-        <View style={{ height: 150, backgroundColor: 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ height: 150, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={page ? 'crown' : 'users'} size={56} color={C.accent2} />
         </View>
       )}
@@ -239,11 +239,11 @@ export default function GroupPage() {
           )
         ) : (
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, gap: 14, paddingBottom: 8 }}>
-            <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel="Change cover photo" style={{ height: 120, borderRadius: 14, overflow: 'hidden', backgroundColor: 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel="Change cover photo" style={{ height: 120, borderRadius: 14, overflow: 'hidden', backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
               {cover || group.cover_url ? <Image source={{ uri: cover?.uri ?? group.cover_url }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" /> : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 10, backgroundColor: 'rgba(10,12,14,0.7)' }}>
-                <Icon name="image" size={18} color={C.fg} />
-                <Text style={{ color: C.fg, fontWeight: '600', fontSize: 13.5 }}>Change cover</Text>
+                <Icon name="image" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13.5 }}>Change cover</Text>
               </View>
             </Pressable>
             <Field label="Name" value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} maxLength={80} />
@@ -251,10 +251,7 @@ export default function GroupPage() {
             {page ? null : (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Icon name="lock" size={22} color={C.fg} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 16 }}>Private</Text>
-                  <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>People ask to join and an admin lets them in.</Text>
-                </View>
+                <Text style={{ flex: 1, color: C.fg, fontSize: 16 }}>Private</Text>
                 <Toggle value={form.privacy === 'private'} onChange={(v) => setForm((f) => ({ ...f, privacy: v ? 'private' : 'public' }))} label="Private" />
               </View>
             )}

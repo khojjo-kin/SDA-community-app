@@ -1,0 +1,14 @@
+<div class="wrap doc-layout{{^if toc}} doc-single{{/if}}">
+  {{#if toc}}<nav class="toc" aria-labelledby="toc-title">
+    <h2 id="toc-title" class="toc-title">On this page</h2>
+    {{{toc}}}
+  </nav>
+  {{/if}}<article class="prose">
+    {{#if callout}}<aside class="callout" aria-labelledby="callout-title">
+      <p id="callout-title" class="callout-title">Want something taken down?</p>
+      <p>To report material on Community that uses your work without permission, send us a notice.</p>
+      <p><a class="btn btn-small" href="{{base}}/report-copyright">Report copyright infringement</a></p>
+    </aside>
+    {{/if}}{{{body}}}
+  </article>
+</div>

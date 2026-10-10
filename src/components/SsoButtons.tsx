@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { useSSO } from '@clerk/clerk-expo';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { useSignInWithApple, useSSO } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
-import { C, errText } from '../lib/theme';
+import { DARK, errText } from '../lib/theme';
 
 // Finishes a sign-in that came back to the app through its link, if one did.
 WebBrowser.maybeCompleteAuthSession();
@@ -16,11 +16,15 @@ const GOOGLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><pat
 type Strategy = 'oauth_apple' | 'oauth_google';
 
 /**
- * "Continue with Apple" and "Continue with Google". Both go through Clerk, which opens the
- * provider in a browser sheet and comes back to the app. A new person gets an account on the way.
+ * "Continue with Apple" and "Continue with Google". On an iPhone or iPad, Apple uses the
+ * system's own sign-in sheet, the way any native app does. Google — and Apple on Android —
+ * goes through Clerk, which opens the provider in a browser sheet and comes back to the app.
+ * A new person gets an account on the way. `onStart` runs as either begins (sign-up keeps
+ * its consent for onboarding then).
  */
-export function SsoButtons({ onError }: { onError: (message: string) => void }) {
+export function SsoButtons({ onError, disabled = false, onStart }: { onError: (message: string) => void; disabled?: boolean; onStart?: () => void }) {
   const { startSSOFlow } = useSSO();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
   const router = useRouter();
   const [busy, setBusy] = useState<Strategy | null>(null);
 
@@ -33,10 +37,16 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
   }, []);
 
   async function go(strategy: Strategy) {
-    if (busy) return;
+    // Sign-up keeps these off until its consent box is ticked, since they can make an account too.
+    // The log-in page doesn't, so an account made there is asked for consent in onboarding instead.
+    if (busy || disabled) return;
+    onStart?.();
     setBusy(strategy);
     try {
-      const { createdSessionId, setActive, signUp } = await startSSOFlow({ strategy, redirectUrl: AuthSession.makeRedirectUri({ scheme: 'community' }) });
+      const { createdSessionId, setActive, signUp } =
+        strategy === 'oauth_apple' && Platform.OS === 'ios'
+          ? await startAppleAuthenticationFlow()
+          : await startSSOFlow({ strategy, redirectUrl: AuthSession.makeRedirectUri({ scheme: 'community' }) });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         // Adding a second account keeps these pages reachable while signed in, so go home by hand.
@@ -48,8 +58,9 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
       else onError('That sign-in did not finish. Try again, or use your email.');
     } catch (e) {
       const text = errText(e);
-      // Closing the sheet is not a problem worth a message.
-      if (!/cancel|dismiss/i.test(text)) onError(text);
+      // Closing the sheet is not a problem worth a message. Read from the error itself as well, since
+      // errText keeps technical wording off screen.
+      if (!/cancel|dismiss/i.test(`${text} ${String((e as any)?.message ?? '')}`)) onError(text);
     } finally {
       setBusy(null);
     }
@@ -58,12 +69,13 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
   const button = (strategy: Strategy, label: string, xml: string) => (
     <Pressable
       onPress={() => go(strategy)}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ busy: busy === strategy }}
-      style={({ pressed }) => ({ height: 48, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed || (busy && busy !== strategy) ? 0.6 : 1 })}>
+      accessibilityState={{ busy: busy === strategy, disabled }}
+      style={({ pressed }) => ({ height: 48, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: disabled ? 0.45 : pressed || (busy && busy !== strategy) ? 0.6 : 1 })}>
       {busy === strategy ? <ActivityIndicator color="#fff" /> : <SvgXml xml={xml} width={20} height={20} />}
-      <Text style={{ color: C.fg, fontWeight: '600', fontSize: 15.5 }}>{label}</Text>
+      <Text style={{ color: DARK.fg, fontWeight: '600', fontSize: 15.5 }}>{label}</Text>
     </Pressable>
   );
 
@@ -71,7 +83,7 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 }}>
         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.14)' }} />
-        <Text style={{ color: C.fg2, fontSize: 13 }}>or</Text>
+        <Text style={{ color: DARK.fg2, fontSize: 13 }}>or</Text>
         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.14)' }} />
       </View>
       {button('oauth_apple', 'Continue with Apple', APPLE)}

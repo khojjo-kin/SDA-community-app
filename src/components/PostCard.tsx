@@ -1,20 +1,25 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Animated, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { boostPost, deletePost, report, setBlock, setFlag, setFollow, unboostPost } from '../lib/api';
+import { deletePost, report, setBlock, setFlag, setFollow, setPostSensitive } from '../lib/api';
 import { useIsActivePost } from '../lib/autoplay';
+import { COPYRIGHT_REASON, explainCopyrightReport } from '../lib/copyright-report';
+// Named feel here because this card has a tap() of its own (the double tap on the photo).
+import { tap as feel } from '../lib/haptics';
+import { t } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
-import { agoLong, C, errText, fmt } from '../lib/theme';
+import { agoLong, C, dayLabel, errText, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
-import { Avatar, Button, IconButton, Sheet, SheetRow, useToast } from './ui';
+import { useLegalSheet } from './LegalDocument';
+import { AiInfo, PollCard, PromptCard, TagsButton } from './PostExtras';
+import { Avatar, Button, IconButton, Sheet, SheetRow, useChoices, useToast } from './ui';
 
-const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', 'Something else'];
+const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', COPYRIGHT_REASON, 'Something else'];
 
 /** The photo frame: a gutter either side and rounded corners, so posts read as cards rather than a full-bleed strip. */
 const MEDIA_GUTTER = 10;
@@ -22,10 +27,16 @@ const MEDIA_RADIUS = 14;
 
 /** The "…" menu shared by feed posts and reels. */
 export function PostMenu({ post, visible, onClose }: { post: Post; visible: boolean; onClose: () => void }) {
-  const { me, profile } = useSession();
+  const { me } = useSession();
   const toast = useToast();
   const router = useRouter();
   const mine = post.user_id === me;
+  // The Copyright policy, offered after a copyright report.
+  const legal = useLegalSheet();
+  // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
+  const choices = useChoices();
+  // A running ad can be topped up: the new days are added on after the current ones.
+  const promotedUntil = post.boosted && post.boosted_until && new Date(post.boosted_until) > new Date() ? dayLabel(new Date(post.boosted_until)) : '';
   const act = (fn: () => Promise<void> | void) => async () => {
     onClose();
     // Give the sheet time to slide away; iOS drops an alert shown while a modal is closing.
@@ -36,22 +47,33 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
       toast(errText(e));
     }
   };
+  function fileReport(reason: string) {
+    report(me, { postId: post.id, userId: post.user_id }, reason)
+      .then(() => {
+        // A copyright report also says how to send a formal notice.
+        if (reason !== COPYRIGHT_REASON) toast('Thanks. We will review this post.');
+        else explainCopyrightReport().then((read) => { if (read) legal.open('copyright'); });
+      })
+      .catch((e) => toast(errText(e)));
+  }
   return (
+    <>
     <Sheet visible={visible} onClose={onClose}>
       <SheetRow first icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} onPress={act(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
       <SheetRow icon="link" label="Copy link" onPress={act(async () => { await Clipboard.setStringAsync(`community://post/${post.id}`); toast('Link copied'); })} />
       {mine ? (
         <>
-          {/* Boosting is a Community Plus perk: a boosted post leads For you and Explore for a day. */}
-          {profile?.plus ? (
-            post.boosted ? (
-              <SheetRow icon="boost" label="Remove boost" sub="It will drop back into the feed in its usual place" onPress={act(async () => { await unboostPost(post.id); toast('Boost removed'); })} />
-            ) : (
-              <SheetRow icon="boost" label="Boost post" sub="Top of For you and Explore for 24 hours" onPress={act(async () => { await boostPost(post.id, 1); toast('Boosted for 24 hours'); })} />
-            )
-          ) : (
-            <SheetRow icon="crown" label="Boost post" sub="Join Community Plus to boost your posts" onPress={act(() => router.push('/plus'))} />
-          )}
+          {/* Ads are paid for, a day at a time: a promoted post leads For you and Explore, labelled Sponsored. */}
+          <SheetRow icon="megaphone" label="Promote" sub={promotedUntil ? `Promoted until ${promotedUntil}` : 'Pay to show it to more people'} onPress={act(() => router.push(`/promote/${post.id}`))} />
+          <SheetRow
+            icon="eye"
+            label={post.sensitive ? 'Unmark sensitive' : 'Mark as sensitive'}
+            sub="Hidden from members under 14"
+            onPress={act(async () => {
+              await setPostSensitive(post.id, !post.sensitive);
+              toast(post.sensitive ? 'No longer marked sensitive' : 'Marked as sensitive');
+            })}
+          />
           <SheetRow
             icon="trash"
             label="Delete"
@@ -73,10 +95,12 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
             label="Report"
             danger
             onPress={act(() =>
-              Alert.alert('Report this post', 'Why are you reporting it?', [
-                ...REASONS.map((r) => ({ text: r, onPress: () => { report(me, { postId: post.id, userId: post.user_id }, r).then(() => toast('Thanks. We will review this post.')).catch((e) => toast(errText(e))); } })),
-                { text: 'Cancel', style: 'cancel' as const },
-              ]),
+              choices.ask({
+                title: 'Report this post',
+                message: 'Why are you reporting it?',
+                icon: 'flag',
+                choices: REASONS.map((r) => ({ label: r === COPYRIGHT_REASON ? t('report.copyright') : r, onPress: () => fileReport(r) })),
+              }),
             )}
           />
           <SheetRow
@@ -93,6 +117,9 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
         </>
       )}
     </Sheet>
+    {choices.element}
+    {legal.element}
+    </>
   );
 }
 
@@ -112,6 +139,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   const toast = useToast();
   const { width } = useWindowDimensions();
   const [menu, setMenu] = useState(false);
+  // The menu (three sheets and their hooks) is only put together once someone opens it, then kept, so a
+  // long feed doesn't carry one per card while it scrolls.
+  const [menuUsed, setMenuUsed] = useState(false);
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(false);
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
@@ -127,13 +157,16 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   const height = Math.round(mediaW * ratio);
   const many = post.media.length > 1;
   const mine = post.user_id === me;
+  // Only the author can comment on a post with comments turned off.
+  const commentsClosed = !!post.comments_off && !mine;
   const song = post.audio_title ? (post.audio_artist ? `${post.audio_title} · ${post.audio_artist}` : post.audio_title) : '';
 
   const safe = (fn: () => Promise<void>) => fn().catch((e) => toast(errText(e)));
 
   function like(force?: boolean) {
     const next = force ?? !post!.liked;
-    if (next && !post!.liked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // Through haptics.ts, so a member who turned taps off in Settings doesn't feel one.
+    if (next && !post!.liked) feel('light');
     safe(() => setFlag(me, post!, 'liked', next));
   }
 
@@ -164,24 +197,30 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{post.username}</Text>
               {post.verified ? <VerifiedTick size={14} /> : null}
-              {post.boosted ? (
-                <View accessibilityLabel="Boosted" style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 2, height: 17, paddingLeft: 4, paddingRight: 6, borderRadius: 9, backgroundColor: 'rgba(79,224,138,0.14)' }}>
-                  <Icon name="boost" size={11} color={C.accent2} weight={2.2} />
-                  <Text style={{ color: C.accent2, fontSize: 10.5, fontWeight: '700' }}>Boosted</Text>
-                </View>
-              ) : null}
             </View>
-            {post.group_id && post.group_name ? (
+            {/* A paid ad says so plainly, under the name, so it never passes for an ordinary post. */}
+            {post.boosted ? (
+              <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5 }}>
+                Sponsored
+                {post.group_id && post.group_name ? (
+                  <>
+                    {' · in '}
+                    <Text style={{ color: C.fg, fontWeight: '600' }} onPress={() => router.push({ pathname: '/group/[id]', params: { id: post.group_id } } as any)}>{post.group_name}</Text>
+                  </>
+                ) : null}
+              </Text>
+            ) : post.group_id && post.group_name ? (
               <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5 }} onPress={() => router.push({ pathname: '/group/[id]', params: { id: post.group_id } } as any)} accessibilityRole="link" accessibilityLabel={`In ${post.group_name}`}>
                 in <Text style={{ color: C.fg, fontWeight: '600' }}>{post.group_name}</Text>
               </Text>
             ) : !mine && !post.following_author ? (
               <Text style={{ color: C.fg2, fontSize: 12.5 }}>Suggested for you</Text>
             ) : null}
+            {post.ai_label ? <AiInfo /> : null}
           </View>
         </Pressable>
         {!mine && !post.following_author && !post.in_my_group ? <Button small label="Follow" onPress={() => safe(() => setFollow(me, post.user_id, true))} /> : null}
-        <IconButton name="more" label="More options" onPress={() => setMenu(true)} />
+        <IconButton name="more" label="More options" onPress={() => { setMenuUsed(true); setMenu(true); }} />
       </View>
 
       <View style={{ marginHorizontal: MEDIA_GUTTER, width: mediaW, height, borderRadius: MEDIA_RADIUS, overflow: 'hidden', backgroundColor: C.bg2 }}>
@@ -192,14 +231,14 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
               <FeedVideo key={i} post={post} media={m} width={mediaW} height={height} active={inView && i === page} onTap={tap} />
             ) : (
               <Pressable key={i} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Photo. Double tap to like.">
-                <Image source={{ uri: m.url }} style={{ width: mediaW, height }} contentFit="cover" transition={150} />
+                <Image source={{ uri: m.url }} style={{ width: mediaW, height }} contentFit="cover" transition={150} cachePolicy="memory-disk" />
               </Pressable>
             ),
           )}
         </ScrollView>
         {many ? (
           <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(10,12,14,0.7)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12 }}>
-            <Text style={{ color: C.fg, fontSize: 12 }}>{page + 1}/{post.media.length}</Text>
+            <Text style={{ color: '#fff', fontSize: 12 }}>{page + 1}/{post.media.length}</Text>
           </View>
         ) : null}
         {burst ? (
@@ -207,6 +246,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
             <BurstHeart />
           </Animated.View>
         ) : null}
+        {post.tagged_ids?.length ? <TagsButton ids={post.tagged_ids} top={post.media.some((m) => m.type === 'video')} /> : null}
       </View>
 
       {many ? (
@@ -216,6 +256,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
           ))}
         </View>
       ) : null}
+
+      <PollCard post={post} />
+      <PromptCard post={post} />
 
       {song ? (
         <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingTop: 8 }}>
@@ -231,8 +274,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 12, paddingTop: 8 }}>
-        <Act icon="heart" count={post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} onPress={() => like()} />
-        <Act icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />
+        {/* A hidden like count is still shown to the author. */}
+        <Act icon="heart" count={post.hide_likes && !mine ? undefined : post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} onPress={() => like()} />
+        {commentsClosed ? null : <Act icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />}
         <Act icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? C.ok : C.fg} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Act icon="send" label="Share" onPress={() => router.push(`/share/${post.id}`)} />
         <Act icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} fill={post.saved} end onPress={() => safe(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
@@ -245,14 +289,25 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
           {long && !open ? <Text style={{ color: C.fg2 }} onPress={() => setOpen(true)}>more</Text> : null}
         </Text>
       ) : null}
-      {post.comment_count > 0 ? (
+      {commentsClosed ? (
+        <Text style={{ color: C.fg2, fontSize: 13.5, paddingHorizontal: 14, paddingTop: 4 }}>{t('postExtras.commentsOff')}</Text>
+      ) : post.comment_count > 0 ? (
         <Pressable onPress={() => router.push(`/comments/${post.id}`)} style={{ paddingHorizontal: 14, paddingTop: 4 }}>
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>{post.comment_count > 1 ? `View all ${fmt(post.comment_count)} comments` : 'View 1 comment'}</Text>
         </Pressable>
       ) : null}
-      <Text style={{ color: C.fg2, fontSize: 12, paddingHorizontal: 14, paddingTop: 4 }}>{agoLong(post.created_at)}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 4 }}>
+        <Text style={{ color: C.fg2, fontSize: 12 }}>{agoLong(post.created_at)}</Text>
+        {/* Only the author's subscribers (and the author) can see this one, so it says so. */}
+        {post.audience === 'subscribers' ? (
+          <View accessibilityLabel="For subscribers only" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: C.accentSoft }}>
+            <Icon name="lock" size={11} color={C.accent2} weight={2.4} />
+            <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>Subscribers</Text>
+          </View>
+        ) : null}
+      </View>
 
-      <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} />
+      {menuUsed ? <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} /> : null}
     </View>
   );
 });

@@ -16,7 +16,7 @@ const nameOf = (m: GroupMember) => m.profile?.username ?? 'this account';
 /** "Owner" with a crown, or "Admin": the same green tag the profile uses for app admins. */
 function RoleTag({ role }: { role: 'owner' | 'admin' }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(31,191,90,0.16)' }} accessibilityLabel={role === 'owner' ? 'Owner' : 'Admin'}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.accentSoft }} accessibilityLabel={role === 'owner' ? 'Owner' : 'Admin'}>
       {role === 'owner' ? <Icon name="crown" size={13} color={C.accent2} weight={2.2} /> : null}
       <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{role === 'owner' ? 'Owner' : 'Admin'}</Text>
     </View>

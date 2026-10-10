@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { DarkStatusBar } from '../../../src/components/OnDark';
 import { useCalls } from '../../../src/lib/calls';
-import { C } from '../../../src/lib/theme';
+import { DARK } from '../../../src/lib/theme';
 
 /**
  * A call's own screen lives in the CallProvider's modal, so a ring can show over any screen. This
@@ -20,8 +21,9 @@ export default function CallLink() {
     return () => clearTimeout(t);
   }, [router, inCall]);
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator color={C.fg2} />
+    <View style={{ flex: 1, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <DarkStatusBar />
+      <ActivityIndicator color={DARK.fg2} />
     </View>
   );
 }

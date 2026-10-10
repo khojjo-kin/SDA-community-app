@@ -10,6 +10,9 @@ import { C, errText } from '../../src/lib/theme';
 
 type Errors = { name?: string; website?: string; form?: string };
 
+/** Said when a member's church goes in as 'pending'. */
+const PENDING_NOTE = 'An admin will check this church before it appears for everyone. You can see it in your list meanwhile.';
+
 /** Accepts "example.org" or "https://example.org". Empty stays empty; anything that does not look like a site is null. */
 function siteOf(raw: string): string | null {
   const s = raw.trim();
@@ -21,7 +24,7 @@ function siteOf(raw: string): string | null {
 export default function ChurchNew() {
   const router = useRouter();
   const toast = useToast();
-  const { me, refresh } = useSession();
+  const { me, profile, refresh } = useSession();
   const params = useLocalSearchParams<{ pick?: string }>();
   // Opened from Edit profile (through the church list): hand the new church straight back instead of asking.
   const picking = params.pick === '1';
@@ -70,10 +73,16 @@ export default function ChurchNew() {
     try {
       const church = await addChurch(me, { name: n, address: address.trim(), city: city.trim(), country: country.trim(), lat, lng, website: site ?? '', service_times: times.trim() });
       if (!alive.current) return;
-      if (picking) return open(church.id);
+      // A member's church waits for an admin (the database decides; an admin's goes straight in), so say so before anything else.
+      const pending = church.status === 'pending';
+      if (picking) {
+        if (!pending) return open(church.id);
+        Alert.alert('Thanks!', PENDING_NOTE, [{ text: 'OK', onPress: () => open(church.id) }], { cancelable: false });
+        return;
+      }
       Alert.alert(
-        'Make this your church?',
-        `${church.name} would show on your profile, and you would appear in its members list.`,
+        pending ? 'Thanks!' : 'Make this your church?',
+        pending ? `${PENDING_NOTE}\n\nMake ${church.name} your church as well? You would appear in its members list.` : `${church.name} would show on your profile, and you would appear in its members list.`,
         [
           { text: 'Not now', style: 'cancel', onPress: () => open(church.id) },
           {
@@ -99,7 +108,11 @@ export default function ChurchNew() {
       <ScreenHeader title="Add a church" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 12 }} keyboardShouldPersistTaps="handled">
-          <Text style={{ color: C.fg2, lineHeight: 20, paddingBottom: 4 }}>List your church so the family can find it. Anyone can add one; admins can correct the details later.</Text>
+          <Text style={{ color: C.fg2, lineHeight: 20, paddingBottom: 4 }}>
+            {profile?.admin_role
+              ? 'List a church so the family can find it. As an admin, yours goes straight into the list.'
+              : 'List your church so the family can find it. An admin checks each new church before it appears for everyone, and can correct the details later.'}
+          </Text>
           <Field label="Church name" value={name} onChangeText={setName} placeholder="e.g. Ebenezer SDA Church" maxLength={120} error={errors.name} autoFocus />
           <Field label="Address" value={address} onChangeText={setAddress} placeholder="Street and number" maxLength={200} />
           <Field label="City" value={city} onChangeText={setCity} placeholder="City" maxLength={80} />

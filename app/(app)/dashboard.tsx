@@ -14,9 +14,9 @@ function StatRow({ title, value, before, onPress }: { title: string; value: numb
   const up = value !== null && before !== null && value > before;
   const down = value !== null && before !== null && value < before;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}: ${value ?? 'loading'}${up ? ', up on the 30 days before' : down ? ', down on the 30 days before' : ''}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}: ${value ?? 'loading'}${up ? ', up on the 30 days before' : down ? ', down on the 30 days before' : ''}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>{title}</Text>
-      {up ? <Icon name="up" size={18} color="#2fc463" weight={2.2} /> : down ? <Icon name="dip" size={18} color="#ff5a6e" weight={2.2} /> : null}
+      {up ? <Icon name="up" size={18} color={C.ok} weight={2.2} /> : down ? <Icon name="dip" size={18} color={C.danger} weight={2.2} /> : null}
       <Text style={{ color: C.fg, fontSize: 19, fontVariant: ['tabular-nums'] }}>{value === null ? '–' : fmt(value)}</Text>
       <Icon name="right" size={18} color={C.fg2} weight={2} />
     </Pressable>
@@ -62,7 +62,7 @@ export default function Dashboard() {
     return (
       <Screen>
         <ScreenHeader title="Your dashboard" />
-        <Empty icon="chart" title="The dashboard comes with a creator account" body="See how many people view your posts and stories, who started following you, and what you shared. Switching is free and you can switch back." action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
+        <Empty icon="chart" title="The dashboard comes with a creator account" action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }

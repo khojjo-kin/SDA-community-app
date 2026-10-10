@@ -1,23 +1,23 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Icon, IconName } from '../../../src/components/Icon';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { markMemoryOpened } from '../../../src/components/HighlightsRow';
+import { useLegalSheet } from '../../../src/components/LegalDocument';
+import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
+import { ActionBar, afterSheet, BarButton, confirmAlert, HighlightBrowser, REPORT_REASONS, shareStoryItem, useStoryHold } from '../../../src/components/StoryChrome';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { StoryReply } from '../../../src/components/StoryReply';
-import { Empty, IconButton, Loading, useToast } from '../../../src/components/ui';
-import { coverOf, deleteHighlight, fetchHighlight, getProfile, removeHighlightItem, renameHighlight, setHighlightCover } from '../../../src/lib/api';
+import { IconButton, Sheet, SheetRow, useToast } from '../../../src/components/ui';
+import { coverOf, deleteHighlight, fetchHighlight, getProfile, removeHighlightItem, report, setHighlightCover } from '../../../src/lib/api';
+import { COPYRIGHT_REASON, explainCopyrightReport } from '../../../src/lib/copyright-report';
+import { t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
-import { errText } from '../../../src/lib/theme';
+import { ringColors } from '../../../src/lib/styling';
+import { dayLabel, errText } from '../../../src/lib/theme';
 import type { Highlight, HighlightItem, Profile } from '../../../src/lib/types';
 
-function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
-      <Icon name={icon} size={24} color="#fff" />
-      <Text style={{ color: '#fff', fontSize: 12 }}>{label}</Text>
-    </Pressable>
-  );
-}
+type Data = { highlight: Highlight; items: HighlightItem[]; owner: Profile | null };
+type SheetKind = 'more' | 'report' | 'browse';
 
 export default function HighlightScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,44 +25,154 @@ export default function HighlightScreen() {
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const [data, setData] = useState<{ highlight: Highlight; items: HighlightItem[]; owner: Profile | null } | null | 'missing'>(null);
+  const hold = useStoryHold();
+  // The Copyright policy, offered after a copyright report. The memory stays paused while it is open.
+  const legal = useLegalSheet();
+  const [data, setData] = useState<Data | null | 'missing'>(null);
+  const [sheet, setSheet] = useState<SheetKind | null>(null);
+  // The story a sheet was opened for. The story is paused while a sheet is open, so it stays current.
+  const live = useRef<PlayerCtx<HighlightItem> | null>(null);
+  // Async work finishes after a sheet has closed, so it reads the latest data from here.
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const alive = useRef(true);
+  const editing = useRef(false);
+
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const close = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   }, [router]);
 
-  useEffect(() => {
-    let on = true;
-    (async () => {
+  /** `again` is a reload after Edit memory: if the memory has gone, the viewer just closes. */
+  const load = useCallback(
+    async (again: boolean) => {
       try {
         const res = await fetchHighlight(highlightId);
-        if (!on) return;
-        if (!res) return setData('missing');
-        const owner = await getProfile(res.highlight.user_id);
-        if (on) setData({ ...res, owner });
-      } catch (e) {
-        if (on) {
-          toast(errText(e));
-          setData('missing');
+        if (!alive.current) return;
+        if (!res) {
+          if (again) close();
+          else setData('missing');
+          return;
         }
+        const owner = await getProfile(res.highlight.user_id);
+        if (!alive.current) return;
+        // However it was opened (the profile row, Browse, a link), it no longer wears the new ring.
+        markMemoryOpened(res.highlight.id);
+        setData({ ...res, owner });
+      } catch (e) {
+        if (!alive.current) return;
+        toast(errText(e));
+        if (!again) setData('missing');
       }
-    })();
-    return () => {
-      on = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightId]);
+    },
+    [highlightId, close, toast],
+  );
+
+  useEffect(() => {
+    setData(null);
+    load(false);
+  }, [load]);
+
+  // Coming back from Edit memory: the title, cover or stories may have changed.
+  useFocusEffect(
+    useCallback(() => {
+      if (!editing.current) return;
+      editing.current = false;
+      load(true);
+    }, [load]),
+  );
 
   function openProfile(uid: string) {
     router.replace(`/user/${uid}`);
   }
 
-  if (data === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><Loading /></View>;
+  const closeSheet = () => setSheet(null);
+
+  /** Closes the sheet, waits for it to slide away, then runs `work` with the story still paused. */
+  function fromSheet(work: () => unknown) {
+    return () => {
+      setSheet(null);
+      hold.busy(async () => {
+        await afterSheet();
+        await work();
+      }).catch((e) => toast(errText(e)));
+    };
+  }
+
+  // Like reaching the end of it: the next story plays, or the viewer closes after the last one.
+  async function removeItem() {
+    const ctx = live.current;
+    const cur = dataRef.current;
+    if (!ctx || !cur || cur === 'missing') return;
+    const { highlight, items, owner } = cur;
+    const at = items.findIndex((i) => i.id === ctx.entry.id);
+    await removeHighlightItem(ctx.entry.id);
+    const left = items.filter((i) => i.id !== ctx.entry.id);
+    toast('Removed from memory');
+    if (!left.length) {
+      // An empty memory would sit on the profile as a blank circle, so offer to tidy it away.
+      if (await confirmAlert('This memory is now empty', `Delete "${highlight.title}" from your profile too?`, 'Delete')) {
+        await deleteHighlight(highlight.id);
+        toast('Memory deleted');
+      }
+      close();
+      return;
+    }
+    // If its picture was the cover, the next story's picture takes over.
+    let cover = highlight.cover_url;
+    if (cover && cover === coverOf(ctx.entry.item) && !left.some((i) => coverOf(i.item) === cover)) {
+      cover = left.map((i) => coverOf(i.item)).find(Boolean) ?? '';
+      await setHighlightCover(highlight.id, cover);
+    }
+    if (at >= left.length) {
+      close();
+      return;
+    }
+    if (alive.current) setData({ highlight: { ...highlight, cover_url: cover }, items: left, owner });
+  }
+
+  async function removeAll() {
+    const cur = dataRef.current;
+    if (!cur || cur === 'missing') return;
+    if (!(await confirmAlert(`Delete "${cur.highlight.title}"?`, 'The memory is removed from your profile. Your archive keeps the stories.', 'Delete'))) return;
+    await deleteHighlight(cur.highlight.id);
+    toast('Memory deleted');
+    close();
+  }
+
+  function reportHighlight(reason: string) {
+    const cur = dataRef.current;
+    setSheet(null);
+    if (!cur || cur === 'missing') return;
+    report(me, { userId: cur.highlight.user_id }, `${reason} (on a memory)`)
+      .then(() => {
+        if (reason !== COPYRIGHT_REASON) return toast('Thanks. We will review this memory.');
+        // A copyright report also says how to send a formal notice; the memory waits meanwhile.
+        return hold.busy(async () => {
+          await afterSheet();
+          if (await explainCopyrightReport()) legal.open('copyright');
+        });
+      })
+      .catch((e) => toast(errText(e)));
+  }
+
+  if (data === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><DarkStatusBar /><DarkLoading /></View>;
   if (data === 'missing' || !data.items.length) {
+    const mineEmpty = data !== 'missing' && data.highlight.user_id === me;
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <Empty title={data === 'missing' ? "This highlight isn't available" : 'This highlight is empty'} body={data === 'missing' ? 'It may have been deleted.' : 'Add stories to it from your archive.'} />
+        <DarkStatusBar />
+        <DarkEmpty
+          title={data === 'missing' ? "This memory isn't available" : 'This memory is empty'}
+          body={data === 'missing' ? 'It may have been deleted.' : mineEmpty ? 'Add stories to it from your archive.' : undefined}
+        />
         <View style={{ position: 'absolute', top: 60, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
@@ -73,96 +183,76 @@ export default function HighlightScreen() {
   const { highlight, items, owner } = data;
   const mine = highlight.user_id === me;
 
-  function rename(ctx: PlayerCtx<HighlightItem>) {
-    ctx.pause();
-    Alert.prompt(
-      'Rename highlight',
-      undefined,
-      [
-        { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
-        {
-          text: 'Save',
-          onPress: (text?: string) => {
-            const title = (text ?? '').trim().slice(0, 30);
-            if (title) renameHighlight(highlight.id, title).then(() => setData({ highlight: { ...highlight, title }, items, owner })).catch((e) => toast(errText(e)));
-            ctx.resume();
-          },
-        },
-      ],
-      'plain-text',
-      highlight.title,
-    );
-  }
-
-  function removeItem(ctx: PlayerCtx<HighlightItem>) {
-    ctx.pause();
-    Alert.alert('Remove this story from the highlight?', undefined, [
-      { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          removeHighlightItem(ctx.entry.id)
-            .then(async () => {
-              const left = items.filter((i) => i.id !== ctx.entry.id);
-              if (!left.length) {
-                // An empty highlight would sit on the profile as a blank circle, so it goes too.
-                await deleteHighlight(highlight.id);
-                toast('Highlight deleted');
-                close();
-                return;
-              }
-              let cover = highlight.cover_url;
-              if (cover && cover === coverOf(ctx.entry.item)) {
-                cover = left.map((i) => coverOf(i.item)).find(Boolean) ?? '';
-                await setHighlightCover(highlight.id, cover);
-              }
-              setData({ highlight: { ...highlight, cover_url: cover }, items: left, owner });
-            })
-            .catch((e) => {
-              toast(errText(e));
-              ctx.resume();
-            });
-        },
-      },
-    ]);
-  }
-
-  function removeAll(ctx: PlayerCtx<HighlightItem>) {
-    ctx.pause();
-    Alert.alert(`Delete "${highlight.title}"?`, 'The highlight is removed from your profile. Your archive keeps the stories.', [
-      { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
-      { text: 'Delete', style: 'destructive', onPress: () => { deleteHighlight(highlight.id).then(() => { toast('Highlight deleted'); close(); }).catch((e) => { toast(errText(e)); ctx.resume(); }); } },
-    ]);
-  }
-
   return (
-    <StoryPlayer
-      groups={[{ key: highlight.id, user_id: highlight.user_id, username: owner?.username ?? '', avatar_url: owner?.avatar_url ?? '', entries: items }]}
-      onClose={close}
-      onOpenProfile={openProfile}
-      onMention={openProfile}
-      showTime={false}
-      badge={() => <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13.5, flexShrink: 1 }}>{highlight.title}</Text>}
-      footer={(ctx) =>
-        mine ? (
-          <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-            <Action icon="compose" label="Rename" onPress={() => rename(ctx)} />
-            <Action icon="close" label="Remove story" onPress={() => removeItem(ctx)} />
-            <Action icon="trash" label="Delete highlight" onPress={() => removeAll(ctx)} />
-          </View>
+    <>
+      <DarkStatusBar />
+      <StoryPlayer
+        key={highlight.id}
+        groups={[{ key: highlight.id, user_id: highlight.user_id, username: owner?.username ?? '', avatar_url: owner?.avatar_url ?? '', verified: !!owner?.verified, entries: items }]}
+        held={sheet !== null || hold.held || legal.visible}
+        onClose={close}
+        onOpenProfile={openProfile}
+        onMention={openProfile}
+        subtitle={() => highlight.title}
+        actions={(ctx) => (mine ? null : <IconButton name="more" label="More options" size={22} color="#fff" onPress={() => { live.current = ctx; setSheet('more'); }} />)}
+        footer={(ctx) =>
+          mine ? (
+            <ActionBar>
+              {/* Memories keep no list of viewers, so this shows when the story was added instead. */}
+              <BarButton icon="activity" label={dayLabel(new Date(ctx.entry.created_at))} a11y={`Added ${dayLabel(new Date(ctx.entry.created_at))}`} onPress={() => toast(`Added to this memory on ${dayLabel(new Date(ctx.entry.created_at))}`)} />
+              <BarButton icon="browse" label="Browse" onPress={() => { live.current = ctx; setSheet('browse'); }} />
+              <BarButton icon="more" label="More" onPress={() => { live.current = ctx; setSheet('more'); }} />
+            </ActionBar>
+          ) : (
+            <StoryReply
+              key={ctx.entry.id}
+              ownerId={highlight.user_id}
+              username={owner?.username ?? 'them'}
+              allowed={!!owner && !owner.is_blocked && (owner.story_replies === 'everyone' || (owner.story_replies === 'following' && owner.follows_me))}
+              cover={coverOf(ctx.entry.item)}
+              onFocus={() => hold.setTyping(true)}
+              onBlur={() => hold.setTyping(false)}
+            />
+          )
+        }
+      />
+
+      {/* More, and Report as its second page: one sheet, so nothing has to slide away in between. */}
+      <Sheet visible={sheet === 'more' || sheet === 'report'} onClose={closeSheet} title={sheet === 'report' ? 'Why are you reporting this memory?' : undefined}>
+        {sheet === 'report' ? (
+          <>
+            {REPORT_REASONS.map((r, i) => (
+              <SheetRow key={r} first={i === 0} icon="flag" label={r === COPYRIGHT_REASON ? t('report.copyright') : r} onPress={() => reportHighlight(r)} />
+            ))}
+            <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
+          </>
+        ) : mine ? (
+          <>
+            <SheetRow first icon="highlight" label="Remove from memory" danger onPress={fromSheet(removeItem)} />
+            <SheetRow icon="compose" label="Edit memory" onPress={fromSheet(() => { editing.current = true; hold.leave(); router.push(`/highlight-edit/${highlight.id}`); })} />
+            <SheetRow icon="share" label="Share…" onPress={fromSheet(() => (live.current ? shareStoryItem(live.current.entry.item) : undefined))} />
+            <SheetRow icon="trash" label="Delete memory" danger onPress={fromSheet(removeAll)} />
+            <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
+          </>
         ) : (
-          <StoryReply
-            key={ctx.entry.id}
-            ownerId={highlight.user_id}
-            username={owner?.username ?? 'them'}
-            allowed={!!owner && !owner.is_blocked && (owner.story_replies === 'everyone' || (owner.story_replies === 'following' && owner.follows_me))}
-            cover={coverOf(ctx.entry.item)}
-            onFocus={ctx.pause}
-            onBlur={ctx.resume}
-          />
-        )
-      }
-    />
+          <>
+            <SheetRow first icon="flag" label="Report" danger onPress={() => setSheet('report')} />
+            <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
+          </>
+        )}
+      </Sheet>
+
+      {mine ? (
+        <HighlightBrowser
+          visible={sheet === 'browse'}
+          userId={highlight.user_id}
+          currentId={highlight.id}
+          ring={ringColors(owner?.ring_color)}
+          onClose={closeSheet}
+          onPick={(hid) => (hid === highlight.id ? closeSheet() : fromSheet(() => router.replace(`/highlight/${hid}`))())}
+        />
+      ) : null}
+      {legal.element}
+    </>
   );
 }

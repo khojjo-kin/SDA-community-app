@@ -8,8 +8,8 @@ import type { Profile } from '../lib/types';
 import { VerifiedTick } from './Icon';
 import { Avatar, Button, useToast } from './ui';
 
-/** A person in a list, with a follow button that works in place. */
-export function PersonRow({ person, onPress, right, hideFollow }: { person: Profile; onPress?: () => void; right?: React.ReactNode; hideFollow?: boolean }) {
+/** A person in a list, with a follow button that works in place. Memoised: search lists draw again on every key typed. */
+export const PersonRow = React.memo(function PersonRow({ person, onPress, right, hideFollow }: { person: Profile; onPress?: () => void; right?: React.ReactNode; hideFollow?: boolean }) {
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -43,4 +43,4 @@ export function PersonRow({ person, onPress, right, hideFollow }: { person: Prof
       {right ?? (hideFollow || person.id === me ? null : <Button small label={following ? 'Following' : person.follows_me ? 'Follow back' : 'Follow'} kind={following ? 'ghost' : 'primary'} onPress={toggle} />)}
     </View>
   );
-}
+});

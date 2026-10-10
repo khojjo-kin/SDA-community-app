@@ -110,7 +110,7 @@ export default function SendTo() {
                   <Avatar uri={p.avatar_url} name={p.full_name} size={62} />
                   {on ? (
                     <View style={{ position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="check" size={13} weight={3} color="#fff" />
+                      <Icon name="check" size={13} weight={3} color={C.onAccent} />
                     </View>
                   ) : null}
                 </View>
@@ -124,7 +124,7 @@ export default function SendTo() {
 
       {picked.length ? (
         <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 14, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 10 }}>
-          <TextInput value={note} onChangeText={setNote} placeholder="Write a message…" placeholderTextColor={C.fg3} maxLength={300} keyboardAppearance="dark" style={{ color: C.fg, fontSize: 16, height: 40 }} accessibilityLabel="Message" />
+          <TextInput value={note} onChangeText={setNote} placeholder="Write a message…" placeholderTextColor={C.fg3} maxLength={300} keyboardAppearance={C.blurTint} style={{ color: C.fg, fontSize: 16, height: 40 }} accessibilityLabel="Message" />
           <Button label={picked.length > 1 ? 'Send separately' : 'Send'} onPress={send} busy={busy} />
         </View>
       ) : null}

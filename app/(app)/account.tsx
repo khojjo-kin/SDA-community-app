@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { useAuth, useSession as useClerkSession, useUser } from '@clerk/clerk-expo';
+import { useSession as useClerkSession, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { Button, Divider, Field, Row, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
+import { useLogOut } from '../../src/lib/accounts';
 import { deactivateAccount } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
@@ -47,7 +48,8 @@ type EmailAddressResource = ClerkUser['emailAddresses'][number];
 type PhoneNumberResource = ClerkUser['phoneNumbers'][number];
 
 export default function Account() {
-  const { signOut } = useAuth();
+  // Only this account: another one signed in on this phone takes over.
+  const signOut = useLogOut();
   const { user } = useUser();
   const { session } = useClerkSession();
   const { me, profile } = useSession();
@@ -234,7 +236,7 @@ export default function Account() {
   function removeAccount() {
     Alert.alert(
       'Delete your account?',
-      'Your account will be hidden straight away, and after 30 days it will be deleted for good — your profile, posts, stories, highlights, comments, messages and followers, all of it.\n\nIf you change your mind, log in before then and tap Restore.',
+      'Your account will be hidden straight away, and after 30 days it will be deleted for good — your profile, posts, stories, memories, comments, messages and followers, all of it.\n\nIf you change your mind, log in before then and tap Restore.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -245,7 +247,7 @@ export default function Account() {
             setDeleting(true);
             try {
               await deactivateAccount(me);
-              await signOut(session ? { sessionId: session.id } : undefined);
+              await signOut();
             } catch (e) {
               toast(errText(e));
               setDeleting(false);
@@ -267,7 +269,7 @@ export default function Account() {
           {emailStage === 'idle' ? (
             <Row icon="mail" title="Email" sub={email || 'No email on this account'} value="Change" onPress={() => { reset(); setEmailStage('enter'); }} />
           ) : emailStage === 'enter' ? (
-            <Inline label="New email" value={newEmail} onChangeText={setNewEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" help="We'll send a code to the new address to make sure it's yours." action="Send code" onAction={sendEmailCode} onCancel={cancelEmail} busy={busy} error={err} />
+            <Inline label="New email" value={newEmail} onChangeText={setNewEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" action="Send code" onAction={sendEmailCode} onCancel={cancelEmail} busy={busy} error={err} />
           ) : (
             <Inline label="Code" value={emailCode} onChangeText={setEmailCode} placeholder="123456" keyboardType="number-pad" textContentType="oneTimeCode" help={`Enter the code we sent to ${newEmail.trim()}.`} action="Verify" onAction={verifyEmail} onCancel={cancelEmail} busy={busy} error={err} />
           )}
@@ -275,14 +277,14 @@ export default function Account() {
           {phoneStage === 'idle' ? (
             <Row icon="phone" title="Phone" sub={phone ? phone.phoneNumber : 'Add a phone number'} value={phone ? 'Remove' : 'Add'} onPress={() => { reset(); if (phone) removePhone(); else setPhoneStage('enter'); }} />
           ) : phoneStage === 'enter' ? (
-            <Inline label="Phone number" value={newPhone} onChangeText={setNewPhone} placeholder="+44 7700 900123" keyboardType="phone-pad" textContentType="telephoneNumber" help="Include your country code. We'll text you a code to confirm it." action="Send code" onAction={sendPhoneCode} onCancel={cancelPhone} busy={busy} error={err} />
+            <Inline label="Phone number" value={newPhone} onChangeText={setNewPhone} placeholder="+44 7700 900123" keyboardType="phone-pad" textContentType="telephoneNumber" action="Send code" onAction={sendPhoneCode} onCancel={cancelPhone} busy={busy} error={err} />
           ) : (
             <Inline label="Code" value={phoneCode} onChangeText={setPhoneCode} placeholder="123456" keyboardType="number-pad" textContentType="oneTimeCode" help={`Enter the code we texted to ${newPhone.trim()}.`} action="Verify" onAction={verifyPhone} onCancel={cancelPhone} busy={busy} error={err} />
           )}
           <Divider />
 
           <SectionLabel>Accounts</SectionLabel>
-          <Row icon="swap" title="Add or switch account" sub="Use more than one account and move between them" onPress={() => router.push('/accounts' as any)} />
+          <Row icon="swap" title="Add or switch account" onPress={() => router.push('/accounts' as any)} />
           <Divider />
 
           <SectionLabel>Password and security</SectionLabel>
@@ -290,7 +292,6 @@ export default function Account() {
             <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 6 }}>
               <Field label="Current password" value={current} onChangeText={setCurrent} secureTextEntry textContentType="password" autoCapitalize="none" />
               <Field label="New password" value={next} onChangeText={setNext} secureTextEntry textContentType="newPassword" autoCapitalize="none" error={err} onSubmitEditing={savePassword} returnKeyType="go" />
-              <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19 }}>Changing your password logs you out on your other devices.</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Button label="Cancel" kind="ghost" style={{ flex: 1 }} onPress={() => { setPw(false); setErr(''); setCurrent(''); setNext(''); }} />
                 <Button label="Save password" style={{ flex: 1 }} busy={busy} disabled={!current || !next} onPress={savePassword} />
@@ -303,7 +304,6 @@ export default function Account() {
 
           <SectionLabel>Delete account</SectionLabel>
           <View style={{ paddingHorizontal: 16, gap: 12 }}>
-            <Text style={{ color: C.fg2, lineHeight: 20 }}>Deleting hides your account straight away. After 30 days it is gone for good, with everything you shared. Log in before then to restore it.</Text>
             <Button label="Delete account" kind="danger" onPress={removeAccount} busy={deleting} />
           </View>
         </ScrollView>

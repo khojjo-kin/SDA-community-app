@@ -120,20 +120,20 @@ export default function Insights() {
                 <View style={{ height: 10 }} />
                 <Divider thin />
                 <SectionLabel strong>Where they came from</SectionLabel>
-                <Line label="Posts and reels" value={stats.post_views} />
+                <Line label="Posts and shorts" value={stats.post_views} />
                 <Line label="Stories" value={stats.story_views} />
                 <Line label="Different people who saw you" value={stats.accounts} />
                 <Divider thin />
                 <SectionLabel strong>Most viewed</SectionLabel>
                 {stats.top.filter((t) => t.views > 0).length === 0 ? (
-                  <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>When other people see your posts and reels, the most viewed ones are listed here. Your own views are not counted.</Text>
+                  <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>No views yet.</Text>
                 ) : (
                   stats.top
                     .filter((t) => t.views > 0)
                     .map((t) => {
                       const thumb = t.media ? (t.media.type === 'video' ? t.media.poster : t.media.url) : undefined;
                       return (
-                        <Pressable key={t.id} onPress={() => router.push(t.kind === 'reel' ? `/watch/${t.id}` : `/post/${t.id}`)} accessibilityRole="button" accessibilityLabel={`${t.kind === 'reel' ? 'Reel' : 'Post'} with ${t.views} views`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+                        <Pressable key={t.id} onPress={() => router.push(t.kind === 'reel' ? `/watch/${t.id}` : `/post/${t.id}`)} accessibilityRole="button" accessibilityLabel={`${t.kind === 'reel' ? 'Short' : 'Post'} with ${t.views} views`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
                           <Image source={thumb ? { uri: thumb } : undefined} style={{ width: 54, height: 72, borderRadius: 8, backgroundColor: C.surface2 }} contentFit="cover" />
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: C.fg, fontSize: 17, fontWeight: '600' }}>{count(t.views, 'view')}</Text>
@@ -164,7 +164,7 @@ export default function Insights() {
                 <Divider thin />
                 <SectionLabel strong>What you shared</SectionLabel>
                 <Line label="Posts" value={stats.posts} />
-                <Line label="Reels" value={stats.reels} />
+                <Line label="Shorts" value={stats.reels} />
                 <Line label="Stories" value={stats.stories} />
                 <Divider thin />
                 <SectionLabel strong>What it earned</SectionLabel>
@@ -174,7 +174,7 @@ export default function Insights() {
                 {posts.length ? (
                   <>
                     <Divider thin />
-                    <SectionLabel strong>Posts and reels from this period</SectionLabel>
+                    <SectionLabel strong>Posts and shorts from this period</SectionLabel>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2 }}>
                       {posts.map((p) => (
                         <GridCell key={p.id} post={p} size={cell} />
@@ -182,7 +182,7 @@ export default function Insights() {
                     </View>
                   </>
                 ) : (
-                  <Empty title="Nothing shared in this period" body="Posts and reels you share will be shown here." />
+                  <Empty title="Nothing shared in this period" />
                 )}
               </>
             ) : null}

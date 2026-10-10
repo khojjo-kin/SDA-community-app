@@ -30,9 +30,7 @@ export default function PlusFont() {
     <Screen>
       <ScreenHeader title="App font" />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, lineHeight: 20 }}>
-          {plus ? 'Buttons, headings and lists take the face you choose. It applies on this phone.' : 'Choosing a font is part of Community Plus.'}
-        </Text>
+        {plus ? null : <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, lineHeight: 20 }}>Part of Community Plus</Text>}
         <View style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: C.surface, overflow: 'hidden' }}>
           {FONTS.map((f, i) => {
             const on = plus && appFont === f.id;
@@ -43,7 +41,7 @@ export default function PlusFont() {
                 accessibilityRole="radio"
                 accessibilityLabel={`${f.name}. ${f.sample}`}
                 accessibilityState={{ checked: on }}
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={{ color: C.fg, fontSize: 19, fontWeight: '700', fontFamily: f.bold || undefined }}>{f.name}</Text>
                   <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, fontFamily: f.regular || undefined }}>{f.sample}</Text>

@@ -4,12 +4,17 @@ import { useRouter } from 'expo-router';
 import { PostGrid, SectionTitle } from '../../../src/components/Grid';
 import { Icon } from '../../../src/components/Icon';
 import { PersonRow } from '../../../src/components/PersonRow';
-import { Avatar, Empty, ErrorNote, Loading, RoundButton, Screen } from '../../../src/components/ui';
+import { GridSkeleton, RowsSkeleton, SlowLine } from '../../../src/components/Skeleton';
+import { Avatar, Empty, ErrorNote, RoundButton, Screen } from '../../../src/components/ui';
 import { fetchExplore, fetchLives, searchProfiles } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { C, errText } from '../../../src/lib/theme';
 import type { LiveCard, Post, Profile } from '../../../src/lib/types';
+import { tasteKey, tasteOf, tuneFeed } from '../clips-settings';
+
+/** How many posts the grid asks for at a time. */
+const PAGE = 30;
 
 /** Who is broadcasting right now: a row of faces, each with a red LIVE pill. Draws nothing when nobody is. */
 function LiveStrip({ lives }: { lives: LiveCard[] }) {
@@ -41,7 +46,7 @@ function LiveStrip({ lives }: { lives: LiveCard[] }) {
 }
 
 export default function Explore() {
-  const { me } = useSession();
+  const { me, profile } = useSession();
   const router = useRouter();
   const [q, setQ] = useState('');
   const [searching, setSearching] = useState(false);
@@ -53,6 +58,13 @@ export default function Explore() {
   const [refreshing, setRefreshing] = useState(false);
   const input = useRef<TextInput>(null);
   const done = useRef(false);
+  // Where the next page starts: the last post the server sent, which may be one that isn't shown.
+  const cursor = useRef<string | undefined>(undefined);
+  // Explore only takes the sensitive filter from Your feed; topics shape For you and Clips.
+  const taste = tasteOf(profile);
+  const tasteRef = useRef(taste);
+  tasteRef.current = taste;
+  const sensitiveKey = tasteKey({ more: [], less: [], lessSensitive: taste.lessSensitive });
 
   const loadLives = useCallback(() => {
     fetchLives()
@@ -61,16 +73,19 @@ export default function Explore() {
   }, []);
 
   const load = useCallback(
-    async (reset: boolean, before?: string) => {
+    async (reset: boolean) => {
       try {
         if (reset) {
           done.current = false;
+          cursor.current = undefined;
           loadLives();
         }
         if (done.current) return;
-        const page = await fetchExplore(before, 30);
-        if (page.length < 30) done.current = true;
-        setPosts((cur) => (reset ? page : [...cur, ...page.filter((p) => !cur.some((c) => c.id === p.id))]));
+        const page = await fetchExplore(reset ? undefined : cursor.current, PAGE);
+        if (page.length < PAGE) done.current = true;
+        if (page.length) cursor.current = page[page.length - 1].created_at;
+        const shown = tuneFeed(page, me, tasteRef.current, false);
+        setPosts((cur) => (reset ? shown : [...cur, ...shown.filter((p) => !cur.some((c) => c.id === p.id))]));
         setStatus('ready');
       } catch (e) {
         setError(errText(e));
@@ -79,7 +94,9 @@ export default function Explore() {
         setRefreshing(false);
       }
     },
-    [loadLives],
+    // `sensitiveKey` is here so changing the filter makes a new loader, which the effect below runs again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadLives, me, sensitiveKey],
   );
 
   useEffect(() => {
@@ -115,7 +132,7 @@ export default function Explore() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 }}>
         <Pressable onPress={() => input.current?.focus()} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 40, borderRadius: 20, backgroundColor: C.surface }}>
           <Icon name="search" size={18} color={C.fg2} weight={2.2} />
-          <TextInput ref={input} value={q} onChangeText={setQ} onFocus={() => setSearching(true)} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" keyboardAppearance="dark" accessibilityLabel="Search people" />
+          <TextInput ref={input} value={q} onChangeText={setQ} onFocus={() => setSearching(true)} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" keyboardAppearance={C.blurTint} accessibilityLabel="Search people" />
         </Pressable>
         {searching ? (
           <Pressable onPress={cancel} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel search">
@@ -128,6 +145,7 @@ export default function Explore() {
           </>
         )}
       </View>
+      <SlowLine active={refreshing && !searching} />
 
       {searching ? (
         <FlatList
@@ -135,12 +153,12 @@ export default function Explore() {
           keyExtractor={(p) => p.id}
           renderItem={({ item }) => <PersonRow person={item} />}
           ListHeaderComponent={<SectionTitle>{q.trim() ? 'Results' : 'Suggested'}</SectionTitle>}
-          ListEmptyComponent={people === null ? <Loading /> : <Empty title="No one found" body={q.trim() ? 'Check the spelling, or try part of a username.' : 'When more people join, you can find them here.'} />}
+          ListEmptyComponent={people === null ? <RowsSkeleton count={6} avatar={50} padY={8} trailing="button" /> : <Empty title="No one found" body={q.trim() ? 'Check the spelling, or try part of a username.' : 'When more people join, you can find them here.'} />}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 110 }}
         />
       ) : status === 'loading' ? (
-        <Loading />
+        <GridSkeleton />
       ) : status === 'error' ? (
         <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} />
       ) : (
@@ -149,8 +167,8 @@ export default function Explore() {
           header={lives.length ? <LiveStrip lives={lives} /> : null}
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(true); }}
-          onEnd={() => { if (posts.length) load(false, posts[posts.length - 1].created_at); }}
-          empty={<Empty icon="search" title="Nothing to explore yet" body="Posts from everyone on Community will appear here." />}
+          onEnd={() => { if (cursor.current) load(false); }}
+          empty={<Empty icon="search" title="Nothing to explore yet" />}
         />
       )}
     </Screen>

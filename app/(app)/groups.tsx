@@ -28,7 +28,7 @@ function pillOf(g: Group): { label: string; kind: 'primary' | 'ghost' } {
 function GroupRow({ group, right, onPress }: { group: Group; right?: React.ReactNode; onPress: () => void }) {
   const mine = group.my_standing === 'owner' || group.my_standing === 'admin';
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={[group.name, groupSub(group), mine && (group.my_standing === 'owner' ? 'you own it' : 'you are an admin')].filter(Boolean).join(', ')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 68, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={[group.name, groupSub(group), mine && (group.my_standing === 'owner' ? 'you own it' : 'you are an admin')].filter(Boolean).join(', ')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 68, backgroundColor: pressed ? C.press : 'transparent' })}>
       {group.cover_url ? (
         <Image source={{ uri: group.cover_url }} style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: C.surface }} contentFit="cover" transition={120} />
       ) : (
@@ -42,7 +42,7 @@ function GroupRow({ group, right, onPress }: { group: Group; right?: React.React
           {group.privacy === 'private' ? <Icon name="lock" size={13} color={C.fg2} weight={2.2} /> : null}
           {group.my_standing === 'owner' ? <Icon name="crown" size={15} color={C.accent2} weight={2.2} /> : null}
           {group.my_standing === 'admin' ? (
-            <View style={{ height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: 'rgba(31,191,90,0.16)', justifyContent: 'center' }}>
+            <View style={{ height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
               <Text style={{ color: C.accent2, fontSize: 12, fontWeight: '700' }}>Admin</Text>
             </View>
           ) : null}
@@ -130,9 +130,9 @@ export default function Groups() {
     ) : needle ? (
       <Empty icon="search" title="Nothing matches" body="Try another name or @handle." />
     ) : segment === 'yours' ? (
-      <Empty icon="users" title="You're not in any yet" body="Join a community or follow a page from Discover, or start your own." action={<Button small label="Discover" onPress={() => setSegment('discover')} style={{ marginTop: 8 }} />} />
+      <Empty icon="users" title="You're not in any yet" action={<Button small label="Discover" onPress={() => setSegment('discover')} style={{ marginTop: 8 }} />} />
     ) : (
-      <Empty icon="users" title="Nothing here yet" body="Be the first: create a community or a page for your church family." action={<Button small label="Create" onPress={create} style={{ marginTop: 8 }} />} />
+      <Empty icon="users" title="Nothing here yet" action={<Button small label="Create" onPress={create} style={{ marginTop: 8 }} />} />
     );
 
   return (

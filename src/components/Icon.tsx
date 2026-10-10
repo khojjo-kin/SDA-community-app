@@ -3,6 +3,25 @@ import { Image } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { C } from '../lib/theme';
 
+/**
+ * A scalloped rosette round the centre of the 24 grid, for the verified badge: `points` soft lobes
+ * whose crests reach `outer`, dipping to `inner` between them. Worked out here rather than typed in,
+ * so the lobes are exactly even and the shape can be tuned by changing three numbers.
+ */
+function rosette(points: number, outer: number, inner: number): string {
+  const at = (r: number, a: number) => `${(12 + r * Math.cos(a)).toFixed(2)} ${(12 + r * Math.sin(a)).toFixed(2)}`;
+  const step = (Math.PI * 2) / points;
+  // Each lobe is one quadratic curve from a dip to the next dip. A quadratic only gets halfway to its
+  // control point, so the control sits far enough out for the crest of the lobe to land on `outer`.
+  const reach = 2 * outer - inner * Math.cos(step / 2);
+  let d = `M${at(inner, -Math.PI / 2 - step / 2)}`;
+  for (let i = 0; i < points; i++) {
+    const crest = -Math.PI / 2 + i * step;
+    d += `Q${at(reach, crest)} ${at(inner, crest + step / 2)}`;
+  }
+  return `${d}Z`;
+}
+
 // The app's own icon set, drawn on a 24px grid.
 const ICONS = {
   home: '<path d="M3.5 10.6 12 3.4l8.5 7.2V20a1 1 0 0 1-1 1h-4.9v-6.2H9.4V21H4.5a1 1 0 0 1-1-1z"/>',
@@ -80,8 +99,8 @@ const ICONS = {
   smile: '<circle cx="12" cy="12" r="8.6"/><path d="M8.4 13.6c.9 1.5 2.1 2.2 3.6 2.2s2.7-.7 3.6-2.2"/><circle cx="9" cy="9.6" r="1.1" fill="COLOR" stroke="none"/><circle cx="15" cy="9.6" r="1.1" fill="COLOR" stroke="none"/>',
   phone: '<rect x="6.5" y="3" width="11" height="18" rx="2.6"/><path d="M10.5 6h3"/>',
   camerafill: '<path d="M8.2 6.5 9.6 4.2h4.8l1.4 2.3H19A2.5 2.5 0 0 1 21.5 9v8.5A2.5 2.5 0 0 1 19 20H5a2.5 2.5 0 0 1-2.5-2.5V9A2.5 2.5 0 0 1 5 6.5z" fill="COLOR"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="INK" stroke-width="2"/>',
-  /** The verified seal: a scalloped badge with a tick. Pass the badge colour as `color` and the tick colour as `ink`. */
-  verified: '<path d="M12 1.4 14.87 3.16 18.23 3.42 19.52 6.53 22.08 8.72 21.3 12 22.08 15.28 19.52 17.47 18.23 20.58 14.87 20.84 12 22.6 9.13 20.84 5.77 20.58 4.48 17.47 1.92 15.28 2.7 12 1.92 8.72 4.48 6.53 5.77 3.42 9.13 3.16Z" fill="COLOR" stroke="none"/><path d="m7.6 12.4 2.9 2.9 5.9-6.2" fill="none" stroke="INK" stroke-width="2.3"/>',
+  /** The verified badge: a 12-lobed rosette with a check. Pass the badge colour as `color` and the check colour as `ink`. */
+  verified: `<path d="${rosette(12, 11.2, 9.6)}" fill="COLOR" stroke="none"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="INK" stroke-width="2.4"/>`,
   bible: '<path d="M4.5 5.2A2.2 2.2 0 0 1 6.7 3h12.8v15.4H6.7a2.2 2.2 0 0 0-2.2 2.2z"/><path d="M4.5 18.4a2.2 2.2 0 0 0 2.2 2.2h12.8M12 7v6M9.3 9.7h5.4"/>',
   hymnal: '<path d="M9 17.5V6.2l10-2.2v11.3"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.3" r="2.5"/><path d="M9 9.4l10-2.2"/>',
   lesson: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/><path d="M7 9h3M7 12h3M14 9h3M14 12h3"/>',
@@ -120,6 +139,32 @@ const ICONS = {
   mac: '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M2 19.5h20"/>',
   globe: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.6 2.6 3.8 5.5 3.8 8.6s-1.2 6-3.8 8.6c-2.6-2.6-3.8-5.5-3.8-8.6s1.2-6 3.8-8.6z"/>',
   request: '<circle cx="10" cy="8.2" r="3.6"/><path d="M3 20c.7-3.8 3.4-5.8 7-5.8 1.2 0 2.3.2 3.2.6"/><path d="M18 14v6M15 17h6"/>',
+  /** Follow someone / discover people. */
+  adduser: '<circle cx="9.5" cy="8" r="3.6"/><path d="M2.8 20c.7-3.8 3.3-5.8 6.7-5.8s6 2 6.7 5.8"/><path d="M19 7.5v6M16 10.5h6"/>',
+  /** A chat streak. */
+  flame: '<path d="M12 21c-3.9 0-6.6-2.7-6.6-6.3 0-3.4 2.4-5.4 3.6-8.1.5 1.7 1.4 2.8 2.5 3.4.2-2.9 1.5-5.4 3.7-7 .1 2.9 1.4 4.8 2.6 6.6 1 1.4 1.8 3 1.8 5 0 3.7-2.8 6.4-7.6 6.4z"/><path d="M12 21c-1.7 0-2.9-1.2-2.9-2.8 0-1.8 1.5-2.7 2.3-4.3.9 1.2 3.4 2.3 3.4 4.4 0 1.6-1.2 2.7-2.8 2.7z"/>',
+  /** Fundraisers. */
+  gift: '<rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7M12 8.5v12"/><path d="M12 8.5c-1.4-3.3-5.4-4.4-5.6-1.9-.2 2 3.4 1.9 5.6 1.9zM12 8.5c1.4-3.3 5.4-4.4 5.6-1.9.2 2-3.4 1.9-5.6 1.9z"/>',
+  /** Ads. */
+  megaphone: '<path d="M3.5 10v4a1 1 0 0 0 1 1h2.5l9 4.5v-15l-9 4.5H4.5a1 1 0 0 0-1 1z"/><path d="m7 15 1.4 5h3l-1.2-4M19 9.5a3.5 3.5 0 0 1 0 5"/>',
+  /** Profile colours and themes. */
+  palette: '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-.9 2-1.8 0-1.4-1.2-1.6-1.2-2.8 0-1 .8-1.6 1.8-1.6h2.3a3.6 3.6 0 0 0 3.6-3.6c0-4-3.8-7.2-8.5-7.2z"/><circle cx="7.6" cy="11.4" r="1.2" fill="COLOR" stroke="none"/><circle cx="10.4" cy="7.6" r="1.2" fill="COLOR" stroke="none"/><circle cx="15" cy="7.8" r="1.2" fill="COLOR" stroke="none"/>',
+  /** An identity document. */
+  idcard: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2.2"/><path d="M5.2 16.2c.5-1.6 1.7-2.4 3.3-2.4s2.8.8 3.3 2.4M14.5 10h4.5M14.5 13.5h3"/>',
+  /** Where you're logged in. */
+  devices: '<rect x="2.5" y="5" width="13" height="10" rx="1.6"/><path d="M1.5 18h15"/><rect x="17" y="8" width="5.5" height="11.5" rx="1.4"/>',
+  /** Contacts. */
+  contacts: '<rect x="4.5" y="3" width="15" height="18" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8 16.6c.6-2 2.1-3 4-3s3.4 1 4 3M2.5 7.5h2M2.5 12h2M2.5 16.5h2"/>',
+  /** Invite / share outward. */
+  share: '<path d="M12 3.5v11.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
+  /** Browse highlights: a stack of cards. */
+  browse: '<rect x="6.5" y="6.5" width="11" height="14" rx="2"/><path d="M8.5 3.5h7M4 9.5v8M20 9.5v8"/>',
+  /** A sun, for the day's reading. */
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  /** A poll: three bars of different lengths. */
+  poll: '<rect x="3.5" y="4.5" width="10" height="4" rx="2"/><rect x="3.5" y="10" width="17" height="4" rx="2"/><rect x="3.5" y="15.5" width="6.5" height="4" rx="2"/>',
+  /** Giving on a live: a coin with a heart. */
+  heartcoin: '<circle cx="12" cy="12" r="8.6"/><path d="M12 16.2s-3.6-2.2-3.6-4.7a2 2 0 0 1 3.6-1.2 2 2 0 0 1 3.6 1.2c0 2.5-3.6 4.7-3.6 4.7z"/>',
 };
 
 export type IconName = keyof typeof ICONS;
@@ -134,13 +179,17 @@ export function Icon({ name, size = 24, color = C.fg, fill = false, weight = 1.9
   return <SvgXml xml={xml} width={size} height={size} />;
 }
 
-/** The app's logo: the church's mark in white. A plain picture, so it needs nothing beyond React Native to draw. */
-export function Mark({ size = 64 }: { size?: number }) {
-  return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
+/**
+ * The app's logo: the church's mark. A plain picture, so it needs nothing beyond React Native to draw.
+ * The file is white; it is tinted the theme's text colour (it would vanish on White), or `color`, such
+ * as '#fff' on screens that are dark in every theme.
+ */
+export function Mark({ size = 64, color = C.fg }: { size?: number; color?: string }) {
+  return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size, tintColor: color }} accessibilityIgnoresInvertColors />;
 }
 
-/** The verified tick shown next to a verified account's name. */
-export function VerifiedTick({ size = 16 }: { size?: number }) {
+/** The verified badge shown next to a verified account's name: blue rosette, white check. */
+export function VerifiedTick({ size = 18 }: { size?: number }) {
   return <Icon name="verified" size={size} color={C.verified} ink="#ffffff" />;
 }
 

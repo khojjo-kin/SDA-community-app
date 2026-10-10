@@ -7,9 +7,9 @@ import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
 const CATEGORIES = ['Artist', 'Photographer', 'Musician', 'Writer', 'Video creator', 'Software', 'Entrepreneur', 'Education', 'Gaming', 'Fitness', 'Food', 'Fashion', 'Travel', 'Community', 'Personal blog'];
-const TYPES: { value: 'personal' | 'creator'; title: string; body: string }[] = [
-  { value: 'personal', title: 'Personal', body: 'Share with friends and family. This is how every account starts.' },
-  { value: 'creator', title: 'Creator', body: 'Adds a dashboard with views and followers, saved replies, frequently asked questions and a category under your name.' },
+const TYPES: { value: 'personal' | 'creator'; title: string }[] = [
+  { value: 'personal', title: 'Personal' },
+  { value: 'creator', title: 'Creator' },
 ];
 
 export default function AccountType() {
@@ -46,11 +46,8 @@ export default function AccountType() {
         <ScrollView contentContainerStyle={{ paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
           <View accessibilityRole="radiogroup" style={{ paddingHorizontal: 16, gap: 10, paddingTop: 6 }}>
             {TYPES.map((t) => (
-              <Pressable key={t.value} onPress={() => setType(t.value)} accessibilityRole="radio" accessibilityState={{ checked: type === t.value }} accessibilityLabel={`${t.title}. ${t.body}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.surface, borderWidth: 1.5, borderColor: type === t.value ? C.accent : 'transparent' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 17.5, fontWeight: '700' }}>{t.title}</Text>
-                  <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 3 }}>{t.body}</Text>
-                </View>
+              <Pressable key={t.value} onPress={() => setType(t.value)} accessibilityRole="radio" accessibilityState={{ checked: type === t.value }} accessibilityLabel={t.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.surface, borderWidth: 1.5, borderColor: type === t.value ? C.accent : 'transparent' }}>
+                <Text style={{ flex: 1, color: C.fg, fontSize: 17.5, fontWeight: '700' }}>{t.title}</Text>
                 <Radio on={type === t.value} />
               </Pressable>
             ))}
@@ -59,7 +56,6 @@ export default function AccountType() {
           {type === 'creator' ? (
             <>
               <SectionLabel strong>Category</SectionLabel>
-              <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 12, lineHeight: 20 }}>Shown under your name on your profile. Choose one, write your own, or leave it empty.</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 }}>
                 {CATEGORIES.map((c) => {
                   const on = category.trim().toLowerCase() === c.toLowerCase();
@@ -71,7 +67,7 @@ export default function AccountType() {
                 })}
               </View>
               <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-                <TextInput value={category} onChangeText={setCategory} placeholder="Or type your own" placeholderTextColor={C.fg3} maxLength={40} keyboardAppearance="dark" style={{ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Category" />
+                <TextInput value={category} onChangeText={setCategory} placeholder="Or type your own" placeholderTextColor={C.fg3} maxLength={40} keyboardAppearance={C.blurTint} style={{ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Category" />
               </View>
             </>
           ) : null}

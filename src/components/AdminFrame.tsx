@@ -12,17 +12,20 @@ export const ADMIN_SECTIONS: { key: AdminSection; label: string; icon: IconName;
   { key: 'members', label: 'Members', icon: 'people', href: '/admin-members' },
   { key: 'reports', label: 'Reports', icon: 'flag', href: '/admin-reports' },
   { key: 'requests', label: 'Requests', icon: 'verified', href: '/admin-requests' },
+  { key: 'ads', label: 'Ads and fundraisers', icon: 'megaphone', href: '/admin-ads' },
+  { key: 'words', label: 'Offensive words', icon: 'gavel', href: '/admin-words' },
   { key: 'admins', label: 'Admins', icon: 'shield', href: '/admin-admins' },
   { key: 'transactions', label: 'Transactions', icon: 'receipt', href: '/admin-transactions' },
   { key: 'activity', label: 'Activity', icon: 'pulse', href: '/admin-activity' },
-  { key: 'support', label: 'Support', icon: 'lifebuoy', href: '/admin-support' },
+  { key: 'support', label: 'Support chats', icon: 'lifebuoy', href: '/admin-support' },
+  { key: 'feedback', label: 'Feedback and reviews', icon: 'star', href: '/admin-feedback' },
   { key: 'pod', label: 'Pod', icon: 'headphones', href: '/pod' },
   { key: 'hymns', label: 'Hymns', icon: 'hymnal', href: '/hymnal' },
   { key: 'churches', label: 'Churches', icon: 'church', href: '/churches' },
   { key: 'groups', label: 'Groups', icon: 'users', href: '/groups' },
 ];
 
-export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'admins' | 'transactions' | 'activity' | 'support' | 'pod' | 'hymns' | 'churches' | 'groups';
+export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'ads' | 'words' | 'admins' | 'transactions' | 'activity' | 'support' | 'feedback' | 'pod' | 'hymns' | 'churches' | 'groups';
 
 /** From this width up (an iPad on its side, or a Mac window) the console shows its sidebar. */
 export const WIDE_WIDTH = 860;
@@ -79,7 +82,7 @@ export function AdminFrame({ section, title, right, children }: { section: Admin
                   accessibilityRole="tab"
                   accessibilityLabel={s.label}
                   accessibilityState={{ selected: on }}
-                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 42, paddingHorizontal: 12, borderRadius: 11, backgroundColor: on ? C.surface : pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, height: 42, paddingHorizontal: 12, borderRadius: 11, backgroundColor: on ? C.surface : pressed ? C.press : 'transparent' })}>
                   <Icon name={s.icon} size={21} color={on ? C.accent2 : C.fg2} weight={2} />
                   <Text style={{ color: on ? C.fg : C.fg2, fontSize: 15.5, fontWeight: on ? '700' : '500', fontFamily: on ? fontBold : font }}>{s.label}</Text>
                 </Pressable>

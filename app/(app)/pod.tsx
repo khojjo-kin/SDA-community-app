@@ -10,7 +10,7 @@ import { Button, Empty, ErrorNote, Loading, RoundButton, Screen, ScreenHeader, S
 import { fetchPod, fetchPodLibrary, fetchPopularPod } from '../../src/lib/api';
 import { play, toggle, usePlayer } from '../../src/lib/player';
 import { useSession } from '../../src/lib/session';
-import { C, errText } from '../../src/lib/theme';
+import { C, DARK, errText } from '../../src/lib/theme';
 import type { PodItem } from '../../src/lib/types';
 
 type Segment = 'now' | 'song' | 'podcast' | 'library';
@@ -62,7 +62,7 @@ function Hero({ item, nowPlaying, playing, onOpen, onPlay }: { item: PodItem; no
       {item.cover_url ? (
         <Image source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} accessibilityIgnoresInvertColors />
       ) : (
-        <LinearGradient colors={[C.accent, '#0e6b33', C.bg2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
+        <LinearGradient colors={[C.accent, '#0e6b33', DARK.bg2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
           <View style={{ position: 'absolute', right: -18, top: -10, opacity: 0.18 }}>
             <Icon name={item.kind === 'podcast' ? 'podcast' : 'headphones'} size={height * 0.9} color="#fff" weight={1.2} />
           </View>
@@ -70,18 +70,19 @@ function Hero({ item, nowPlaying, playing, onOpen, onPlay }: { item: PodItem; no
       )}
       <LinearGradient colors={['rgba(11,16,20,0)', 'rgba(11,16,20,0.55)', 'rgba(11,16,20,0.95)']} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
       <View style={{ flex: 1, padding: 16, justifyContent: 'flex-end' }}>
-        <Text style={{ color: C.accent2, fontSize: 12, fontWeight: '800', letterSpacing: 0.8 }}>{nowPlaying ? 'PLAYING NOW' : 'START LISTENING'}</Text>
+        {/* The card is a picture under a dark wash, so its words and button keep the dark theme's colours. */}
+        <Text style={{ color: DARK.accent2, fontSize: 12, fontWeight: '800', letterSpacing: 0.8 }}>{nowPlaying ? 'PLAYING NOW' : 'START LISTENING'}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 4 }}>
           <View style={{ flex: 1 }}>
-            <Text numberOfLines={2} style={{ color: C.fg, fontSize: 22, fontWeight: '800', lineHeight: 27 }}>
+            <Text numberOfLines={2} style={{ color: DARK.fg, fontSize: 22, fontWeight: '800', lineHeight: 27 }}>
               {item.title}
             </Text>
-            <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 15, marginTop: 2 }}>
+            <Text numberOfLines={1} style={{ color: DARK.fg2, fontSize: 15, marginTop: 2 }}>
               {item.artist ? `${item.artist} · ${kindLabel(item.kind)}` : kindLabel(item.kind)}
             </Text>
           </View>
-          <Pressable onPress={onPlay} hitSlop={6} accessibilityRole="button" accessibilityLabel={nowPlaying && playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 50, height: 50, borderRadius: 25, backgroundColor: C.fg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-            <Icon name={nowPlaying && playing ? 'pause' : 'play'} size={26} color={C.bg} />
+          <Pressable onPress={onPlay} hitSlop={6} accessibilityRole="button" accessibilityLabel={nowPlaying && playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 50, height: 50, borderRadius: 25, backgroundColor: DARK.fg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+            <Icon name={nowPlaying && playing ? 'pause' : 'play'} size={26} color={DARK.bg} />
           </Pressable>
         </View>
       </View>
@@ -209,7 +210,7 @@ export default function Pod() {
       ) : needle ? (
         <Empty icon="search" title="Nothing matches" body="Try another title or artist." />
       ) : segment === 'library' ? (
-        <Empty icon="bookmark" title="Your library is empty" body="Use the menu on any track, or the bookmark in the player, to keep it here." />
+        <Empty icon="bookmark" title="Your library is empty" />
       ) : segment === 'song' ? (
         <Empty icon="music" title="No songs yet" body={canAdd ? 'Add the first one for the family.' : 'Songs will appear here as they are added.'} />
       ) : (

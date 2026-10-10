@@ -1,0 +1,22 @@
+# Response headers for Cloudflare Pages and Netlify (GitHub Pages ignores this file; the pages
+# carry the same Content-Security-Policy in a <meta> tag instead, without frame-ancestors).
+#
+# The build copies this file to dist/_headers. When website/site.json has an analytics_token it
+# adds Cloudflare Web Analytics to script-src and connect-src, and nothing else is ever added.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# The stylesheet and script are linked with ?v=<hash of their contents>, so they can be kept long.
+/assets/css/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/js/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/img/*
+  Cache-Control: public, max-age=2592000

@@ -1,4 +1,64 @@
-export const C = {
+/*
+ * The app's colours. Two themes are offered in Settings: Dark (the original) and White.
+ *
+ * `C` is one object whose values are swapped when the theme changes (applyTheme), and the app is
+ * then drawn again from the top, so every screen must read `C.x` while it renders — never copy a
+ * colour into a module-level constant. Screens that show photos and video full screen (the camera,
+ * the editors, the story viewer, reels, calls and live) stay dark in every theme: they use `DARK`.
+ */
+export type ThemeName = 'dark' | 'white';
+
+type Palette = {
+  bg: string;
+  bg2: string;
+  surface: string;
+  surface2: string;
+  line: string;
+  fg: string;
+  fg2: string;
+  fg3: string;
+  /** The app's colour: buttons, links, switches, the "New" pill. */
+  accent: string;
+  /** The same green where it sits as text or a small icon: tuned so it reads on this theme's background. */
+  accent2: string;
+  /** Text and icons drawn on the accent colour (buttons). */
+  onAccent: string;
+  /** A soft wash of the accent, behind an accent icon or a selected row. */
+  accentSoft: string;
+  like: string;
+  ok: string;
+  /** Warnings and "pending" labels. */
+  warn: string;
+  /** Destructive actions. */
+  danger: string;
+  /** The frosted tab bar and player bar, over a blur of this tint. */
+  glass: string;
+  blurTint: 'dark' | 'light';
+  /** Thin borders on frosted and floating things. */
+  hairline: string;
+  /** The wash over a row while a finger is on it. */
+  press: string;
+  /** Behind sheets and dialogs. */
+  scrim: string;
+  /** Bottom sheets. */
+  sheet: string;
+  /** Search fields and the thick bands between settings sections. */
+  field: string;
+  /** Round buttons in screen headers. */
+  round: string;
+  /** The app's green, by name, for places that want it even if the accent ever changes. */
+  green: string;
+  /** Close friends: badges and the ring on a story shared only with them. */
+  close: string;
+  /** The verified tick. */
+  verified: string;
+  /** The message box in a chat. */
+  inputBar: string;
+  /** The phone's status bar text: light on dark themes, dark on White. */
+  statusBar: 'light' | 'dark';
+};
+
+const DARK_PALETTE: Palette = {
   bg: '#0b1014',
   bg2: '#131920',
   surface: '#1b222a',
@@ -7,28 +67,83 @@ export const C = {
   fg: '#f3f5f7',
   fg2: '#a4adb9',
   fg3: '#6d7783',
-  /** The app's colour: buttons, links, switches, the "New" pill. */
   accent: '#1fbf5a',
-  /** The same green where it sits on dark text-sized elements, a little lighter so it reads. */
   accent2: '#4fe08a',
+  onAccent: '#ffffff',
+  accentSoft: 'rgba(31,191,90,0.14)',
   like: '#ff3040',
   ok: '#3ddc84',
+  warn: '#ffc94d',
+  danger: '#ff4d4f',
   glass: 'rgba(40,46,55,0.78)',
-  /** Bottom sheets. */
+  blurTint: 'dark',
+  hairline: 'rgba(255,255,255,0.09)',
+  press: 'rgba(255,255,255,0.05)',
+  scrim: 'rgba(0,0,0,0.22)',
   sheet: '#191b1f',
-  /** Search fields and the thick bands between settings sections. */
   field: '#24292e',
-  /** Round buttons in screen headers. */
   round: '#25282b',
-  /** The app's green, by name, for places that want it even if the accent ever changes. */
   green: '#1fbf5a',
-  /** Close friends: badges and the ring on a story shared only with them. */
   close: '#3d8bff',
-  /** The verified tick. */
   verified: '#3d8bff',
-  /** The message box in a chat. */
   inputBar: '#1c1d1f',
+  statusBar: 'light',
 };
+
+const WHITE_PALETTE: Palette = {
+  bg: '#ffffff',
+  bg2: '#f5f6f7',
+  surface: '#f0f2f4',
+  surface2: '#e4e7eb',
+  line: '#e3e6ea',
+  fg: '#0f1419',
+  fg2: '#57606a',
+  fg3: '#8b939c',
+  accent: '#16a34a',
+  accent2: '#11823b',
+  onAccent: '#ffffff',
+  accentSoft: 'rgba(22,163,74,0.12)',
+  like: '#ed2939',
+  ok: '#16a34a',
+  warn: '#b7791f',
+  danger: '#e0262e',
+  glass: 'rgba(255,255,255,0.82)',
+  blurTint: 'light',
+  hairline: 'rgba(0,0,0,0.08)',
+  press: 'rgba(0,0,0,0.05)',
+  scrim: 'rgba(0,0,0,0.16)',
+  sheet: '#ffffff',
+  field: '#eff1f3',
+  round: '#eef0f2',
+  green: '#1fbf5a',
+  close: '#2f7bf5',
+  verified: '#2f7bf5',
+  inputBar: '#f0f2f4',
+  statusBar: 'dark',
+};
+
+export const PALETTES: Record<ThemeName, Palette> = { dark: DARK_PALETTE, white: WHITE_PALETTE };
+
+/** The colours in use now. Read at render time; see the note at the top of this file. */
+export const C: Palette = { ...DARK_PALETTE };
+
+/** The dark colours, whatever the theme: for photo and video screens that are always dark. */
+export const DARK: Readonly<Palette> = DARK_PALETTE;
+
+let current: ThemeName = 'dark';
+
+/** The theme in use now. */
+export function themeName(): ThemeName {
+  return current;
+}
+
+/** Switches the colours. The caller redraws the app (the root layout does, keyed on the theme). */
+export function applyTheme(name: ThemeName) {
+  // A theme no longer offered (Green, before it was taken out) falls back to Dark.
+  const next: ThemeName = name === 'white' ? 'white' : 'dark';
+  Object.assign(C, PALETTES[next]);
+  current = next;
+}
 
 /** Your own chat bubbles. */
 export const BUBBLE = ['#1fbf5a', '#149a62'] as const;
@@ -111,16 +226,60 @@ export function clock(seconds: number): string {
   return Math.floor(s / 60) + ':' + pad(s % 60);
 }
 
-/** Turns any thrown value into a sentence a person can act on. */
+/**
+ * An error whose words were written for members, such as the reason one of our server functions
+ * (payments, Erha) gives when it says no. errText shows it as it is.
+ */
+export class FriendlyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FriendlyError';
+  }
+}
+
+const SOMETHING_WRONG = 'Something went wrong. Try again.';
+const OFFLINE = "You're offline, or the connection is too weak. Check your internet and try again.";
+const NOT_SAVED = "That didn't save — try again.";
+
+/** No connection, or no answer in time. */
+const NETWORK = /Network request failed|Failed to fetch|FetchError|network error|timed? ?out|timeout|AbortError|aborted|ECONN|ENOTFOUND|EAI_AGAIN/i;
+
+/**
+ * Words that only turn up in text written for developers: the database's and the server's own
+ * messages, sign-in token problems, and faults in the code (with their stack lines). An error that
+ * reads like this is never shown to a member, whoever threw it.
+ */
+const TECHNICAL = /permission denied|row-level security|duplicate key|violates|constraint|null value|invalid input|syntax error|(relation|column|function|schema|type) "[^"]*" does not exist|JWT|PGRST|JSON|unauthori[sz]ed|forbidden|status code|non-2xx|Edge Function|SSL|certificate|undefined is not|null is not|is not a function|cannot read propert|unexpected token|TypeError|ReferenceError|SyntaxError|RangeError|\[object |\n|\bat \S+ \([^)]*:\d+:\d+\)|\.(js|jsx|ts|tsx):\d/i;
+
+/**
+ * Turns any thrown value into a sentence a person can act on. Only words written for members get
+ * through: Clerk's, our server functions' (FriendlyError), the reasons our own database functions and
+ * triggers give (Postgres code P0001), and the app's own. Everything else (what the database, the
+ * network or a library says) becomes a plain sentence; the full error goes to the console in
+ * development builds only.
+ */
 export function errText(e: unknown): string {
+  if (__DEV__) console.log('[errText]', e);
   const anyE = e as any;
-  const clerk = anyE?.errors?.[0];
-  if (clerk) return clerk.longMessage || clerk.message || 'Something went wrong. Try again.';
-  if (anyE?.code === '23505') return /username/.test(String(anyE?.message ?? '') + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
-  if (anyE?.code === '23514') return /username/.test(String(anyE?.message ?? '')) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
+  if (e instanceof FriendlyError) return e.message || SOMETHING_WRONG;
+  // Clerk's errors (sign-in, sign-up, email codes) are written for the person signing in.
+  const clerk = Array.isArray(anyE?.errors) ? anyE.errors[0] : null;
+  if (clerk && typeof clerk === 'object' && !(clerk instanceof Error) && typeof clerk.code === 'string') return clerk.longMessage || clerk.message || SOMETHING_WRONG;
+  const message = typeof anyE?.message === 'string' ? anyE.message.trim() : typeof e === 'string' ? e.trim() : '';
+  const code = typeof anyE?.code === 'string' || typeof anyE?.code === 'number' ? String(anyE.code) : '';
+  // Raised by our own database functions and triggers, in words written for members.
+  if (code === 'P0001') return message && !message.includes('\n') ? message : SOMETHING_WRONG;
+  if (NETWORK.test(message) || anyE?.name === 'AbortError' || anyE?.name === 'FunctionsFetchError') return OFFLINE;
+  if (code === '23505') return /username/.test(message + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
+  if (code === '23514') return /username/.test(message) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
   // Refused by the database's access rules: usually someone has blocked someone, or the thing is gone.
-  if (anyE?.code === '42501') return "That isn't available for this account.";
-  if (/Network request failed|Failed to fetch|FetchError|network error/i.test(String(anyE?.message ?? ''))) return 'No connection. Check your internet and try again.';
-  if (typeof anyE?.message === 'string' && anyE.message) return anyE.message;
-  return 'Something went wrong. Check your connection and try again.';
+  if (code === '42501') return "That isn't available for this account.";
+  // Any other data the database wouldn't take (a missing link, a value of the wrong kind or size).
+  if (/^2[23]/.test(code)) return NOT_SAVED;
+  if (typeof anyE?.name === 'string' && anyE.name.startsWith('Storage')) return NOT_SAVED;
+  if (code) return SOMETHING_WRONG;
+  // What the app itself throws (a plain Error) is written for members, unless it reads like the above.
+  const own = typeof e === 'string' || (e instanceof Error && e.name === 'Error');
+  if (own && message && message.length <= 300 && !TECHNICAL.test(message)) return message;
+  return SOMETHING_WRONG;
 }

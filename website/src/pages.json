@@ -1,0 +1,93 @@
+[
+  {
+    "slug": "home",
+    "path": "/",
+    "source": "pages/home.html",
+    "title": "Community: the social app for the Adventist church family",
+    "description": "Posts, Shorts, stories, messages, live video and prayer, with the Bible, the Hymnal and Sabbath School built in. Community is the social app for the Seventh-day Adventist church family."
+  },
+  {
+    "slug": "privacy",
+    "path": "/privacy",
+    "legal": "privacy.md",
+    "h1": "Privacy policy",
+    "lead": "What Community collects, why, who we share it with, and the choices you have.",
+    "title": "Privacy policy | Community",
+    "description": "How Community collects, uses and protects your information, how long it is kept, and how to use your privacy rights."
+  },
+  {
+    "slug": "terms",
+    "path": "/terms",
+    "legal": "terms.md",
+    "h1": "Terms of use",
+    "lead": "The agreement between you and us when you use Community.",
+    "title": "Terms of use | Community",
+    "description": "The terms that apply when you use Community, including accounts, content, Community Plus subscriptions and fundraisers."
+  },
+  {
+    "slug": "copyright",
+    "path": "/copyright",
+    "legal": "copyright.md",
+    "h1": "Copyright and DMCA policy",
+    "lead": "How we respect copyright, and how we handle notices and counter-notices.",
+    "title": "Copyright and DMCA policy | Community",
+    "description": "Community's copyright policy: how infringement notices, counter-notices and repeat infringers are handled.",
+    "callout": "report-copyright"
+  },
+  {
+    "slug": "report-copyright",
+    "path": "/report-copyright",
+    "source": "pages/report-copyright.html",
+    "h1": "Report copyright infringement",
+    "lead": "If something on Community uses your work without permission, tell us and we will review it.",
+    "title": "Report copyright infringement | Community",
+    "description": "How to send a copyright infringement (DMCA) notice to Community, what to include, and what happens next."
+  },
+  {
+    "slug": "child-safety",
+    "path": "/child-safety",
+    "legal": "child-safety.md",
+    "h1": "Child safety standards",
+    "lead": "Who can join Community, how we protect young members, and how to report a concern.",
+    "title": "Child safety standards | Community",
+    "description": "Community's standards against child sexual abuse and exploitation, protections for members under 14, and how to report a concern."
+  },
+  {
+    "slug": "community-guidelines",
+    "path": "/community-guidelines",
+    "legal": "community-guidelines.md",
+    "h1": "Community guidelines",
+    "lead": "What is welcome on Community, what is not, and what happens when the guidelines are broken.",
+    "title": "Community guidelines | Community",
+    "description": "The guidelines everyone on Community agrees to: kindness, honesty and respect, and what we remove."
+  },
+  {
+    "slug": "support",
+    "path": "/support",
+    "source": "pages/support.html",
+    "h1": "Support",
+    "lead": "The quickest help is inside the app. You can also email us, and many answers are below.",
+    "title": "Support and help | Community",
+    "description": "Get help with Community: chat with support in the app under Settings, Help, email the team, or read answers to common questions."
+  },
+  {
+    "slug": "delete-account",
+    "path": "/delete-account",
+    "source": "pages/delete-account.html",
+    "h1": "Delete your account",
+    "lead": "You can delete your Community account at any time from inside the app. Here is how, and what happens to your information.",
+    "title": "Delete your account | Community",
+    "description": "How to delete your Community account in the app, what is deleted and when (after 30 days), and how to ask for a copy of your data."
+  },
+  {
+    "slug": "404",
+    "path": "/404",
+    "file": "404.html",
+    "source": "pages/404.html",
+    "h1": "We can't find that page",
+    "lead": "The link may be out of date, or the address may have a typo.",
+    "title": "Page not found | Community",
+    "description": "This page does not exist on the Community website.",
+    "noindex": true
+  }
+]

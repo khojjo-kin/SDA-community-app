@@ -87,7 +87,7 @@ export default function AdminMember() {
         <Row title="Suspended" sub="Can read, but cannot post, comment, share stories or message" right={<Toggle value={m.suspended} label="Suspended" disabled={self} onChange={suspend} />} />
         <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 8 }}>
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>Admin note — only admins see this</Text>
-          <TextInput value={note} onChangeText={setNote} placeholder="Why this account was verified, suspended, or anything the next admin should know" placeholderTextColor={C.fg3} multiline maxLength={500} keyboardAppearance="dark" accessibilityLabel="Admin note" style={{ minHeight: 80, color: C.fg, fontSize: 15.5, padding: 12, borderRadius: 12, backgroundColor: C.surface, textAlignVertical: 'top' }} />
+          <TextInput value={note} onChangeText={setNote} placeholder="Why this account was verified, suspended, or anything the next admin should know" placeholderTextColor={C.fg3} multiline maxLength={500} keyboardAppearance={C.blurTint} accessibilityLabel="Admin note" style={{ minHeight: 80, color: C.fg, fontSize: 15.5, padding: 12, borderRadius: 12, backgroundColor: C.surface, textAlignVertical: 'top' }} />
           {note !== (m.admin_note ?? '') ? <Button small label="Save note" onPress={() => set({ admin_note: note.trim() }, 'Note saved')} style={{ alignSelf: 'flex-start' }} /> : null}
         </View>
         <Divider />

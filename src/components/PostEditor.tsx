@@ -12,12 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import { fetchPod } from '../lib/api';
 import { Adjust, DEFAULT_ADJUST, isPlainLook, lookMatrix, NORMAL_FILTER } from '../lib/filters';
-import { C, clock, errText } from '../lib/theme';
+import { C, clock, DARK, errText } from '../lib/theme';
 import type { Overlay, PodItem } from '../lib/types';
 import { AdjustStrip, Slider } from './AdjustStrip';
 import { FilterStrip } from './FilterStrip';
 import { Icon, IconName } from './Icon';
 import type { PickedItem } from './MediaPicker';
+import { DarkEmpty, DarkLoading } from './OnDark';
 import { overlayBox, OverlayLabel } from './StoryCanvas';
 import { Empty, Loading, SearchField, Sheet, useToast } from './ui';
 
@@ -249,7 +250,7 @@ function Tool({ icon, cc, label, onPress, active, dim }: { icon?: IconName; cc?:
           <Icon name={icon} size={25} color={ink} />
         ) : null}
       </View>
-      <Text style={{ color: C.fg2, fontSize: 12.5 }}>{label}</Text>
+      <Text style={{ color: DARK.fg2, fontSize: 12.5 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -274,7 +275,7 @@ function Swatches({ value, onPick }: { value: string; onPick: (c: string) => voi
 
 function Pill({ label, icon, onPress, primary, disabled }: { label: string; icon?: IconName; onPress: () => void; primary?: boolean; disabled?: boolean }) {
   return (
-    <Pressable onPress={disabled ? undefined : onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 18, borderRadius: 21, backgroundColor: primary ? C.accent : '#2a2d32', opacity: disabled ? 0.5 : pressed ? 0.7 : 1 })}>
+    <Pressable onPress={disabled ? undefined : onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 18, borderRadius: 21, backgroundColor: primary ? DARK.accent : '#2a2d32', opacity: disabled ? 0.5 : pressed ? 0.7 : 1 })}>
       {icon && !primary ? <Icon name={icon} size={18} color="#fff" /> : null}
       <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{label}</Text>
       {icon && primary ? <Icon name={icon} size={18} color="#fff" weight={2.4} /> : null}
@@ -583,7 +584,7 @@ export function PostEditor({
   if (!item) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <Empty title="Nothing to edit" body="Go back and choose a photo or video." />
+        <DarkEmpty title="Nothing to edit" body="Go back and choose a photo or video." />
       </View>
     );
   }
@@ -663,7 +664,7 @@ export function PostEditor({
               <View style={{ flex: 1, flexDirection: 'row', gap: 18 }} accessibilityRole="tablist">
                 {(['filters', 'adjust'] as const).map((t) => (
                   <Pressable key={t} onPress={() => setEditTab(t)} hitSlop={8} accessibilityRole="tab" accessibilityState={{ selected: editTab === t }}>
-                    <Text style={{ color: editTab === t ? '#fff' : C.fg3, fontWeight: '700', fontSize: 15 }}>{t === 'filters' ? 'Filters' : 'Adjust'}</Text>
+                    <Text style={{ color: editTab === t ? '#fff' : DARK.fg3, fontWeight: '700', fontSize: 15 }}>{t === 'filters' ? 'Filters' : 'Adjust'}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -671,7 +672,7 @@ export function PostEditor({
               <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 }}>Choose a cover</Text>
             )}
             <Pressable onPress={() => setTool(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Done" style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-              <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 15.5 }}>Done</Text>
+              <Text style={{ color: DARK.accent2, fontWeight: '700', fontSize: 15.5 }}>Done</Text>
             </Pressable>
           </View>
           {tool === 'edit' ? (
@@ -681,13 +682,13 @@ export function PostEditor({
               <AdjustStrip value={edit.adjust} onChange={(adjust) => patchEdit(pageIdx, { adjust })} locked={!plus} onUnlock={() => router.push('/plus')} />
             )
           ) : covers === null ? (
-            <Loading />
+            <DarkLoading />
           ) : covers.length === 0 ? (
-            <Text style={{ color: C.fg2, textAlign: 'center', padding: 24 }}>The video's frames could not be read.</Text>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', padding: 24 }}>The video's frames could not be read.</Text>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }} style={{ flexGrow: 0 }}>
               {covers.map((uri, i) => (
-                <Pressable key={uri} onPress={() => onPoster(uri)} accessibilityRole="button" accessibilityLabel={`Cover frame ${i + 1}`} accessibilityState={{ selected: poster === uri }} style={({ pressed }) => ({ width: 64, height: 96, borderRadius: 8, overflow: 'hidden', borderWidth: 2, borderColor: poster === uri ? C.accent : 'transparent', backgroundColor: C.surface2, opacity: pressed ? 0.75 : 1 })}>
+                <Pressable key={uri} onPress={() => onPoster(uri)} accessibilityRole="button" accessibilityLabel={`Cover frame ${i + 1}`} accessibilityState={{ selected: poster === uri }} style={({ pressed }) => ({ width: 64, height: 96, borderRadius: 8, overflow: 'hidden', borderWidth: 2, borderColor: poster === uri ? DARK.accent : 'transparent', backgroundColor: DARK.surface2, opacity: pressed ? 0.75 : 1 })}>
                   <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
                 </Pressable>
               ))}
@@ -698,9 +699,9 @@ export function PostEditor({
         <View style={{ paddingBottom: insets.bottom + 10 }}>
           <Pressable onPress={() => (isVideo ? openCover() : setTool('edit'))} accessibilityRole="button" accessibilityLabel={isVideo ? 'Edit video' : 'Edit'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 7, opacity: pressed ? 0.6 : 1 })}>
             <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <Icon name="down" size={14} color={C.fg2} weight={2.4} />
+              <Icon name="down" size={14} color={DARK.fg2} weight={2.4} />
             </View>
-            <Text style={{ color: C.fg2, fontSize: 12.5 }}>Swipe up to edit</Text>
+            <Text style={{ color: DARK.fg2, fontSize: 12.5 }}>Swipe up to edit</Text>
           </Pressable>
           <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingHorizontal: 4, paddingTop: 4 }}>
             <Tool icon="music" label="Audio" active={!!audio} onPress={() => { setSelected(null); setTool('audio'); }} />
@@ -782,11 +783,11 @@ export function PostEditor({
       {/* the caption */}
       <Sheet visible={tool === 'caption'} onClose={() => setTool(null)} title="Captions">
         <View style={{ paddingHorizontal: 16, gap: 12 }}>
-          <TextInput value={caption} onChangeText={onCaption} autoFocus multiline maxLength={2200} placeholder="Write a caption…" placeholderTextColor={C.fg3} keyboardAppearance="dark" style={{ minHeight: 110, maxHeight: 200, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
-          <TextInput value={alt} onChangeText={setAlt} maxLength={300} placeholder="Alt text" placeholderTextColor={C.fg3} keyboardAppearance="dark" style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16 }} accessibilityLabel="Alt text" />
+          <TextInput value={caption} onChangeText={onCaption} autoFocus multiline maxLength={2200} placeholder="Write a caption…" placeholderTextColor={C.fg3} keyboardAppearance={C.blurTint} style={{ minHeight: 110, maxHeight: 200, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
+          <TextInput value={alt} onChangeText={setAlt} maxLength={300} placeholder="Alt text" placeholderTextColor={C.fg3} keyboardAppearance={C.blurTint} style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16 }} accessibilityLabel="Alt text" />
           <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17 }}>Alt text describes the photo for people who cannot see it.</Text>
           <Pressable onPress={() => setTool(null)} accessibilityRole="button" accessibilityLabel="Done" style={({ pressed }) => ({ height: 46, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15.5 }}>Done</Text>
+            <Text style={{ color: C.onAccent, fontWeight: '600', fontSize: 15.5 }}>Done</Text>
           </Pressable>
         </View>
       </Sheet>
@@ -825,8 +826,8 @@ export function PostEditor({
                 <Icon name="trash" size={22} />
               </Pressable>
             ) : null}
-            <Pressable onPress={() => (recording ? stopRecording(true) : voice ? toggleVoice() : startRecording())} accessibilityRole="button" accessibilityLabel={recording ? 'Stop recording' : voice ? (voiceStatus.playing ? 'Pause' : 'Play the voice note') : 'Start recording'} style={({ pressed }) => ({ width: 72, height: 72, borderRadius: 36, backgroundColor: recording ? C.like : voice ? C.accent : '#fff', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-              <Icon name={recording ? 'stop' : voice ? (voiceStatus.playing ? 'pause' : 'play') : 'mic'} size={30} color={recording || voice ? '#fff' : '#000'} />
+            <Pressable onPress={() => (recording ? stopRecording(true) : voice ? toggleVoice() : startRecording())} accessibilityRole="button" accessibilityLabel={recording ? 'Stop recording' : voice ? (voiceStatus.playing ? 'Pause' : 'Play the voice note') : 'Start recording'} style={({ pressed }) => ({ width: 72, height: 72, borderRadius: 36, backgroundColor: recording ? C.like : voice ? C.accent : C.fg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+              <Icon name={recording ? 'stop' : voice ? (voiceStatus.playing ? 'pause' : 'play') : 'mic'} size={30} color={recording ? '#fff' : voice ? C.onAccent : C.bg} />
             </Pressable>
             {voice && !recording ? (
               <Pressable onPress={startRecording} accessibilityRole="button" accessibilityLabel="Record again" style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>

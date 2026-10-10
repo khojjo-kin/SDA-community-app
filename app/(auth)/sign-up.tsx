@@ -1,28 +1,53 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthShell } from '../../src/components/AuthShell';
+import { AuthShell, ConsentBox, DARK_FIELD } from '../../src/components/AuthShell';
+import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
+import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
-import { C, errText } from '../../src/lib/theme';
+import { isDeviceAgeBlocked } from '../../src/lib/age';
+import { rememberSignUpConsent } from '../../src/lib/consent';
+import { useT } from '../../src/lib/i18n';
+import { DARK, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
+  // The app's own words are translated; what Clerk says when something fails (errText) stays as Clerk sends it.
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  // The date of birth is asked once, in onboarding, for every new account however it was made.
   const [stage, setStage] = useState<'form' | 'verify'>('form');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // Explicit consent to use what may show religious belief (a church, using a Christian app), which
+  // UK GDPR (Article 9) needs. Unticked to begin with; every way of making an account on this page
+  // waits for it, and the yes is kept for onboarding to record once the profile exists. (Apple or
+  // Google on the log-in page can make an account without this page, so onboarding asks there.)
+  const [consent, setConsent] = useState(false);
+  // The Terms and Privacy Policy open in a sheet, so the form keeps what has been typed.
+  const legal = useLegalSheet();
+
+  // Someone on this phone said they were under 13 in the last day: the answer stands.
+  useEffect(() => {
+    isDeviceAgeBlocked().then((blocked) => {
+      if (blocked) router.replace('/cannot-join');
+    });
+  }, [router]);
 
   async function create() {
     if (!isLoaded || busy) return;
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr('Enter a valid email address.');
-    if (password.length < 8) return setErr('Use a password with at least 8 characters.');
+    // The keyboard's Go key reaches here even while the button is greyed out.
+    if (!consent) return setErr(t('legal.consentNeeded'));
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr(t('auth.enterValidEmail'));
+    if (password.length < 8) return setErr(t('auth.passwordTooShort'));
     setBusy(true);
     setErr('');
+    rememberSignUpConsent();
     try {
       const res = await signUp!.create({ emailAddress: email.trim(), password });
       if (res.status === 'complete') {
@@ -41,7 +66,7 @@ export default function SignUp() {
 
   async function verify() {
     if (!isLoaded || busy) return;
-    if (!code.trim()) return setErr('Enter the code from your email.');
+    if (!code.trim()) return setErr(t('auth.enterEmailCode'));
     setBusy(true);
     setErr('');
     try {
@@ -51,7 +76,7 @@ export default function SignUp() {
         router.replace('/');
       } else {
         const missing = ((res as any).missingFields ?? []).join(', ');
-        setErr(missing ? `Sign-up also needs: ${missing}. Ask the app owner to turn those requirements off in Clerk.` : 'That code did not finish sign-up. Request a new code and try again.');
+        setErr(missing ? t('auth.signUpNeeds', { fields: missing }) : t('auth.codeDidNotFinish'));
       }
     } catch (e) {
       setErr(errText(e));
@@ -69,37 +94,58 @@ export default function SignUp() {
     }
   }
 
+  const haveAccount = (
+    <Link href="/sign-in" replace asChild>
+      <Pressable>
+        <Text style={{ color: DARK.fg2 }}>
+          {t('auth.haveAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.logIn')}</Text>
+        </Text>
+      </Pressable>
+    </Link>
+  );
+
   if (stage === 'verify') {
     return (
-      <AuthShell title={`Enter the code we sent to ${email.trim()}.`}>
-        <Field value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
-        <Button label="Confirm email" onPress={verify} busy={busy} />
-        <Pressable onPress={resend} style={{ padding: 10 }}>
-          <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
-        </Pressable>
-        <Pressable onPress={() => { setStage('form'); setCode(''); setErr(''); }} style={{ padding: 10 }}>
-          <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Use a different email</Text>
-        </Pressable>
-      </AuthShell>
+      <>
+        <DarkStatusBar />
+        <AuthShell title={t('auth.enterCodeSentTo', { email: email.trim() })}>
+          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
+          <Button label={t('auth.confirmEmail')} onPress={verify} busy={busy} />
+          <Pressable onPress={resend} style={{ padding: 10 }}>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.sendNewCode')}</Text>
+          </Pressable>
+          <Pressable onPress={() => { setStage('form'); setCode(''); setErr(''); }} style={{ padding: 10 }}>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.differentEmail')}</Text>
+          </Pressable>
+        </AuthShell>
+      </>
     );
   }
 
   return (
-    <AuthShell
-      title="Join your church family: share, pray and grow together."
-      footer={
-        <Link href="/sign-in" replace asChild>
-          <Pressable>
-            <Text style={{ color: C.fg2 }}>
-              Have an account? <Text style={{ color: C.accent2, fontWeight: '600' }}>Log in</Text>
-            </Text>
-          </Pressable>
-        </Link>
-      }>
-      <Field value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
-      <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
-      <Button label="Sign up" onPress={create} busy={busy} />
-      <SsoButtons onError={setErr} />
-    </AuthShell>
+    <>
+      <DarkStatusBar />
+      <AuthShell title={t('auth.joinTagline')} footer={haveAccount}>
+        <Field {...DARK_FIELD} value={email} onChangeText={setEmail} placeholder={t('auth.email')} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
+        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
+        <Button label={t('auth.signUp')} onPress={create} busy={busy} disabled={!consent} />
+        <SsoButtons onError={setErr} disabled={!consent} onStart={rememberSignUpConsent} />
+        <ConsentBox
+          checked={consent}
+          onToggle={() => {
+            setConsent((c) => !c);
+            if (err === t('legal.consentNeeded')) setErr('');
+          }}
+          onOpenPrivacy={() => legal.open('privacy')}
+        />
+        <LinkedSentence
+          text={t('legal.agreeSignUp')}
+          slots={{ terms: { label: t('legal.termsLink'), onPress: () => legal.open('terms') }, privacy: { label: t('legal.privacyLink'), onPress: () => legal.open('privacy') } }}
+          style={{ color: DARK.fg2, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 2 }}
+          linkStyle={{ color: DARK.accent2 }}
+        />
+        {legal.element}
+      </AuthShell>
+    </>
   );
 }

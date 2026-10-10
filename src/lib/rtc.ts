@@ -1,4 +1,5 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import * as Crypto from 'expo-crypto';
 import { MediaStream, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription, mediaDevices } from 'react-native-webrtc';
 import { supabase } from './supabase';
 
@@ -196,17 +197,52 @@ export class PeerSession {
 
 export type Handlers = Record<string, (payload: any) => void>;
 
+export type ChannelOptions = {
+  /**
+   * A private channel: the server checks the database's rules before this phone may listen or send
+   * on it, using the sign-in token. Live broadcasts use these; calls and typing stay public.
+   */
+  private?: boolean;
+};
+
+const NO_SERVICE = 'Could not reach the call service. Check your connection and try again.';
+
+/** The server turned this phone away from a private channel: its rules say this account may not use it. */
+export class ChannelRefusedError extends Error {
+  constructor() {
+    super("This account can't use this channel.");
+    this.name = 'ChannelRefusedError';
+  }
+}
+
+/**
+ * Hands the Realtime connection the current sign-in token. The client also refreshes it on its own
+ * (it was created with the accessToken option), but only once connected, and a private channel is
+ * judged on the token it joins with, so it must be there first.
+ */
+async function signRealtimeIn(required: boolean) {
+  try {
+    await supabase.realtime.setAuth();
+  } catch {
+    // Checked just below when it matters.
+  }
+  // Without a token a private channel would be refused as if this account weren't allowed in.
+  if (required && !supabase.realtime.accessTokenValue) throw new Error(NO_SERVICE);
+}
+
 /**
  * Joins a broadcast channel and resolves once the server has confirmed it, so the first message is
  * never sent into the void. Every phone on the channel gets every message, so payloads carry `to`
  * and `from` ids and each end ignores what is not meant for it.
  *
  * `extra` runs before subscribing, for database-change listeners that must be registered first.
+ * A private channel the database's rules turn this account away from rejects with ChannelRefusedError.
  */
-export async function joinChannel(name: string, handlers: Handlers, extra?: (channel: RealtimeChannel) => void): Promise<RealtimeChannel> {
+export async function joinChannel(name: string, handlers: Handlers, extra?: (channel: RealtimeChannel) => void, options: ChannelOptions = {}): Promise<RealtimeChannel> {
+  const isPrivate = !!options.private;
   // The sign-in token first, as the chat does, so the socket is the same one and already signed in.
-  await supabase.realtime.setAuth().catch(() => {});
-  const channel = supabase.channel(name, { config: { broadcast: { self: false } } });
+  await signRealtimeIn(isPrivate);
+  const channel = supabase.channel(name, { config: { private: isPrivate, broadcast: { self: false } } });
   for (const [event, fn] of Object.entries(handlers)) {
     channel.on('broadcast', { event }, ({ payload }) => fn(payload ?? {}));
   }
@@ -216,7 +252,7 @@ export async function joinChannel(name: string, handlers: Handlers, extra?: (cha
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      reject(new Error('Could not reach the call service. Check your connection and try again.'));
+      reject(new Error(NO_SERVICE));
     }, 15000);
     channel.subscribe((status, err) => {
       if (settled) return;
@@ -227,7 +263,10 @@ export async function joinChannel(name: string, handlers: Handlers, extra?: (cha
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         settled = true;
         clearTimeout(timer);
-        reject(err ?? new Error('Could not reach the call service. Check your connection and try again.'));
+        if (__DEV__) console.log(`[rtc] ${name}: ${status}`, err);
+        // The server's own words are for developers; the person sees ours.
+        const refused = isPrivate && status === 'CHANNEL_ERROR' && /unauthori[sz]ed|permission|not allowed/i.test(String(err?.message ?? ''));
+        reject(refused ? new ChannelRefusedError() : new Error(NO_SERVICE));
       }
     });
   }).catch((e) => {
@@ -236,6 +275,30 @@ export async function joinChannel(name: string, handlers: Handlers, extra?: (cha
   });
   return channel;
 }
+
+/**
+ * A channel this phone only sends on and never listens to. Its messages go over a web request
+ * instead of the open connection, so a live's viewers don't each receive every other viewer's
+ * messages to the broadcaster. A private one is checked against the database's rules per message.
+ */
+export async function openSendChannel(name: string, options: ChannelOptions = {}): Promise<RealtimeChannel> {
+  const isPrivate = !!options.private;
+  await signRealtimeIn(isPrivate);
+  return supabase.channel(name, { config: { private: isPrivate, broadcast: { self: false } } });
+}
+
+/**
+ * A random, unguessable token (128 bits, as hex) from the phone's secure random source. A live's
+ * viewer makes one each time it joins and puts it on everything it sends the broadcaster, so another
+ * viewer, who can see viewer ids but never this, can't send messages in its name.
+ */
+export function newNonce(): string {
+  const bytes: Uint8Array = Crypto.getRandomBytes(16);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** What newNonce makes, so a malformed one is turned away before it is compared. */
+export const NONCE = /^[0-9a-f]{32}$/;
 
 export function send(channel: RealtimeChannel | null | undefined, event: string, payload: Record<string, unknown>) {
   if (!channel) return Promise.resolve();

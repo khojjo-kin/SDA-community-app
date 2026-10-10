@@ -1,0 +1,33 @@
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <p class="footer-about"><span class="footer-name">Community</span> The social app for the Seventh-day Adventist church family. For ages 13 and up.</p>
+      <nav aria-label="Policies and help">
+        <ul class="footer-links">
+          <li><a href="{{base}}/privacy">Privacy</a></li>
+          <li><a href="{{base}}/terms">Terms</a></li>
+          <li><a href="{{base}}/copyright">Copyright and DMCA</a></li>
+          <li><a href="{{base}}/report-copyright">Report copyright infringement</a></li>
+          <li><a href="{{base}}/child-safety">Child safety</a></li>
+          <li><a href="{{base}}/community-guidelines">Community guidelines</a></li>
+          <li><a href="{{base}}/support">Support</a></li>
+          <li><a href="{{base}}/delete-account">Delete account</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; {{year}} {{operator_name}}, {{postal_address_line}}</p>
+      <p><a href="mailto:{{contact_email}}">{{contact_email}}</a></p>
+      {{#if analytics}}<p><button type="button" class="link-button" id="analytics-choice" hidden>Analytics choice</button></p>{{/if}}
+    </div>
+  </div>
+</footer>
+{{#if analytics}}<div class="consent" id="consent" role="region" aria-labelledby="consent-text" hidden>
+  <p id="consent-text">May we count visits to this site with Cloudflare Web Analytics? It sets no cookies and does not follow you to other sites.</p>
+  <div class="consent-actions">
+    <button type="button" class="btn btn-leaf btn-small" data-consent="accept">Allow</button>
+    <button type="button" class="btn btn-ghost btn-small" data-consent="decline">No thanks</button>
+  </div>
+</div>
+<script src="{{base}}/assets/js/consent.js?v={{js_version}}" defer data-token="{{analytics_token}}"></script>
+{{/if}}

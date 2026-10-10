@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { PanResponder, Pressable, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { ADJUST_KEYS, Adjust, DEFAULT_ADJUST, isDefaultAdjust } from '../lib/filters';
-import { C } from '../lib/theme';
+import { DARK } from '../lib/theme';
 import { Icon } from './Icon';
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -84,27 +84,27 @@ export function AdjustStrip({ value, onChange, locked, onUnlock, style }: { valu
   return (
     <View style={[{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 }, style]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 2 }}>
-        <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '700', letterSpacing: 0.6 }}>ADJUST</Text>
+        <Text style={{ color: DARK.fg2, fontSize: 12.5, fontWeight: '700', letterSpacing: 0.6 }}>ADJUST</Text>
         {changed && !locked ? (
           <Pressable onPress={() => onChange({ ...DEFAULT_ADJUST })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reset adjustments" style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-            <Text style={{ color: C.accent2, fontSize: 13.5, fontWeight: '600' }}>Reset</Text>
+            <Text style={{ color: DARK.accent2, fontSize: 13.5, fontWeight: '600' }}>Reset</Text>
           </Pressable>
         ) : null}
       </View>
       <View pointerEvents={locked ? 'none' : 'auto'} style={{ opacity: locked ? 0.35 : 1 }} accessibilityElementsHidden={!!locked} importantForAccessibility={locked ? 'no-hide-descendants' : 'auto'}>
         {ADJUST_KEYS.map((k) => (
           <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={{ width: 84, color: C.fg, fontSize: 14.5 }}>{LABELS[k]}</Text>
+            <Text style={{ width: 84, color: DARK.fg, fontSize: 14.5 }}>{LABELS[k]}</Text>
             <Slider value={value[k]} min={-100} max={100} onChange={(v) => onChange({ ...value, [k]: v })} label={LABELS[k]} disabled={locked} style={{ flex: 1 }} />
-            <Text style={{ width: 34, textAlign: 'right', color: value[k] ? C.fg : C.fg3, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{value[k] > 0 ? '+' + value[k] : value[k]}</Text>
+            <Text style={{ width: 34, textAlign: 'right', color: value[k] ? DARK.fg : DARK.fg3, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{value[k] > 0 ? '+' + value[k] : value[k]}</Text>
           </View>
         ))}
       </View>
       {locked ? (
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, top: 30, bottom: 10, alignItems: 'center', justifyContent: 'center' }}>
           <Pressable onPress={onUnlock} accessibilityRole="button" accessibilityLabel="Advanced editing is part of Community Plus. Learn more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'rgba(24,27,31,0.96)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', opacity: pressed ? 0.75 : 1 })}>
-            <Icon name="crown" size={18} color={C.accent2} />
-            <Text style={{ color: C.fg, fontSize: 13.5, fontWeight: '600' }}>Advanced editing is part of Community Plus</Text>
+            <Icon name="crown" size={18} color={DARK.accent2} />
+            <Text style={{ color: DARK.fg, fontSize: 13.5, fontWeight: '600' }}>Advanced editing is part of Community Plus</Text>
           </Pressable>
         </View>
       ) : null}

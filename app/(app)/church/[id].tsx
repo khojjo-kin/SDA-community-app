@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { Icon } from '../../../src/components/Icon';
 import { PersonRow } from '../../../src/components/PersonRow';
 import { Button, Divider, Empty, ErrorNote, Field, Loading, RoundButton, Row, Screen, ScreenHeader, SectionLabel, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { deleteChurch, fetchChurch, fetchChurchMembers, updateChurch, updateProfile } from '../../../src/lib/api';
+import { decideChurch, deleteChurch, fetchChurch, fetchChurchMembers, updateChurch, updateProfile } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { announce } from '../../../src/lib/store';
 import { C, errText, fmt } from '../../../src/lib/theme';
@@ -42,6 +42,7 @@ export default function ChurchPage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
@@ -131,6 +132,28 @@ export default function ChurchPage() {
     }
   }
 
+  /** Admins: approve a suggested church (it then lists for everyone) or turn it down. */
+  async function decide(approve: boolean) {
+    if (!church || deciding) return;
+    setDeciding(true);
+    try {
+      await decideChurch(me, church.id, approve);
+      if (!alive.current) return;
+      setChurch({ ...church, status: approve ? 'approved' : 'rejected', reviewed_by: me, reviewed_at: new Date().toISOString() });
+      toast(approve ? 'Church approved' : 'Church not approved');
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      if (alive.current) setDeciding(false);
+    }
+  }
+  function reject() {
+    Alert.alert('Turn this church down?', "It won't be listed for anyone. The member who suggested it sees it marked Not approved.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reject', style: 'destructive', onPress: () => decide(false) },
+    ]);
+  }
+
   function confirmDelete() {
     Alert.alert('Delete this church?', "It disappears from the list and from every member's profile. This cannot be undone.", [
       { text: 'Cancel', style: 'cancel' },
@@ -158,22 +181,42 @@ export default function ChurchPage() {
   const place = placeOf(church);
   const site = siteOf(church);
   const times = church.service_times.trim();
+  const pending = church.status === 'pending';
+  const rejected = church.status === 'rejected';
+  const byMe = church.created_by === me;
 
   return (
     <Screen>
       <ScreenHeader title="Church" right={admin ? <RoundButton name="more" label="More options" onPress={() => setSheet('more')} /> : undefined} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
+        {pending || rejected ? (
+          <View style={{ marginHorizontal: 16, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: rejected ? C.like + '1f' : C.close + '1f', gap: 12 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Icon name={rejected ? 'info' : 'clock'} size={20} color={rejected ? C.like : C.close} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.fg, fontWeight: '700', lineHeight: 20 }}>{rejected ? 'An admin did not approve this church' : 'Waiting for an admin to approve this church'}</Text>
+              </View>
+            </View>
+            {admin ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button small label={rejected ? 'Approve after all' : 'Approve'} busy={deciding} onPress={() => decide(true)} style={{ flex: 1 }} />
+                {pending ? <Button small kind="ghost" label="Reject" disabled={deciding} onPress={reject} /> : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         <View style={{ alignItems: 'center', gap: 10, paddingTop: 10, paddingBottom: 18, paddingHorizontal: 24 }}>
           {/* Solid green disc with a white mark: the same look as the verified tick, so a listed church reads as the real thing. */}
           <View accessible={false} style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="church" size={46} color="#fff" weight={2} />
+            <Icon name="church" size={46} color={C.onAccent} weight={2} />
           </View>
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>{church.name}</Text>
           {place ? <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{place}</Text> : null}
           {mine ? <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 14 }}>Your church</Text> : null}
         </View>
         <View style={{ paddingHorizontal: 16 }}>
-          {mine ? <Button label="Leave this church" kind="ghost" busy={busy} onPress={leave} /> : <Button label="This is my church" busy={busy} onPress={join} />}
+          {/* A church that was turned down can be left, but not newly chosen. */}
+          {mine ? <Button label="Leave this church" kind="ghost" busy={busy} onPress={leave} /> : rejected ? null : <Button label="This is my church" busy={busy} onPress={join} />}
         </View>
 
         <SectionLabel>About</SectionLabel>

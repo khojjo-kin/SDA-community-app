@@ -39,7 +39,7 @@ export default function AdminMembers() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={<Empty icon="people" title="No members found" body="Try another name." />}
           renderItem={({ item: m }) => (
-            <Pressable onPress={() => router.push(`/admin-member/${m.id}`)} accessibilityRole="button" accessibilityLabel={`${m.full_name}, ${m.username}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+            <Pressable onPress={() => router.push(`/admin-member/${m.id}`)} accessibilityRole="button" accessibilityLabel={`${m.full_name}, ${m.username}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Avatar uri={m.avatar_url} name={m.full_name} size={50} />
               <View style={{ flex: 1, gap: 3 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

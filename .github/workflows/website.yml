@@ -1,0 +1,57 @@
+name: Community website
+
+# Builds the website (website/, the legal documents in legal/, scripts/build-website.mjs) and
+# publishes website/dist to GitHub Pages. The build checks every link and asset and fails on any
+# problem, including an unfilled legal/details.json, so nothing broken or half-filled is published.
+#
+# Needs Pages turned on: Settings > Pages > Build and deployment > Source: GitHub Actions.
+# (For a private repository that needs a paid GitHub plan; see website/README.md for the free
+# Cloudflare Pages alternative. If you use that instead, disable this workflow in the Actions tab.)
+
+# Started by hand (Actions > Community website > Run workflow) until legal/details.json is filled in
+# and Pages is on; then uncomment the push trigger so every change publishes itself.
+on:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - website/**
+  #     - legal/**
+  #     - scripts/build-website.mjs
+  #     - .github/workflows/website.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: community-website
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and check the website
+        run: node scripts/build-website.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
