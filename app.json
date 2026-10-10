@@ -33,6 +33,7 @@
       "appleTeamId": "QRMLKZR9B8"
     },
     "plugins": [
+      "./plugins/fmt-on-new-xcode.js",
       "expo-router",
       "expo-secure-store",
       "expo-video",
