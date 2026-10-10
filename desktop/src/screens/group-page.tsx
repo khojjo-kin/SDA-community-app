@@ -7,11 +7,12 @@ import { listen } from 'shared/store';
 import { errText, fmt } from 'shared/theme';
 import type { Group, Post } from 'shared/types';
 import { openCreate } from '../lib/create';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { ChoiceMenu, Empty, Failed, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { FeedPost, Tile } from '../ui/post';
-import { ChurchSelect, CoverPicker, GroupCover, type Picked, canSee, manages } from './group-parts';
+import { ChurchSelect, CoverPicker, GroupCover, type Picked, canSee, kindWord, manages, peopleCount } from './group-parts';
 import '../styles/community.css';
 
 type View = 'grid' | 'feed';
@@ -48,7 +49,7 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
     () =>
       listen('feed', () => {
         g.reload();
-        setPostsTick((t) => t + 1);
+        setPostsTick((n) => n + 1);
       }),
     [],
   );
@@ -99,7 +100,7 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
 
   if (g.loading && !group) return <Spinner />;
   if (g.error && !group) return <Failed error={g.error} retry={g.reload} />;
-  if (!group) return <Empty icon="users" title="This one isn't here any more" body="It may have been deleted by its owner." />;
+  if (!group) return <Empty icon="users" title={t('d.community.groupGone')} body={t('d.community.groupGoneBody')} />;
 
   const page = group.kind === 'page';
   const standing = group.my_standing;
@@ -116,7 +117,7 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
       await joinGroup(me.id, group);
       // Flip the button at once; the reload that follows brings the database's counts.
       g.set({ ...group, my_standing: pending ? 'pending' : 'member', member_count: group.member_count + (pending ? 0 : 1) });
-      toast(pending ? 'Request sent. An admin will let you in.' : page ? `Following ${group.name}` : `Welcome to ${group.name}`);
+      toast(pending ? t('d.community.requestSentAdmin') : page ? t('d.community.followingName', { name: group.name }) : t('d.community.welcomeTo', { name: group.name }));
     } catch (e) {
       toastError(e);
     } finally {
@@ -127,9 +128,9 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
   async function leave() {
     if (!group || busy) return;
     const pending = standing === 'pending';
-    const body = pending ? '' : page ? 'Its posts stop showing in your feed.' : group.privacy === 'private' ? 'You would have to ask to join again.' : 'You can join again any time.';
-    const title = pending ? 'Cancel your request?' : page ? `Unfollow ${group.name}?` : `Leave ${group.name}?`;
-    if (!(await ask(title, body, pending ? 'Cancel request' : page ? 'Unfollow' : 'Leave'))) return;
+    const body = pending ? '' : page ? t('d.community.unfollowBody') : group.privacy === 'private' ? t('d.community.leavePrivateBody') : t('d.community.leaveBody');
+    const title = pending ? t('d.community.cancelRequestQuestion') : page ? t('d.community.unfollowQuestion', { name: group.name }) : t('d.community.leaveQuestion', { name: group.name });
+    if (!(await ask(title, body, pending ? t('d.community.cancelRequest') : page ? t('d.community.unfollow') : t('live.leave')))) return;
     setBusy(true);
     try {
       await leaveGroup(me.id, group.id);
@@ -142,10 +143,10 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
   }
   async function remove() {
     if (!group) return;
-    if (!(await ask(`Delete ${group.name}?`, 'Its posts and members go with it. This cannot be undone.', 'Delete'))) return;
+    if (!(await ask(t('d.community.deleteQuestion', { name: group.name }), t('d.community.deleteGroupBody'), t('common.delete')))) return;
     try {
       await deleteGroup(group.id);
-      toast('Deleted');
+      toast(t('d.community.deleted'));
       nav('/groups', true);
     } catch (e) {
       toastError(e);
@@ -164,19 +165,19 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
   const primary =
     standing === 'owner' ? (
       <span className="cm-owner">
-        <Icon name="crown" size={16} stroke={2.2} /> Owner
+        <Icon name="crown" size={16} stroke={2.2} /> {t('d.community.owner')}
       </span>
     ) : standing === 'pending' ? (
       <button className="btn quiet" disabled={busy} onClick={leave}>
-        Requested
+        {t('profile.requested')}
       </button>
     ) : standing ? (
       <button className="btn quiet" disabled={busy} onClick={leave}>
-        {page ? 'Following' : 'Joined'}
+        {page ? t('common.following') : t('d.community.joined')}
       </button>
     ) : (
       <button className="btn" disabled={busy} onClick={join}>
-        {page ? 'Follow' : group.privacy === 'private' ? 'Request to join' : 'Join'}
+        {page ? t('common.follow') : group.privacy === 'private' ? t('d.community.requestToJoin') : t('d.community.join')}
       </button>
     );
 
@@ -185,16 +186,16 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
     body = (
       <div className="private-note">
         <Icon name="lock" size={40} stroke={1.3} />
-        <h2>{page ? 'This page is private' : 'This community is private'}</h2>
-        <p>{standing === 'pending' ? 'Your request is waiting for an admin.' : 'Ask to join to see what members share.'}</p>
+        <h2>{page ? t('d.community.pagePrivate') : t('d.community.communityPrivate')}</h2>
+        <p>{standing === 'pending' ? t('d.community.requestWaiting') : t('d.community.askToSee')}</p>
       </div>
     );
   } else if (postsError && !posts) {
-    body = <Failed error={postsError} retry={() => setPostsTick((t) => t + 1)} />;
+    body = <Failed error={postsError} retry={() => setPostsTick((n) => n + 1)} />;
   } else if (!posts) {
     body = <Spinner />;
   } else if (!posts.length) {
-    body = <Empty icon="image" title="No posts yet" body={canPostIn(group) ? 'Be the first to post here.' : page ? 'Posts from this page will show up here.' : 'Posts from members will show up here.'} />;
+    body = <Empty icon="image" title={t('profile.emptyNoPosts')} body={canPostIn(group) ? t('d.community.beFirst') : page ? t('d.community.pagePostsHere') : t('d.community.memberPostsHere')} />;
   } else if (view === 'grid') {
     body = (
       <div className="grid cm-post-grid">
@@ -222,7 +223,12 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
           <p className="cm-handle">@{group.handle}</p>
           <p className="cm-meta">
             {group.privacy === 'private' ? <Icon name="lock" size={14} stroke={2.2} /> : null}
-            {`${page ? 'Page' : 'Community'} · ${group.privacy === 'private' ? 'Private' : 'Public'} · ${fmt(group.member_count)} ${page ? 'follower' : 'member'}${group.member_count === 1 ? '' : 's'} · ${fmt(group.posts_count)} post${group.posts_count === 1 ? '' : 's'}`}
+            {[
+              kindWord(group),
+              group.privacy === 'private' ? t('d.community.private') : t(page ? 'd.community.publicPage' : 'd.community.public'),
+              peopleCount(group),
+              tn('d.community.postsN', group.posts_count, { count: fmt(group.posts_count) }),
+            ].join(' · ')}
           </p>
           {group.church_name && group.church_id ? (
             <Link to={'/churches/' + group.church_id} className="cm-church-link">
@@ -234,20 +240,20 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
         <div className="cm-ghead-actions">
           {primary}
           <button className="btn quiet" onClick={() => nav(`/groups/${group.id}/members`)}>
-            {page ? 'Followers' : 'Members'}
+            {page ? t('liveSetup.followers') : t('d.community.members')}
             {manager && group.pending_count > 0 ? (
-              <span className="cm-badge" title={`${group.pending_count} waiting to join`}>
+              <span className="cm-badge" title={t('d.community.waitingToJoin', { count: group.pending_count })}>
                 {fmt(group.pending_count)}
               </span>
             ) : null}
           </button>
           {canPostIn(group) ? (
             <button className="btn" onClick={() => openCreate({ mode: 'post', groupId: group.id })}>
-              <Icon name="plus" size={16} stroke={2.2} /> Create post
+              <Icon name="plus" size={16} stroke={2.2} /> {t('d.community.createPost')}
             </button>
           ) : null}
           {manager ? (
-            <button className="icon-btn" aria-label="More options" onClick={() => setMenu(true)}>
+            <button className="icon-btn" aria-label={t('profile.moreOptions')} onClick={() => setMenu(true)}>
               <Icon name="more" size={24} />
             </button>
           ) : null}
@@ -255,12 +261,12 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
       </section>
 
       {visible && posts?.length ? (
-        <div className="cm-tabs" role="tablist" aria-label="Show posts as">
+        <div className="cm-tabs" role="tablist" aria-label={t('d.community.showPostsAs')}>
           <button role="tab" aria-selected={view === 'grid'} className={view === 'grid' ? 'on' : ''} onClick={() => changeView('grid')}>
-            <Icon name="grid" size={14} stroke={2} /> Grid
+            <Icon name="grid" size={14} stroke={2} /> {t('d.community.grid')}
           </button>
           <button role="tab" aria-selected={view === 'feed'} className={view === 'feed' ? 'on' : ''} onClick={() => changeView('feed')}>
-            <Icon name="menu" size={14} stroke={2} /> Feed
+            <Icon name="menu" size={14} stroke={2} /> {t('d.community.feed')}
           </button>
         </div>
       ) : null}
@@ -271,8 +277,8 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
         <ChoiceMenu
           onClose={() => setMenu(false)}
           items={[
-            { label: page ? 'Edit page' : 'Edit community', onClick: () => setEditing(true) },
-            ...(owner ? [{ label: page ? 'Delete page' : 'Delete community', danger: true, onClick: remove }] : []),
+            { label: page ? t('d.community.editPage') : t('d.community.editCommunity'), onClick: () => setEditing(true) },
+            ...(owner ? [{ label: page ? t('d.community.deletePage') : t('d.community.deleteCommunity'), danger: true, onClick: remove }] : []),
           ]}
         />
       ) : null}
@@ -283,7 +289,7 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
           onSaved={() => {
             setEditing(false);
             g.reload();
-            toast('Saved');
+            toast(t('ssPub.saved'));
           }}
         />
       ) : null}
@@ -307,7 +313,7 @@ function GroupEdit({ group, onClose, onSaved }: { group: Group; onClose: () => v
   async function save() {
     if (saving) return;
     const n = name.trim();
-    if (n.length < 2 || n.length > 80) return setErr('Give it a name of 2 to 80 characters.');
+    if (n.length < 2 || n.length > 80) return setErr(t('d.community.nameLength'));
     setSaving(true);
     setErr('');
     try {
@@ -322,7 +328,7 @@ function GroupEdit({ group, onClose, onSaved }: { group: Group; onClose: () => v
   }
 
   return (
-    <Modal title={page ? 'Edit page' : 'Edit community'} onClose={onClose} wide className="cm-modal" closeOutside={!saving}>
+    <Modal title={page ? t('d.community.editPage') : t('d.community.editCommunity')} onClose={onClose} wide className="cm-modal" closeOutside={!saving}>
       <form
         className="cm-modal-body cm-form"
         onSubmit={(e) => {
@@ -340,29 +346,29 @@ function GroupEdit({ group, onClose, onSaved }: { group: Group; onClose: () => v
           }}
         />
         <label className="form-row">
-          <span>Name</span>
+          <span>{t('d.community.name')}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
         </label>
         <label className="form-row">
-          <span>Description</span>
-          <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is it for, and who is it for?" maxLength={500} />
+          <span>{t('d.community.description')}</span>
+          <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('d.community.descriptionPlaceholder')} maxLength={500} />
           <em className="cm-count">{description.length}/500</em>
         </label>
         {page ? null : (
           <label className="cm-switch-row">
             <Icon name="lock" size={22} />
             <span className="cm-switch-text">
-              <b>Private</b>
-              <span>People ask to join, and an admin lets them in. Only members see what is posted.</span>
+              <b>{t('d.community.private')}</b>
+              <span>{t('d.community.privateBody')}</span>
             </span>
-            <input type="checkbox" role="switch" checked={priv} onChange={(e) => setPriv(e.target.checked)} aria-label="Private" />
+            <input type="checkbox" role="switch" checked={priv} onChange={(e) => setPriv(e.target.checked)} aria-label={t('d.community.private')} />
             <i className="switch" aria-hidden="true" />
           </label>
         )}
         <ChurchSelect value={churchId} onChange={(cid) => setChurchId(cid)} disabled={saving} />
         {err ? <p className="form-error">{err}</p> : null}
         <button className="btn big block" type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('d.community.saving') : t('ssPub.save')}
         </button>
       </form>
     </Modal>

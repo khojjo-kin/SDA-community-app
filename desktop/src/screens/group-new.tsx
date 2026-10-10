@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { createGroup, handleFrom, uploadImage } from 'shared/api';
 import { errText } from 'shared/theme';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Icon, type IconName } from '../ui/kit';
@@ -15,13 +16,14 @@ type Kind = 'community' | 'page';
 type Privacy = 'public' | 'private';
 type Errors = { name?: string; handle?: string; form?: string };
 
+// The words are keys, said with t() where they are drawn.
 const KINDS: { kind: Kind; icon: IconName; title: string; body: string }[] = [
-  { kind: 'community', icon: 'users', title: 'Community', body: 'Anyone can join and post. A private community takes requests to join.' },
-  { kind: 'page', icon: 'crown', title: 'Page', body: 'You and the admins you choose post. Everyone else follows.' },
+  { kind: 'community', icon: 'users', title: 'create.community', body: 'd.community.communityKindBody' },
+  { kind: 'page', icon: 'crown', title: 'create.page', body: 'd.community.pageKindBody' },
 ];
 const PRIVACY: { value: Privacy; icon: IconName; title: string; body: string }[] = [
-  { value: 'public', icon: 'users', title: 'Public', body: 'Anyone can join and see what is posted.' },
-  { value: 'private', icon: 'lock', title: 'Private', body: 'People ask to join, and an admin lets them in.' },
+  { value: 'public', icon: 'users', title: 'd.community.public', body: 'd.community.publicBody' },
+  { value: 'private', icon: 'lock', title: 'd.community.private', body: 'd.community.privateShortBody' },
 ];
 
 export function GroupNew() {
@@ -52,8 +54,8 @@ export function GroupNew() {
     const n = name.trim();
     const h = handle.trim().toLowerCase();
     const errs: Errors = {};
-    if (n.length < 2 || n.length > 80) errs.name = 'Give it a name of 2 to 80 characters.';
-    if (!HANDLE.test(h)) errs.handle = 'Handles use 3 to 30 lowercase letters, numbers, dots or underscores.';
+    if (n.length < 2 || n.length > 80) errs.name = t('d.community.nameLength');
+    if (!HANDLE.test(h)) errs.handle = t('d.community.handleRule');
     setErrors(errs);
     if (errs.name || errs.handle) return;
     setBusy(true);
@@ -64,7 +66,7 @@ export function GroupNew() {
       // Replace the form in the history, so Back from the new group goes to the list.
       nav('/groups/' + id, true);
     } catch (e) {
-      setErrors(isTakenHandle(e) ? { handle: 'That @handle is taken. Try another.' } : { form: errText(e) });
+      setErrors(isTakenHandle(e) ? { handle: t('d.community.handleTaken') } : { form: errText(e) });
       setBusy(false);
     }
   }
@@ -72,16 +74,16 @@ export function GroupNew() {
   const page = kind === 'page';
   return (
     <div className="page narrow-page cm-new">
-      <h1 className="page-title">{kind ? (page ? 'New page' : 'New community') : 'Create a community or page'}</h1>
-      <div className="cm-kinds" role="radiogroup" aria-label="What to create">
+      <h1 className="page-title">{kind ? (page ? t('d.community.newPage') : t('d.community.newCommunity')) : t('d.community.createTitle')}</h1>
+      <div className="cm-kinds" role="radiogroup" aria-label={t('d.community.whatToCreate')}>
         {KINDS.map((k) => (
           <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} className={'cm-kind' + (kind === k.kind ? ' on' : '')} onClick={() => setKind(k.kind)} disabled={busy}>
             <span className="cm-kind-icon">
               <Icon name={k.icon} size={28} />
             </span>
             <span className="cm-kind-text">
-              <b>{k.title}</b>
-              <span>{k.body}</span>
+              <b>{t(k.title)}</b>
+              <span>{t(k.body)}</span>
             </span>
           </button>
         ))}
@@ -97,33 +99,33 @@ export function GroupNew() {
         >
           <CoverPicker shown={cover?.uri ?? ''} busy={busy} onPick={setCover} onRemove={() => setCover(null)} />
           <label className="form-row">
-            <span>Name</span>
-            <input value={name} onChange={(e) => changeName(e.target.value)} placeholder={page ? 'e.g. Ebenezer Youth Choir' : 'e.g. Young Adults Bible Study'} maxLength={80} autoFocus />
+            <span>{t('d.community.name')}</span>
+            <input value={name} onChange={(e) => changeName(e.target.value)} placeholder={page ? t('d.community.pageNamePlaceholder') : t('d.community.communityNamePlaceholder')} maxLength={80} autoFocus />
             {errors.name ? <span className="form-error">{errors.name}</span> : null}
           </label>
           <label className="form-row">
-            <span>Handle</span>
+            <span>{t('d.community.handle')}</span>
             <span className="cm-handle-input">
               <i>@</i>
-              <input value={handle} onChange={(e) => changeHandle(e.target.value)} placeholder="handle" maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-label="Handle" />
+              <input value={handle} onChange={(e) => changeHandle(e.target.value)} placeholder={t('d.community.handlePlaceholder')} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-label={t('d.community.handle')} />
             </span>
-            <span className={errors.handle ? 'form-error' : 'cm-hint'}>{errors.handle ?? 'How people find it: letters, numbers, dots and underscores.'}</span>
+            <span className={errors.handle ? 'form-error' : 'cm-hint'}>{errors.handle ?? t('d.community.handleHint')}</span>
           </label>
           <label className="form-row">
-            <span>Description</span>
-            <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is it for, and who is it for?" maxLength={500} />
+            <span>{t('d.community.description')}</span>
+            <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('d.community.descriptionPlaceholder')} maxLength={500} />
             <em className="cm-count">{description.length}/500</em>
           </label>
           {page ? null : (
             <div className="form-row">
-              <span>Who can join</span>
-              <div className="cm-choices" role="radiogroup" aria-label="Who can join">
+              <span>{t('d.community.whoCanJoin')}</span>
+              <div className="cm-choices" role="radiogroup" aria-label={t('d.community.whoCanJoin')}>
                 {PRIVACY.map((p) => (
                   <button key={p.value} type="button" role="radio" aria-checked={privacy === p.value} className={'cm-choice' + (privacy === p.value ? ' on' : '')} onClick={() => setPrivacy(p.value)}>
                     <Icon name={p.icon} size={22} />
                     <span className="cm-choice-text">
-                      <b>{p.title}</b>
-                      <span>{p.body}</span>
+                      <b>{t(p.title)}</b>
+                      <span>{t(p.body)}</span>
                     </span>
                     <i className="cm-radio" aria-hidden="true" />
                   </button>
@@ -135,10 +137,10 @@ export function GroupNew() {
           {errors.form ? <p className="form-error">{errors.form}</p> : null}
           <div className="cm-form-foot">
             <button className="btn big" type="submit" disabled={busy}>
-              {busy ? 'Creating…' : page ? 'Create page' : 'Create community'}
+              {busy ? t('d.community.creating') : page ? t('d.community.createPage') : t('d.community.createCommunity')}
             </button>
             <button type="button" className="btn big quiet" disabled={busy} onClick={() => nav('/groups')}>
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </form>
