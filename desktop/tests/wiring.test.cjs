@@ -85,13 +85,24 @@ const CLERK_JS = `
 
   await page.click('#stub-sign-in');
   await page.waitForSelector('.onboard');
-  check('a new Clerk account is asked to pick a username', (await page.getByText('Create your profile').count()) === 1);
-  check('username is suggested from the email address', (await page.getByLabel('Username').inputValue()) === 'kojomensah', await page.getByLabel('Username').inputValue());
+  // As on the iPhone: the date of birth first, then the profile with consent.
+  await page.getByText('Enter your date of birth').waitFor();
+  check('a new Clerk account is asked for a date of birth first', true);
   check('signed in, every database request carries the Clerk session token', (await page.evaluate(() => window.__sbClient.opts.accessToken())) === 'clerk-session-token');
+  await page.getByLabel('Birthday, day').fill('14');
+  await page.getByLabel('Birthday, month as a number').fill('05');
+  await page.getByLabel('Birthday, year').fill('1990');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByText('Create your profile').waitFor();
+  check('a grown-up is then asked to pick a username', (await page.getByText('Create your profile').count()) === 1);
+  check('username is suggested from the email address', (await page.getByLabel('Username').inputValue()) === 'kojomensah', await page.getByLabel('Username').inputValue());
   await page.getByLabel('Username').fill('kojo.mensah');
   await page.getByRole('button', { name: 'Next' }).click();
   check('usernames follow the iPhone app rule (no dots)', (await page.locator('.field-error').innerText()).includes('lowercase letters, numbers or underscores'));
   await page.getByLabel('Username').fill('kojo_mensah');
+  await page.getByRole('button', { name: 'Next' }).click();
+  check('consent for information that may show your faith is needed', (await page.locator('.field-error').innerText()).includes('religious beliefs'));
+  await page.getByRole('checkbox', { name: /info that shows my faith/ }).check();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.waitForSelector('.rail');
   check('after choosing a username the app opens', (await page.locator('.rail').count()) === 1);
@@ -101,6 +112,8 @@ const CLERK_JS = `
 
   // Settings → Accounts Centre: Clerk's own screen for email, password and where you're signed in.
   await page.evaluate(() => (location.hash = '#/accounts/account'));
+  await page.locator('.st-row', { hasText: '14 May 1990' }).waitFor({ timeout: 5000 }).catch(() => {});
+  check('the birthday given at sign-up is on the account', (await page.locator('.st-row', { hasText: 'Birthday' }).innerText()).includes('14 May 1990'));
   await page.locator('[data-testid="clerk-account"]').click();
   check('Accounts Centre opens Clerk\'s account screen', await page.evaluate(() => window.__clerk.profileOpened === true));
   await page.locator('.rail').getByRole('button', { name: 'More' }).click();

@@ -1,310 +1,163 @@
-// Settings (edit profile, privacy, blocked accounts), Your activity, and the church features from
-// the iPhone app: the Hymnal, Churches, and Communities and pages.
+// Settings (built in settings-frame.tsx and the settings-*.tsx pages), Your activity, and the church
+// features from the iPhone app: the Hymnal, Churches, and Communities and pages.
 import React, { useEffect, useMemo, useState } from 'react';
-import { deactivateAccount, fetchChurchMembers, fetchChurches, fetchGroup, fetchGroupPosts, fetchGroups, fetchHymn, fetchHymns, fetchLiked, fetchMyComments, fetchMyGroups, joinGroup, leaveGroup, listBlocked, setBlock, updateProfile, uploadImage } from 'shared/api';
+import { fetchChurchMembers, fetchChurches, fetchGroup, fetchGroupPosts, fetchGroups, fetchHymn, fetchHymns, fetchLiked, fetchMyComments, fetchMyGroups, joinGroup, leaveGroup } from 'shared/api';
+import { supabase } from 'shared/supabase';
 import { getPostNow } from 'shared/store';
-import { ago } from 'shared/theme';
-import type { Church, Comment, Group, Hymn, Post, Profile } from 'shared/types';
-import { useAuth } from '../lib/auth';
+import { ago, agoLong } from 'shared/theme';
+import type { Church, Comment, Group, Hymn, Post } from 'shared/types';
+import type { Session } from '../lib/admin';
 import { useMe } from '../lib/me';
-import { nav, parts } from '../lib/router';
-import { rememberSize } from '../shims/expo-file-system';
-import { Avatar, Empty, Failed, Icon, Link, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
+import { nav, parts, useRoute } from '../lib/router';
+import { Avatar, Empty, Failed, Icon, type IconName, Link, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { FeedPost, Tile } from '../ui/post';
-import { CloseFriends, CreatorTools, ProfileViewers, SavedReplies } from './account';
 import { HYMN_COUNT, loadFavourites, loadHymnalSettings, saveHymnalSettings, toggleFavourite } from 'shared/hymnal';
 
-/* ---------- settings ---------- */
+/* ---------- settings (in settings-frame.tsx) ---------- */
 
-const SECTIONS = [
-  { id: 'edit', label: 'Edit profile', icon: 'user' },
-  { id: 'professional', label: 'Creator tools', icon: 'chart' },
-  { id: 'replies', label: 'Saved replies', icon: 'reply' },
-  { id: 'privacy', label: 'Account privacy', icon: 'lock' },
-  { id: 'close-friends', label: 'Close friends', icon: 'star' },
-  { id: 'blocked', label: 'Blocked', icon: 'block' },
-  { id: 'viewers', label: 'Profile viewers', icon: 'eye' },
-  { id: 'account', label: 'Account', icon: 'account' },
-] as const;
-
-export function Settings({ path }: { path: string }) {
-  const section = (parts(path)[1] === 'edit' ? 'edit' : parts(path)[1]) || 'edit';
-  return (
-    <div className="settings">
-      <nav className="settings-nav">
-        <h2>Settings</h2>
-        {SECTIONS.map((s) => (
-          <Link key={s.id} to={'/accounts/' + s.id} className={'settings-link' + (section === s.id ? ' on' : '')}>
-            <Icon name={s.icon} size={22} /> {s.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="settings-body">
-        {section === 'edit' ? <EditProfile /> : section === 'professional' ? <CreatorTools /> : section === 'replies' ? <SavedReplies /> : section === 'privacy' ? <Privacy /> : section === 'close-friends' ? <CloseFriends /> : section === 'blocked' ? <Blocked /> : section === 'viewers' ? <ProfileViewers /> : <AccountSection />}
-      </div>
-    </div>
-  );
-}
-
-function EditProfile() {
-  const { me, refresh } = useMe();
-  const [form, setForm] = useState({ full_name: me.full_name, username: me.username, website: me.website, bio: me.bio, pronouns: me.pronouns, gender: me.gender });
-  const [busy, setBusy] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const field = (k: keyof typeof form) => ({ value: form[k] ?? '', onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: k === 'username' ? e.target.value.toLowerCase().replace(/\s/g, '') : e.target.value }) });
-  const usernameOk = /^[a-z0-9_]{3,30}$/.test(form.username);
-  const changed = JSON.stringify(form) !== JSON.stringify({ full_name: me.full_name, username: me.username, website: me.website, bio: me.bio, pronouns: me.pronouns, gender: me.gender });
-  return (
-    <div className="settings-card">
-      <h1>Edit profile</h1>
-      <div className="photo-row">
-        <Avatar src={me.avatar_url} name={me.username} size={56} />
-        <span className="row-text">
-          <b>{me.username}</b>
-          <span>{me.full_name}</span>
-        </span>
-        <label className={'btn' + (photoBusy ? ' disabled' : '')}>
-          {photoBusy ? 'Uploading…' : 'Change photo'}
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            disabled={photoBusy}
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (!f) return;
-              const url = URL.createObjectURL(f);
-              rememberSize(url, f.size);
-              setPhotoBusy(true);
-              try {
-                const img = new Image();
-                img.src = url;
-                await img.decode();
-                const m = await uploadImage(me.id, url, img.naturalWidth, 480);
-                await updateProfile(me.id, { avatar_url: m.url });
-                await refresh();
-                toast('Profile photo updated');
-              } catch (err) {
-                toastError(err);
-              } finally {
-                setPhotoBusy(false);
-              }
-            }}
-          />
-        </label>
-        {me.avatar_url ? (
-          <button className="link-btn danger" onClick={() => updateProfile(me.id, { avatar_url: '' }).then(refresh, toastError)}>
-            Remove
-          </button>
-        ) : null}
-      </div>
-      <label className="form-row">
-        <span>Name</span>
-        <input {...field('full_name')} maxLength={80} />
-      </label>
-      <label className="form-row">
-        <span>Username</span>
-        <input {...field('username')} maxLength={30} />
-        {!usernameOk ? <em className="field-error">Usernames use 3 to 30 lowercase letters, numbers or underscores.</em> : null}
-      </label>
-      <label className="form-row">
-        <span>Website</span>
-        <input {...field('website')} maxLength={200} placeholder="Website" />
-      </label>
-      <label className="form-row">
-        <span>Bio</span>
-        <textarea {...field('bio')} maxLength={150} rows={3} />
-        <em className="count">{(form.bio ?? '').length} / 150</em>
-      </label>
-      <label className="form-row">
-        <span>Pronouns</span>
-        <input {...field('pronouns')} maxLength={30} />
-      </label>
-      <div className="form-actions">
-        <button
-          className="btn wide"
-          disabled={!changed || !usernameOk || busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await updateProfile(me.id, { ...form, full_name: form.full_name.trim(), bio: form.bio.trim(), website: form.website.trim() });
-              await refresh();
-              toast('Profile saved.');
-            } catch (e) {
-              toastError(e);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? 'Saving…' : 'Submit'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button role="switch" aria-checked={on} aria-label={label} className={'switch' + (on ? ' on' : '')} onClick={() => onChange(!on)}>
-      <i />
-    </button>
-  );
-}
-
-function Privacy() {
-  const { me, refresh } = useMe();
-  const flip = (patch: Partial<Profile>) => updateProfile(me.id, patch as any).then(refresh, toastError);
-  return (
-    <div className="settings-card">
-      <h1>Account privacy</h1>
-      <div className="setting">
-        <div>
-          <b>Private account</b>
-          <p>When your account is public, anyone on Community can see your profile and posts. When it's private, only followers you approve can see what you share.</p>
-        </div>
-        <Toggle label="Private account" on={me.is_private} onChange={(v) => flip({ is_private: v })} />
-      </div>
-      <div className="setting">
-        <div>
-          <b>Show view counts</b>
-          <p>Others see how many people viewed your posts and reels.</p>
-        </div>
-        <Toggle label="Show view counts" on={me.show_view_counts} onChange={(v) => flip({ show_view_counts: v })} />
-      </div>
-      <div className="setting">
-        <div>
-          <b>Story replies</b>
-          <p>Who can reply to your stories.</p>
-        </div>
-        <select value={me.story_replies} onChange={(e) => flip({ story_replies: e.target.value as any })} aria-label="Story replies">
-          <option value="everyone">Everyone</option>
-          <option value="following">People you follow</option>
-          <option value="off">Off</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
-function Blocked() {
-  const { me } = useMe();
-  const { data, error, loading, reload } = useLoad(() => listBlocked(me.id), []);
-  return (
-    <div className="settings-card">
-      <h1>Blocked accounts</h1>
-      <p className="muted-text">They can't find your profile, posts or stories on Community, and you won't see theirs.</p>
-      {loading ? <Spinner /> : error ? <Failed error={error} retry={reload} /> : !data?.length ? <p className="muted-text pad">You haven't blocked anyone.</p> : null}
-      {(data ?? []).map((p) => (
-        <div className="row" key={p.id}>
-          <Avatar src={p.avatar_url} name={p.username} size={44} />
-          <span className="row-text">
-            <b>{p.username}</b>
-            <span>{p.full_name}</span>
-          </span>
-          <button className="btn small quiet" onClick={() => setBlock(me.id, p.id, false).then(reload, toastError)}>
-            Unblock
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AccountSection() {
-  const { me } = useMe();
-  const auth = useAuth();
-  return (
-    <div className="settings-card">
-      <h1>Account</h1>
-      {!auth.demo ? (
-        <div className="setting">
-          <div>
-            <b>Email, password and security</b>
-            <p>Change your email address or password, and see where you're logged in.</p>
-          </div>
-          <button className="btn quiet" data-testid="clerk-account" onClick={auth.openAccount}>
-            Open
-          </button>
-        </div>
-      ) : null}
-      <div className="setting">
-        <div>
-          <b>Log out</b>
-          <p>Log out of Community on this computer.</p>
-        </div>
-        <button className="btn quiet" onClick={() => auth.signOut()}>
-          Log out
-        </button>
-      </div>
-      <div className="setting">
-        <div>
-          <b>Deactivate account</b>
-          <p>Your profile, posts and messages are hidden straight away. Log in within 30 days to bring everything back; after that it is deleted for good.</p>
-        </div>
-        <button
-          className="btn danger-outline"
-          onClick={async () => {
-            if (!(await ask('Deactivate your account?', 'Log in again within 30 days to restore it. After that it is deleted permanently.', 'Deactivate'))) return;
-            try {
-              await deactivateAccount(me.id);
-              await auth.signOut();
-            } catch (e) {
-              toastError(e);
-            }
-          }}
-        >
-          Deactivate
-        </button>
-      </div>
-    </div>
-  );
-}
+export { Settings } from './settings-frame';
 
 /* ---------- your activity ---------- */
 
+const ACTIVITY: { group: string; items: { id: string; label: string; icon: IconName; to?: string }[] }[] = [
+  {
+    group: 'Interactions',
+    items: [
+      { id: 'likes', label: 'Likes', icon: 'heart' },
+      { id: 'comments', label: 'Comments', icon: 'comment' },
+    ],
+  },
+  {
+    group: 'Content you shared',
+    items: [
+      { id: 'posts', label: 'Posts and Shorts', icon: 'grid', to: 'profile' },
+      { id: 'archive', label: 'Stories archive', icon: 'archive', to: '/archive' },
+    ],
+  },
+  { group: 'Account history', items: [{ id: 'history', label: 'Account history', icon: 'clock' }] },
+];
+
+/** Your activity: the same two-column layout as Settings, with likes, comments and account history. */
 export function Activity({ openPost }: { openPost: (id: string) => void }) {
   const { me } = useMe();
-  const [tab, setTab] = useState<'likes' | 'comments'>('likes');
+  const route = useRoute();
+  const asked = parts(route)[1];
+  const tab = asked === 'comments' || asked === 'history' ? asked : 'likes';
+  return (
+    <div className="st-shell">
+      <nav className="st-nav" aria-label="Your activity">
+        <h2 className="st-nav-title">Your activity</h2>
+        <div className="st-nav-list">
+          {ACTIVITY.map((g) => (
+            <div key={g.group} className="st-group">
+              <h3 className="st-group-h">{g.group}</h3>
+              {g.items.map((it) => (
+                <Link key={it.id} to={it.to === 'profile' ? '/u/' + me.username : it.to ?? '/activity/' + it.id} className={'st-nav-item' + (it.id === tab ? ' on' : '')}>
+                  <Icon name={it.icon} />
+                  <span className="st-nav-text">
+                    <span>{it.label}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      </nav>
+      <div className="st-body">{tab === 'likes' ? <LikedPosts openPost={openPost} /> : tab === 'comments' ? <MyComments openPost={openPost} /> : <AccountHistory />}</div>
+    </div>
+  );
+}
+
+function LikedPosts({ openPost }: { openPost: (id: string) => void }) {
+  const { me } = useMe();
   const likes = useLoad<Post[]>(() => fetchLiked(me.id), []);
+  return (
+    <div className="st-page wide">
+      <h1 className="st-title">Likes</h1>
+      <p className="st-intro">Posts and Shorts you've liked, newest first. Only you can see this.</p>
+      {likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : likes.data?.length ? (
+        <div className="grid st-activity-grid">{likes.data.map((p) => <Tile key={p.id} post={p} onOpen={openPost} />)}</div>
+      ) : (
+        <Empty icon="heart" title="No likes yet" body="Posts you like appear here." />
+      )}
+    </div>
+  );
+}
+
+function MyComments({ openPost }: { openPost: (id: string) => void }) {
+  const { me } = useMe();
   const comments = useLoad<Comment[]>(() => fetchMyComments(me.id), []);
   return (
-    <div className="page narrow-page">
-      <h1 className="page-title">Your activity</h1>
-      <div className="seg left">
-        <button className={tab === 'likes' ? 'on' : ''} onClick={() => setTab('likes')}>
-          Likes
-        </button>
-        <button className={tab === 'comments' ? 'on' : ''} onClick={() => setTab('comments')}>
-          Comments
-        </button>
-      </div>
-      {tab === 'likes' ? (
-        likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : likes.data?.length ? (
-          <div className="grid">{likes.data.map((p) => <Tile key={p.id} post={p} onOpen={openPost} />)}</div>
-        ) : (
-          <Empty icon="heart" title="No likes yet" body="Posts you like appear here." />
-        )
-      ) : comments.loading ? <Spinner /> : comments.error ? <Failed error={comments.error} retry={comments.reload} /> : comments.data?.length ? (
-        comments.data.map((c) => {
-          const p = getPostNow(c.post_id);
-          const cover = p?.media[0]?.type === 'video' ? p.media[0].poster : p?.media[0]?.url;
-          return (
-            <button key={c.id} className="row hover full" onClick={() => openPost(c.post_id)}>
-              <span className="row-text wrap">
-                <b>{c.text}</b>
-                <span>
-                  On {p ? p.username + "'s post" : 'a post'} · {ago(c.created_at)}
+    <div className="st-page wide">
+      <h1 className="st-title">Comments</h1>
+      <p className="st-intro">Comments you've written, newest first. Open one to see it on its post, or delete it there.</p>
+      {comments.loading ? <Spinner /> : comments.error ? <Failed error={comments.error} retry={comments.reload} /> : comments.data?.length ? (
+        <div className="st-card">
+          {comments.data.map((c) => {
+            const p = getPostNow(c.post_id);
+            const cover = p?.media[0]?.type === 'video' ? p.media[0].poster : p?.media[0]?.url;
+            return (
+              <button key={c.id} className="st-row st-link st-comment" onClick={() => openPost(c.post_id)}>
+                <Avatar src={me.avatar_url} name={me.username} size={36} />
+                <span className="st-row-text wrap">
+                  <b>{c.text}</b>
+                  <span>
+                    On {p ? p.username + "'s post" : 'a post'} · {ago(c.created_at)}
+                  </span>
                 </span>
-              </span>
-              {cover ? <img className="row-thumb" src={cover} alt="" /> : null}
-            </button>
-          );
-        })
+                {cover ? <img className="row-thumb" src={cover} alt="" /> : null}
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <Empty icon="comment" title="No comments yet" body="Comments you write appear here." />
       )}
+    </div>
+  );
+}
+
+const PLATFORM_NAMES: Record<string, string> = { mac: 'Community for Mac', web: 'Community on the web', ios: 'Community for iPhone', windows: 'Community for Windows' };
+
+/** When you joined, and each app and computer you've used Community on (the app's own record). */
+function AccountHistory() {
+  const { me } = useMe();
+  const sessions = useLoad(async () => {
+    const { data, error } = await supabase.from('community_sessions').select('*').eq('user_id', me.id).order('first_seen', { ascending: false }).limit(30);
+    if (error) throw error;
+    return (data as Session[]) ?? [];
+  }, []);
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return (
+    <div className="st-page wide">
+      <h1 className="st-title">Account history</h1>
+      <p className="st-intro">When you joined, and where you first used Community. To see where you're logged in now, open Settings → Accounts Centre.</p>
+      <div className="st-card st-timeline">
+        {(sessions.data ?? []).map((s) => (
+          <div key={s.id} className="st-row">
+            <span className="st-row-icon">
+              <Icon name={s.platform === 'ios' ? 'phone' : 'mac'} />
+            </span>
+            <span className="st-row-text">
+              <b>First used {PLATFORM_NAMES[s.platform] ?? 'Community'}</b>
+              <span>
+                {day(s.first_seen)}
+                {s.country ? ' · ' + s.country : ''} · last used {agoLong(s.last_seen).toLowerCase()}
+              </span>
+            </span>
+          </div>
+        ))}
+        <div className="st-row">
+          <span className="st-row-icon">
+            <Icon name="user" />
+          </span>
+          <span className="st-row-text">
+            <b>You joined Community</b>
+            <span>{day(me.created_at)}</span>
+          </span>
+        </div>
+      </div>
+      {sessions.loading ? <Spinner /> : null}
     </div>
   );
 }
