@@ -1,20 +1,23 @@
-// Instagram's desktop navigation: the left sidebar (wide with labels, narrow with icons when a panel
-// is open or the window is small), the Search and Notifications panels that slide out of it, the
-// More menu, and the bottom bar on narrow windows.
+// The desktop navigation, as on Instagram on a computer: a narrow rail of icons that widens to show
+// labels while the pointer is over it, with the More, Create and Church apps menus, and the
+// Notifications panel that slides out beside it.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { acceptFollowRequest, countUnreadNotices, fetchFollowRequests, fetchNotices, fetchThreads, markNoticesRead, removeFollowRequest, searchProfiles, setFollow } from 'shared/api';
+import { acceptFollowRequest, countUnreadNotices, fetchFollowRequests, fetchNotices, fetchThreads, markNoticesRead, removeFollowRequest, setFollow } from 'shared/api';
 import { listen } from 'shared/store';
 import { ago } from 'shared/theme';
 import type { Notice, Profile } from 'shared/types';
+import { setAppearance, useAppearance } from '../lib/appearance';
 import { useAuth } from '../lib/auth';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
+import { AccountSwitcher } from './accounts';
 import { Avatar, Icon, type IconName, Link, Spinner, Verified, toastError, useOutside } from './kit';
 import logo from './logo-white.png';
 
-export type Panel = 'search' | 'notifications' | null;
+export type Panel = 'notifications' | null;
+export type CreateMode = 'post' | 'story' | 'short' | 'live' | 'ad';
 
-function useCounts() {
+export function useCounts() {
   const [unreadChats, setUnreadChats] = useState(0);
   const [unreadNotices, setUnreadNotices] = useState(0);
   const load = useCallback(() => {
@@ -36,39 +39,30 @@ function useCounts() {
 }
 
 export function Wordmark({ small }: { small?: boolean }) {
-  return (
-    <span className={'wordmark' + (small ? ' small' : '')}>
-      Community
-    </span>
-  );
+  return <span className={'wordmark' + (small ? ' small' : '')}>Community</span>;
 }
 
-export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel: (p: Panel) => void; onCreate: (mode: 'post' | 'story') => void }) {
+type Menu = 'more' | 'create' | 'apps' | null;
+
+export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel: (p: Panel) => void; onCreate: (mode: CreateMode) => void }) {
   const { me } = useMe();
-  const auth = useAuth();
   const route = useRoute();
   const { unreadChats, unreadNotices } = useCounts();
-  const [more, setMore] = useState(false);
-  const [create, setCreate] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-  const createRef = useRef<HTMLDivElement>(null);
-  useOutside(moreRef, () => setMore(false), more);
-  useOutside(createRef, () => setCreate(false), create);
+  const [menu, setMenu] = useState<Menu>(null);
+  const [switcher, setSwitcher] = useState(false);
+  const railRef = useRef<HTMLElement>(null);
+  useOutside(railRef, () => setMenu(null), menu !== null);
   // Menus close when you move to another page.
-  useEffect(() => {
-    setMore(false);
-    setCreate(false);
-  }, [route]);
-  const narrow = panel !== null || route.startsWith('/direct') || route.startsWith('/live');
+  useEffect(() => setMenu(null), [route]);
   const at = (p: string) => (p === '/' ? route === '/' : route === p || route.startsWith(p + '/'));
   const own = '/u/' + me.username;
 
-  const item = (icon: IconName, label: string, opts: { to?: string; onClick?: () => void; active?: boolean; badge?: number; dot?: boolean; children?: React.ReactNode }) => {
+  const item = (icon: IconName, label: string, opts: { to?: string; onClick?: () => void; active?: boolean; badge?: number; dot?: boolean; children?: React.ReactNode; filled?: boolean }) => {
     const active = opts.active ?? (opts.to ? at(opts.to) && panel === null : false);
     const content = (
       <>
         <span className="nav-icon">
-          {opts.children ?? <Icon name={icon} size={24} stroke={active ? 2.6 : 1.8} fill={active && icon === 'home' ? 'currentColor' : 'none'} />}
+          {opts.children ?? <Icon name={icon} size={24} stroke={active ? 2.4 : 1.8} fill={active && opts.filled ? 'currentColor' : 'none'} />}
           {opts.badge ? <span className="nav-badge">{opts.badge > 9 ? '9+' : opts.badge}</span> : opts.dot ? <span className="nav-dot" /> : null}
         </span>
         <span className="nav-label">{label}</span>
@@ -79,100 +73,91 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
         href={'#' + opts.to}
         className={'nav-item' + (active ? ' active' : '')}
         aria-current={active ? 'page' : undefined}
-        title={label}
+        aria-label={label}
         onClick={(e) => {
           e.preventDefault();
           setPanel(null);
+          setMenu(null);
           nav(opts.to!);
         }}
       >
         {content}
       </a>
     ) : (
-      <button className={'nav-item' + (active ? ' active' : '')} onClick={opts.onClick} title={label}>
+      <button className={'nav-item' + (active ? ' active' : '')} onClick={opts.onClick} aria-label={label} aria-expanded={opts.active}>
         {content}
       </button>
     );
   };
 
+  const toggle = (m: Exclude<Menu, null>) => setMenu(menu === m ? null : m);
+  const create = (mode: CreateMode) => {
+    setMenu(null);
+    onCreate(mode);
+  };
+
   return (
     <>
-      <nav className={'sidebar' + (narrow ? ' narrow' : '')} aria-label="Main">
-        <a href="#/" className="sidebar-logo" onClick={(e) => { e.preventDefault(); setPanel(null); nav('/'); }} aria-label="Community home">
-          <span className="logo-word">
-            <Wordmark />
-          </span>
-          <span className="logo-icon">
-            <img src={logo} alt="" width={28} height={28} />
+      <nav ref={railRef} className={'rail' + (menu ? ' open' : '') + (panel ? ' has-panel' : '')} aria-label="Main">
+        <a href="#/" className="rail-logo" onClick={(e) => { e.preventDefault(); setPanel(null); nav('/'); }} aria-label="Community home">
+          <img src={logo} alt="" width={26} height={26} />
+          <span className="nav-label rail-word">
+            <Wordmark small />
           </span>
         </a>
-        <div className="nav-list">
-          {item('home', 'Home', { to: '/' })}
-          {item('search', 'Search', { onClick: () => setPanel(panel === 'search' ? null : 'search'), active: panel === 'search' })}
-          {item('compass', 'Explore', { to: '/explore' })}
-          {item('reels', 'Reels', { to: '/reels' })}
+        <div className="rail-middle">
+          {item('home', 'Home', { to: '/', filled: true })}
+          {item('reels', 'Shorts', { to: '/shorts', active: (at('/shorts') || at('/reels')) && panel === null, filled: true })}
           {item('send', 'Messages', { to: '/direct', badge: unreadChats })}
+          {item('search', 'Search', { to: '/explore' })}
           {item('heart', 'Notifications', { onClick: () => setPanel(panel === 'notifications' ? null : 'notifications'), active: panel === 'notifications', dot: unreadNotices > 0 })}
-          <div className="pop-anchor" ref={createRef}>
-            {item('pluscircle', 'Create', { onClick: () => setCreate(!create), active: create })}
-            {create ? (
-              <div className="popover create-pop">
-                <button onClick={() => { setCreate(false); onCreate('post'); }}>
-                  Post <Icon name="image" size={20} />
+          <div className="pop-anchor">
+            {item('plus', 'Create', { onClick: () => toggle('create'), active: menu === 'create' })}
+            {menu === 'create' ? (
+              <div className="popover create-pop" role="menu">
+                <button role="menuitem" onClick={() => create('post')}>
+                  Post <Icon name="collage" size={22} />
                 </button>
-                <button onClick={() => { setCreate(false); onCreate('story'); }}>
-                  Story <Icon name="story" size={20} />
+                <button role="menuitem" onClick={() => create('story')}>
+                  Story <Icon name="story" size={22} />
+                </button>
+                <button role="menuitem" onClick={() => create('short')}>
+                  Short <Icon name="reels" size={22} />
+                </button>
+                <button role="menuitem" onClick={() => create('live')}>
+                  Live video <Icon name="live" size={22} />
+                </button>
+                <button role="menuitem" onClick={() => create('ad')}>
+                  Ad <Icon name="ad" size={22} />
                 </button>
               </div>
             ) : null}
           </div>
-          {item('user', 'Profile', { to: own, active: (route === own || route.startsWith(own + '/')) && panel === null, children: <Avatar src={me.avatar_url} name={me.username} size={24} /> })}
+          {item('dashboard', 'Dashboard', { to: '/dashboard', filled: false })}
+          {item('user', 'Profile', { to: own, active: (route === own || route.startsWith(own + '/')) && panel === null, children: <Avatar src={me.avatar_url} name={me.username} size={26} /> })}
         </div>
-        <div className="nav-bottom pop-anchor" ref={moreRef}>
-          {item('people', 'Groups', { to: '/groups' })}
-          {item('menu', 'More', { onClick: () => setMore(!more), active: more })}
-          {more ? (
-            <div className="popover more-pop">
-              <MoreLink icon="settings" label="Settings" to="/accounts/edit" close={() => setMore(false)} />
-              <MoreLink icon="activity" label="Your activity" to="/activity" close={() => setMore(false)} />
-              <MoreLink icon="bookmark" label="Saved" to={own + '/saved'} close={() => setMore(false)} />
-              <MoreLink icon="archive" label="Archive" to="/archive" close={() => setMore(false)} />
-              <MoreLink icon="chart" label="Professional dashboard" to="/dashboard" close={() => setMore(false)} />
-              <div className="pop-sep thick" />
-              <div className="pop-label">Church</div>
-              <MoreLink icon="bible" label="Bible" to="/bible" close={() => setMore(false)} />
-              <MoreLink icon="lesson" label="Sabbath School" to="/lessons" close={() => setMore(false)} />
-              <MoreLink icon="hymnal" label="Hymnal" to="/hymnal" close={() => setMore(false)} />
-              <MoreLink icon="headphones" label="Pod" to="/pod" close={() => setMore(false)} />
-              <MoreLink icon="church" label="Churches" to="/churches" close={() => setMore(false)} />
-              <MoreLink icon="sparkle" label="Ask Erha" to="/direct/erha" close={() => setMore(false)} />
-              <div className="pop-sep thick" />
-              <MoreLink icon="crown" label={me.plus ? 'Community Plus' : 'Get the verified tick'} to="/plus" close={() => setMore(false)} />
-              <MoreLink icon="help" label="Help" to="/help" close={() => setMore(false)} />
-              {me.admin_role ? <MoreLink icon="shield" label="Admin console" to="/admin" close={() => setMore(false)} /> : null}
-              <div className="pop-sep thick" />
-              {!auth.demo ? (
-                <button onClick={() => { setMore(false); auth.openAccount(); }}>
-                  <Icon name="key" size={20} /> Email and password
-                </button>
-              ) : null}
-              <button onClick={() => { setMore(false); auth.signOut(); }}>
-                <Icon name="logout" size={20} /> Log out
-              </button>
-            </div>
-          ) : null}
+        <div className="rail-bottom">
+          <div className="pop-anchor">
+            {item('menu', 'More', { onClick: () => toggle('more'), active: menu === 'more' })}
+            {menu === 'more' ? <MoreMenu close={() => setMenu(null)} openSwitcher={() => { setMenu(null); setSwitcher(true); }} /> : null}
+          </div>
+          <div className="pop-anchor">
+            {item('apps', 'Church apps', { onClick: () => toggle('apps'), active: menu === 'apps' })}
+            {menu === 'apps' ? <ChurchApps close={() => setMenu(null)} /> : null}
+          </div>
         </div>
       </nav>
-      {panel === 'search' ? <SearchPanel close={() => setPanel(null)} /> : null}
       {panel === 'notifications' ? <NotificationsPanel close={() => setPanel(null)} /> : null}
+      {switcher ? <AccountSwitcher onClose={() => setSwitcher(false)} /> : null}
     </>
   );
 }
 
-function MoreLink({ icon, label, to, close }: { icon: IconName; label: string; to: string; close: () => void }) {
+function MenuLink({ icon, label, to, close }: { icon: IconName; label: string; to: string; close: () => void }) {
   return (
     <a
       href={'#' + to}
+      role="menuitem"
       onClick={(e) => {
         e.preventDefault();
         close();
@@ -184,137 +169,176 @@ function MoreLink({ icon, label, to, close }: { icon: IconName; label: string; t
   );
 }
 
-/* ---------- search panel ---------- */
-
-const RECENT_KEY = 'community.recentSearches';
-function readRecent(): Profile[] {
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-  } catch {
-    return [];
+function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: () => void }) {
+  const { me } = useMe();
+  const auth = useAuth();
+  const look = useAppearance();
+  const [appearance, setAppearanceView] = useState(false);
+  const own = '/u/' + me.username;
+  if (appearance) {
+    return (
+      <div className="popover more-pop" role="menu">
+        <div className="pop-title">
+          <button className="icon-btn" aria-label="Back" onClick={() => setAppearanceView(false)}>
+            <Icon name="back" size={18} />
+          </button>
+          <b>Switch appearance</b>
+          <Icon name={look === 'white' ? 'sun' : 'moon'} size={18} />
+        </div>
+        <div className="pop-sep" />
+        <label className="pop-toggle">
+          <span>Dark mode</span>
+          <input type="checkbox" role="switch" checked={look === 'dark'} onChange={(e) => setAppearance(e.target.checked ? 'dark' : 'white')} aria-label="Dark mode" />
+          <i className="switch" aria-hidden="true" />
+        </label>
+      </div>
+    );
   }
-}
-function writeRecent(list: Profile[]) {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 20)));
-  } catch {
-    // not kept
-  }
-}
-
-function PanelShell({ title, close, children }: { title: string; close: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useOutside(ref, (() => {
-    // Clicking the sidebar button toggles the panel itself, so ignore clicks there.
-  }) as () => void);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && close();
-    document.addEventListener('keydown', key);
-    return () => document.removeEventListener('keydown', key);
-  }, [close]);
   return (
-    <aside className="side-panel" ref={ref} aria-label={title}>
-      <h2>{title}</h2>
-      {children}
-    </aside>
-  );
-}
-
-export function SearchPanel({ close }: { close: () => void }) {
-  const [q, setQ] = useState('');
-  const [results, setResults] = useState<Profile[] | null>(null);
-  const [recent, setRecent] = useState<Profile[]>(readRecent);
-  useEffect(() => {
-    const needle = q.trim();
-    if (!needle) return setResults(null);
-    let alive = true;
-    const t = setTimeout(() => {
-      searchProfiles(needle).then((r) => alive && setResults(r), (e) => alive && toastError(e));
-    }, 220);
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [q]);
-  const open = (p: Profile) => {
-    const next = [p, ...recent.filter((r) => r.id !== p.id)];
-    setRecent(next);
-    writeRecent(next);
-    close();
-    nav('/u/' + p.username);
-  };
-  const row = (p: Profile, removable?: boolean) => (
-    <div className="row hover" key={p.id}>
-      <button className="row-main" onClick={() => open(p)}>
-        <Avatar src={p.avatar_url} name={p.username} size={44} ring={p.has_story ? 'new' : null} />
-        <span className="row-text">
-          <b>
-            {p.username}
-            {p.verified ? <Verified size={12} /> : null}
-          </b>
-          <span>
-            {p.full_name}
-            {p.followers_count ? ` • ${p.followers_count} followers` : ''}
-            {p.is_following ? ' • Following' : ''}
-          </span>
-        </span>
+    <div className="popover more-pop" role="menu">
+      <MenuLink icon="settings" label="Settings" to="/accounts/edit" close={close} />
+      <MenuLink icon="activity" label="Your activity" to="/activity" close={close} />
+      <MenuLink icon="bookmark" label="Saved" to={own + '/saved'} close={close} />
+      <MenuLink icon="archive" label="Archive" to="/archive" close={close} />
+      <button role="menuitem" onClick={() => setAppearanceView(true)}>
+        <Icon name={look === 'white' ? 'sun' : 'moon'} size={20} /> Switch appearance
       </button>
-      {removable ? (
-        <button
-          className="icon-btn"
-          aria-label={'Remove ' + p.username}
-          onClick={() => {
-            const next = recent.filter((r) => r.id !== p.id);
-            setRecent(next);
-            writeRecent(next);
-          }}
-        >
-          <Icon name="close" size={16} />
-        </button>
-      ) : null}
+      <MenuLink icon="report" label="Report a problem" to="/help/problem" close={close} />
+      <div className="pop-sep thick" />
+      <MenuLink icon="crown" label={me.plus ? 'Community Plus' : 'Get Community Plus'} to="/plus" close={close} />
+      <MenuLink icon="help" label="Help" to="/help" close={close} />
+      {me.admin_role ? <MenuLink icon="shield" label="Admin console" to="/admin" close={close} /> : null}
+      <div className="pop-sep thick" />
+      <button role="menuitem" className="plain" onClick={openSwitcher}>
+        Switch accounts
+      </button>
+      <div className="pop-sep" />
+      <button
+        role="menuitem"
+        className="plain"
+        onClick={() => {
+          close();
+          auth.signOut();
+        }}
+      >
+        Log out{auth.accounts.length > 1 ? ' @' + me.username : ''}
+      </button>
     </div>
   );
+}
+
+/** The church's own apps, the way Instagram lists Meta's: one place for all of them, as on the iPhone. */
+function ChurchApps({ close }: { close: () => void }) {
+  const apps: { icon: IconName; label: string; sub: string; to: string }[] = [
+    { icon: 'bible', label: 'Bible', sub: 'Read and listen in several translations', to: '/bible' },
+    { icon: 'lesson', label: 'Sabbath School', sub: "This quarter's lessons, day by day", to: '/lessons' },
+    { icon: 'hymnal', label: 'Hymnal', sub: 'Every hymn, with favourites', to: '/hymnal' },
+    { icon: 'headphones', label: 'Pod', sub: 'Songs and podcasts from the church family', to: '/pod' },
+    { icon: 'church', label: 'Churches', sub: 'Find a church and its service times', to: '/churches' },
+    { icon: 'people', label: 'Communities and pages', sub: 'Groups for ministries and clubs', to: '/groups' },
+    { icon: 'sparkle', label: 'Ask Erha', sub: 'Questions about the Bible and church life', to: '/direct/erha' },
+  ];
   return (
-    <PanelShell title="Search" close={close}>
-      <div className="panel-search">
-        <input autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-        {q ? (
-          <button className="clear" aria-label="Clear" onClick={() => setQ('')}>
-            <Icon name="close" size={10} color="#0b1014" stroke={3} />
-          </button>
-        ) : null}
-      </div>
-      <div className="panel-body">
-        {results === null ? (
-          <>
-            <div className="panel-sub">
-              <b>Recent</b>
-              {recent.length ? (
-                <button className="link-btn" onClick={() => { setRecent([]); writeRecent([]); }}>
-                  Clear all
-                </button>
-              ) : null}
-            </div>
-            {recent.length ? recent.map((p) => row(p, true)) : <p className="muted-text center pad">No recent searches.</p>}
-          </>
-        ) : results.length ? (
-          results.map((p) => row(p))
-        ) : (
-          <p className="muted-text center pad">No results found.</p>
-        )}
-      </div>
-    </PanelShell>
+    <div className="popover apps-pop" role="menu">
+      <div className="pop-label">Church apps</div>
+      {apps.map((a) => (
+        <a
+          key={a.to}
+          href={'#' + a.to}
+          role="menuitem"
+          onClick={(e) => {
+            e.preventDefault();
+            close();
+            nav(a.to);
+          }}
+        >
+          <span className="app-icon">
+            <Icon name={a.icon} size={20} />
+          </span>
+          <span className="app-text">
+            <b>{a.label}</b>
+            <span>{a.sub}</span>
+          </span>
+        </a>
+      ))}
+    </div>
   );
 }
 
 /* ---------- notifications panel ---------- */
 
 function bucket(iso: string): string {
-  const d = Date.now() - new Date(iso).getTime();
-  if (d < 86400e3) return 'Today';
-  if (d < 7 * 86400e3) return 'This week';
-  if (d < 30 * 86400e3) return 'This month';
+  const then = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = (today.getTime() - new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) / 86400e3;
+  if (d <= 0) return 'Today';
+  if (d <= 1) return 'Yesterday';
+  if (d < 7) return 'This week';
+  if (d < 30) return 'This month';
   return 'Earlier';
+}
+
+type NoticeFilter = 'all' | 'following' | 'comments' | 'follows' | 'likes' | 'tags';
+const FILTERS: { id: NoticeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'following', label: 'People you follow' },
+  { id: 'comments', label: 'Comments' },
+  { id: 'follows', label: 'Follows' },
+  { id: 'likes', label: 'Likes' },
+  { id: 'tags', label: 'Tags' },
+];
+
+function matches(n: Notice, f: NoticeFilter) {
+  switch (f) {
+    case 'following':
+      return n.is_following;
+    case 'comments':
+      return n.kind === 'comment';
+    case 'follows':
+      return n.kind === 'follow' || n.kind === 'request' || n.kind === 'accept';
+    case 'likes':
+      return n.kind === 'like';
+    case 'tags':
+      return n.kind === 'tag';
+    default:
+      return true;
+  }
+}
+
+export function noticeText(n: Notice): string {
+  switch (n.kind) {
+    case 'like':
+      return 'liked your post.';
+    case 'comment':
+      return `commented: ${n.body}`;
+    case 'repost':
+      return 'reposted your post.';
+    case 'follow':
+      return 'started following you.';
+    case 'request':
+      return 'requested to follow you.';
+    case 'accept':
+      return 'accepted your follow request.';
+    case 'new_post':
+      return 'shared a new post.';
+    case 'new_clip':
+      return 'shared a new Short.';
+    case 'new_story':
+      return 'added to their story.';
+    case 'live':
+      return 'started a live video. Watch it before it ends!';
+    case 'live_soon':
+      return n.body ? `goes live soon: ${n.body}` : 'goes live soon.';
+    case 'story_watch':
+      return 'shared a story you asked to hear about.';
+    case 'subscriber':
+      return 'subscribed to you.';
+    case 'tag':
+      return 'tagged you in a post.';
+    default:
+      return '';
+  }
 }
 
 export function NotificationsPanel({ close }: { close: () => void }) {
@@ -322,6 +346,7 @@ export function NotificationsPanel({ close }: { close: () => void }) {
   const [list, setList] = useState<Notice[] | null>(null);
   const [requests, setRequests] = useState<Profile[]>([]);
   const [showRequests, setShowRequests] = useState(false);
+  const [filter, setFilter] = useState<NoticeFilter>('all');
   const load = () => {
     fetchNotices().then(setList, (e) => {
       toastError(e);
@@ -332,20 +357,32 @@ export function NotificationsPanel({ close }: { close: () => void }) {
   useEffect(() => {
     load();
     const t = setTimeout(() => markNoticesRead(me.id).catch(() => {}), 1200);
-    return () => clearTimeout(t);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    document.addEventListener('keydown', key);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('keydown', key);
+    };
   }, []);
-  const text = (n: Notice) =>
-    n.kind === 'like' ? 'liked your post.' : n.kind === 'comment' ? `commented: ${n.body}` : n.kind === 'repost' ? 'reposted your post.' : n.kind === 'follow' ? 'started following you.' : n.kind === 'request' ? 'requested to follow you.' : 'accepted your follow request.';
+  const go = (to: string) => {
+    close();
+    nav(to);
+  };
+
   if (showRequests) {
     return (
-      <PanelShell title="Follow requests" close={close}>
-        <button className="link-btn pad-x" onClick={() => setShowRequests(false)}>
-          ← Back
-        </button>
+      <aside className="side-panel notices" aria-label="Follow requests">
+        <div className="panel-top">
+          <button className="icon-btn" aria-label="Back" onClick={() => setShowRequests(false)}>
+            <Icon name="back" size={20} />
+          </button>
+          <h2>Follow requests</h2>
+          <span />
+        </div>
         <div className="panel-body">
           {requests.map((p) => (
             <div className="row" key={p.id}>
-              <Avatar src={p.avatar_url} name={p.username} size={44} onClick={() => { close(); nav('/u/' + p.username); }} />
+              <Avatar src={p.avatar_url} name={p.username} size={44} onClick={() => go('/u/' + p.username)} />
               <span className="row-text">
                 <b>{p.username}</b>
                 <span>{p.full_name}</span>
@@ -360,14 +397,29 @@ export function NotificationsPanel({ close }: { close: () => void }) {
           ))}
           {!requests.length ? <p className="muted-text center pad">No pending requests.</p> : null}
         </div>
-      </PanelShell>
+      </aside>
     );
   }
+
+  const shown = (list ?? []).filter((n) => matches(n, filter));
   let last = '';
   return (
-    <PanelShell title="Notifications" close={close}>
+    <aside className="side-panel notices" aria-label="Notifications">
+      <div className="panel-top">
+        <h2>Notifications</h2>
+        <button className="icon-btn" aria-label="Close" onClick={close}>
+          <Icon name="close" size={20} />
+        </button>
+      </div>
+      <div className="chip-row" role="tablist" aria-label="Show">
+        {FILTERS.map((f) => (
+          <button key={f.id} role="tab" aria-selected={filter === f.id} className={'filter-chip' + (filter === f.id ? ' on' : '')} onClick={() => setFilter(f.id)}>
+            {f.label}
+          </button>
+        ))}
+      </div>
       <div className="panel-body">
-        {requests.length ? (
+        {requests.length && filter === 'all' ? (
           <button className="row hover requests-row" onClick={() => setShowRequests(true)}>
             <Avatar src={requests[0].avatar_url} name={requests[0].username} size={44} />
             <span className="row-text">
@@ -381,16 +433,16 @@ export function NotificationsPanel({ close }: { close: () => void }) {
           </button>
         ) : null}
         {list === null ? <Spinner /> : null}
-        {list && !list.length ? (
+        {list && !shown.length ? (
           <div className="empty small">
             <span className="empty-ring">
               <Icon name="heart" size={30} />
             </span>
-            <p>Activity on your posts</p>
+            <p>{filter === 'all' ? 'Activity on your posts' : 'Nothing here yet'}</p>
             <span className="muted-text">When someone likes or comments on one of your posts, you'll see it here.</span>
           </div>
         ) : null}
-        {(list ?? []).map((n) => {
+        {shown.map((n) => {
           const head = bucket(n.created_at);
           const show = head !== last;
           last = head;
@@ -398,12 +450,12 @@ export function NotificationsPanel({ close }: { close: () => void }) {
             <React.Fragment key={n.id}>
               {show ? <h3 className="panel-h">{head}</h3> : null}
               <div className={'row notice' + (n.read_at ? '' : ' unread')}>
-                <Avatar src={n.avatar_url} name={n.username} size={44} onClick={() => { close(); nav('/u/' + n.username); }} />
+                <Avatar src={n.avatar_url} name={n.username} size={44} onClick={() => go(n.kind === 'live' && n.post_id ? '/live/' + n.post_id : '/u/' + n.username)} />
                 <span className="row-text wrap">
                   <Link to={'/u/' + n.username} className="uname" onClick={close}>
                     {n.username}
                   </Link>
-                  {n.verified ? <Verified size={12} /> : null} {text(n)} <span className="muted-text">{ago(n.created_at)}</span>
+                  {n.verified ? <Verified size={12} /> : null} {noticeText(n)} <span className="muted-text">{ago(n.created_at)}</span>
                 </span>
                 {n.post_id && n.post_media ? (
                   <a
@@ -411,8 +463,7 @@ export function NotificationsPanel({ close }: { close: () => void }) {
                     className="notice-thumb"
                     onClick={(e) => {
                       e.preventDefault();
-                      close();
-                      nav('/p/' + n.post_id);
+                      go('/p/' + n.post_id);
                     }}
                   >
                     <img src={n.post_media.type === 'video' ? n.post_media.poster || '' : n.post_media.url} alt="" />
@@ -425,7 +476,7 @@ export function NotificationsPanel({ close }: { close: () => void }) {
           );
         })}
       </div>
-    </PanelShell>
+    </aside>
   );
 }
 

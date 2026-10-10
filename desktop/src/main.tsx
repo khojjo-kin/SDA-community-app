@@ -9,23 +9,33 @@ import './app.css';
 import { AuthProvider, useAuth } from './lib/auth';
 import { MeProvider, useMe } from './lib/me';
 import { nav, parts, useRoute } from './lib/router';
-import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
-import { AnnouncementBar } from './ui/announce';
+import { applyAppearance } from './lib/appearance';
 import { touchSession } from './lib/admin';
-import { Explore, Home, PeopleToFollow, Reels } from './screens/browse';
+import { CallProvider } from 'shared/calls';
+import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
+import { Explore, Home, PeopleToFollow } from './screens/browse';
+import { Shorts } from './screens/shorts';
 import { Messages } from './screens/messages';
 import { Activity, Churches, Groups, Hymnal, Settings } from './screens/more';
-import { Archive, Dashboard, Help, Plus } from './screens/account';
+import { Archive, Help } from './screens/account';
+import { Dashboard } from './screens/dashboard';
+import { Plus } from './screens/plus';
+import { Verify } from './screens/verify';
+import { FundraiserPage } from './screens/fundraiser';
+import { Legal } from './screens/legal';
+import { GoLive } from './screens/golive';
 import { Admin } from './screens/admin';
 import { Bible, Pod, SabbathSchool } from './screens/church';
 import { LiveViewer } from './screens/live';
-import { CallProvider } from 'shared/calls';
-import { PlayerProvider } from './ui/player';
 import { ProfilePage } from './screens/profile';
+import { AnnouncementBar } from './ui/announce';
 import { CreateDialog } from './ui/create';
+import { MessagesDock } from './ui/dock';
 import { Empty, GlobalLayer, Spinner } from './ui/kit';
+import { PayLayer } from './ui/paysheet';
+import { PlayerProvider } from './ui/player';
 import { PostView } from './ui/post';
-import { Sidebar, type Panel, Wordmark } from './ui/sidebar';
+import { type CreateMode, type Panel, Sidebar, Wordmark } from './ui/sidebar';
 
 declare const __DEMO__: boolean;
 
@@ -89,7 +99,7 @@ function Shell() {
   const route = useRoute();
   const [panel, setPanel] = useState<Panel>(null);
   const [post, setPost] = useState<string | null>(null);
-  const [create, setCreate] = useState<'post' | 'story' | null>(null);
+  const [create, setCreate] = useState<'post' | 'story' | 'short' | null>(null);
   const seg = parts(route);
 
   useEffect(() => {
@@ -107,7 +117,13 @@ function Shell() {
       }
       if (e.key === 'k') {
         e.preventDefault();
-        setPanel('search');
+        try {
+          sessionStorage.setItem('community.focusSearch', '1');
+        } catch {
+          // focus by event instead
+        }
+        nav('/explore');
+        window.dispatchEvent(new Event('community:search'));
       }
     };
     document.addEventListener('keydown', key);
@@ -122,23 +138,30 @@ function Shell() {
     });
   }, []);
 
+  const onCreate = (mode: CreateMode) => {
+    if (mode === 'live') nav('/live/new');
+    else if (mode === 'ad') nav('/dashboard/ads');
+    else setCreate(mode);
+  };
+
   const openPost = (id: string) => setPost(id);
   let screen: React.ReactNode;
   switch (seg[0]) {
     case undefined:
-      screen = <Home openPost={openPost} onCreate={setCreate} />;
+      screen = <Home openPost={openPost} onCreate={onCreate} />;
       break;
     case 'explore':
       screen = seg[1] === 'people' ? <PeopleToFollow /> : <Explore openPost={openPost} />;
       break;
+    case 'shorts':
     case 'reels':
-      screen = <Reels openPost={openPost} />;
+      screen = <Shorts openPost={openPost} />;
       break;
     case 'direct':
       screen = <Messages path={route} openPost={openPost} />;
       break;
     case 'u':
-      screen = <ProfilePage username={seg[1] ?? me.username} tab={(['reels', 'saved', 'reposts'].includes(seg[2]) ? seg[2] : 'posts') as any} openPost={openPost} onCreate={setCreate} />;
+      screen = <ProfilePage username={seg[1] ?? me.username} tab={(['reels', 'shorts', 'saved', 'reposts', 'tagged'].includes(seg[2]) ? (seg[2] === 'shorts' ? 'reels' : seg[2]) : 'posts') as any} openPost={openPost} onCreate={onCreate as any} />;
       break;
     case 'p':
       screen = <PostView id={seg[1]} asPage onClose={() => nav('/')} />;
@@ -168,10 +191,13 @@ function Shell() {
       screen = <Pod />;
       break;
     case 'live':
-      screen = <LiveViewer id={seg[1]} />;
+      screen = seg[1] === 'new' ? <GoLive /> : <LiveViewer id={seg[1]} />;
       break;
     case 'dashboard':
-      screen = <Dashboard />;
+      screen = <Dashboard path={route} />;
+      break;
+    case 'fundraisers':
+      screen = <FundraiserPage id={seg[1]} />;
       break;
     case 'archive':
       screen = <Archive />;
@@ -179,8 +205,14 @@ function Shell() {
     case 'plus':
       screen = <Plus />;
       break;
+    case 'verify':
+      screen = <Verify />;
+      break;
     case 'help':
       screen = <Help />;
+      break;
+    case 'legal':
+      screen = <Legal doc={seg[1] ?? 'privacy'} />;
       break;
     case 'admin':
       screen = <Admin path={route} />;
@@ -190,18 +222,22 @@ function Shell() {
   }
 
   return (
-    <div className={'shell' + (['direct', 'live'].includes(seg[0]) ? ' is-direct' : '') + (seg[0] === 'reels' ? ' is-reels' : '')}>
+    <div className={'shell' + (['direct', 'live'].includes(seg[0]) ? ' is-direct' : '') + (['shorts', 'reels'].includes(seg[0]) ? ' is-reels' : '')}>
       {__DEMO__ ? <div className="demo-banner">Demo: sample people and photos. Nothing you do here is saved.</div> : null}
-      <Sidebar panel={panel} setPanel={setPanel} onCreate={setCreate} />
+      <Sidebar panel={panel} setPanel={setPanel} onCreate={onCreate} />
       <main className="main">
         {seg[0] !== 'admin' ? <AnnouncementBar /> : null}
         {screen}
       </main>
+      <MessagesDock />
       {post ? <PostView id={post} onClose={() => setPost(null)} /> : null}
-      {create ? <CreateDialog start={create} onClose={() => setCreate(null)} /> : null}
+      {create ? <CreateDialog start={create === 'short' ? 'post' : create} onClose={() => setCreate(null)} /> : null}
+      <PayLayer />
     </div>
   );
 }
+
+applyAppearance();
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>

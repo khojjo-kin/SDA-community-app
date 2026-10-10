@@ -39,10 +39,12 @@ const check = (label, ok, extra) => {
 
   // Home
   check('home feed shows posts from people I follow', (await feed.count()) >= 8, await feed.count());
-  check('the three feeds from the iPhone app: For you, Following, Subscribers', (await page.locator('.feed-switch button').allInnerTexts()).join() === 'For you,Following,Subscribers');
+  check('the two feeds from the iPhone app: For you and Following', (await page.locator('.feed-switch button').allInnerTexts()).join() === 'For you,Following');
   check('story tray lists 5 people with stories plus mine', (await page.locator('.tray-item').count()) === 6, await page.locator('.tray-item').count());
   check('suggestions list someone I do not follow', (await page.locator('.home-aside .suggestion').count()) >= 1);
-  check('unread messages badge on the sidebar', (await page.locator('.sidebar .nav-badge').innerText()) === '1');
+  check('unread messages badge on the rail', (await page.locator('.rail .nav-badge').innerText()) === '1');
+  check('the rail has every section in Instagram order', (await page.locator('.rail .nav-item').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).join() === 'Home,Shorts,Messages,Search,Notifications,Create,Dashboard,Profile,More,Church apps');
+  check('the floating Messages button shows the unread count', (await page.locator('.dock-pill .nav-badge').innerText()) === '1');
 
   // Like, double-click like, save, comment
   const first = feed.first();
@@ -111,8 +113,8 @@ const check = (label, ok, extra) => {
   check('viewer closes with Escape', (await page.locator('.story-stage').count()) === 0);
 
   // Create a post with two photos, crop 1:1, caption
-  await page.locator('.sidebar').getByRole('button', { name: 'Create' }).click();
-  await page.locator('.create-pop').getByRole('button', { name: /^Post/ }).click();
+  await page.locator('.rail').getByRole('button', { name: 'Create' }).click();
+  await page.locator('.create-pop').getByRole('menuitem', { name: /^Post/ }).click();
   await page.setInputFiles('[data-testid=create-files]', [path.join(MEDIA, '09.jpg'), path.join(MEDIA, '05.jpg')]);
   await page.waitForSelector('.crop-bar');
   check('two photos are ready to crop', (await page.locator('.thumb-bar .thumb:not(.add)').count()) === 2);
@@ -159,8 +161,8 @@ const check = (label, ok, extra) => {
   check('deleted post is gone from my profile', (await page.locator('.grid .tile').count()) === 2);
 
   // Share a story
-  await page.locator('.sidebar').getByRole('button', { name: 'Create' }).click();
-  await page.locator('.create-pop').getByRole('button', { name: /^Story/ }).click();
+  await page.locator('.rail').getByRole('button', { name: 'Create' }).click();
+  await page.locator('.create-pop').getByRole('menuitem', { name: /^Story/ }).click();
   await page.setInputFiles('[data-testid=create-files]', [path.join(MEDIA, '11.jpg')]);
   await page.waitForSelector('.filter-cell');
   await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
@@ -188,10 +190,11 @@ const check = (label, ok, extra) => {
   check('liking a reel updates its count', (await page.locator('.reel').first().locator('.reel-actions span').first().innerText()) === '342');
 
   // Search and profile, follow, followers list
-  await page.locator('.sidebar').getByRole('button', { name: 'Search' }).click();
+  await page.locator('.rail').getByRole('link', { name: 'Search' }).click();
+  await page.getByLabel('Search people').click();
   await page.getByLabel('Search people').fill('esther');
-  await page.waitForSelector('.side-panel .row-main');
-  await page.locator('.side-panel .row-main').first().click();
+  await page.waitForSelector('.search-drop .row-main');
+  await page.locator('.search-drop .row-main').first().click();
   await page.waitForSelector('.profile-head');
   check('search opens the profile', (await page.locator('.profile-top h1').innerText()).startsWith('esther_adjei'));
   const stats = () => page.locator('.profile-stats').innerText();
@@ -230,7 +233,7 @@ const check = (label, ok, extra) => {
   await shot('04-messages');
 
   // Notifications
-  await page.locator('.sidebar').getByRole('button', { name: 'Notifications' }).click();
+  await page.locator('.rail').getByRole('button', { name: 'Notifications' }).click();
   await page.waitForSelector('.notice');
   check('notifications list likes, comments and follows', (await page.locator('.notice').count()) >= 4, await page.locator('.notice').count());
   await page.keyboard.press('Escape');
@@ -325,10 +328,14 @@ const check = (label, ok, extra) => {
   check('a help request is sent and listed', (await page.locator('.ticket').filter({ hasText: 'Desktop question' }).count()) === 1);
 
   // Admin console
-  await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
+  await page.locator('.rail').getByRole('button', { name: 'Church apps' }).click();
+  const appsText = await page.locator('.apps-pop').innerText();
+  check('Church apps lists every church section', ['Bible', 'Sabbath School', 'Hymnal', 'Pod', 'Churches', 'Communities and pages', 'Ask Erha'].every((x) => appsText.includes(x)));
+  await page.locator('.rail').getByRole('button', { name: 'Church apps' }).click();
+  await page.locator('.rail').getByRole('button', { name: 'More' }).click();
   const moreText = await page.locator('.more-pop').innerText();
-  check('the More menu has every section', ['Bible', 'Sabbath School', 'Hymnal', 'Pod', 'Churches', 'Ask Erha', 'Archive', 'Professional dashboard', 'Help', 'Admin console'].every((x) => moreText.includes(x)));
-  await page.locator('.more-pop').getByText('Admin console').click();
+  check('the More menu has every section', ['Settings', 'Your activity', 'Saved', 'Archive', 'Switch appearance', 'Report a problem', 'Help', 'Admin console', 'Switch accounts', 'Log out'].every((x) => moreText.includes(x)));
+  await page.locator('.more-pop').getByRole('menuitem', { name: 'Admin console' }).click();
   await page.waitForSelector('.chart svg');
   check('the admin dashboard shows the key numbers', (await page.locator('.kpi').count()) >= 8);
   check('the dashboard draws the activity chart, donuts and bars', (await page.locator('.chart svg path').count()) > 2 && (await page.locator('.donut').count()) >= 3 && (await page.locator('.hbars li').count()) > 3);
@@ -473,12 +480,12 @@ const check = (label, ok, extra) => {
   check('support requests can be answered', (await page.locator('.ticket').filter({ hasText: 'Cannot upload a video' }).locator('.pill.status-answered').count()) === 1);
 
   // Log out and back in
-  await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
-  await page.locator('.more-pop').getByRole('button', { name: 'Log out' }).click();
+  await page.locator('.rail').getByRole('button', { name: 'More' }).click();
+  await page.locator('.more-pop').getByRole('menuitem', { name: /Log out/ }).click();
   await page.waitForSelector('.login');
   await shot('05-login');
   await page.getByRole('button', { name: 'Log in to the demo' }).click();
-  await page.waitForSelector('.sidebar');
+  await page.waitForSelector('.rail');
   check('logging back in works', true);
 
   const over = await page.evaluate(() => document.scrollingElement.scrollWidth - innerWidth);
@@ -493,8 +500,8 @@ const check = (label, ok, extra) => {
     await p2.waitForSelector('.feed-post');
     const ov = await p2.evaluate(() => document.scrollingElement.scrollWidth - innerWidth);
     if (name === 'medium') check(`no sideways scrolling at ${w}px`, ov <= 0, ov);
-    if (name === 'small') check('a small window keeps the desktop sidebar (no phone bottom bar)', (await p2.locator('.sidebar').isVisible()) && (await p2.locator('.bottombar').count()) === 0);
-    if (name === 'medium') check('medium width uses the narrow sidebar', (await p2.locator('.sidebar').evaluate((el) => el.clientWidth)) <= 73);
+    if (name === 'small') check('a small window keeps the desktop rail (no phone bottom bar)', (await p2.locator('.rail').isVisible()) && (await p2.locator('.bottombar').count()) === 0);
+    if (name === 'medium') check('the rail stays narrow until the pointer is over it', (await p2.locator('.rail').evaluate((el) => el.clientWidth)) <= 73);
     if (SHOTS) await p2.screenshot({ path: `${SHOTS}/06-${name}.png` });
   }
 

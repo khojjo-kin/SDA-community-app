@@ -1,23 +1,25 @@
-// Home (stories, feed, suggestions), Explore (the mosaic grid) and Reels (full-height videos).
+// Home (stories, feed, suggestions) and Explore (search and the mosaic grid).
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type FeedKind, fetchExplore, fetchFeed, fetchLives, fetchReels, fetchStoryTray, setFollow } from 'shared/api';
+import { type FeedKind, dismissSuggestion, fetchExplore, fetchFeed, fetchLives, fetchStoryTray, fetchSuggestedPeople, searchProfiles, setFollow } from 'shared/api';
 import { listen, putPosts } from 'shared/store';
 import { fmt } from 'shared/theme';
-import type { LiveCard, Post, Profile, StoryGroup } from 'shared/types';
-import { suggestions } from '../lib/extra';
+import type { LiveCard, Post, Profile, StoryGroup, SuggestedPerson } from 'shared/types';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Link, Spinner, Verified, toastError } from '../ui/kit';
-import { FeedPost, PostMenu, ShareDialog, Tile, useFlags } from '../ui/post';
+import { AccountSwitcher } from '../ui/accounts';
+import { FeedPost, Tile } from '../ui/post';
+import type { CreateMode } from '../ui/sidebar';
 import { StoryTray, StoryViewer } from '../ui/stories';
 
 /* ---------- home ---------- */
 
-export function Home({ openPost, onCreate }: { openPost: (id: string) => void; onCreate: (m: 'post' | 'story') => void }) {
+export function Home({ openPost, onCreate }: { openPost: (id: string) => void; onCreate: (m: CreateMode) => void }) {
   const { me } = useMe();
   const [kind, setKind] = useState<FeedKind>(() => {
     try {
-      return (localStorage.getItem('community.feed') as FeedKind) || 'following';
+      // For you and Following, as on the iPhone.
+      return localStorage.getItem('community.feed') === 'foryou' ? 'foryou' : 'following';
     } catch {
       return 'following';
     }
@@ -88,11 +90,10 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
     <div className="home">
       <div className="home-main">
         <StoryTray groups={tray} lives={lives} onOpen={setViewing} onAdd={() => onCreate('story')} />
-        <div className="feed-switch" role="tablist">
-          {/* The same three feeds as the iPhone app. */}
-          {(['foryou', 'following', 'subscribers'] as FeedKind[]).map((k) => (
+        <div className="feed-switch" role="tablist" aria-label="Feed">
+          {(['foryou', 'following'] as FeedKind[]).map((k) => (
             <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-              {k === 'following' ? 'Following' : k === 'foryou' ? 'For you' : 'Subscribers'}
+              {k === 'following' ? 'Following' : 'For you'}
             </button>
           ))}
         </div>
@@ -111,8 +112,6 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
                   </button>
                 </div>
               </Empty>
-            ) : kind === 'subscribers' ? (
-              <Empty icon="crown" title="Nothing from Plus members yet" body="Posts from Community Plus members appear here. Switch to For you to see everyone." />
             ) : (
               <Empty icon="image" title="Nothing here yet" body="Nobody has posted yet. Share the first photo." />
             )
@@ -124,7 +123,7 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
           {loadingMore ? <Spinner /> : null}
           {ids && ids.length && !more ? (
             <div className="caught-up">
-              <Icon name="check" size={40} color="#1fbf5a" stroke={1.5} />
+              <Icon name="check" size={40} color="var(--accent)" stroke={1.5} />
               <b>You're all caught up</b>
               <span>You've seen all new posts.</span>
             </div>
@@ -137,11 +136,39 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
   );
 }
 
+const FOOT_LINKS: [string, string][] = [
+  ['About', '/legal/about'],
+  ['Help', '/help'],
+  ['Privacy', '/legal/privacy'],
+  ['Terms', '/legal/terms'],
+  ['Community guidelines', '/legal/guidelines'],
+  ['Child safety', '/legal/child-safety'],
+  ['Copyright', '/legal/copyright'],
+  ['Language', '/accounts/language'],
+];
+
+export function FootLinks() {
+  return (
+    <footer className="aside-foot">
+      <nav aria-label="About Community">
+        {FOOT_LINKS.map(([label, to], i) => (
+          <React.Fragment key={to}>
+            {i ? ' · ' : ''}
+            <Link to={to}>{label}</Link>
+          </React.Fragment>
+        ))}
+      </nav>
+      <span>© {new Date().getFullYear()} Community for the church family</span>
+    </footer>
+  );
+}
+
 function Aside() {
   const { me } = useMe();
-  const [people, setPeople] = useState<Profile[] | null>(null);
+  const [people, setPeople] = useState<SuggestedPerson[] | null>(null);
+  const [switcher, setSwitcher] = useState(false);
   useEffect(() => {
-    suggestions(me.id).then(setPeople, () => setPeople([]));
+    fetchSuggestedPeople(5).then(setPeople, () => setPeople([]));
   }, [me.id]);
   return (
     <aside className="home-aside">
@@ -153,9 +180,9 @@ function Aside() {
           </Link>
           <span>{me.full_name}</span>
         </span>
-        <Link to="/accounts/edit" className="link-btn">
-          Edit
-        </Link>
+        <button className="link-btn" onClick={() => setSwitcher(true)}>
+          Switch
+        </button>
       </div>
       {people && people.length ? (
         <>
@@ -170,26 +197,32 @@ function Aside() {
           ))}
         </>
       ) : null}
-      <footer className="aside-foot">
-        <span>Community · for the church family</span>
-        <span>© {new Date().getFullYear()} Community</span>
-      </footer>
+      <FootLinks />
+      {switcher ? <AccountSwitcher onClose={() => setSwitcher(false)} /> : null}
     </aside>
   );
 }
 
-export function Suggestion({ p, big }: { p: Profile; big?: boolean }) {
+/** Why someone is suggested: who you know that follows them. */
+export function reason(p: SuggestedPerson): string {
+  if (p.follows_me) return 'Follows you';
+  if (p.mutual_names.length) return 'Followed by ' + p.mutual_names[0] + (p.mutual_count > 1 ? ` + ${p.mutual_count - 1} more` : '');
+  return 'Suggested for you';
+}
+
+export function Suggestion({ p, big, onDismiss }: { p: SuggestedPerson; big?: boolean; onDismiss?: () => void }) {
   const { me } = useMe();
-  const [on, setOn] = useState(p.is_following);
+  const [on, setOn] = useState(false);
   return (
     <div className={'me-row suggestion' + (big ? ' big' : '')}>
-      <Avatar src={p.avatar_url} name={p.username} size={big ? 44 : 32} ring={p.has_story ? 'new' : null} onClick={() => nav('/u/' + p.username)} />
+      <Avatar src={p.avatar_url} name={p.username} size={big ? 52 : 44} onClick={() => nav('/u/' + p.username)} />
       <span className="row-text">
         <Link to={'/u/' + p.username} className="uname">
           {p.username}
           {p.verified ? <Verified size={12} /> : null}
         </Link>
-        <span>{p.follows_me ? 'Follows you' : p.full_name || 'Suggested for you'}</span>
+        {big && p.full_name ? <span>{p.full_name}</span> : null}
+        <span className="reason">{reason(p)}</span>
       </span>
       <button
         className={big ? 'btn small' + (on ? ' quiet' : '') : 'link-btn' + (on ? ' muted' : '')}
@@ -203,8 +236,13 @@ export function Suggestion({ p, big }: { p: Profile; big?: boolean }) {
           }
         }}
       >
-        {on ? 'Following' : 'Follow'}
+        {on ? 'Following' : p.follows_me ? 'Follow back' : 'Follow'}
       </button>
+      {onDismiss ? (
+        <button className="icon-btn tiny" aria-label={'Hide ' + p.username} onClick={onDismiss}>
+          <Icon name="close" size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -221,12 +259,13 @@ export function Explore({ openPost }: { openPost: (id: string) => void }) {
   useEffect(load, []);
   return (
     <div className="page explore">
+      <SearchBox />
       {error ? <Failed error={error} retry={load} /> : null}
       {!posts && !error ? <Spinner /> : null}
-      {posts && !posts.length ? <Empty icon="compass" title="Nothing to explore yet" body="Photos and reels from everyone on Community will show up here." /> : null}
+      {posts && !posts.length ? <Empty icon="compass" title="Nothing to explore yet" body="Photos and Shorts from everyone on Community will show up here." /> : null}
       <div className="mosaic">
         {(posts ?? []).map((p, i) => {
-          // Instagram's pattern: in each block of five, one tall tile, alternating right and left.
+          // In each block of five, one tall tile, alternating right and left.
           const block = Math.floor(i / 5);
           const pos = i % 5;
           const tall = (block % 2 === 0 && pos === 2) || (block % 2 === 1 && pos === 0);
@@ -237,155 +276,154 @@ export function Explore({ openPost }: { openPost: (id: string) => void }) {
   );
 }
 
+/* ---------- search ---------- */
+
+const RECENT_KEY = 'community.recentSearches';
+function readRecent(): Profile[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+function writeRecent(list: Profile[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch {
+    // not kept
+  }
+}
+
+/** The search field above Explore: recent searches when empty, people as you type. Cmd/Ctrl+K jumps here. */
+function SearchBox() {
+  const [q, setQ] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [results, setResults] = useState<Profile[] | null>(null);
+  const [recent, setRecent] = useState<Profile[]>(readRecent);
+  const box = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const focus = () => input.current?.focus();
+    window.addEventListener('community:search', focus);
+    if (sessionStorage.getItem('community.focusSearch')) {
+      sessionStorage.removeItem('community.focusSearch');
+      setTimeout(focus, 0);
+    }
+    const out = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setFocused(false);
+    document.addEventListener('mousedown', out);
+    return () => {
+      window.removeEventListener('community:search', focus);
+      document.removeEventListener('mousedown', out);
+    };
+  }, []);
+  useEffect(() => {
+    const needle = q.trim();
+    if (!needle) return setResults(null);
+    let alive = true;
+    const t = setTimeout(() => {
+      searchProfiles(needle).then((r) => alive && setResults(r), (e) => alive && toastError(e));
+    }, 220);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+  const open = (p: Profile) => {
+    const next = [p, ...recent.filter((r) => r.id !== p.id)];
+    setRecent(next);
+    writeRecent(next);
+    setFocused(false);
+    nav('/u/' + p.username);
+  };
+  const row = (p: Profile, removable?: boolean) => (
+    <div className="row hover" key={p.id}>
+      <button className="row-main" onClick={() => open(p)}>
+        <Avatar src={p.avatar_url} name={p.username} size={44} ring={p.has_story ? 'new' : null} />
+        <span className="row-text">
+          <b>
+            {p.username}
+            {p.verified ? <Verified size={12} /> : null}
+          </b>
+          <span>
+            {p.full_name}
+            {p.followers_count ? ` • ${fmt(p.followers_count)} followers` : ''}
+            {p.is_following ? ' • Following' : ''}
+          </span>
+        </span>
+      </button>
+      {removable ? (
+        <button
+          className="icon-btn"
+          aria-label={'Remove ' + p.username}
+          onClick={() => {
+            const next = recent.filter((r) => r.id !== p.id);
+            setRecent(next);
+            writeRecent(next);
+          }}
+        >
+          <Icon name="close" size={16} />
+        </button>
+      ) : null}
+    </div>
+  );
+  return (
+    <div className={'search-box' + (focused ? ' open' : '')} ref={box}>
+      <label className="search-field">
+        <Icon name="search" size={18} />
+        <input ref={input} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => setFocused(true)} aria-label="Search people" onKeyDown={(e) => e.key === 'Escape' && (setQ(''), input.current?.blur(), setFocused(false))} />
+        {q ? (
+          <button className="clear" aria-label="Clear" onClick={() => setQ('')}>
+            <Icon name="close" size={10} stroke={3} />
+          </button>
+        ) : null}
+      </label>
+      {focused ? (
+        <div className="search-drop">
+          {results === null ? (
+            <>
+              <div className="panel-sub">
+                <b>Recent</b>
+                {recent.length ? (
+                  <button className="link-btn" onClick={() => { setRecent([]); writeRecent([]); }}>
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
+              {recent.length ? recent.map((p) => row(p, true)) : <p className="muted-text center pad">No recent searches.</p>}
+            </>
+          ) : results.length ? (
+            results.map((p) => row(p))
+          ) : (
+            <p className="muted-text center pad">No results found.</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PeopleToFollow() {
   const { me } = useMe();
-  const [people, setPeople] = useState<Profile[] | null>(null);
+  const [people, setPeople] = useState<SuggestedPerson[] | null>(null);
   useEffect(() => {
-    suggestions(me.id, 30).then(setPeople, () => setPeople([]));
+    fetchSuggestedPeople(30).then(setPeople, () => setPeople([]));
   }, []);
   return (
-    <div className="page narrow-page">
+    <div className="page suggested-page">
       <h1 className="page-title">Suggested</h1>
       {!people ? <Spinner /> : null}
       {people && !people.length ? <p className="muted-text">You're following everyone already.</p> : null}
       {(people ?? []).map((p) => (
-        <Suggestion key={p.id} p={p} big />
+        <Suggestion
+          key={p.id}
+          p={p}
+          big
+          onDismiss={() => {
+            setPeople((cur) => (cur ?? []).filter((x) => x.id !== p.id));
+            dismissSuggestion(me.id, p.id).catch(() => {});
+          }}
+        />
       ))}
     </div>
   );
-}
-
-/* ---------- reels ---------- */
-
-export function Reels({ openPost }: { openPost: (id: string) => void }) {
-  const [list, setList] = useState<Post[] | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [muted, setMuted] = useState(true);
-  const load = () => {
-    setError(null);
-    fetchReels(false).then((r) => {
-      putPosts(r);
-      setList(r);
-    }, setError);
-  };
-  useEffect(load, []);
-  return (
-    <div className="reels" tabIndex={-1}>
-      {error ? <Failed error={error} retry={load} /> : null}
-      {!list && !error ? <Spinner /> : null}
-      {list && !list.length ? <Empty icon="reels" title="No reels yet" body="Share a video of up to 60 seconds and it shows up here." /> : null}
-      {(list ?? []).map((p) => (
-        <Reel key={p.id} id={p.id} muted={muted} setMuted={setMuted} openPost={openPost} />
-      ))}
-    </div>
-  );
-}
-
-function Reel({ id, muted, setMuted, openPost }: { id: string; muted: boolean; setMuted: (m: boolean) => void; openPost: (id: string) => void }) {
-  const { me } = useMe();
-  const { post, toggle } = useFlags(id);
-  const video = useRef<HTMLVideoElement>(null);
-  const box = useRef<HTMLDivElement>(null);
-  const [paused, setPaused] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const [share, setShare] = useState(false);
-  const [burst, setBurst] = useState(0);
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => {
-      const v = video.current;
-      if (!v) return;
-      if (e.isIntersecting) {
-        v.currentTime = 0;
-        v.play().then(() => setPaused(false), () => setPaused(true));
-      } else v.pause();
-    }, { threshold: 0.7 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  if (!post) return null;
-  const m = post.media[0];
-  return (
-    <div className="reel" ref={box}>
-      <div
-        className="reel-video"
-        onClick={() => {
-          const v = video.current;
-          if (!v) return;
-          if (v.paused) {
-            v.play();
-            setPaused(false);
-          } else {
-            v.pause();
-            setPaused(true);
-          }
-        }}
-        onDoubleClick={() => {
-          setBurst((b) => b + 1);
-          if (!post.liked) toggle('liked', true);
-        }}
-      >
-        <video ref={video} src={m.url} poster={m.poster} loop playsInline muted={muted} />
-        {paused ? (
-          <span className="reel-paused">
-            <Icon name="play" size={64} color="#fff" />
-          </span>
-        ) : null}
-        {burst ? (
-          <span className="burst" key={burst}>
-            <Icon name="heart" size={96} color="#fff" fill="#fff" stroke={0} />
-          </span>
-        ) : null}
-        <button className="mute top" aria-label={muted ? 'Turn sound on' : 'Turn sound off'} onClick={(e) => { e.stopPropagation(); setMuted(!muted); }}>
-          <Icon name={muted ? 'mute' : 'sound'} size={16} color="#fff" />
-        </button>
-        <div className="reel-info" onClick={(e) => e.stopPropagation()}>
-          <div className="who">
-            <Avatar src={post.avatar_url} name={post.username} size={32} onClick={() => nav('/u/' + post.username)} />
-            <Link to={'/u/' + post.username} className="uname">
-              {post.username}
-            </Link>
-            {post.verified ? <Verified size={12} /> : null}
-            {!post.following_author && post.user_id !== me.id ? (
-              <button className="btn outline small" onClick={() => setFollowOn()}>
-                Follow
-              </button>
-            ) : null}
-          </div>
-          {post.caption ? <p className="reel-caption">{post.caption}</p> : null}
-          {post.audio_title ? <p className="reel-audio">♪ {post.audio_title}</p> : null}
-        </div>
-      </div>
-      <div className="reel-actions">
-        <button aria-label={post.liked ? 'Unlike' : 'Like'} onClick={() => toggle('liked')}>
-          <Icon name="heart" size={26} color={post.liked ? '#ff3040' : 'currentColor'} fill={post.liked ? '#ff3040' : 'none'} />
-          <span>{fmt(post.like_count)}</span>
-        </button>
-        <button aria-label="Comments" onClick={() => openPost(post.id)}>
-          <Icon name="comment" size={26} />
-          <span>{fmt(post.comment_count)}</span>
-        </button>
-        <button aria-label="Repost" onClick={() => toggle('reposted')}>
-          <Icon name="repost" size={26} color={post.reposted ? '#1fbf5a' : 'currentColor'} />
-          <span>{fmt(post.repost_count)}</span>
-        </button>
-        <button aria-label="Share" onClick={() => setShare(true)}>
-          <Icon name="send" size={26} />
-        </button>
-        <button aria-label={post.saved ? 'Remove from saved' : 'Save'} onClick={() => toggle('saved')}>
-          <Icon name="bookmark" size={26} fill={post.saved ? 'currentColor' : 'none'} />
-        </button>
-        <button aria-label="More" onClick={() => setMenu(true)}>
-          <Icon name="more" size={26} />
-        </button>
-        <Avatar src={post.avatar_url} name={post.username} size={28} />
-      </div>
-      {menu ? <PostMenu post={post} onClose={() => setMenu(false)} onOpen={() => openPost(post.id)} /> : null}
-      {share ? <ShareDialog postId={post.id} onClose={() => setShare(false)} /> : null}
-    </div>
-  );
-  function setFollowOn() {
-    setFollow(me.id, post!.user_id, true).catch(toastError);
-  }
 }

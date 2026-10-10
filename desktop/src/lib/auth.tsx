@@ -8,6 +8,12 @@ declare const __DEMO__: boolean;
 
 export type AuthUser = { id: string; email: string; name: string; imageUrl: string; username: string };
 
+/** One of the accounts signed in on this computer. Clerk keeps one session per account (multi-session is on). */
+export type Account = { sessionId: string; userId: string; username: string; name: string; imageUrl: string; current: boolean };
+
+/** No more accounts than this on one computer, as on the iPhone. */
+export const MAX_ACCOUNTS = 5;
+
 type AuthState = {
   ready: boolean;
   error: string;
@@ -19,6 +25,12 @@ type AuthState = {
   /** Puts Clerk's sign-in or sign-up form into an element. Returns a function that removes it. */
   mountForm: (el: HTMLDivElement, mode: 'sign-in' | 'sign-up') => () => void;
   demoSignIn: () => void;
+  /** Every account signed in here, the one in use first. */
+  accounts: Account[];
+  /** Moves to another signed-in account. The app starts again at Home as that account. */
+  switchTo: (sessionId: string) => Promise<void>;
+  /** Clerk's sign-in, to add another account alongside this one. */
+  addAccount: () => void;
 };
 
 const Ctx = createContext<AuthState | null>(null);
@@ -82,8 +94,39 @@ const appearance = {
   elements: { card: { boxShadow: 'none', border: '0' }, rootBox: { width: '100%' }, cardBox: { width: '100%', boxShadow: 'none' } },
 };
 
-// The call test signs a second window in as another sample person through __fakeMe.
-const DEMO_USER: AuthUser = { id: ((globalThis as any).__fakeMe as string) || 'demo_me', email: 'demo@example.com', name: 'Demo Account', imageUrl: '', username: 'you' };
+// The demo has two sample accounts to switch between; the call test signs a second window in as
+// another sample person through __fakeMe.
+const DEMO_ACCOUNTS: Account[] = [
+  { sessionId: 'demo_s1', userId: 'demo_me', username: 'you', name: 'Demo Account', imageUrl: '', current: false },
+  { sessionId: 'demo_s2', userId: 'u_grace', username: 'grace_mensah', name: 'Grace Mensah', imageUrl: '', current: false },
+];
+const demoAs = (() => {
+  try {
+    return sessionStorage.getItem('community.demoAs') || '';
+  } catch {
+    return '';
+  }
+})();
+if (__DEMO__ && demoAs && !(globalThis as any).__fakeMe) (globalThis as any).__fakeMe = demoAs;
+const DEMO_USER: AuthUser = (() => {
+  const id = ((globalThis as any).__fakeMe as string) || 'demo_me';
+  const a = DEMO_ACCOUNTS.find((x) => x.userId === id);
+  return { id, email: 'demo@example.com', name: a?.name ?? 'Demo Account', imageUrl: '', username: a?.username ?? 'you' };
+})();
+
+function clerkAccounts(): Account[] {
+  const c = window.Clerk;
+  const sessions: any[] = c?.client?.activeSessions ?? c?.client?.sessions?.filter((x: any) => x.status === 'active') ?? [];
+  const list = sessions.map((x: any) => ({
+    sessionId: x.id,
+    userId: x.user?.id ?? '',
+    username: x.user?.username || (x.user?.primaryEmailAddress?.emailAddress ?? '').split('@')[0],
+    name: x.user?.fullName ?? '',
+    imageUrl: x.user?.hasImage ? x.user.imageUrl : '',
+    current: x.id === c?.session?.id,
+  }));
+  return list.sort((a, b) => Number(b.current) - Number(a.current));
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -137,8 +180,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     demo: __DEMO__,
     async signOut() {
-      if (__DEMO__) setUser(null);
-      else await window.Clerk.signOut({ redirectUrl: location.origin + location.pathname });
+      if (__DEMO__) {
+        try {
+          sessionStorage.removeItem('community.demoAs');
+        } catch {
+          // nothing kept
+        }
+        setUser(null);
+        return;
+      }
+      const others = clerkAccounts().filter((a) => !a.current);
+      const current = window.Clerk.session?.id;
+      if (others.length && current) {
+        // Logging out of one account keeps the others signed in, as on the iPhone.
+        await window.Clerk.signOut({ sessionId: current });
+        await window.Clerk.setActive({ session: others[0].sessionId });
+        location.hash = '#/';
+        location.reload();
+        return;
+      }
+      await window.Clerk.signOut({ redirectUrl: location.origin + location.pathname });
     },
     openAccount() {
       if (!__DEMO__) window.Clerk.openUserProfile({ appearance });
@@ -154,6 +215,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     demoSignIn() {
       setUser(DEMO_USER);
+    },
+    accounts: __DEMO__ ? DEMO_ACCOUNTS.map((a) => ({ ...a, current: a.userId === DEMO_USER.id })).sort((a, b) => Number(b.current) - Number(a.current)) : user ? clerkAccounts() : [],
+    async switchTo(sessionId) {
+      if (__DEMO__) {
+        const a = DEMO_ACCOUNTS.find((x) => x.sessionId === sessionId);
+        try {
+          sessionStorage.setItem('community.demoAs', a?.userId ?? '');
+        } catch {
+          // stays on this account
+        }
+        location.hash = '#/';
+        location.reload();
+        return;
+      }
+      await window.Clerk.setActive({ session: sessionId });
+      // Starting again clears everything kept for the previous account: posts, chats, channels.
+      location.hash = '#/';
+      location.reload();
+    },
+    addAccount() {
+      if (__DEMO__ || !window.Clerk) return;
+      window.Clerk.openSignIn({ appearance, forceRedirectUrl: location.origin + location.pathname, signUpForceRedirectUrl: location.origin + location.pathname });
     },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

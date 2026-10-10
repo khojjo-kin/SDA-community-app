@@ -21,4 +21,6 @@ export type Ext = {
   seed?: (ctx: Ctx) => void;
   views?: (ctx: Ctx) => Record<string, () => Row[]>;
   rpc?: (ctx: Ctx) => Record<string, (args: any) => any>;
+  /** Edge functions (supabase.functions.invoke): name → handler of the request body. Throw to refuse. */
+  functions?: (ctx: Ctx) => Record<string, (body: any) => any>;
 };

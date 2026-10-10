@@ -42,9 +42,7 @@ jobs:
           (cd dist-demo && python3 -m http.server 8790 --bind 127.0.0.1 &)
           (cd dist-wire && python3 -m http.server 8791 --bind 127.0.0.1 &)
           sleep 2
-          node tests/ui.test.cjs http://127.0.0.1:8790/
-          node tests/wiring.test.cjs http://127.0.0.1:8791/
-          node tests/calls.test.cjs http://127.0.0.1:8790/
+          sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/
 
   mac:
     name: Mac app

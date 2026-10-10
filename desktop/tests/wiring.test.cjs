@@ -93,17 +93,18 @@ const CLERK_JS = `
   check('usernames follow the iPhone app rule (no dots)', (await page.locator('.field-error').innerText()).includes('lowercase letters, numbers or underscores'));
   await page.getByLabel('Username').fill('kojo_mensah');
   await page.getByRole('button', { name: 'Next' }).click();
-  await page.waitForSelector('.sidebar');
-  check('after choosing a username the app opens', (await page.locator('.sidebar').count()) === 1);
-  await page.locator('.sidebar').getByRole('link', { name: 'Profile' }).click();
+  await page.waitForSelector('.rail');
+  check('after choosing a username the app opens', (await page.locator('.rail').count()) === 1);
+  await page.locator('.rail').getByRole('link', { name: 'Profile' }).click();
   await page.waitForSelector('.profile-head');
   check('the profile was created under the Clerk user id', (await page.locator('.profile-top h1').innerText()).startsWith('kojo_mensah'));
 
-  await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
-  await page.locator('.more-pop').getByRole('button', { name: 'Email and password' }).click();
-  check('"Email and password" opens Clerk\'s account screen', await page.evaluate(() => window.__clerk.profileOpened === true));
-  await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
-  await page.locator('.more-pop').getByRole('button', { name: 'Log out' }).click();
+  // Settings → Accounts Centre: Clerk's own screen for email, password and where you're signed in.
+  await page.evaluate(() => (location.hash = '#/accounts/account'));
+  await page.locator('[data-testid="clerk-account"]').click();
+  check('Accounts Centre opens Clerk\'s account screen', await page.evaluate(() => window.__clerk.profileOpened === true));
+  await page.locator('.rail').getByRole('button', { name: 'More' }).click();
+  await page.locator('.more-pop').getByRole('menuitem', { name: /Log out/ }).click();
   await page.waitForSelector('.login');
   check('log out goes through Clerk and back to the log-in page', (await page.evaluate(() => window.__clerk.signOut?.redirectUrl)) === BASE);
 

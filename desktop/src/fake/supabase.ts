@@ -570,10 +570,12 @@ Object.assign(RPC, {
 
 // Each area's own sample rows, views and functions (src/fake/ext).
 const extCtx = { db, T, me, now, newId, profile, profileCard, postCard, follows, count, insertRow };
+const FUNCTIONS: Record<string, (body: any) => any> = {};
 for (const e of EXTENSIONS) {
   e.seed?.(extCtx);
   if (e.views) Object.assign(VIEWS, e.views(extCtx));
   if (e.rpc) Object.assign(RPC, e.rpc(extCtx));
+  if (e.functions) Object.assign(FUNCTIONS, e.functions(extCtx));
 }
 
 const broadcasts: { channel: string; event: string; fn: (m: any) => void }[] = [];
@@ -650,7 +652,15 @@ export function createClient(url: string, key: string, opts?: any) {
     },
     functions: {
       async invoke(name: string, { body }: { body: any }) {
-        await new Promise((r) => setTimeout(r, 900));
+        await new Promise((r) => setTimeout(r, name === 'erha' ? 900 : 250));
+        if (FUNCTIONS[name]) {
+          try {
+            return { data: await FUNCTIONS[name](body ?? {}), error: null };
+          } catch (e: any) {
+            const message = e?.message ?? String(e);
+            return { data: null, error: { message, context: { json: async () => ({ error: message }) } } };
+          }
+        }
         if (name !== 'erha') return { data: null, error: { message: 'Not in the demo' } };
         const reply = 'In the demo I can only give a sample answer. In the real app I answer questions about the Bible, the hymnal and church life. You asked: “' + String(body.text).slice(0, 120) + '”';
         // Like the real function: the app has already sent your message; Erha's answer lands in the chat.

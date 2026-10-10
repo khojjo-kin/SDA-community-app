@@ -224,7 +224,7 @@ function AccountSection() {
             <b>Email, password and security</b>
             <p>Change your email address or password, and see where you're logged in.</p>
           </div>
-          <button className="btn quiet" onClick={auth.openAccount}>
+          <button className="btn quiet" data-testid="clerk-account" onClick={auth.openAccount}>
             Open
           </button>
         </div>

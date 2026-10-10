@@ -33,7 +33,7 @@ const check = (label, ok, extra) => {
   await grace.exposeFunction('__relayOut', (m) => me.evaluate((x) => window.__relayIn && window.__relayIn(x), m).catch(() => {}));
 
   await grace.goto(BASE);
-  await grace.waitForSelector('.sidebar');
+  await grace.waitForSelector('.rail');
   await me.goto(BASE + '#/direct/t/t1');
   await me.waitForSelector('.chat-head');
 
@@ -43,7 +43,8 @@ const check = (label, ok, extra) => {
 
   await grace.waitForSelector('.call-screen', { timeout: 10000 });
   check('the other window rings, wherever it is in the app', (await grace.locator('.call-who p').innerText()) === 'Incoming video call');
-  check('it shows who is calling', (await grace.locator('.call-who h2').innerText()).includes('Demo Account'));
+  const named = await grace.waitForFunction(() => (document.querySelector('.call-who h2')?.textContent || '').includes('Demo Account'), null, { timeout: 5000 }).then(() => true, () => false);
+  check('it shows who is calling', named, await grace.locator('.call-who h2').innerText().catch(() => ''));
   // "Ringing…" is sent once by the callee and can arrive before the caller is listening (the same on iPhone), so either is fine.
   check('caller sees the call is ringing', ['Ringing…', 'Calling…'].includes(await me.locator('.call-who p').innerText()));
 
