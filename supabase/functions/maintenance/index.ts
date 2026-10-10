@@ -11,6 +11,7 @@
 // Called with the header x-maintenance-key, which must match the key kept in community_secrets.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { stripeSecretKey } from '../_shared/billing.ts';
 
 const BUCKETS = ['community-media', 'community-verification'];
 
@@ -75,7 +76,7 @@ Deno.serve(async (req: Request) => {
  * under 13 is cancelled at once.
  */
 async function stopClosedSubscriptions(db: ReturnType<typeof createClient>): Promise<number> {
-  const key = Deno.env.get('STRIPE_SECRET_KEY');
+  const key = await stripeSecretKey();
   if (!key) return 0;
   const dayAgo = new Date(Date.now() - 86400e3).toISOString();
   const { data: closed } = await db.from('community_profiles').select('id, under_13, deleted_at').not('deleted_at', 'is', null).limit(500);
