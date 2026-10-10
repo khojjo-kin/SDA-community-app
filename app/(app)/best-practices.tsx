@@ -8,7 +8,7 @@ import { C } from '../../src/lib/theme';
 const TIPS: { icon: IconName; title: string; body: string; action: string; href: string }[] = [
   { icon: 'story', title: 'Share to your story often', body: 'Stories sit at the top of the home screen for 24 hours, so they are the first thing followers see. Add text, stickers or a drawing to make them yours.', action: 'Add to your story', href: '/add-story' },
   { icon: 'highlight', title: 'Keep your best stories as highlights', body: 'Highlights stay on your profile after a story disappears. Use them for the things new visitors ask about most.', action: 'New highlight', href: '/new-highlight' },
-  { icon: 'reels', title: 'Post short videos', body: 'Reels up to 60 seconds get their own tab, and you can see how many people watched each one.', action: 'New reel', href: '/create?mode=reel' },
+  { icon: 'reels', title: 'Post short videos', body: 'Reels up to 60 seconds get their own tab, and you can see how many people watched each one.', action: 'New reel', href: '/create?mode=post' },
   { icon: 'reply', title: 'Answer faster with saved replies', body: 'Write an answer once and drop it into any chat from the + button.', action: 'Saved replies', href: '/saved-replies' },
   { icon: 'question', title: 'Set up frequently asked questions', body: 'People tap a question at the top of your chat and get your answer straight away, even when you are busy.', action: 'Frequently asked questions', href: '/faq' },
   { icon: 'star', title: 'Use close friends for the personal things', body: 'Share some stories with a smaller list. They get a green ring so your friends know it is just for them.', action: 'Close friends', href: '/close-friends' },

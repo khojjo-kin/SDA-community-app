@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DarkEmpty, DarkErrorNote, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { Reel } from '../../../src/components/Reel';
-import { Button, Empty, ErrorNote, IconButton, Loading } from '../../../src/components/ui';
+import { Button, IconButton } from '../../../src/components/ui';
 import { fetchReels } from '../../../src/lib/api';
 import { prefetchLibrary } from '../../../src/lib/library';
 import { listen } from '../../../src/lib/store';
@@ -69,13 +70,14 @@ export default function Reels() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <DarkStatusBar />
       {status === 'loading' ? (
-        <View style={{ flex: 1, justifyContent: 'center' }}><Loading /></View>
+        <View style={{ flex: 1, justifyContent: 'center' }}><DarkLoading /></View>
       ) : status === 'error' ? (
-        <View style={{ flex: 1, justifyContent: 'center' }}><ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /></View>
+        <View style={{ flex: 1, justifyContent: 'center' }}><DarkErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /></View>
       ) : ids.length === 0 ? (
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Empty icon="reels" title={friends ? 'No reels from people you follow yet' : 'No reels yet'} body={friends ? 'Follow more people to see their videos here.' : 'Share a video and it will show up here for everyone.'} action={<Button small label="Share a video" onPress={() => router.push('/create?mode=reel')} style={{ marginTop: 8 }} />} />
+          <DarkEmpty icon="reels" title={friends ? 'No reels from people you follow yet' : 'No reels yet'} body={friends ? 'Follow more people to see their videos here.' : 'Share a video and it will show up here for everyone.'} action={<Button small label="Share a video" onPress={() => router.push('/create?mode=post')} style={{ marginTop: 8 }} />} />
         </View>
       ) : (
         <FlatList

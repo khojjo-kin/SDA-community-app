@@ -9,11 +9,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Icon } from '../../src/components/Icon';
 import { LIVE_RED } from '../../src/components/LiveBadge';
 import { ChatLines, Hearts, LiveComposer, LiveHeader, useChatLines, useHearts } from '../../src/components/LiveOverlay';
+import { DarkStatusBar } from '../../src/components/OnDark';
 import { Button, RoundButton, useToast } from '../../src/components/ui';
 import { endLive, fetchLives, setLiveViewers, startLive } from '../../src/lib/api';
 import { PeerSession, IceCandidateInit, SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, stopStream, switchCamera } from '../../src/lib/rtc';
 import { useSession } from '../../src/lib/session';
-import { C, errText } from '../../src/lib/theme';
+import { DARK, errText } from '../../src/lib/theme';
 
 /**
  * Broadcasting. One peer connection per viewer (a mesh), each fed the same camera and microphone
@@ -22,6 +23,26 @@ import { C, errText } from '../../src/lib/theme';
 const MAX_VIEWERS = 25;
 
 export default function GoLive() {
+  const { profile } = useSession();
+  // Members under 14 cannot broadcast (the database refuses too); say why before the camera opens.
+  if (profile?.restricted) return <NotForUnder14 />;
+  return <Broadcast />;
+}
+
+function NotForUnder14() {
+  const router = useRouter();
+  return (
+    <View style={{ flex: 1, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
+      <DarkStatusBar />
+      <Icon name="live" size={44} color={DARK.fg2} />
+      <Text style={{ color: DARK.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>Live isn't available on your account</Text>
+      <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 21 }}>To keep younger members safe, accounts of members under 14 can watch but not broadcast live. You can still share posts and stories.</Text>
+      <Button label="Go back" onPress={() => router.back()} style={{ alignSelf: 'stretch', marginTop: 6 }} />
+    </View>
+  );
+}
+
+function Broadcast() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -251,18 +272,19 @@ export default function GoLive() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <DarkStatusBar />
       {stream ? <RTCView streamURL={stream.toURL()} objectFit="cover" mirror={front} style={StyleSheet.absoluteFill} /> : null}
       <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)']} locations={[0, 0.25, 0.6, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
       {cameraError ? (
         <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 }}>
-          <Icon name="videooff" size={44} color={C.fg2} />
-          <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>Camera not available</Text>
-          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{cameraError}</Text>
+          <Icon name="videooff" size={44} color={DARK.fg2} />
+          <Text style={{ color: DARK.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>Camera not available</Text>
+          <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{cameraError}</Text>
         </View>
       ) : !stream ? (
         <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={C.fg2} />
+          <ActivityIndicator color={DARK.fg2} />
         </View>
       ) : null}
 
@@ -285,8 +307,8 @@ export default function GoLive() {
             />
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
-              <RoundButton name="close" label="Close" bg="rgba(0,0,0,0.45)" onPress={() => end(true)} />
-              <RoundButton name="flip" label="Flip camera" bg="rgba(0,0,0,0.45)" onPress={flip} />
+              <RoundButton name="close" label="Close" bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={() => end(true)} />
+              <RoundButton name="flip" label="Flip camera" bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={flip} />
             </View>
           )}
         </View>
@@ -312,7 +334,7 @@ export default function GoLive() {
           ) : (
             <View style={{ paddingHorizontal: 20, gap: 14 }}>
               <TextInput value={title} onChangeText={setTitle} placeholder="Add a title (optional)" placeholderTextColor="rgba(255,255,255,0.65)" maxLength={120} keyboardAppearance="dark" accessibilityLabel="Live title" style={{ color: '#fff', fontSize: 16, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }} />
-              <Button label="Go live" busy={busy} disabled={!stream} onPress={start} style={{ backgroundColor: LIVE_RED, height: 50, borderRadius: 25 }} />
+              <Button label="Go live" busy={busy} disabled={!stream} onPress={start} textColor="#ffffff" style={{ backgroundColor: LIVE_RED, height: 50, borderRadius: 25 }} />
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12.5, textAlign: 'center' }}>Your followers will see you at the front of the story tray. Up to {MAX_VIEWERS} people can watch at once.</Text>
             </View>
           )}

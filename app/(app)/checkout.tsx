@@ -13,9 +13,8 @@ import type { PaymentsConfig, SavedCard } from '../../src/lib/types';
 
 /** The "New card" choice in the list of ways to pay. Saved cards use their Stripe id (pm_…). */
 const NEW = 'new';
-const AMBER = '#ffc94d';
 
-const PERKS = ['The verified tick next to your name', 'Erha without limits', 'App fonts, chat wallpapers and more'];
+const PERKS = ['Your own ring colour and profile theme', 'See who viewed your profile', 'App fonts, chat wallpapers and more'];
 
 type Failure = { code: string; message: string; localizedMessage?: string };
 
@@ -147,7 +146,7 @@ export default function Checkout() {
     const day = longDay(config.current_period_end);
     body = (
       <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 40, gap: 10 }}>
-        <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: 'rgba(61,139,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: C.verified + '24', alignItems: 'center', justifyContent: 'center' }}>
           <VerifiedTick size={52} />
         </View>
         <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>You're already a member</Text>
@@ -164,11 +163,11 @@ export default function Checkout() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}>
           {config.test_mode ? (
-            <Notice color={AMBER} icon="info">Test mode — no real money moves. Use card 4242 4242 4242 4242, any future date, any CVC.</Notice>
+            <Notice color={C.warn} icon="info">Test mode — no real money moves. Use card 4242 4242 4242 4242, any future date, any CVC.</Notice>
           ) : null}
           {config.status === 'past_due' ? <Notice color={C.like} icon="info">Your last renewal did not go through. Pay now to keep Plus.</Notice> : null}
 
-          <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: 'rgba(31,191,90,0.35)', gap: 12 }}>
+          <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <VerifiedTick size={26} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>Community Plus</Text>
@@ -192,7 +191,7 @@ export default function Checkout() {
             <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 14 }}>
               <PlatformPayButton
                 type={PlatformPay.ButtonType.Subscribe}
-                appearance={PlatformPay.ButtonStyle.White}
+                appearance={C.blurTint === 'light' ? PlatformPay.ButtonStyle.Black : PlatformPay.ButtonStyle.White}
                 borderRadius={12}
                 disabled={!!busy}
                 onPress={() => pay('apple')}
@@ -219,7 +218,7 @@ export default function Checkout() {
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on, disabled: expired }}
                   accessibilityLabel={`${cardTitle(c)}, ${expired ? 'expired' : 'expires'} ${exp}${c.is_default ? ', default card' : ''}`}
-                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, opacity: expired ? 0.5 : 1, backgroundColor: pressed && !expired ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, opacity: expired ? 0.5 : 1, backgroundColor: pressed && !expired ? C.press : 'transparent' })}>
                   <Radio on={on} />
                   <CardChip brand={c.brand} />
                   <View style={{ flex: 1 }}>
@@ -235,7 +234,7 @@ export default function Checkout() {
               accessibilityRole="radio"
               accessibilityState={{ checked: method === NEW }}
               accessibilityLabel="New credit or debit card"
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: cards.length ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: cards.length ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Radio on={method === NEW} />
               <View style={{ width: 46, height: 31, borderRadius: 6, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="plus" size={18} color={C.fg} weight={2.2} />
@@ -263,7 +262,7 @@ export default function Checkout() {
 
           <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
             {payError ? (
-              <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,48,64,0.10)' }}>
+              <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, backgroundColor: C.like + '1a' }}>
                 <Icon name="info" size={18} color={C.like} />
                 <Text style={{ flex: 1, color: C.like, fontSize: 14, lineHeight: 19 }}>{payError}</Text>
               </View>
@@ -275,11 +274,11 @@ export default function Checkout() {
               accessibilityState={{ disabled: !canPay, busy: busy === 'card' }}
               style={({ pressed }) => ({ height: 52, borderRadius: 14, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: busy === 'card' ? 1 : !canPay ? 0.45 : pressed ? 0.8 : 1 })}>
               {busy === 'card' ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={C.onAccent} />
               ) : (
                 <>
-                  <Icon name="lock" size={18} color="#fff" weight={2.2} />
-                  <Text style={{ color: '#fff', fontSize: 16.5, fontWeight: '700' }}>Pay {price}</Text>
+                  <Icon name="lock" size={18} color={C.onAccent} weight={2.2} />
+                  <Text style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700' }}>Pay {price}</Text>
                 </>
               )}
             </Pressable>
@@ -314,7 +313,7 @@ function Notice({ color, icon, children }: { color: string; icon: 'info'; childr
 
 function DefaultPill() {
   return (
-    <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(31,191,90,0.16)', justifyContent: 'center' }}>
+    <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
       <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>Default</Text>
     </View>
   );
@@ -328,7 +327,7 @@ function Welcome({ slow, onDone }: { slow: boolean; onDone: () => void }) {
   }, [pop]);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 60, gap: 10 }}>
-      <Animated.View style={{ width: 128, height: 128, borderRadius: 64, backgroundColor: 'rgba(61,139,255,0.14)', alignItems: 'center', justifyContent: 'center', transform: [{ scale: pop }] }}>
+      <Animated.View style={{ width: 128, height: 128, borderRadius: 64, backgroundColor: C.verified + '24', alignItems: 'center', justifyContent: 'center', transform: [{ scale: pop }] }}>
         <VerifiedTick size={76} />
       </Animated.View>
       <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 26, fontWeight: '800', marginTop: 8 }}>Welcome to Plus</Text>

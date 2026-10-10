@@ -38,7 +38,7 @@ export function FeedVideo({ post, media, width, height, active, onTap }: Props) 
       ) : (
         <Pressable onPress={open} style={{ position: 'absolute', width, height, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="Play video">
           <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="play" size={34} />
+            <Icon name="play" size={34} color="#fff" />
           </View>
         </Pressable>
       )}

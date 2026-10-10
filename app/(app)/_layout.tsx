@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Stack } from 'expo-router';
+import { BirthDateGate, useBirthDateGate } from '../../src/components/BirthDateForm';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
 import { purgeDate, restoreAccount } from '../../src/lib/api';
@@ -39,6 +40,8 @@ function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; dele
 export default function AppLayout() {
   const { isSignedIn, signOut } = useAuth();
   const { me, loading, profile, error, refresh } = useSession();
+  // Members who haven't given their birthday yet are asked for it before anything else.
+  const needsBirthday = useBirthDateGate(me, profile);
 
   if (!isSignedIn) return <Redirect href="/sign-in" />;
 
@@ -66,6 +69,7 @@ export default function AppLayout() {
 
   if (!profile) return <Redirect href="/onboarding" />;
   if (profile.deleted_at) return <Deactivated me={me} deletedAt={profile.deleted_at} onRestored={refresh} onLogOut={() => signOut()} />;
+  if (needsBirthday) return <BirthDateGate />;
 
   return (
     // Calls live above every screen: an incoming call can ring over whatever is open.
@@ -75,23 +79,24 @@ export default function AppLayout() {
         <Stack.Screen name="(tabs)" />
         {/* Screens that slide up have a Close button and scroll, so the swipe-to-dismiss gesture is off: it would fight the scrolling. */}
         <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-        <Stack.Screen name="story/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
-        <Stack.Screen name="watch/[id]" options={{ animation: 'fade' }} />
+        <Stack.Screen name="story/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="watch/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="comments/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="share/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="send-to" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="add-story" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="new-highlight" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="camera-settings" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-        <Stack.Screen name="story-editor" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="highlight/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
-        <Stack.Screen name="story-archive/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="story-editor" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="highlight/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="story-archive/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
         <Stack.Screen name="group-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="church-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        {/* Photo and video screens are black in every theme; their background says so, so no white shows as they open. */}
         {/* Calls and live video fill the screen; a swipe back would leave the camera running, so the gesture is off. */}
-        <Stack.Screen name="call/[id]" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="go-live" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="live/[id]" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="call/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="go-live" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="live/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
       </Stack>
     </CallProvider>
   );

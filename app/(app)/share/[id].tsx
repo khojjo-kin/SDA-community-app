@@ -88,7 +88,7 @@ export default function Share() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginBottom: 8, paddingHorizontal: 12, height: 40, borderRadius: 12, backgroundColor: C.surface2 }}>
         <Icon name="search" size={18} color={C.fg2} />
-        <TextInput value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16 }} autoCapitalize="none" autoCorrect={false} keyboardAppearance="dark" accessibilityLabel="Search people" />
+        <TextInput value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16 }} autoCapitalize="none" autoCorrect={false} keyboardAppearance={C.blurTint} accessibilityLabel="Search people" />
       </View>
 
       <FlatList
@@ -106,7 +106,7 @@ export default function Share() {
                 <Avatar uri={p.avatar_url} name={p.full_name} size={62} />
                 {on ? (
                   <View style={{ position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="check" size={13} weight={3} color="#fff" />
+                    <Icon name="check" size={13} weight={3} color={C.onAccent} />
                   </View>
                 ) : null}
               </View>
@@ -120,7 +120,7 @@ export default function Share() {
       <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 14, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 10 }}>
         {picked.length ? (
           <>
-            <TextInput value={note} onChangeText={setNote} placeholder="Write a message…" placeholderTextColor={C.fg3} maxLength={300} keyboardAppearance="dark" style={{ color: C.fg, fontSize: 16, height: 40 }} accessibilityLabel="Message" />
+            <TextInput value={note} onChangeText={setNote} placeholder="Write a message…" placeholderTextColor={C.fg3} maxLength={300} keyboardAppearance={C.blurTint} style={{ color: C.fg, fontSize: 16, height: 40 }} accessibilityLabel="Message" />
             <Button label={picked.length > 1 ? 'Send separately' : 'Send'} onPress={send} busy={busy} />
           </>
         ) : (

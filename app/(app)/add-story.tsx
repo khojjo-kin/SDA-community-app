@@ -8,10 +8,11 @@ import * as MediaLibrary from 'expo-media-library';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../src/components/Icon';
+import { DarkStatusBar } from '../../src/components/OnDark';
 import { Button, IconButton, Sheet, useToast } from '../../src/components/ui';
 import { pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../../src/lib/pick';
 import { usePrefs } from '../../src/lib/prefs';
-import { C, clock, errText } from '../../src/lib/theme';
+import { C, clock, DARK, errText } from '../../src/lib/theme';
 
 /** What the story editor is handed: one or more things to share. */
 export type StorySource = { uri: string; type: 'image' | 'video'; w: number; h: number; duration?: number; poster?: string };
@@ -256,7 +257,7 @@ export default function AddStory() {
           <Tile icon="collage" label="Collage" colors={['#0fb58a', '#0a6cf0']} onPress={() => (access === 'none' ? toast('Allow photo access to make a collage.') : setModeTo('collage'))} />
         </View>
       ) : (
-        <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>{mode === 'collage' ? 'Choose 2 to 4 photos. They are arranged into one story.' : 'Choose up to 10 photos. Each one becomes its own story.'}</Text>
+        <Text style={{ color: DARK.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>{mode === 'collage' ? 'Choose 2 to 4 photos. They are arranged into one story.' : 'Choose up to 10 photos. Each one becomes its own story.'}</Text>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 }}>
         <Pressable onPress={openAlbums} disabled={access !== 'all'} accessibilityRole="button" accessibilityLabel={access === 'all' ? `Album: ${album?.title ?? 'Recents'}. Change album` : 'Recents'} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
@@ -270,7 +271,7 @@ export default function AddStory() {
       </View>
       {access === 'limited' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingBottom: 14 }}>
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 19 }}>You've given Community access to a select number of photos and videos.</Text>
+          <Text style={{ flex: 1, color: DARK.fg2, fontSize: 14.5, lineHeight: 19 }}>You've given Community access to a select number of photos and videos.</Text>
           <Pressable onPress={manage} hitSlop={8} accessibilityRole="button">
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Manage</Text>
           </Pressable>
@@ -281,6 +282,7 @@ export default function AddStory() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000', paddingTop: insets.top }}>
+      <DarkStatusBar />
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
         <IconButton name="close" size={28} label="Close" color="#fff" onPress={close} />
         <Text accessibilityRole="header" style={{ flex: 1, color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center' }}>{mode === 'collage' ? 'Collage' : 'Add to story'}</Text>
@@ -288,14 +290,14 @@ export default function AddStory() {
       </View>
 
       {access === 'checking' ? (
-        <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={C.fg2} /></View>
+        <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={DARK.fg2} /></View>
       ) : access === 'none' ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {top}
           <View style={{ padding: 28, alignItems: 'center', gap: 12 }}>
-            <Icon name="image" size={44} color={C.fg2} />
+            <Icon name="image" size={44} color={DARK.fg2} />
             <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', textAlign: 'center' }}>See your photos here</Text>
-            <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Community can't see your photo library yet. Allow access in Settings, or choose photos with the system picker.</Text>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>Community can't see your photo library yet. Allow access in Settings, or choose photos with the system picker.</Text>
             <Button label="Open Settings" onPress={() => Linking.openSettings().catch(() => {})} style={{ alignSelf: 'stretch' }} />
             <Button label="Choose photos" kind="ghost" onPress={systemPicker} style={{ alignSelf: 'stretch' }} />
             <Button label="Open camera" kind="ghost" onPress={camera} style={{ alignSelf: 'stretch' }} />
@@ -309,7 +311,7 @@ export default function AddStory() {
           columnWrapperStyle={{ gap }}
           ItemSeparatorComponent={() => <View style={{ height: gap }} />}
           ListHeaderComponent={top}
-          ListEmptyComponent={<Text style={{ color: C.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
+          ListEmptyComponent={<Text style={{ color: DARK.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
           onEndReached={() => load(false)}
           onEndReachedThreshold={1.2}
           contentContainerStyle={{ paddingBottom: insets.bottom + (choosing ? 90 : 24) }}
@@ -331,7 +333,7 @@ export default function AddStory() {
                 <Image source={{ uri: a.uri }} recyclingKey={a.id} style={{ width: cw, height: ch, opacity: choosing && a.mediaType === 'video' ? 0.35 : 1 }} contentFit="cover" />
                 {a.mediaType === 'video' ? <Text style={{ position: 'absolute', right: 7, bottom: 6, color: '#fff', fontWeight: '700', fontSize: 14, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{clock(a.duration)}</Text> : null}
                 {choosing && a.mediaType !== 'video' ? (
-                  <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? C.accent : 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? DARK.accent : 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' }}>
                     {order >= 0 ? <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{order + 1}</Text> : null}
                   </View>
                 ) : null}

@@ -48,9 +48,15 @@ export type Reading = { id: string; title: string; date: string; index: string; 
 async function getJson<T>(path: string): Promise<T> {
   const key = `community.ss.${path}`;
   try {
-    const res = await withTimeout(fetch(`${BASE}/${path}`), 20000);
-    if (!res.ok) throw new Error(res.status === 404 ? 'That lesson could not be found.' : 'The lesson could not be loaded. Check your connection and try again.');
-    const data = (await res.json()) as T;
+    // One time limit over the request and reading the body: a connection that stalls half-way
+    // through a reading would otherwise leave the page loading for ever, with no copy shown.
+    const data = await withTimeout(
+      fetch(`${BASE}/${path}`).then((res) => {
+        if (!res.ok) throw new Error(res.status === 404 ? 'That lesson could not be found.' : 'The lesson could not be loaded. Check your connection and try again.');
+        return res.json() as Promise<T>;
+      }),
+      20000,
+    );
     AsyncStorage.setItem(key, JSON.stringify(data)).catch(() => {});
     return data;
   } catch (e) {
@@ -135,11 +141,77 @@ export function todayIndex(days: Day[]): number {
   return i < 0 ? 0 : i;
 }
 
+/** True when today (on the phone's own calendar) falls inside this lesson's Sabbath-to-Friday week. */
+export const isThisWeek = (l: { start_date: string; end_date: string }) => contains(l.start_date, l.end_date, startOfToday());
+
+/* ---------- the memory text ---------- */
+
+/** A lesson's memory text, e.g. { text: 'Also I heard the voice of the Lord…', reference: 'Isaiah 6:8, NKJV' }. */
+export type MemoryText = { text: string; reference: string };
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ldquo: '“', rdquo: '”', lsquo: '‘', rsquo: '’', hellip: '…', mdash: '—', ndash: '–' };
+
+/** HTML to one line of plain text: block tags become spaces, inline tags vanish, entities are decoded. */
+function plainText(html: string): string {
+  return html
+    .replace(/<\/?(p|br|div|blockquote|h[1-6]|li)\b[^>]*>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, code: string) => {
+      if (code[0] === '#') {
+        const n = /^#x/i.test(code) ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+        return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m;
+      }
+      return ENTITIES[code.toLowerCase()] ?? m;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Finds the memory text in a Sabbath (day 01) reading. Recent quarters put it in a blockquote
+ * after a "Memory Text:" paragraph; older ones in a single paragraph that starts with the label.
+ * The reference is the last bracketed part, "(Isaiah 6:8, NKJV)". Null when there is none.
+ */
+export function memoryText(html: string): MemoryText | null {
+  const src = String(html ?? '');
+  const at = src.search(/memory(?:\s|&nbsp;|&#160;)+text/i);
+  if (at < 0) return null;
+  const before = src.slice(0, at);
+  const inQuote = before.lastIndexOf('<blockquote') > before.lastIndexOf('</blockquote');
+  const rest = src.slice(at);
+  const end = rest.search(inQuote ? /<\/blockquote>/i : /<\/p>/i);
+  const block = plainText(rest.slice(0, end < 0 ? 1500 : end)).replace(/^memory\s+text\s*:?\s*/i, '');
+  const m = /^([\s\S]*?)\s*\(([^()]{2,90})\)[\s.,;”"’]*$/.exec(block);
+  let text = (m ? m[1] : block).trim();
+  // The verse card shows the words on their own, so the quotation marks around the whole verse go.
+  if (/^[“"]/.test(text)) text = text.replace(/^[“"]\s*/, '').replace(/\s*[”"]$/, '');
+  const reference = m ? m[2].replace(/\s+,/g, ',').trim() : '';
+  if (!text || text.length > 700) return null;
+  return { text, reference };
+}
+
+/** Memory texts already looked up in this session, so the main page and the lesson share one request. */
+const memoryTexts = new Map<string, Promise<MemoryText | null>>();
+
+/** The memory text of a lesson, read from its Sabbath reading (kept on the phone like every reading). */
+export function fetchMemoryText(quarterlyId: string, lessonId: string): Promise<MemoryText | null> {
+  const key = `${quarterlyId}/${lessonId}`;
+  let p = memoryTexts.get(key);
+  if (!p) {
+    p = fetchDay(quarterlyId, lessonId, '01').then((r) => memoryText(r.content));
+    // A failure is not remembered, so the next look tries again.
+    p.catch(() => memoryTexts.delete(key));
+    memoryTexts.set(key, p);
+  }
+  return p;
+}
+
 /* ---------- settings ---------- */
 
 const SETTINGS = 'community.ss';
 export type SsSettings = { quarterly?: string; size: number };
-const DEFAULTS: SsSettings = { size: 18 };
+// 17px with a 1.6 line height (about 27px) is the comfortable reading size; anyone who changed it keeps theirs.
+const DEFAULTS: SsSettings = { size: 17 };
 
 export async function loadSsSettings(): Promise<SsSettings> {
   try {
@@ -158,14 +230,52 @@ export async function saveSsSettings(s: SsSettings) {
   }
 }
 
+let settingsQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Changes only the settings named, on top of what is saved right now. Each screen keeps its own
+ * copy, so saving a whole copy would undo a change made on another screen since it was loaded
+ * (choosing a quarter would put the text size back). Changes go one after another, so quick taps
+ * cannot overtake each other.
+ */
+export function updateSsSettings(patch: Partial<SsSettings>): Promise<void> {
+  const run = settingsQueue.then(async () => {
+    let raw: string | null;
+    try {
+      raw = await SecureStore.getItemAsync(SETTINGS);
+    } catch {
+      // Unreadable just now: saving would put defaults over the other settings, so this change
+      // lasts only while the screen is open.
+      return;
+    }
+    let saved: SsSettings = DEFAULTS;
+    try {
+      if (raw) saved = { ...DEFAULTS, ...JSON.parse(raw) };
+    } catch {
+      // Garbled: start again from the defaults.
+    }
+    await saveSsSettings({ ...saved, ...patch });
+  });
+  settingsQueue = run.catch(() => {});
+  return run;
+}
+
 /* ---------- the page shown in the WebView ---------- */
+
+/** Extra styling and behaviour a screen can lay over the standard reading page. */
+export type ReadingHtmlOptions = {
+  /** CSS added after the standard rules, so it wins where both set the same thing. */
+  css?: string;
+  /** A script run at the end of the page, after the verse script. */
+  script?: string;
+};
 
 /**
  * Wraps a day's HTML in the app's dark theme at the chosen text size. Verse links in the content
  * carry no href, only a `verse` attribute, so a small script opens the verse text (KJV, matching
  * the app's Bible) in a box under the paragraph when one is tapped, and closes it on a second tap.
  */
-export function readingHtml(r: Reading, size: number): string {
+export function readingHtml(r: Reading, size: number, options: ReadingHtmlOptions = {}): string {
   const bible = r.bible?.find((b) => /kjv/i.test(b.name)) ?? r.bible?.[0];
   // Inside a <script>, "</" and "<!--" would end or confuse the script, so they are escaped in the JSON string literals.
   const verses = JSON.stringify(bible?.verses ?? {}).replace(/<\//g, '<\\/').replace(/<!--/g, '<\\!--');
@@ -179,10 +289,10 @@ img{max-width:100%;height:auto;border-radius:10px}hr{border:0;border-top:1px sol
 .ss-donation-appeal{display:none}
 .verse-box{margin:.4em 0 1em;padding:10px 14px;border-radius:12px;background:${C.surface};font-size:.92em}
 .verse-box h2{font-size:1em;margin:0 0 .4em;color:${C.accent2}}.verse-box sup{color:${C.fg3};font-size:.7em}
-</style></head><body>${r.content}<script>
+</style>${options.css ? `<style>${options.css}</style>` : ''}</head><body>${r.content}<script>
 var V=${verses};
 document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a.verse'):null;if(!a)return;e.preventDefault();
-if(a._box){a._box.remove();a._box=null;return;}var t=V[a.getAttribute('verse')];if(!t)return;
-var d=document.createElement('div');d.className='verse-box';d.innerHTML=t;(a.closest('p,li,blockquote,h1,h2,h3,h4')||a).insertAdjacentElement('afterend',d);a._box=d;});
-</script></body></html>`;
+if(a._box){a._box.remove();a._box=null;a.classList.remove('open');return;}var t=V[a.getAttribute('verse')];if(!t)return;
+var d=document.createElement('div');d.className='verse-box';d.innerHTML=t;(a.closest('p,li,blockquote,h1,h2,h3,h4')||a).insertAdjacentElement('afterend',d);a._box=d;a.classList.add('open');});
+</script>${options.script ? `<script>${options.script}</script>` : ''}</body></html>`;
 }

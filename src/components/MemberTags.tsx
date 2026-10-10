@@ -15,9 +15,9 @@ function Tag({ label, color, bg }: { label: string; color: string; bg: string })
 export function MemberTags({ m }: { m: Pick<MemberCard, 'plus' | 'suspended' | 'admin_role'> }) {
   return (
     <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
-      {m.admin_role ? <Tag label={m.admin_role === 'owner' ? 'Owner' : 'Admin'} color={C.accent2} bg="rgba(31,191,90,0.16)" /> : null}
+      {m.admin_role ? <Tag label={m.admin_role === 'owner' ? 'Owner' : 'Admin'} color={C.accent2} bg={C.accentSoft} /> : null}
       {m.plus ? <Tag label="Plus" color={C.close} bg="rgba(61,139,255,0.16)" /> : null}
-      {m.suspended ? <Tag label="Suspended" color={C.like} bg="rgba(255,48,64,0.16)" /> : null}
+      {m.suspended ? <Tag label="Suspended" color={C.danger} bg="rgba(255,48,64,0.16)" /> : null}
     </View>
   );
 }

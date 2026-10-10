@@ -115,7 +115,7 @@ export default function Hymnal() {
             item.kind === 'header' ? (
               <SectionLabel>{item.title}</SectionLabel>
             ) : (
-              <Pressable onPress={() => open(item.hymn.number)} accessibilityRole="button" accessibilityLabel={`Hymn ${item.hymn.number}, ${item.hymn.title}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 48, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+              <Pressable onPress={() => open(item.hymn.number)} accessibilityRole="button" accessibilityLabel={`Hymn ${item.hymn.number}, ${item.hymn.title}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 48, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <Text style={{ width: 40, textAlign: 'right', color: C.fg2, fontSize: 16, fontVariant: ['tabular-nums'] }}>{item.hymn.number}</Text>
                 <Text numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 17 }}>{item.hymn.title}</Text>
                 <Icon name="right" size={18} color={C.fg2} weight={2} />

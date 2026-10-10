@@ -34,8 +34,11 @@ export function Avatar({ uri, name, size = 36, ring, ringColors }: { uri?: strin
 
 /* ---------- buttons and fields ---------- */
 
-export function Button({ label, onPress, kind = 'primary', small, busy, disabled, style }: { label: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; small?: boolean; busy?: boolean; disabled?: boolean; style?: ViewStyle }) {
+/** `textColor` is for a button given its own background in `style` (e.g. the red Go live button). */
+export function Button({ label, onPress, kind = 'primary', small, busy, disabled, style, textColor }: { label: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; small?: boolean; busy?: boolean; disabled?: boolean; style?: ViewStyle; textColor?: string }) {
   const bg = kind === 'primary' ? C.accent : kind === 'danger' ? C.like : C.surface2;
+  // Ghost buttons sit on the page colour, so their words follow the theme; the others are on a strong colour.
+  const fg = textColor ?? (kind === 'primary' ? C.onAccent : kind === 'danger' ? '#ffffff' : C.fg);
   const font = useAppFont('bold');
   return (
     <Pressable
@@ -44,7 +47,7 @@ export function Button({ label, onPress, kind = 'primary', small, busy, disabled
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       style={({ pressed }) => [{ height: small ? 32 : 46, paddingHorizontal: small ? 14 : 18, borderRadius: small ? 10 : 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : pressed ? 0.75 : 1 }, style]}>
-      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
+      {busy ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
     </Pressable>
   );
 }
@@ -54,7 +57,7 @@ export function Field({ label, error, style, ...rest }: TextInputProps & { label
   return (
     <View style={{ gap: 6 }}>
       {label ? <Text style={{ color: C.fg2, fontSize: 12.5, fontFamily: font }}>{label}</Text> : null}
-      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance="dark" accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface, fontFamily: font }, style]} />
+      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance={C.blurTint} accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface, fontFamily: font }, style]} />
       {error ? <Text style={{ color: C.like, fontSize: 13, fontFamily: font }}>{error}</Text> : null}
     </View>
   );
@@ -77,7 +80,7 @@ export function RoundButton({ name, onPress, label, size = 44, bg = C.round, col
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)', opacity: pressed ? 0.65 : 1 })}>
+      style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline, opacity: pressed ? 0.65 : 1 })}>
       <Icon name={name} size={iconSize} color={color} />
     </Pressable>
   );
@@ -87,7 +90,7 @@ export function SearchField({ value, onChangeText, placeholder = 'Search', autoF
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, paddingHorizontal: 12, height: 38, borderRadius: 12, backgroundColor: C.field }}>
       <Icon name="search" size={17} color={C.fg2} weight={2.2} />
-      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={C.fg2} autoFocus={autoFocus} style={{ flex: 1, color: C.fg, fontSize: 17, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" keyboardAppearance="dark" accessibilityLabel={label ?? placeholder} />
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={C.fg2} autoFocus={autoFocus} style={{ flex: 1, color: C.fg, fontSize: 17, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" keyboardAppearance={C.blurTint} accessibilityLabel={label ?? placeholder} />
     </View>
   );
 }
@@ -99,7 +102,7 @@ export function Toggle({ value, onChange, label, disabled }: { value: boolean; o
     Animated.timing(pos, { toValue: value ? 1 : 0, duration: 140, useNativeDriver: true }).start();
   }, [value, pos]);
   return (
-    <Pressable onPress={disabled ? undefined : () => onChange(!value)} hitSlop={8} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: !!disabled }} style={{ width: 62, height: 28, borderRadius: 14, backgroundColor: value ? C.accent : '#b7bdc7', justifyContent: 'center', opacity: disabled ? 0.5 : 1 }}>
+    <Pressable onPress={disabled ? undefined : () => onChange(!value)} hitSlop={8} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: !!disabled }} style={{ width: 62, height: 28, borderRadius: 14, backgroundColor: value ? C.accent : C.surface2, justifyContent: 'center', opacity: disabled ? 0.5 : 1 }}>
       <Animated.View style={{ width: 36, height: 24, borderRadius: 12, marginLeft: 2, backgroundColor: value ? '#ffffff' : C.bg, transform: [{ translateX: pos.interpolate({ inputRange: [0, 1], outputRange: [0, 22] }) }] }} />
     </Pressable>
   );
@@ -107,7 +110,7 @@ export function Toggle({ value, onChange, label, disabled }: { value: boolean; o
 
 export function Radio({ on }: { on: boolean }) {
   return (
-    <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: on ? 2 : 1.5, borderColor: on ? C.fg : '#7d848e', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: on ? 2 : 1.5, borderColor: on ? C.fg : C.fg3, alignItems: 'center', justifyContent: 'center' }}>
       {on ? <View style={{ width: 13, height: 13, borderRadius: 7, backgroundColor: C.fg }} /> : null}
     </View>
   );
@@ -116,7 +119,7 @@ export function Radio({ on }: { on: boolean }) {
 export function NewPill({ label = 'New' }: { label?: string }) {
   return (
     <View style={{ height: 30, paddingHorizontal: 13, borderRadius: 15, backgroundColor: C.accent, justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14.5 }}>{label}</Text>
+      <Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 14.5 }}>{label}</Text>
     </View>
   );
 }
@@ -177,7 +180,7 @@ export function Row({ icon, title, sub, value, onPress, right, color, chevron = 
   const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, minHeight: 48 };
   if (!onPress) return <View style={style}>{body}</View>;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${title}, ${value}` : title} style={({ pressed }) => [style, { backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${title}, ${value}` : title} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
       {body}
     </Pressable>
   );
@@ -197,7 +200,7 @@ export function SectionLabel({ children, right, strong }: { children: string; ri
 
 /** The band between sections in a settings list, or a hairline when thin. */
 export function Divider({ thin }: { thin?: boolean }) {
-  return <View style={{ height: thin ? StyleSheet.hairlineWidth : 5, backgroundColor: thin ? '#2a3038' : C.field, marginTop: thin ? 8 : 6 }} />;
+  return <View style={{ height: thin ? StyleSheet.hairlineWidth : 5, backgroundColor: thin ? C.line : C.field, marginTop: thin ? 8 : 6 }} />;
 }
 
 export function Empty({ title, body, icon, action }: { title: string; body?: string; icon?: IconName; action?: React.ReactNode }) {
@@ -238,7 +241,7 @@ export function Sheet({ visible, onClose, title, children, tall, footer }: { vis
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5,7,10,0.55)' }]} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: C.scrim }]} onPress={onClose} accessibilityLabel="Close" />
         <View style={{ backgroundColor: C.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingBottom: insets.bottom + 12, maxHeight: '88%', height: tall ? '78%' : undefined }}>
           <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: title ? 0 : 10 }}>
             <View style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: C.fg2 }} />
@@ -260,9 +263,9 @@ export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { 
   const color = danger ? C.like : C.fg;
   const font = useAppFont();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Icon name={icon} size={26} color={color} />
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: '#2c3138' }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.line }}>
         <View style={{ flex: 1, paddingVertical: sub ? 8 : 0 }}>
           <Text style={{ color, fontSize: 18, fontFamily: font }}>{label}</Text>
           {sub ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
@@ -312,8 +315,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {msg ? (
         <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 24, right: 24, bottom: keyboard ? keyboard + 16 : insets.bottom + 96, alignItems: 'center', opacity: fade }}>
-          <View style={{ backgroundColor: '#f3f5f7', paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 }}>
-            <Text style={{ color: '#0b1014', fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
+          {/* The opposite of the page: light on dark themes, dark on White. */}
+          <View style={{ backgroundColor: C.fg, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 }}>
+            <Text style={{ color: C.bg, fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
           </View>
         </Animated.View>
       ) : null}

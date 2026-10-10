@@ -72,7 +72,7 @@ export default function AdminReports() {
                     <Text style={{ color: C.fg, fontWeight: '700' }}>{r.reported_username ? `@${r.reported_username}` : 'Deleted account'}{r.reported_post ? ' · a post' : ''}</Text>
                     <Text style={{ color: C.fg2, fontSize: 13 }}>Reported by @{r.reporter_username ?? 'someone'} · {agoLong(r.created_at)}</Text>
                   </View>
-                  <View style={{ height: 24, paddingHorizontal: 9, borderRadius: 12, backgroundColor: r.status === 'open' ? 'rgba(255,48,64,0.16)' : C.surface2, justifyContent: 'center' }}>
+                  <View style={{ height: 24, paddingHorizontal: 9, borderRadius: 12, backgroundColor: r.status === 'open' ? C.like + '29' : C.surface2, justifyContent: 'center' }}>
                     <Text style={{ color: r.status === 'open' ? C.like : C.fg2, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>{r.status}</Text>
                   </View>
                 </View>

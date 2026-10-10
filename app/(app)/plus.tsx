@@ -11,18 +11,21 @@ import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText, monthName } from '../../src/lib/theme';
 import type { BillingStatus, PlusRequest } from '../../src/lib/types';
 
-/** What Plus gives. The daily Erha allowance for everyone else lives in the Erha function. */
+/**
+ * What Plus gives. The daily Erha allowance for everyone else lives in the Erha function.
+ * The blue tick is not here on purpose: it comes only from an identity check (/verify), free for
+ * everyone, so that it always means "this account is who it says it is" and never "this account paid".
+ * Boosting a post is not here either: ads are paid for one by one, by anyone, from the post's menu.
+ */
 const PLUS_FEATURES: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'verified', title: 'The verified tick', body: 'Next to your name on your profile, your posts, your comments and in chats.' },
   { icon: 'sparkle', title: 'Erha without limits', body: 'Ask Erha as much as you like. Everyone else gets 15 messages a day.' },
   { icon: 'font', title: 'App fonts', body: 'Set the whole app in Nunito, Lora or Poppins.' },
   { icon: 'wallpaper', title: 'Chat wallpapers', body: 'A look of your own behind every conversation.' },
   { icon: 'sliders', title: 'Advanced photo editing', body: 'Fine control over light, colour and detail before you post.' },
   { icon: 'eye', title: 'See who viewed your profile', body: 'The people who looked at your profile this week, by name.' },
   { icon: 'lock', title: 'Read receipts off', body: 'Read messages in your own time without anyone seeing "Seen".' },
-  { icon: 'boost', title: 'Boost a post', body: 'Put a post at the top of For you for everyone to see.' },
   { icon: 'headphones', title: 'Share on Pod', body: 'Upload your songs and podcast episodes for the community to play.' },
-  { icon: 'people', title: 'A direct line to the admins', body: 'Your reports and requests go to the front of the queue.' },
+  { icon: 'lifebuoy', title: 'Quick support', body: 'Your questions and reports are answered first.' },
   { icon: 'bulb', title: 'New features first', body: 'Try what is coming to Community before everyone else.' },
 ];
 
@@ -56,7 +59,8 @@ export default function Plus() {
   const { appFont } = usePrefs();
   const fontBold = useAppFont('bold');
   const [requests, setRequests] = useState<PlusRequest[]>([]);
-  const [asking, setAsking] = useState<'verify' | 'plus' | null>(null);
+  // The sheet for asking an admin to activate Plus that a church has arranged. (The tick has its own screen, /verify.)
+  const [asking, setAsking] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   // The Stripe subscription, when there is one. Null when there is none or payments are not set up.
@@ -116,9 +120,9 @@ export default function Plus() {
     if (!asking || busy) return;
     setBusy(true);
     try {
-      await requestPlus(me, asking, note);
-      toast(asking === 'plus' ? 'Request sent. An admin will activate Plus once your church confirms it.' : 'Request sent. An admin will take a look.');
-      setAsking(null);
+      await requestPlus(me, 'plus', note);
+      toast('Request sent. An admin will activate Plus once your church confirms it.');
+      setAsking(false);
       setNote('');
       load();
     } catch (e) {
@@ -135,20 +139,20 @@ export default function Plus() {
       <ScreenHeader title="Community Plus" />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ alignItems: 'center', paddingVertical: 22, gap: 10 }}>
-          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: 'rgba(61,139,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-            <VerifiedTick size={54} />
+          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="crown" size={48} color={C.accent2} />
           </View>
           <Text style={{ color: C.fg, fontSize: 24, fontWeight: '800' }}>Community Plus</Text>
           <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21, paddingHorizontal: 32 }}>
-            {profile?.plus ? `Active until ${until}. Thank you for supporting the community.` : 'Support the community and get the verified tick, Erha without limits and more.'}
+            {profile?.plus ? `Active until ${until}. Thank you for supporting the community.` : 'Support the community and get Erha without limits, app fonts, chat wallpapers and more.'}
           </Text>
         </View>
 
         <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>
           {PLUS_FEATURES.map((f, i) => (
             <View key={f.title} style={{ flexDirection: 'row', gap: 14, padding: 16, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-                {f.icon === 'verified' ? <VerifiedTick size={22} /> : <Icon name={f.icon} size={22} color={C.accent2} />}
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name={f.icon} size={22} color={C.accent2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontWeight: '700', fontSize: 16 }}>{f.title}</Text>
@@ -165,7 +169,7 @@ export default function Plus() {
             <SectionLabel>Your subscription</SectionLabel>
             <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden', paddingBottom: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: failed ? 'rgba(255,48,64,0.14)' : 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: failed ? C.like + '24' : C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name={failed ? 'info' : 'card'} size={22} color={failed ? C.like : C.accent2} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -219,36 +223,45 @@ export default function Plus() {
                 </View>
               ) : (
                 <Pressable
-                  onPress={() => setAsking('plus')}
+                  onPress={() => setAsking(true)}
                   accessibilityRole="button"
                   accessibilityLabel="Arranged through your church? Ask an admin"
                   style={({ pressed }) => ({ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: '#fff', fontWeight: '600', fontSize: 15.5, fontFamily: fontBold }}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.fg, fontWeight: '600', fontSize: 15.5, fontFamily: fontBold }}>
                     Arranged through your church? Ask an admin
                   </Text>
                 </Pressable>
               )}
             </>
           )}
-          {!profile?.verified && !profile?.plus ? (
-            pending('verify') ? (
-              <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Your request for the tick is with the admins.</Text>
-            ) : (
-              <Button label="Request the tick only" kind="ghost" onPress={() => setAsking('verify')} />
-            )
-          ) : null}
           <Text style={{ color: C.fg3, fontSize: 13, textAlign: 'center', lineHeight: 18, paddingTop: 6 }}>
             Card payments are processed securely by Stripe and Plus switches on straight away. If your church arranges Plus for you, an admin can activate it instead.
           </Text>
         </View>
+
+        {/* The tick is separate from Plus and free: it only ever comes from an identity check. */}
+        {profile?.verified ? null : (
+          <Pressable
+            onPress={() => router.push('/verify' as any)}
+            accessibilityRole="link"
+            accessibilityLabel={pending('verify') ? 'Your identity check is being reviewed' : 'Want the blue tick? Verify your identity'}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 20, padding: 14, borderRadius: 16, backgroundColor: C.surface, opacity: pressed ? 0.75 : 1 })}>
+            <VerifiedTick size={26} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.fg, fontWeight: '700' }}>{pending('verify') ? 'Your identity check is being reviewed' : 'Want the blue tick? Verify your identity'}</Text>
+              <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19, fontSize: 13.5 }}>
+                {pending('verify') ? "We'll let you know when an admin has decided." : 'Free and separate from Plus. The tick shows that an account is who it says it is.'}
+              </Text>
+            </View>
+            <Icon name="right" size={16} color={C.fg2} weight={2} />
+          </Pressable>
+        )}
       </ScrollView>
 
-      <Sheet visible={asking !== null} onClose={() => setAsking(null)} title={asking === 'plus' ? 'Get Community Plus' : 'Request the verified tick'}>
+      <Sheet visible={asking} onClose={() => setAsking(false)} title="Get Community Plus">
         <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 8 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>
-            {asking === 'plus' ? 'Tell the admins which church you belong to and how you have contributed, so they can confirm it with your church.' : 'Tell the admins who you are at church — a role, a ministry, or the pastor who can vouch for you.'}
-          </Text>
-          <TextInput value={note} onChangeText={setNote} placeholder="A short note for the admins" placeholderTextColor={C.fg3} multiline maxLength={500} keyboardAppearance="dark" accessibilityLabel="Note for the admins" style={{ minHeight: 96, color: C.fg, fontSize: 16, padding: 14, borderRadius: 12, backgroundColor: C.surface, textAlignVertical: 'top' }} />
+          <Text style={{ color: C.fg2, lineHeight: 20 }}>Tell the admins which church you belong to and how you have contributed, so they can confirm it with your church.</Text>
+          <TextInput value={note} onChangeText={setNote} placeholder="A short note for the admins" placeholderTextColor={C.fg3} multiline maxLength={500} keyboardAppearance={C.blurTint} accessibilityLabel="Note for the admins" style={{ minHeight: 96, color: C.fg, fontSize: 16, padding: 14, borderRadius: 12, backgroundColor: C.surface, textAlignVertical: 'top' }} />
           <Button label="Send request" onPress={send} busy={busy} />
         </View>
       </Sheet>

@@ -70,7 +70,7 @@ export default function Accounts() {
               accessibilityRole="button"
               accessibilityLabel={current ? `${name}, in use` : `Switch to ${name}`}
               accessibilityHint="Hold to log this account out"
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 64, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent', opacity: busy && busy !== s.id ? 0.6 : 1 })}>
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 64, backgroundColor: pressed ? C.press : 'transparent', opacity: busy && busy !== s.id ? 0.6 : 1 })}>
               <Avatar uri={u.hasImage ? u.imageUrl : null} name={u.fullName ?? name} size={46} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontSize: 16.5, fontWeight: current ? '700' : '500' }}>{name}</Text>

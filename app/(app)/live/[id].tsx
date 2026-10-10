@@ -9,11 +9,12 @@ import type { MediaStream } from 'react-native-webrtc';
 import { RTCView } from 'react-native-webrtc';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { ChatLines, Hearts, LiveComposer, LiveHeader, useChatLines, useHearts } from '../../../src/components/LiveOverlay';
+import { DarkStatusBar } from '../../../src/components/OnDark';
 import { Avatar, Button, RoundButton, useToast } from '../../../src/components/ui';
 import { fetchLive } from '../../../src/lib/api';
 import { PeerSession, IceCandidateInit, SessionDescription, joinChannel, leaveChannel, send } from '../../../src/lib/rtc';
 import { useSession } from '../../../src/lib/session';
-import { C, errText } from '../../../src/lib/theme';
+import { DARK, errText } from '../../../src/lib/theme';
 import type { LiveCard } from '../../../src/lib/types';
 
 /** Watching someone's live: say 'join' on their channel, answer the offer they send back, and show what arrives. */
@@ -177,11 +178,12 @@ export default function LiveViewer() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <DarkStatusBar />
       {remote && !ended ? (
         <RTCView streamURL={remote.toURL()} objectFit="cover" style={StyleSheet.absoluteFill} />
       ) : (
         <>
-          {card?.avatar_url ? <Image source={{ uri: card.avatar_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={30} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg2 }]} />}
+          {card?.avatar_url ? <Image source={{ uri: card.avatar_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={30} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: DARK.bg2 }]} />}
           <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
         </>
       )}
@@ -201,7 +203,7 @@ export default function LiveViewer() {
               <LiveHeader avatar={card?.avatar_url} name={card?.full_name} username={card?.username} verified={card?.verified} viewers={card?.viewers ?? 0} title={card?.title} />
             </View>
             <View style={{ paddingRight: 12 }}>
-              <RoundButton name="close" label="Leave" size={36} iconSize={20} bg="rgba(0,0,0,0.45)" onPress={leave} />
+              <RoundButton name="close" label="Leave" size={36} iconSize={20} bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={leave} />
             </View>
           </View>
 

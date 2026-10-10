@@ -78,7 +78,7 @@ export default function NewMessage() {
       <Header title="New message" center />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingBottom: 12 }}>
         <Text style={{ color: C.fg2, fontSize: 17 }}>To:</Text>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={C.fg3} autoFocus autoCapitalize="none" autoCorrect={false} keyboardAppearance="dark" style={{ flex: 1, color: C.fg, fontSize: 17 }} accessibilityLabel="Search for a person" />
+        <TextInput value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={C.fg3} autoFocus autoCapitalize="none" autoCorrect={false} keyboardAppearance={C.blurTint} style={{ flex: 1, color: C.fg, fontSize: 17 }} accessibilityLabel="Search for a person" />
       </View>
       <FlatList
         data={people ?? []}

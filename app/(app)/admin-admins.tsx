@@ -61,7 +61,7 @@ export default function AdminAdmins() {
           ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 10, lineHeight: 20 }}>{owner ? 'Admins see reports, manage members, approve the tick and Plus, and keep the churches and hymnal. Choose people you trust.' : 'The people who look after the app.'}</Text>}
           ListEmptyComponent={<Empty icon="shield" title="No admins yet" />}
           renderItem={({ item: a }) => (
-            <Pressable onPress={() => router.push(`/user/${a.user_id}`)} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+            <Pressable onPress={() => router.push(`/user/${a.user_id}`)} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Avatar uri={a.profile?.avatar_url} name={a.profile?.full_name ?? '?'} size={50} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontWeight: '600' }}>{a.profile?.full_name ?? 'Account not set up yet'}</Text>
@@ -84,7 +84,7 @@ export default function AdminAdmins() {
           renderItem={({ item: p }) => {
             const already = admins?.some((a) => a.user_id === p.id);
             return (
-              <Pressable onPress={() => (already ? undefined : appoint(p))} disabled={already} accessibilityRole="button" accessibilityLabel={`${p.full_name}, ${p.username}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, opacity: already ? 0.5 : 1, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              <Pressable onPress={() => (already ? undefined : appoint(p))} disabled={already} accessibilityRole="button" accessibilityLabel={`${p.full_name}, ${p.username}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, opacity: already ? 0.5 : 1, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <Avatar uri={p.avatar_url} name={p.full_name} size={46} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: C.fg, fontWeight: '600' }}>{p.full_name}</Text>

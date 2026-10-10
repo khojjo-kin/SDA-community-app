@@ -8,14 +8,15 @@ import { answerSupportTicket, closeSupportTicket, fetchSupportTickets } from '..
 import { agoLong, C, errText } from '../../src/lib/theme';
 import type { SupportTicket } from '../../src/lib/types';
 
-const STATUS: Record<SupportTicket['status'], { label: string; color: string; bg: string }> = {
-  open: { label: 'Open', color: C.like, bg: 'rgba(255,48,64,0.16)' },
-  answered: { label: 'Answered', color: C.accent2, bg: 'rgba(31,191,90,0.14)' },
-  closed: { label: 'Closed', color: C.fg2, bg: C.surface2 },
-};
+/** A function, not a table, so the colours are read from the theme in use when it is drawn. */
+function statusLook(status: SupportTicket['status']): { label: string; color: string; bg: string } {
+  if (status === 'open') return { label: 'Open', color: C.like, bg: C.like + '29' };
+  if (status === 'answered') return { label: 'Answered', color: C.accent2, bg: C.accentSoft };
+  return { label: 'Closed', color: C.fg2, bg: C.surface2 };
+}
 
 function StatusPill({ status }: { status: SupportTicket['status'] }) {
-  const s = STATUS[status];
+  const s = statusLook(status);
   return (
     <View style={{ height: 24, paddingHorizontal: 9, borderRadius: 12, backgroundColor: s.bg, justifyContent: 'center' }}>
       <Text style={{ color: s.color, fontSize: 12, fontWeight: '700' }}>{s.label}</Text>
@@ -92,7 +93,7 @@ export default function AdminSupport() {
             const open = openId === t.id;
             return (
               <View style={{ marginHorizontal: 16, marginBottom: 12, borderRadius: 16, backgroundColor: C.surface, overflow: 'hidden' }}>
-                <Pressable onPress={() => expand(t)} accessibilityRole="button" accessibilityLabel={`${t.subject}, from ${t.username}, ${STATUS[t.status].label}`} accessibilityState={{ expanded: open }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+                <Pressable onPress={() => expand(t)} accessibilityRole="button" accessibilityLabel={`${t.subject}, from ${t.username}, ${statusLook(t.status).label}`} accessibilityState={{ expanded: open }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: pressed ? C.press : 'transparent' })}>
                   <Avatar uri={t.avatar_url} name={t.full_name} size={44} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text numberOfLines={open ? undefined : 1} style={{ color: C.fg, fontWeight: '700' }}>{t.subject || 'No subject'}</Text>
@@ -124,7 +125,7 @@ export default function AdminSupport() {
                           placeholderTextColor={C.fg3}
                           multiline
                           maxLength={4000}
-                          keyboardAppearance="dark"
+                          keyboardAppearance={C.blurTint}
                           accessibilityLabel="Reply"
                           style={{ minHeight: 90, color: C.fg, fontSize: 16, padding: 12, borderRadius: 12, backgroundColor: C.bg2, textAlignVertical: 'top' }}
                         />

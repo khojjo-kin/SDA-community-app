@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthShell } from '../../src/components/AuthShell';
+import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
 import { Icon } from '../../src/components/Icon';
+import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
-import { C, errText } from '../../src/lib/theme';
+import { DARK, errText } from '../../src/lib/theme';
 
 type Strategy = 'email_code' | 'phone_code' | 'totp';
 type Factor = { strategy: Strategy; emailAddressId?: string; phoneNumberId?: string; safeIdentifier?: string };
@@ -135,58 +136,64 @@ export default function SignIn() {
     const sent = factor.strategy === 'totp' ? 'Enter the 6-digit code from your authenticator app.' : factor.strategy === 'phone_code' ? `We texted a code${where}. Enter it below.` : `We emailed a code${where}. Enter it below.`;
     const title = newDevice ? "Confirm it's you" : "Enter your code";
     return (
-      <AuthShell title={title}>
-        {newDevice ? (
-          <View style={{ flexDirection: 'row', gap: 10, backgroundColor: 'rgba(31,191,90,0.12)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(31,191,90,0.35)' }}>
-            <Icon name="lock" size={18} color={C.accent2} />
-            <Text style={{ color: C.fg, flex: 1, lineHeight: 20 }}>
-              You're logging in on a new device or from a new place. To keep your account safe, we need to check it's really you.
-            </Text>
-          </View>
-        ) : null}
-        <Text style={{ color: C.fg2, lineHeight: 20 }}>{sent}</Text>
-        <Field value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} onSubmitEditing={verify} returnKeyType="go" />
-        {note ? <Text style={{ color: C.ok, textAlign: 'center' }}>{note}</Text> : null}
-        <Button label="Confirm" onPress={verify} busy={busy} />
-        {factor.strategy !== 'totp' ? (
-          <Pressable onPress={resend} style={{ padding: 6 }} accessibilityRole="button">
-            <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
+      <>
+        <DarkStatusBar />
+        <AuthShell title={title}>
+          {newDevice ? (
+            <View style={{ flexDirection: 'row', gap: 10, backgroundColor: 'rgba(31,191,90,0.12)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(31,191,90,0.35)' }}>
+              <Icon name="lock" size={18} color={DARK.accent2} />
+              <Text style={{ color: DARK.fg, flex: 1, lineHeight: 20 }}>
+                You're logging in on a new device or from a new place. To keep your account safe, we need to check it's really you.
+              </Text>
+            </View>
+          ) : null}
+          <Text style={{ color: DARK.fg2, lineHeight: 20 }}>{sent}</Text>
+          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} onSubmitEditing={verify} returnKeyType="go" />
+          {note ? <Text style={{ color: DARK.ok, textAlign: 'center' }}>{note}</Text> : null}
+          <Button label="Confirm" onPress={verify} busy={busy} />
+          {factor.strategy !== 'totp' ? (
+            <Pressable onPress={resend} style={{ padding: 6 }} accessibilityRole="button">
+              <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
+            </Pressable>
+          ) : null}
+          {others.map((f) => (
+            <Pressable key={f.strategy + (f.phoneNumberId ?? f.emailAddressId ?? '')} onPress={() => switchTo(f)} style={{ padding: 6 }} accessibilityRole="button">
+              <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>
+                {f.strategy === 'phone_code' ? 'Text me a code instead' : f.strategy === 'email_code' ? 'Email me a code instead' : 'Use my authenticator app'}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable onPress={() => { setStage('form'); setErr(''); setNote(''); setFactor(null); }} style={{ padding: 10 }}>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', fontWeight: '600' }}>Back to log in</Text>
           </Pressable>
-        ) : null}
-        {others.map((f) => (
-          <Pressable key={f.strategy + (f.phoneNumberId ?? f.emailAddressId ?? '')} onPress={() => switchTo(f)} style={{ padding: 6 }} accessibilityRole="button">
-            <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>
-              {f.strategy === 'phone_code' ? 'Text me a code instead' : f.strategy === 'email_code' ? 'Email me a code instead' : 'Use my authenticator app'}
-            </Text>
-          </Pressable>
-        ))}
-        <Pressable onPress={() => { setStage('form'); setErr(''); setNote(''); setFactor(null); }} style={{ padding: 10 }}>
-          <Text style={{ color: C.fg2, textAlign: 'center', fontWeight: '600' }}>Back to log in</Text>
-        </Pressable>
-      </AuthShell>
+        </AuthShell>
+      </>
     );
   }
 
   return (
-    <AuthShell
-      footer={
-        <Link href="/sign-up" replace asChild>
-          <Pressable>
-            <Text style={{ color: C.fg2 }}>
-              Don't have an account? <Text style={{ color: C.accent2, fontWeight: '600' }}>Sign up</Text>
-            </Text>
+    <>
+      <DarkStatusBar />
+      <AuthShell
+        footer={
+          <Link href="/sign-up" replace asChild>
+            <Pressable>
+              <Text style={{ color: DARK.fg2 }}>
+                Don't have an account? <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Sign up</Text>
+              </Text>
+            </Pressable>
+          </Link>
+        }>
+        <Field {...DARK_FIELD} value={identifier} onChangeText={setIdentifier} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="username" />
+        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
+        <Button label="Log in" onPress={submit} busy={busy} />
+        <Link href="/forgot" replace asChild>
+          <Pressable style={{ padding: 6 }}>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Forgot password?</Text>
           </Pressable>
         </Link>
-      }>
-      <Field value={identifier} onChangeText={setIdentifier} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="username" />
-      <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
-      <Button label="Log in" onPress={submit} busy={busy} />
-      <Link href="/forgot" replace asChild>
-        <Pressable style={{ padding: 6 }}>
-          <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Forgot password?</Text>
-        </Pressable>
-      </Link>
-      <SsoButtons onError={setErr} />
-    </AuthShell>
+        <SsoButtons onError={setErr} />
+      </AuthShell>
+    </>
   );
 }

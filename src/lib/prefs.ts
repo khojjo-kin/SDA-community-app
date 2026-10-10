@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import type { ThemeName } from './theme';
 
 /** Small choices that stay on this phone. */
 export type Prefs = {
@@ -13,12 +14,15 @@ export type Prefs = {
   chatWallpaper: string;
   /** Plus: the app's text face. '' is the system font; see src/lib/fonts.ts for the others. */
   appFont: string;
+  /** The app's colours: Dark, White or Green (src/lib/theme.ts). */
+  theme: ThemeName;
 };
 
 const KEY = 'community.prefs';
-const DEFAULTS: Prefs = { frontCamera: false, toolsSide: 'right', reelsMuted: false, chatWallpaper: '', appFont: '' };
+const DEFAULTS: Prefs = { frontCamera: false, toolsSide: 'right', reelsMuted: false, chatWallpaper: '', appFont: '', theme: 'dark' };
 
 let current: Prefs = DEFAULTS;
+let loaded = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -29,13 +33,25 @@ function emit() {
 export async function loadPrefs() {
   try {
     const raw = await SecureStore.getItemAsync(KEY);
-    if (raw) {
-      current = { ...DEFAULTS, ...JSON.parse(raw) };
-      emit();
-    }
+    if (raw) current = { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {
     // Keep the defaults if nothing can be read.
   }
+  loaded = true;
+  emit();
+}
+
+/** True once the saved choices have been read (or found missing), so the first screen draws in the right theme. */
+export function usePrefsLoaded(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => {
+        listeners.delete(l);
+      };
+    },
+    () => loaded,
+  );
 }
 
 export function getPrefs(): Prefs {
@@ -58,4 +74,20 @@ export function usePrefs(): Prefs {
     },
     () => current,
   );
+}
+
+/**
+ * Just the theme. A string, so a component using this draws again only when the theme itself changes,
+ * not on every other choice (the root layout uses it: redrawing there redraws the whole app).
+ */
+export function usePrefTheme(): ThemeName {
+  return useSyncExternalStore(subscribeTheme, () => current.theme);
+}
+
+// Kept outside the hook so the root layout doesn't unsubscribe and subscribe again on every draw.
+function subscribeTheme(l: () => void) {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
 }

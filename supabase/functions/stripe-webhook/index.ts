@@ -86,26 +86,37 @@ Deno.serve(async (req: Request) => {
       case 'charge.refunded': {
         const user = await memberFor(db, obj.customer);
         if (!user || !obj.payment_intent) break;
-        await db.from('community_transactions').update({ status: 'refunded' }).eq('stripe_payment_intent_id', obj.payment_intent);
-        // A refunded ad stops running; a refunded gift stops counting towards the total.
-        const { data: promo } = await db.from('community_promotions').select('id, post_id').eq('payment_intent_id', obj.payment_intent).maybeSingle();
-        if (promo) {
-          await db.from('community_promotions').update({ status: 'refunded', ends_at: new Date().toISOString() }).eq('id', promo.id);
-          if (promo.post_id) await db.from('community_posts').update({ boosted_until: null }).eq('id', promo.post_id);
+        // Only a full refund undoes the purchase; a partial one is just recorded below.
+        if (obj.refunded === true) {
+          await db.from('community_transactions').update({ status: 'refunded' }).eq('stripe_payment_intent_id', obj.payment_intent).neq('kind', 'refund');
+          // A refunded ad stops running; a refunded gift stops counting towards the total.
+          const { data: promo } = await db.from('community_promotions').select('id, post_id').eq('payment_intent_id', obj.payment_intent).maybeSingle();
+          if (promo) {
+            await db.from('community_promotions').update({ status: 'refunded', ends_at: new Date().toISOString() }).eq('id', promo.id);
+            // Other paid days on the same post keep running: the boost now ends with the latest of those.
+            if (promo.post_id) {
+              const { data: rest } = await db.from('community_promotions').select('ends_at').eq('post_id', promo.post_id).eq('status', 'active').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: false }).limit(1);
+              await db.from('community_posts').update({ boosted_until: rest?.[0]?.ends_at ?? null }).eq('id', promo.post_id);
+            }
+          }
+          await db.from('community_donations').update({ status: 'refunded' }).eq('payment_intent_id', obj.payment_intent);
         }
-        await db.from('community_donations').update({ status: 'refunded' }).eq('payment_intent_id', obj.payment_intent);
-        // The refund is its own line on the books, recorded once however often Stripe repeats it.
-        await db.from('community_transactions').upsert(
+        // Each refund is its own line on the books. Stripe reports the running total refunded on the
+        // charge, so the line is the part not yet recorded; repeats of the same event add nothing.
+        const { data: earlier } = await db.from('community_transactions').select('amount_pence').like('stripe_invoice_id', `refund:${obj.id}%`);
+        const recorded = (earlier ?? []).reduce((sum: number, r: { amount_pence: number }) => sum + Math.abs(r.amount_pence), 0);
+        const newly = Math.max(0, Math.abs(obj.amount_refunded ?? 0) - recorded);
+        if (newly > 0) await db.from('community_transactions').upsert(
           {
             user_id: user,
             kind: 'refund',
-            amount_pence: -Math.abs(obj.amount_refunded ?? 0),
+            amount_pence: -newly,
             currency: String(obj.currency ?? 'gbp').toUpperCase(),
             note: 'Refund',
             provider: 'stripe',
             status: 'succeeded',
             method: obj.payment_method_details?.card ? `${obj.payment_method_details.card.brand ?? 'Card'} •••• ${obj.payment_method_details.card.last4 ?? ''}`.slice(0, 60) : '',
-            stripe_invoice_id: `refund:${obj.id}`,
+            stripe_invoice_id: `refund:${obj.id}:${obj.amount_refunded ?? 0}`,
             stripe_payment_intent_id: obj.payment_intent,
           },
           { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },

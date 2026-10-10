@@ -49,7 +49,7 @@ export default function MyComments() {
             const post = getPostNow(c.post_id);
             const thumb = post ? thumbOf(post) : undefined;
             return (
-              <Pressable onPress={() => router.push(`/comments/${c.post_id}`)} accessibilityRole="button" accessibilityLabel={`Your comment: ${c.text}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              <Pressable onPress={() => router.push(`/comments/${c.post_id}`)} accessibilityRole="button" accessibilityLabel={`Your comment: ${c.text}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={3} style={{ color: C.fg, fontSize: 15.5, lineHeight: 21 }}>{c.text}</Text>
                   <Text style={{ color: C.fg2, fontSize: 13, marginTop: 2 }}>{post ? `On ${post.username}'s post · ` : ''}{agoLong(c.created_at)}</Text>

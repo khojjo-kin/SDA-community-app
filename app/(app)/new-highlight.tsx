@@ -111,7 +111,7 @@ export default function NewHighlight() {
                     </View>
                   ) : (
                     <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? C.accent : 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' }}>
-                      {order >= 0 ? <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{order + 1}</Text> : null}
+                      {order >= 0 ? <Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 13 }}>{order + 1}</Text> : null}
                     </View>
                   )}
                   <Text style={{ position: 'absolute', left: 7, bottom: 6, color: '#fff', fontSize: 12, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{dayLabel(new Date(s.created_at))}</Text>
@@ -120,7 +120,7 @@ export default function NewHighlight() {
             }}
           />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 12), borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg }}>
-            <TextInput value={title} onChangeText={setTitle} placeholder="Highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance="dark" returnKeyType="done" style={{ flex: 1, height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Highlight name" />
+            <TextInput value={title} onChangeText={setTitle} placeholder="Highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" style={{ flex: 1, height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Highlight name" />
             <Button label={picked.length ? `Add (${picked.length})` : 'Add'} busy={busy} disabled={!picked.length || !title.trim()} onPress={create} />
           </View>
         </KeyboardAvoidingView>

@@ -7,14 +7,19 @@ import * as MediaLibrary from 'expo-media-library';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCachedLibrary, invalidateLibrary, libraryPage, LibraryPage, refreshLibrary } from '../lib/library';
-import { pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../lib/pick';
+import { Picked, pickFromLibrary, takePhoto, videoProblem } from '../lib/pick';
 import { usePrefs } from '../lib/prefs';
-import { C, clock, errText } from '../lib/theme';
+import { useSession } from '../lib/session';
+import { clock, DARK, errText } from '../lib/theme';
 import { Icon } from './Icon';
-import { Button, Empty, RoundButton, useToast } from './ui';
+import { DarkEmpty } from './OnDark';
+import { Button, RoundButton, useToast } from './ui';
 
-/** POST is photos (one to ten), INSTANTS is one short video, STORY hands over to the story flow. LIVE, next to them, opens Go live. */
-export type PickMode = 'post' | 'story' | 'reel';
+/**
+ * POST is one to ten photos and videos (a video on its own becomes a reel when shared), STORY hands
+ * over to the story flow. LIVE, next to them, opens Go live.
+ */
+export type PickMode = 'post' | 'story';
 
 /** One chosen photo or video, as a file the uploader can read. `duration` is in seconds. */
 export type PickedItem = { uri: string; type: 'image' | 'video'; w: number; h: number; duration?: number; bytes?: number };
@@ -26,7 +31,6 @@ const LIMIT = 10;
 const MODES: { id: PickMode; label: string }[] = [
   { id: 'post', label: 'POST' },
   { id: 'story', label: 'STORY' },
-  { id: 'reel', label: 'INSTANTS' },
 ];
 
 /**
@@ -45,7 +49,7 @@ async function fileOf(a: MediaLibrary.Asset): Promise<PickedItem> {
   if (a.mediaType !== 'video') return { uri, type: 'image', w: a.width, h: a.height };
   if (!/^file:/i.test(uri)) {
     const ext = /\.mp4$/i.test(a.filename) ? 'mp4' : 'mov';
-    const copy = new File(Paths.cache, `instant-${Date.now()}.${ext}`);
+    const copy = new File(Paths.cache, `video-${Date.now()}.${ext}`);
     await copyAsync({ from: a.uri, to: copy.uri });
     uri = copy.uri;
   }
@@ -58,16 +62,15 @@ async function fileOf(a: MediaLibrary.Asset): Promise<PickedItem> {
   return { uri, type: 'video', w: a.width, h: a.height, duration: a.duration, bytes };
 }
 
-const fits = (a: MediaLibrary.Asset, mode: PickMode) => (mode === 'reel' ? a.mediaType === 'video' : a.mediaType !== 'video');
+/** A library video longer than a post takes. Size is only known once the file is read, at Next. */
+const tooLong = (a: MediaLibrary.Asset) => a.mediaType === 'video' && videoProblem(a.duration * 1000, 0) !== null;
 
 type TileProps = {
   asset: MediaLibrary.Asset;
   size: number;
-  /** Not the kind this post takes (a video while choosing photos, say). */
-  dim: boolean;
   /** In the preview. */
   isCurrent: boolean;
-  /** Place among the photos selected, from 0; -1 when not selected. */
+  /** Place among the photos and videos selected, from 0; -1 when not selected. */
   order: number;
   multi: boolean;
   onPress: (a: MediaLibrary.Asset) => void;
@@ -78,15 +81,15 @@ type TileProps = {
  * long grid. The thumbnail is drawn straight from the library address: no asset info is fetched
  * until Next.
  */
-const Tile = memo(function Tile({ asset: a, size, dim, isCurrent, order, multi, onPress }: TileProps) {
+const Tile = memo(function Tile({ asset: a, size, isCurrent, order, multi, onPress }: TileProps) {
   const video = a.mediaType === 'video';
   return (
     <Pressable onPress={() => onPress(a)} accessibilityRole="button" accessibilityLabel={video ? `Video, ${clock(a.duration)}` : 'Photo'} accessibilityState={{ selected: isCurrent || order >= 0 }} style={({ pressed }) => ({ width: size, height: size, backgroundColor: '#111', opacity: pressed ? 0.8 : 1 })}>
-      <Image source={{ uri: a.uri }} recyclingKey={a.id} cachePolicy="memory" transition={60} style={{ width: size, height: size, opacity: dim ? 0.3 : 1 }} contentFit="cover" />
+      <Image source={{ uri: a.uri }} recyclingKey={a.id} cachePolicy="memory" transition={60} style={{ width: size, height: size }} contentFit="cover" />
       {isCurrent && !multi ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.35)' }]} /> : null}
       {video ? <Text style={{ position: 'absolute', right: 6, bottom: 5, color: '#fff', fontWeight: '700', fontSize: 12.5, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{clock(a.duration)}</Text> : null}
-      {multi && !video ? (
-        <View style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? C.accent : 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+      {multi ? (
+        <View style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? DARK.accent : 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
           {order >= 0 ? <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{order + 1}</Text> : null}
         </View>
       ) : null}
@@ -95,8 +98,9 @@ const Tile = memo(function Tile({ asset: a, size, dim, isCurrent, order, multi, 
 });
 
 /**
- * The "New post" screen: a big preview, the photo library in a grid, and the POST / STORY / INSTANTS
- * switch at the bottom, with LIVE next to them. Calls `onNext` with files ready for the editor.
+ * The "New post" screen: a big preview, the photo library in a grid, and the POST / STORY switch at
+ * the bottom, with LIVE next to them (not for members under 14, who can't broadcast). Calls `onNext`
+ * with files ready for the editor.
  *
  * It opens with the newest photos already in it (loaded ahead of time by library.ts) and the first
  * one in the preview, then refreshes the grid behind.
@@ -106,6 +110,9 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
+  const { profile } = useSession();
+  // Members under 14 can't go live, so the choice isn't offered.
+  const canLive = profile?.restricted !== true;
   const { width } = useWindowDimensions();
   // The newest page loaded ahead of time, if there is one: it is on screen from the first frame.
   const [seed] = useState<LibraryPage | null>(getCachedLibrary);
@@ -113,7 +120,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   const [canAsk, setCanAsk] = useState(true);
   const [assets, setAssets] = useState<MediaLibrary.Asset[]>(() => seed?.assets ?? []);
   // What the preview shows, and (when selecting several) the photos in the order they were tapped.
-  const [current, setCurrent] = useState<MediaLibrary.Asset | null>(() => seed?.assets.find((a) => fits(a, mode)) ?? null);
+  const [current, setCurrent] = useState<MediaLibrary.Asset | null>(() => seed?.assets.find((a) => !tooLong(a)) ?? null);
   const [picked, setPicked] = useState<MediaLibrary.Asset[]>([]);
   const [multi, setMulti] = useState(false);
   const [busy, setBusy] = useState('');
@@ -255,16 +262,11 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
     return () => sub.remove();
   }, [access, refresh]);
 
-  // Start again when the kind of post changes, and keep something in the preview as photos arrive.
-  useEffect(() => {
-    setMulti(false);
-    setPicked([]);
-    setCurrent((cur) => (cur && fits(cur, mode) ? cur : null));
-  }, [mode]);
+  // Keep something in the preview as photos arrive.
   useEffect(() => {
     // A preview nobody chose (from the page loaded ahead of time) moves on if that photo has gone since.
-    setCurrent((cur) => (cur && (touched.current || assets.some((a) => a.id === cur.id)) ? cur : assets.find((a) => fits(a, mode)) ?? null));
-  }, [assets, mode]);
+    setCurrent((cur) => (cur && (touched.current || assets.some((a) => a.id === cur.id)) ? cur : assets.find((a) => !tooLong(a)) ?? null));
+  }, [assets]);
 
   /** Runs a system picker or the camera with the screen covered, so a second tap cannot open a second one. */
   async function run(work: () => Promise<void>, note = '') {
@@ -279,35 +281,35 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
     }
   }
 
+  /** A photo or video from the camera or the system chooser, as the editor takes it. Its duration arrives in milliseconds. */
+  const asItem = (a: Picked): PickedItem =>
+    a.type === 'video'
+      ? { uri: a.uri, type: 'video', w: a.width, h: a.height, duration: (a.duration ?? 0) / 1000, bytes: a.fileSize ?? undefined }
+      : { uri: a.uri, type: 'image', w: a.width, h: a.height };
+
+  // A photo or a video: a video shared on its own becomes a reel.
   const camera = () =>
     run(async () => {
-      const [shot] = await takePhoto({ front: prefs.frontCamera, videoOnly: mode === 'reel' });
+      const [shot] = await takePhoto({ front: prefs.frontCamera, video: true });
       if (!shot || !alive.current) return;
-      if (mode === 'reel') {
-        if (shot.type !== 'video') return toast('That was a photo. Record a video for an Instant.');
+      if (shot.type === 'video') {
         const problem = videoProblem(shot.duration, shot.fileSize);
         if (problem) return toast(problem);
-        onNext([{ uri: shot.uri, type: 'video', w: shot.width, h: shot.height, duration: (shot.duration ?? 0) / 1000, bytes: shot.fileSize ?? undefined }]);
-      } else {
-        if (shot.type === 'video') return toast('That was a video. Switch to Instants to share it.');
-        onNext([{ uri: shot.uri, type: 'image', w: shot.width, h: shot.height }]);
       }
+      onNext([asItem(shot)]);
     }, 'Opening the camera…');
 
   /** The system chooser needs no library permission, so it is the way in when access is off. */
   const systemPicker = () =>
     run(async () => {
-      if (mode === 'reel') {
-        const v = await pickVideo();
-        if (!v || !alive.current) return;
-        const problem = videoProblem(v.duration, v.fileSize);
-        if (problem) return toast(problem);
-        onNext([{ uri: v.uri, type: 'video', w: v.width, h: v.height, duration: (v.duration ?? 0) / 1000, bytes: v.fileSize ?? undefined }]);
-        return;
-      }
-      const list = (await pickFromLibrary({ multiple: true, limit: LIMIT })).filter((p) => p.type !== 'video').slice(0, LIMIT);
+      const list = (await pickFromLibrary({ multiple: true, limit: LIMIT, video: true })).slice(0, LIMIT);
       if (!list.length || !alive.current) return;
-      onNext(list.map((a) => ({ uri: a.uri, type: 'image' as const, w: a.width, h: a.height })));
+      // The same length and size checks as for videos chosen in the grid.
+      for (const a of list) {
+        const problem = a.type === 'video' ? videoProblem(a.duration, a.fileSize) : null;
+        if (problem) return toast(problem);
+      }
+      onNext(list.map(asItem));
     }, 'Getting it ready…');
 
   async function manage() {
@@ -320,8 +322,9 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
 
   function tap(a: MediaLibrary.Asset) {
     if (busy) return;
-    if (!fits(a, mode)) {
-      toast(mode === 'reel' ? 'Instants are videos. Switch to Post to share photos.' : 'Switch to Instants to share a video.');
+    // Said straight away rather than at Next: the library already knows how long a video is.
+    if (tooLong(a)) {
+      toast(videoProblem(a.duration * 1000, 0) ?? '');
       return;
     }
     touched.current = true;
@@ -333,7 +336,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
     setPicked((cur) => {
       if (cur.some((p) => p.id === a.id)) return cur.filter((p) => p.id !== a.id);
       if (cur.length >= LIMIT) {
-        toast(`You can share up to ${LIMIT} photos in one post.`);
+        toast(`You can share up to ${LIMIT} photos and videos in one post.`);
         return cur;
       }
       return [...cur, a];
@@ -355,14 +358,18 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   const next = () =>
     run(async () => {
       if (!chosen.length) {
-        toast(mode === 'reel' ? 'Choose a video first.' : 'Choose a photo first.');
+        toast('Choose a photo or video first.');
         return;
       }
       const items: PickedItem[] = [];
-      for (const a of chosen) items.push(await fileOf(a));
-      if (mode === 'reel') {
-        const problem = videoProblem((items[0].duration ?? 0) * 1000, items[0].bytes);
-        if (problem) return toast(problem);
+      for (const a of chosen) {
+        const item = await fileOf(a);
+        // Every video in the post has to be short and small enough to upload.
+        if (item.type === 'video') {
+          const problem = videoProblem((item.duration ?? 0) * 1000, item.bytes);
+          if (problem) return toast(problem);
+        }
+        items.push(item);
       }
       if (alive.current) onNext(items);
     }, 'Getting it ready…');
@@ -377,7 +384,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   const [headH, setHeadH] = useState(previewH + 52);
   const row = cw + gap;
   const getItemLayout = useCallback((_: unknown, index: number) => ({ length: row, offset: headH + row * index, index }), [row, headH]);
-  // Four choices share the bar; a narrow phone gets a little less room around each.
+  // Up to three choices share the bar; a narrow phone gets a little less room around each.
   const pad = width < 380 ? 12 : 16;
 
   const header = (
@@ -391,8 +398,8 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
         ) : null}
         {!current ? (
           <View style={{ alignItems: 'center', gap: 10, paddingHorizontal: 32 }}>
-            <Icon name={mode === 'reel' ? 'reels' : 'image'} size={44} color={C.fg3} />
-            <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{mode === 'reel' ? 'Choose one video up to 60 seconds.' : `Choose up to ${LIMIT} photos. People swipe through them in one post.`}</Text>
+            <Icon name="image" size={44} color={DARK.fg3} />
+            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{`Choose up to ${LIMIT} photos and videos. People swipe through them in one post. A video on its own becomes a reel.`}</Text>
           </View>
         ) : null}
         {multi && picked.length ? (
@@ -407,7 +414,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
           <Icon name="right" size={16} color="#fff" weight={2.4} />
         </View>
         {mode === 'post' && !noAccess ? (
-          <Pressable onPress={toggleMulti} disabled={!!busy} accessibilityRole="button" accessibilityLabel={multi ? 'Stop selecting several' : 'Select several photos'} accessibilityState={{ selected: multi }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: multi ? '#fff' : '#2a2d32', opacity: pressed ? 0.7 : 1 })}>
+          <Pressable onPress={toggleMulti} disabled={!!busy} accessibilityRole="button" accessibilityLabel={multi ? 'Stop selecting several' : 'Select several photos and videos'} accessibilityState={{ selected: multi }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: multi ? '#fff' : '#2a2d32', opacity: pressed ? 0.7 : 1 })}>
             <Icon name="select" size={16} color={multi ? '#000' : '#fff'} weight={2.2} />
             <Text style={{ color: multi ? '#000' : '#fff', fontWeight: '600', fontSize: 14.5 }}>Select</Text>
           </Pressable>
@@ -415,7 +422,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
       </View>
       {access === 'limited' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 14, paddingBottom: 12 }}>
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 14, lineHeight: 19 }}>You've given Community access to a select number of photos and videos.</Text>
+          <Text style={{ flex: 1, color: DARK.fg2, fontSize: 14, lineHeight: 19 }}>You've given Community access to a select number of photos and videos.</Text>
           <Pressable onPress={manage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Manage which photos Community can see" style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15.5 }}>Manage</Text>
           </Pressable>
@@ -427,16 +434,16 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   return (
     <View style={{ flex: 1, backgroundColor: '#000', paddingTop: insets.top }}>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-        <RoundButton name="close" label="Close" onPress={onClose} size={40} iconSize={22} />
-        <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{mode === 'reel' ? 'New Instant' : 'New post'}</Text>
+        <RoundButton name="close" label="Close" onPress={onClose} size={40} iconSize={22} bg={DARK.round} color={DARK.fg} />
+        <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>New post</Text>
         <Pressable onPress={next} disabled={!!busy || !chosen.length} hitSlop={8} accessibilityRole="button" accessibilityLabel="Next" accessibilityState={{ disabled: !!busy || !chosen.length }} style={({ pressed }) => ({ width: 56, alignItems: 'flex-end', opacity: !chosen.length ? 0.4 : pressed ? 0.6 : 1 })}>
-          <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Next</Text>
+          <Text style={{ color: DARK.accent2, fontWeight: '700', fontSize: 16.5 }}>Next</Text>
         </Pressable>
       </View>
 
       {access === 'checking' ? (
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <ActivityIndicator color={C.fg2} />
+          <ActivityIndicator color={DARK.fg2} />
         </View>
       ) : (
         <FlatList
@@ -448,20 +455,20 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
           ListHeaderComponent={header}
           ListFooterComponent={
             noAccess ? (
-              <Empty
+              <DarkEmpty
                 icon="image"
                 title="See your photos here"
                 body="Community can't see your photo library yet. Allow access, or choose with the system picker."
                 action={
                   <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 6 }}>
                     <Button label="Allow access" onPress={() => (canAsk ? check('always') : Linking.openSettings().catch(() => {}))} />
-                    <Button label={mode === 'reel' ? 'Choose a video' : 'Choose photos'} kind="ghost" onPress={systemPicker} />
+                    <Button label="Choose photos and videos" kind="ghost" onPress={systemPicker} />
                   </View>
                 }
               />
             ) : null
           }
-          ListEmptyComponent={<Text style={{ color: C.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
+          ListEmptyComponent={<Text style={{ color: DARK.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
           onEndReached={() => (noAccess ? undefined : loadMore())}
           onEndReachedThreshold={1.2}
           contentContainerStyle={{ paddingBottom: insets.bottom + 84 }}
@@ -471,22 +478,22 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
           maxToRenderPerBatch={24}
           windowSize={7}
           removeClippedSubviews
-          extraData={[current?.id, picked, multi, mode]}
+          extraData={[current?.id, picked, multi]}
           renderItem={({ item }) => {
             const a = item.asset;
             if (!a) {
               return (
-                <Pressable onPress={camera} disabled={!!busy} accessibilityRole="button" accessibilityLabel={mode === 'reel' ? 'Record a video' : 'Take a photo'} style={({ pressed }) => ({ width: cw, height: cw, backgroundColor: '#1c1e22', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                <Pressable onPress={camera} disabled={!!busy} accessibilityRole="button" accessibilityLabel="Take a photo or video" style={({ pressed }) => ({ width: cw, height: cw, backgroundColor: '#1c1e22', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
                   <Icon name="camera" size={30} color="#fff" />
                 </Pressable>
               );
             }
-            return <Tile asset={a} size={cw} dim={!fits(a, mode)} isCurrent={current?.id === a.id} order={multi ? picked.findIndex((p) => p.id === a.id) : -1} multi={multi} onPress={onTile} />;
+            return <Tile asset={a} size={cw} isCurrent={current?.id === a.id} order={multi ? picked.findIndex((p) => p.id === a.id) : -1} multi={multi} onPress={onTile} />;
           }}
         />
       )}
 
-      {/* POST · STORY · INSTANTS · LIVE */}
+      {/* POST · STORY · LIVE */}
       <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 14, alignItems: 'center' }}>
         <View accessibilityRole="tablist" style={{ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 6, borderRadius: 22, backgroundColor: 'rgba(28,30,34,0.94)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' }}>
           {MODES.map((m) => (
@@ -495,9 +502,11 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
             </Pressable>
           ))}
           {/* Live is a screen of its own, still one tap from here. */}
-          <Pressable onPress={() => (busy ? undefined : router.replace('/go-live'))} accessibilityRole="button" accessibilityLabel="Go live" accessibilityHint="Opens the camera to broadcast" style={({ pressed }) => ({ height: 36, paddingHorizontal: pad, borderRadius: 18, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
-            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12.5, fontWeight: '700', letterSpacing: 1.6 }}>LIVE</Text>
-          </Pressable>
+          {canLive ? (
+            <Pressable onPress={() => (busy ? undefined : router.replace('/go-live'))} accessibilityRole="button" accessibilityLabel="Go live" accessibilityHint="Opens the camera to broadcast" style={({ pressed }) => ({ height: 36, paddingHorizontal: pad, borderRadius: 18, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12.5, fontWeight: '700', letterSpacing: 1.6 }}>LIVE</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

@@ -104,7 +104,7 @@ export default function GroupNew() {
           <Text style={{ color: C.fg2, lineHeight: 20, paddingHorizontal: 4, paddingBottom: 4 }}>What would you like to start?</Text>
           {KINDS.map((k) => (
             <Pressable key={k.kind} onPress={() => setKind(k.kind)} accessibilityRole="button" accessibilityLabel={`${k.title}. ${k.body}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18, borderRadius: 18, backgroundColor: pressed ? C.surface2 : C.surface })}>
-              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(31,191,90,0.16)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={k.icon} size={30} color={C.accent2} />
               </View>
               <View style={{ flex: 1 }}>
@@ -126,11 +126,11 @@ export default function GroupNew() {
       <ScreenHeader title={page ? 'New page' : 'New community'} onBack={() => (busy ? undefined : setKind(null))} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 14 }} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel={cover ? 'Change cover photo' : 'Add a cover photo'} style={{ height: 150, borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel={cover ? 'Change cover photo' : 'Add a cover photo'} style={{ height: 150, borderRadius: 16, overflow: 'hidden', backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {cover ? <Image source={{ uri: cover.uri }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" /> : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 10, backgroundColor: cover ? 'rgba(10,12,14,0.7)' : 'transparent' }}>
-              <Icon name="image" size={20} color={cover ? C.fg : C.accent2} />
-              <Text style={{ color: cover ? C.fg : C.accent2, fontWeight: '600', fontSize: 14 }}>{cover ? 'Change cover' : 'Add a cover photo'}</Text>
+              <Icon name="image" size={20} color={cover ? '#fff' : C.accent2} />
+              <Text style={{ color: cover ? '#fff' : C.accent2, fontWeight: '600', fontSize: 14 }}>{cover ? 'Change cover' : 'Add a cover photo'}</Text>
             </View>
             {cover ? null : <Text style={{ color: C.fg2, fontSize: 12.5 }}>Optional</Text>}
           </Pressable>
@@ -139,7 +139,7 @@ export default function GroupNew() {
             <Text style={{ color: C.fg2, fontSize: 12.5 }}>Handle</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: C.surface, paddingLeft: 14 }}>
               <Text style={{ color: C.fg2, fontSize: 16 }}>@</Text>
-              <TextInput value={handle} onChangeText={changeHandle} placeholder="handle" placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance="dark" autoCapitalize="none" autoCorrect={false} maxLength={30} accessibilityLabel="Handle" style={{ flex: 1, color: C.fg, fontSize: 16, paddingLeft: 3, paddingRight: 14, paddingVertical: 13 }} />
+              <TextInput value={handle} onChangeText={changeHandle} placeholder="handle" placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance={C.blurTint} autoCapitalize="none" autoCorrect={false} maxLength={30} accessibilityLabel="Handle" style={{ flex: 1, color: C.fg, fontSize: 16, paddingLeft: 3, paddingRight: 14, paddingVertical: 13 }} />
             </View>
             <Text style={{ color: errors.handle ? C.like : C.fg3, fontSize: errors.handle ? 13 : 12.5 }}>{errors.handle ?? 'How people find it: letters, numbers, dots and underscores.'}</Text>
           </View>

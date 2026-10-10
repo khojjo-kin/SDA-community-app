@@ -73,7 +73,7 @@ function Scrubber({ position, duration, disabled, onSeek }: { position: number; 
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(e) => onSeek(Math.max(0, Math.min(duration, position + (e.nativeEvent.actionName === 'increment' ? 15 : -15))))}
         style={{ height: 28, justifyContent: 'center' }}>
-        <View style={{ height: active ? 8 : 5, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' }}>
+        <View style={{ height: active ? 8 : 5, borderRadius: 4, backgroundColor: C.surface2, overflow: 'hidden' }}>
           <View style={{ width: Math.round(fraction * width), height: '100%', backgroundColor: active ? C.fg : C.fg2 }} />
         </View>
       </View>
@@ -105,7 +105,7 @@ function Transport({ playing, buffering, canPrev, canNext, onPrev, onToggle, onN
 /** The little round button under the transport: shuffle, repeat, save, share. Green when it is on. */
 function Extra({ name, label, on, onPress, badge, fill }: { name: IconName; label: string; on?: boolean; onPress: () => void; badge?: string; fill?: boolean }) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on }} style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(79,224,138,0.14)' : 'transparent', opacity: pressed ? 0.6 : 1 })}>
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on }} style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.accentSoft : 'transparent', opacity: pressed ? 0.6 : 1 })}>
       <Icon name={name} size={24} color={on ? C.accent2 : C.fg2} fill={fill} />
       {badge ? (
         <View style={{ position: 'absolute', top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 7, paddingHorizontal: 3, backgroundColor: C.accent2, alignItems: 'center', justifyContent: 'center' }}>

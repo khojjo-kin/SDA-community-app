@@ -49,7 +49,7 @@ export default function Bible() {
               </Pressable>
             ) : null}
             {matches.map((b) => (
-              <Pressable key={b.name} onPress={() => open(b.name)} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+              <Pressable key={b.name} onPress={() => open(b.name)} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? C.press : 'transparent' })}>
                 <Text style={{ color: C.fg, fontSize: 17 }}>{b.name}</Text>
                 <Text style={{ color: C.fg2, fontSize: 13 }}>{b.chapters} chapters</Text>
               </Pressable>

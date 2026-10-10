@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
-import { C, errText } from '../lib/theme';
+import { DARK, errText } from '../lib/theme';
 
 // Finishes a sign-in that came back to the app through its link, if one did.
 WebBrowser.maybeCompleteAuthSession();
@@ -63,7 +63,7 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
       accessibilityState={{ busy: busy === strategy }}
       style={({ pressed }) => ({ height: 48, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed || (busy && busy !== strategy) ? 0.6 : 1 })}>
       {busy === strategy ? <ActivityIndicator color="#fff" /> : <SvgXml xml={xml} width={20} height={20} />}
-      <Text style={{ color: C.fg, fontWeight: '600', fontSize: 15.5 }}>{label}</Text>
+      <Text style={{ color: DARK.fg, fontWeight: '600', fontSize: 15.5 }}>{label}</Text>
     </Pressable>
   );
 
@@ -71,7 +71,7 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 }}>
         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.14)' }} />
-        <Text style={{ color: C.fg2, fontSize: 13 }}>or</Text>
+        <Text style={{ color: DARK.fg2, fontSize: 13 }}>or</Text>
         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.14)' }} />
       </View>
       {button('oauth_apple', 'Continue with Apple', APPLE)}

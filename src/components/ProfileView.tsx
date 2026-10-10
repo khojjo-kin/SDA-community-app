@@ -1,14 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { acceptFollowRequest, fetchLives, fetchReposts, fetchStats, fetchUserPosts, getProfile, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow } from '../lib/api';
 import { useSession } from '../lib/session';
 import { prefetchLibrary } from '../lib/library';
 import { listen } from '../lib/store';
+import { profileTheme, ringColors } from '../lib/styling';
 import { C, errText, fmt } from '../lib/theme';
 import type { Post, Profile } from '../lib/types';
+import { type Accent, AccentButton, DiscoverCarousel, prefetchSuggestions } from './DiscoverCarousel';
+import { FundraiserCard } from './FundraiserCard';
+import { DarkStatusBar } from './OnDark';
 import { PostGrid } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
 import { Icon, IconName, VerifiedTick } from './Icon';
@@ -21,11 +27,18 @@ const TABS: { key: Tab; icon: IconName; label: string }[] = [
   { key: 'reposts', icon: 'repost', label: 'Reposts' },
 ];
 
-function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
+// Whether "Discover people" is open on your own profile. A plain variable rather than storage: it
+// should survive switching tabs and coming back, not a restart of the app.
+let discoverOpen = false;
+
+/** How far the theme's band reaches down the profile before it has faded into the page. */
+const BAND_HEIGHT = 190;
+
+function Stat({ n, label, onPress, color }: { n: number; label: string; onPress?: () => void; color: string }) {
   return (
     <Pressable onPress={onPress} style={{ flex: 1 }} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${n} ${label}`}>
-      <Text style={{ color: C.fg, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{fmt(n)}</Text>
-      <Text style={{ color: C.fg, fontSize: 14 }}>{label}</Text>
+      <Text style={{ color, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{fmt(n)}</Text>
+      <Text style={{ color, fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -34,7 +47,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const mine = userId === me;
+  const [discover, setDiscover] = useState(discoverOpen);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [reposts, setReposts] = useState<Post[]>([]);
@@ -66,6 +81,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           .then((s) => setViews(s.views))
           .catch(() => {});
       }
+      // Quietly, so "Discover people" opens full rather than with a spinner.
+      if (mine) prefetchSuggestions(me);
       if (!mine && !viewed.current) {
         viewed.current = true;
         recordProfileView(me, userId);
@@ -166,8 +183,21 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
     setTimeout(fn, 380);
   };
 
-  if (status === 'loading') return <Screen>{isTab ? null : <Header />}<Loading /></Screen>;
-  if (status === 'error') return <Screen>{isTab ? null : <Header />}<ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} /></Screen>;
+  function toggleDiscover() {
+    discoverOpen = !discover;
+    setDiscover(discoverOpen);
+  }
+
+  // While the profile loads, or if it failed, the top bar still offers what it always does: Create and
+  // the menu (Settings) on your own, the way back on anyone else's. Settings must never be out of reach.
+  const bareBar = (
+    <Header
+      left={mine && isTab ? <IconButton name="plus" size={28} label="Create" onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : undefined}
+      right={mine ? <IconButton name="menu" size={26} label="Settings and activity" onPress={() => router.push('/settings')} /> : undefined}
+    />
+  );
+  if (status === 'loading') return <Screen>{bareBar}<Loading /></Screen>;
+  if (status === 'error') return <Screen>{bareBar}<ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} /></Screen>;
   if (status === 'missing' || !profile) return <Screen><Header /><Empty icon="user" title="This account isn't available" body="It may have been deleted." /></Screen>;
 
   // A private account I do not follow: the stats show, the photos do not.
@@ -179,8 +209,24 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
     reposts: ['No reposts yet', mine ? 'Posts you repost appear here.' : `Posts ${profile.username} reposts will show up here.`],
   };
 
+  // Community Plus styling. The standard theme ('') leaves everything exactly as it always was.
+  const theme = profileTheme(profile.profile_theme);
+  // The themes' accents are made for a dark page; on the White app theme each has a deeper version that shows on white.
+  const lightPage = C.statusBar === 'dark';
+  const accent: Accent = theme.id ? (lightPage ? { bg: theme.lightAccent, fg: '#ffffff' } : { bg: theme.accent, fg: theme.onAccent }) : null;
+  const link = accent ? accent.bg : C.accent2;
+  const band = theme.band.length ? theme.band : null;
+  // The bands are all deep colours, so what sits on them is white whatever the app's own theme is.
+  const onBand = band ? '#ffffff' : C.fg;
+  const onBand2 = band ? 'rgba(255,255,255,0.78)' : C.fg2;
+  // The band holds its colour over the avatar row, then fades into the page.
+  const bandColors = band ? ([...band, C.bg] as unknown as readonly [string, string, ...string[]]) : null;
+  const bandStops = band ? ([...band.map((_, i) => (band.length === 1 ? 0.42 : (i / (band.length - 1)) * 0.42)), 1] as unknown as readonly [number, number, ...number[]]) : null;
+
   const head = (
     <View>
+      {/* It scrolls away with the profile; the top bar keeps the band's first colour. */}
+      {bandColors ? <LinearGradient pointerEvents="none" colors={bandColors} locations={bandStops} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: BAND_HEIGHT }} /> : null}
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
           <Pressable
@@ -188,7 +234,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             disabled={!liveId && !profile.has_story && !mine}
             accessibilityRole={liveId || profile.has_story || mine ? 'button' : 'image'}
             accessibilityLabel={liveId ? 'Watch live' : profile.has_story ? 'View story' : mine ? 'Add to your story' : 'Profile photo'}>
-            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 82 : 88} ring={profile.has_story ? 'new' : null} />
+            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 82 : 88} ring={profile.has_story ? 'new' : null} ringColors={ringColors(profile.ring_color)} />
             {mine && !profile.has_story && !profile.is_live ? (
               <View style={{ position: 'absolute', right: -2, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="plus" size={14} color={C.bg} weight={3} />
@@ -204,32 +250,27 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           </Pressable>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '700', flexShrink: 1 }}>{profile.full_name}</Text>
+              <Text numberOfLines={1} style={{ color: onBand, fontSize: 16, fontWeight: '700', flexShrink: 1 }}>{profile.full_name}</Text>
               {profile.verified ? <VerifiedTick size={17} /> : null}
-              {profile.pronouns ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, flexShrink: 1 }}>{profile.pronouns}</Text> : null}
+              {profile.pronouns ? <Text numberOfLines={1} style={{ color: onBand2, fontSize: 14.5, flexShrink: 1 }}>{profile.pronouns}</Text> : null}
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Stat n={profile.posts_count} label="posts" />
-              <Stat n={profile.followers_count} label="followers" onPress={() => router.push(`/people?id=${userId}&which=followers`)} />
-              <Stat n={profile.following_count} label="following" onPress={() => router.push(`/people?id=${userId}&which=following`)} />
+              <Stat n={profile.posts_count} label="posts" color={onBand} />
+              <Stat n={profile.followers_count} label="followers" color={onBand} onPress={() => router.push(`/people?id=${userId}&which=followers`)} />
+              <Stat n={profile.following_count} label="following" color={onBand} onPress={() => router.push(`/people?id=${userId}&which=following`)} />
             </View>
           </View>
         </View>
-        {mine ? (
+        {/* Who looked at your profile is a Plus perk: everyone else sees nothing here at all. */}
+        {mine && profile.plus ? (
           <Pressable
-            onPress={() => {
-              if (profile.plus) router.push('/profile-viewers');
-              else {
-                toast('Seeing who viewed your profile is part of Community Plus');
-                router.push('/plus');
-              }
-            }}
+            onPress={() => router.push('/profile-viewers')}
             accessibilityRole="button"
             accessibilityLabel={`${fmt(profile.views_week)} profile ${profile.views_week === 1 ? 'view' : 'views'} this week. See who`}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, opacity: pressed ? 0.6 : 1 })}>
             <Icon name="eye" size={15} color={C.fg2} weight={2} />
             <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14, flexShrink: 1 }}>
-              {fmt(profile.views_week)} profile {profile.views_week === 1 ? 'view' : 'views'} this week · <Text style={{ color: C.accent2, fontWeight: '600' }}>See who</Text>
+              {fmt(profile.views_week)} profile {profile.views_week === 1 ? 'view' : 'views'} this week · <Text style={{ color: link, fontWeight: '600' }}>See who</Text>
             </Text>
           </Pressable>
         ) : null}
@@ -243,7 +284,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             ) : null}
             {/* The owner runs the app quietly: only appointed admins show a badge. */}
             {profile.admin_role === 'admin' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(31,191,90,0.16)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.accentSoft }}>
                 <Icon name="shield" size={13} color={C.accent2} weight={2.2} />
                 <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>Admin</Text>
               </View>
@@ -259,11 +300,13 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           </Pressable>
         ) : null}
         {profile.website ? (
-          <Text style={{ color: C.accent2, marginTop: 4 }} numberOfLines={1} onPress={() => Linking.openURL(/^https?:\/\//.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast('That link could not be opened'))}>
+          <Text style={{ color: link, marginTop: 4 }} numberOfLines={1} onPress={() => Linking.openURL(/^https?:\/\//.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast('That link could not be opened'))}>
             {profile.website.replace(/^https?:\/\//, '')}
           </Text>
         ) : null}
         {!mine && profile.follows_me ? <Text style={{ color: C.fg3, marginTop: 6, fontSize: 13 }}>Follows you</Text> : null}
+        {/* Drawn bare: the card brings its own spacing, so nothing is left behind when there is no card. */}
+        {profile.fundraiser_id ? <FundraiserCard fundraiserId={profile.fundraiser_id} /> : null}
 
         {mine && profile.account_type === 'creator' ? (
           <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel="Your dashboard" style={({ pressed }) => ({ marginTop: 14, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface })}>
@@ -277,7 +320,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             <Text numberOfLines={2} style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 19 }}>
               <Text style={{ fontWeight: '700' }}>{profile.username}</Text> wants to follow you
             </Text>
-            <Button small label="Accept" onPress={() => answer(true)} />
+            <AccentButton label="Accept" accent={accent} onPress={() => answer(true)} />
             <Button small kind="ghost" label="Decline" onPress={() => answer(false)} />
           </View>
         ) : null}
@@ -285,14 +328,21 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           {mine ? (
             <>
-              <Button small kind="ghost" label="Edit profile" style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />
+              {/* With a theme, Edit profile wears its colours so the owner sees them too; otherwise it stays plain. */}
+              {accent ? (
+                <AccentButton label="Edit profile" accent={accent} style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />
+              ) : (
+                <Button small kind="ghost" label="Edit profile" style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />
+              )}
               <Button small kind="ghost" label="Share profile" style={{ flex: 1 }} onPress={() => Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast('Profile link copied'))} />
+              {/* Settings stay one tap away from the menu button in the top bar. */}
               <Pressable
-                onPress={() => router.push('/settings')}
+                onPress={toggleDiscover}
                 accessibilityRole="button"
-                accessibilityLabel="Settings and activity"
+                accessibilityLabel={discover ? 'Hide Discover people' : 'Discover people'}
+                accessibilityState={{ expanded: discover }}
                 style={({ pressed }) => ({ width: 40, height: 32, borderRadius: 10, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-                <Icon name="settings" size={19} color={C.fg} weight={2} />
+                <Icon name="adduser" size={19} color={discover ? link : C.fg} weight={2} />
               </Pressable>
             </>
           ) : profile.is_blocked ? (
@@ -304,9 +354,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               ) : profile.requested ? (
                 <Button small kind="ghost" label="Requested" style={{ flex: 1 }} onPress={withdraw} />
               ) : profile.is_private ? (
-                <Button small label="Request" style={{ flex: 1 }} onPress={request} />
+                <AccentButton label="Request" accent={accent} style={{ flex: 1 }} onPress={request} />
               ) : (
-                <Button small label={profile.follows_me ? 'Follow back' : 'Follow'} style={{ flex: 1 }} onPress={follow} />
+                <AccentButton label={profile.follows_me ? 'Follow back' : 'Follow'} accent={accent} style={{ flex: 1 }} onPress={follow} />
               )}
               <Button small kind="ghost" label="Message" style={{ flex: 1 }} onPress={message} />
             </>
@@ -320,7 +370,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         ) : null}
       </View>
 
-      {profile.is_blocked || locked ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} />}
+      {mine ? <DiscoverCarousel open={discover} accent={accent} link={link} /> : null}
+
+      {profile.is_blocked || locked ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} ringColor={profile.ring_color} />}
 
       {locked ? (
         <View style={{ height: 14 }} />
@@ -337,18 +389,23 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   );
 
   // The same shape as Header, with room for a lock next to the username on a private account.
-  const left = mine && isTab ? <IconButton name="plus" size={28} label="Create" onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : <IconButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
-  const right = mine ? <IconButton name="menu" size={26} label="Settings and activity" onPress={() => router.push('/settings')} /> : <IconButton name="more" label="More options" onPress={() => setMenu(true)} />;
+  const left = mine && isTab ? <IconButton name="plus" size={28} color={onBand} label="Create" onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : <IconButton name="back" color={onBand} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
+  const right = mine ? <IconButton name="menu" size={26} color={onBand} label="Settings and activity" onPress={() => router.push('/settings')} /> : <IconButton name="more" color={onBand} label="More options" onPress={() => setMenu(true)} />;
 
   return (
-    <Screen>
-      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
-        {left}
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }} accessible accessibilityRole="header" accessibilityLabel={profile.is_private ? `${profile.username}, private account` : profile.username}>
-          {profile.is_private ? <Icon name="lock" size={15} color={C.fg2} weight={2.2} /> : null}
-          <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{profile.username}</Text>
+    // The safe-area gap is drawn here rather than by Screen so a theme's band can run up behind the clock.
+    <Screen edges={false}>
+      {/* A theme's band is a deep colour behind the clock: keep the clock light on it, even on the White theme. */}
+      {band && C.statusBar === 'dark' ? <DarkStatusBar /> : null}
+      <View style={{ paddingTop: insets.top, backgroundColor: band ? band[0] : undefined }}>
+        <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
+          {left}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }} accessible accessibilityRole="header" accessibilityLabel={profile.is_private ? `${profile.username}, private account` : profile.username}>
+            {profile.is_private ? <Icon name="lock" size={15} color={onBand2} weight={2.2} /> : null}
+            <Text numberOfLines={1} style={{ color: onBand, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{profile.username}</Text>
+          </View>
+          {right}
         </View>
-        {right}
       </View>
       <PostGrid
         posts={profile.is_blocked || locked ? [] : list}

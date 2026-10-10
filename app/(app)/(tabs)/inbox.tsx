@@ -14,6 +14,20 @@ import type { Profile, Thread } from '../../../src/lib/types';
 /** A chat, or the one row that offers a first chat with Erha when there is none yet. */
 type Item = { kind: 'thread'; t: Thread } | { kind: 'erha' };
 
+/** Streaks only show from three days, so a couple of quick replies don't light a flame. */
+const STREAK_FROM = 3;
+const FLAME = '#ff8a3d';
+
+/** The small flame and day count next to a name. Tapping it says what it means. */
+function StreakBadge({ days, onPress }: { days: number; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${days}-day streak`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 2, opacity: pressed ? 0.6 : 1 })}>
+      <Icon name="flame" size={14} color={FLAME} />
+      <Text style={{ color: C.fg2, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] }}>{days}</Text>
+    </Pressable>
+  );
+}
+
 export default function Inbox() {
   const { me, profile } = useSession();
   const router = useRouter();
@@ -127,7 +141,7 @@ export default function Inbox() {
   const items: Item[] = shown.map((t) => ({ kind: 'thread', t }));
   if (offerErha && (!needle || 'erha'.includes(needle))) items.push({ kind: 'erha' });
 
-  const rowStyle = ({ pressed }: { pressed: boolean }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' });
+  const rowStyle = ({ pressed }: { pressed: boolean }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? C.press : 'transparent' });
 
   return (
     <Screen>
@@ -158,6 +172,8 @@ export default function Inbox() {
             );
           }
           const t = item.t;
+          // Older saved copies of the list may not carry a streak yet.
+          const streak = t.streak ?? 0;
           return (
             <Pressable onPress={() => router.push(`/chat/${t.id}`)} onLongPress={() => options(t)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={`Chat with ${t.full_name}`} accessibilityHint="Touch and hold for options" style={rowStyle}>
               <Avatar uri={t.avatar_url} name={t.full_name} size={56} />
@@ -165,6 +181,7 @@ export default function Inbox() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: t.unread_count ? '700' : '400', flexShrink: 1 }}>{t.full_name}</Text>
                   {t.verified ? <VerifiedTick size={14} /> : null}
+                  {streak >= STREAK_FROM ? <StreakBadge days={streak} onPress={() => toast(`${streak}-day streak: you've both written every day`)} /> : null}
                 </View>
                 <Text numberOfLines={1} style={{ color: t.unread_count ? C.fg : C.fg2, fontSize: 14, fontWeight: t.unread_count ? '700' : '400' }}>
                   {t.unread_count > 1 ? `${t.unread_count} new messages` : t.last_message} · {ago(t.last_message_at)}

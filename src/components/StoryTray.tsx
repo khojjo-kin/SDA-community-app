@@ -36,10 +36,11 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
 
   /** Holding "Your story" offers the two things you can start from here. */
   function storyMenu() {
+    // Members under 14 cannot broadcast live, so they are only offered a story.
     Alert.alert('Your story', undefined, [
       { text: 'Add to story', onPress: () => router.push('/add-story') },
-      { text: 'Go live', onPress: () => router.push('/go-live') },
-      { text: 'Cancel', style: 'cancel' },
+      ...(profile?.restricted ? [] : [{ text: 'Go live', onPress: () => router.push('/go-live') }]),
+      { text: 'Cancel', style: 'cancel' as const },
     ]);
   }
 

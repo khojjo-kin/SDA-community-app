@@ -172,7 +172,7 @@ export default function PodNew() {
               {cover ? <Image source={{ uri: cover.uri }} style={{ width: 112, height: 112 }} contentFit="cover" accessibilityIgnoresInvertColors /> : <Icon name={song ? 'music' : 'podcast'} size={38} color={C.fg2} />}
               {cover ? (
                 <View style={{ position: 'absolute', right: 6, bottom: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(11,16,20,0.8)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="camera" size={15} />
+                  <Icon name="camera" size={15} color="#ffffff" />
                 </View>
               ) : null}
             </Pressable>

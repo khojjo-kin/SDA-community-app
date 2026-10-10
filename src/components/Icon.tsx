@@ -156,9 +156,13 @@ export function Icon({ name, size = 24, color = C.fg, fill = false, weight = 1.9
   return <SvgXml xml={xml} width={size} height={size} />;
 }
 
-/** The app's logo: the church's mark in white. A plain picture, so it needs nothing beyond React Native to draw. */
-export function Mark({ size = 64 }: { size?: number }) {
-  return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
+/**
+ * The app's logo: the church's mark. A plain picture, so it needs nothing beyond React Native to draw.
+ * The file is white; it is tinted the theme's text colour (it would vanish on White), or `color`, such
+ * as '#fff' on screens that are dark in every theme.
+ */
+export function Mark({ size = 64, color = C.fg }: { size?: number; color?: string }) {
+  return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size, tintColor: color }} accessibilityIgnoresInvertColors />;
 }
 
 /** The verified tick shown next to a verified account's name. */

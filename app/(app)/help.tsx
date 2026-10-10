@@ -24,7 +24,15 @@ const QA: { q: string; a: string }[] = [
   },
   {
     q: 'What is Community Plus and how do I get it?',
-    a: `Plus is ${PRICE} a month, arranged through your local church so your contribution stays with your church. It gives you the verified tick, Erha without limits, app fonts, chat wallpapers, profile viewers, read receipts off, boosted posts and sharing on Pod. Ask for it under Settings, then Community Plus: an admin activates it once your church confirms.`,
+    a: `Plus is ${PRICE} a month. It gives you Erha without limits, app fonts, chat wallpapers, your own ring colour and profile theme, custom highlight covers, profile viewers, read receipts off, quick support and sharing on Pod. Subscribe under Settings, then Community Plus, with a card or Apple Pay; you can cancel at any time.`,
+  },
+  {
+    q: 'How do I get the blue tick?',
+    a: 'The blue tick shows an account is who it says it is. It is free and cannot be bought: go to Settings, then Request verification, and send a photo of an ID document and a selfie. An admin checks them, and the photos are deleted once your request is decided.',
+  },
+  {
+    q: 'How do ads and fundraisers work?',
+    a: 'Any post of yours can be promoted from its menu: you choose how many days, pay by card or Apple Pay, and it shows as Sponsored at the top of For you and Explore. Fundraisers go on your profile; set up payouts under Settings, then Fundraisers and payouts, and gifts go straight to your own account. The app takes nothing from them.',
   },
   {
     q: 'What is Erha?',
@@ -48,16 +56,17 @@ const QA: { q: string; a: string }[] = [
   },
 ];
 
-const STATUS: Record<SupportTicket['status'], { label: string; color: string; bg: string }> = {
-  open: { label: 'Open', color: C.close, bg: 'rgba(61,139,255,0.14)' },
-  answered: { label: 'Answered', color: C.accent2, bg: 'rgba(31,191,90,0.14)' },
-  closed: { label: 'Closed', color: C.fg2, bg: C.surface2 },
-};
+/** A function, not a table, so the colours are read from the theme in use when it is drawn. */
+function statusLook(status: SupportTicket['status']): { label: string; color: string; bg: string } {
+  if (status === 'open') return { label: 'Open', color: C.close, bg: C.close + '24' };
+  if (status === 'answered') return { label: 'Answered', color: C.accent2, bg: C.accentSoft };
+  return { label: 'Closed', color: C.fg2, bg: C.surface2 };
+}
 
 function Question({ q, a, open, onPress, first }: { q: string; a: string; open: boolean; onPress: () => void; first: boolean }) {
   return (
     <View style={{ borderTopWidth: first ? 0 : 1, borderTopColor: C.line }}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={q} accessibilityState={{ expanded: open }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={q} accessibilityState={{ expanded: open }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: pressed ? C.press : 'transparent' })}>
         <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: open ? '700' : '500', lineHeight: 21 }}>{q}</Text>
         <Icon name={open ? 'down' : 'right'} size={16} color={C.fg2} weight={2} />
       </Pressable>
@@ -106,7 +115,7 @@ export default function Help() {
           <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{tickets === null ? 'Loading your tickets.' : 'Nothing sent yet. When you message support, your ticket and the reply appear here.'}</Text>
         ) : (
           tickets.map((t) => {
-            const s = STATUS[t.status];
+            const s = statusLook(t.status);
             return (
               <View key={t.id} style={{ marginHorizontal: 16, marginBottom: 10, padding: 14, borderRadius: 16, backgroundColor: C.surface, gap: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

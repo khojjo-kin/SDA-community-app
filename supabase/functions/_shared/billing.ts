@@ -166,12 +166,18 @@ export async function settlePaymentIntent(db: SupabaseClient, pi: any) {
 
   if (kind === 'ad') {
     const { data: promo } = await db.from('community_promotions').select('*').eq('payment_intent_id', pi.id).maybeSingle();
-    if (promo && promo.status === 'pending') {
-      const { data: post } = await db.from('community_posts').select('boosted_until').eq('id', promo.post_id).maybeSingle();
-      const from = post?.boosted_until && new Date(post.boosted_until) > new Date() ? new Date(post.boosted_until) : new Date();
-      const ends = new Date(from.getTime() + promo.days * 86400e3);
-      await db.from('community_promotions').update({ status: 'active', starts_at: new Date().toISOString(), ends_at: ends.toISOString() }).eq('id', promo.id);
-      if (promo.post_id) await db.from('community_posts').update({ boosted_until: ends.toISOString() }).eq('id', promo.post_id);
+    // 'failed' too: a card declined first and then accepted on the same payment (Apple Pay retries) still runs the ad.
+    if (promo && (promo.status === 'pending' || promo.status === 'failed')) {
+      // The app and the webhook settle the same payment at nearly the same moment: only the one that
+      // moves the ad out of pending/failed goes on to add its days, so they are never added twice.
+      const { data: claimed } = await db.from('community_promotions').update({ status: 'active', starts_at: new Date().toISOString() }).eq('id', promo.id).in('status', ['pending', 'failed']).select('id');
+      if (claimed?.length) {
+        const { data: post } = await db.from('community_posts').select('boosted_until').eq('id', promo.post_id).maybeSingle();
+        const from = post?.boosted_until && new Date(post.boosted_until) > new Date() ? new Date(post.boosted_until) : new Date();
+        const ends = new Date(from.getTime() + promo.days * 86400e3);
+        await db.from('community_promotions').update({ ends_at: ends.toISOString() }).eq('id', promo.id);
+        if (promo.post_id) await db.from('community_posts').update({ boosted_until: ends.toISOString() }).eq('id', promo.post_id);
+      }
     }
   } else {
     await db.from('community_donations').update({ status: 'succeeded' }).eq('payment_intent_id', pi.id).neq('status', 'refunded');

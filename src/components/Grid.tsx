@@ -21,17 +21,17 @@ export function GridCell({ post, size }: { post: Post; size: number }) {
       {uri ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={120} /> : null}
       {video ? (
         <View style={{ position: 'absolute', right: 6, top: 6 }}>
-          <Icon name="reels" size={18} />
+          <Icon name="reels" size={18} color="#fff" />
         </View>
       ) : post.media.length > 1 ? (
         <View style={{ position: 'absolute', right: 6, top: 6 }}>
-          <Icon name="copy" size={18} />
+          <Icon name="copy" size={18} color="#fff" />
         </View>
       ) : null}
       {video && post.view_count ? (
         <View style={{ position: 'absolute', left: 6, bottom: 5, flexDirection: 'row', alignItems: 'center', gap: 3 }} accessibilityLabel={`${post.view_count} views`}>
-          <Icon name="play" size={13} />
-          <Text style={{ color: C.fg, fontSize: 12.5, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{fmt(post.view_count)}</Text>
+          <Icon name="play" size={13} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{fmt(post.view_count)}</Text>
         </View>
       ) : null}
     </Pressable>

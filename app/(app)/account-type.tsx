@@ -71,7 +71,7 @@ export default function AccountType() {
                 })}
               </View>
               <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-                <TextInput value={category} onChangeText={setCategory} placeholder="Or type your own" placeholderTextColor={C.fg3} maxLength={40} keyboardAppearance="dark" style={{ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Category" />
+                <TextInput value={category} onChangeText={setCategory} placeholder="Or type your own" placeholderTextColor={C.fg3} maxLength={40} keyboardAppearance={C.blurTint} style={{ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Category" />
               </View>
             </>
           ) : null}

@@ -3,11 +3,12 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
 import { Icon, IconName } from '../../../src/components/Icon';
+import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
-import { Empty, IconButton, Loading, useToast } from '../../../src/components/ui';
+import { IconButton, useToast } from '../../../src/components/ui';
 import { addStory, addToHighlight, createHighlight, deleteStory, fetchArchive } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
-import { C, dayLabel, errText } from '../../../src/lib/theme';
+import { DARK, dayLabel, errText } from '../../../src/lib/theme';
 import type { ArchivedStory } from '../../../src/lib/types';
 
 function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
@@ -114,11 +115,12 @@ export default function ArchivedStories() {
     ctx.resume();
   }
 
-  if (entries === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><Loading /></View>;
+  if (entries === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><DarkStatusBar /><DarkLoading /></View>;
   if (!entries.length) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <Empty title="Nothing in your archive" body="Stories you share are kept here." />
+        <DarkStatusBar />
+        <DarkEmpty title="Nothing in your archive" body="Stories you share are kept here." />
         <View style={{ position: 'absolute', top: 60, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
@@ -128,6 +130,7 @@ export default function ArchivedStories() {
 
   return (
     <>
+      <DarkStatusBar />
       <StoryPlayer
         groups={[{ key: 'archive', user_id: me, username: profile?.username ?? '', avatar_url: profile?.avatar_url ?? '', entries }]}
         startEntry={start}
@@ -137,7 +140,7 @@ export default function ArchivedStories() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13.5 }}>{dayLabel(new Date(ctx.entry.created_at))}</Text>
             {ctx.entry.audience === 'close_friends' ? (
-              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
+              <View accessibilityLabel="Shared with close friends" style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: DARK.close, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="star" size={13} color="#fff" fill />
               </View>
             ) : null}

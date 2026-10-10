@@ -33,7 +33,7 @@ export function HighlightPicker({ visible, onClose, onPick }: { visible: boolean
       ) : (
         <ScrollView style={{ maxHeight: 260 }} keyboardShouldPersistTaps="handled">
           {list.map((h) => (
-            <Pressable key={h.id} onPress={() => onPick({ id: h.id, title: h.title })} accessibilityRole="button" accessibilityLabel={`Add to ${h.title}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+            <Pressable key={h.id} onPress={() => onPick({ id: h.id, title: h.title })} accessibilityRole="button" accessibilityLabel={`Add to ${h.title}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
               {h.cover_url ? (
                 <Image source={{ uri: h.cover_url }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.surface2 }} contentFit="cover" />
               ) : (
@@ -48,7 +48,7 @@ export function HighlightPicker({ visible, onClose, onPick }: { visible: boolean
         </ScrollView>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12 }}>
-        <TextInput value={title} onChangeText={setTitle} placeholder="New highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance="dark" returnKeyType="done" onSubmitEditing={() => { if (title.trim()) onPick({ title: title.trim() }); }} style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="New highlight name" />
+        <TextInput value={title} onChangeText={setTitle} placeholder="New highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" onSubmitEditing={() => { if (title.trim()) onPick({ title: title.trim() }); }} style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="New highlight name" />
         <Button small label="Create" disabled={!title.trim()} onPress={() => onPick({ title: title.trim() })} style={{ height: 44 }} />
       </View>
     </Sheet>

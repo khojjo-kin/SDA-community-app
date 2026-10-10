@@ -115,7 +115,7 @@ export default function Explore() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 }}>
         <Pressable onPress={() => input.current?.focus()} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 40, borderRadius: 20, backgroundColor: C.surface }}>
           <Icon name="search" size={18} color={C.fg2} weight={2.2} />
-          <TextInput ref={input} value={q} onChangeText={setQ} onFocus={() => setSearching(true)} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" keyboardAppearance="dark" accessibilityLabel="Search people" />
+          <TextInput ref={input} value={q} onChangeText={setQ} onFocus={() => setSearching(true)} placeholder="Search" placeholderTextColor={C.fg3} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 0 }} autoCapitalize="none" autoCorrect={false} returnKeyType="search" keyboardAppearance={C.blurTint} accessibilityLabel="Search people" />
         </Pressable>
         {searching ? (
           <Pressable onPress={cancel} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel search">

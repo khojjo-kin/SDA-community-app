@@ -48,7 +48,7 @@ export default function CameraSettings() {
 
   const done = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const side = (value: 'left' | 'right', label: string) => (
-    <Pressable onPress={() => setPrefs({ toolsSide: value })} accessibilityRole="radio" accessibilityState={{ checked: prefs.toolsSide === value }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={() => setPrefs({ toolsSide: value })} accessibilityRole="radio" accessibilityState={{ checked: prefs.toolsSide === value }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>{label}</Text>
       <Radio on={prefs.toolsSide === value} />
     </Pressable>
@@ -56,7 +56,7 @@ export default function CameraSettings() {
 
   return (
     <Screen>
-      <ScreenHeader title="Camera settings" noBack right={<RoundButton name="check" label="Done" bg={C.accent} color="#fff" onPress={done} />} />
+      <ScreenHeader title="Camera settings" noBack right={<RoundButton name="check" label="Done" bg={C.accent} color={C.onAccent} onPress={done} />} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <Row icon="story" title="Story" onPress={() => router.push('/story-settings')} />
         <Row icon="reels" title="Reels" onPress={() => router.push('/reel-settings')} />

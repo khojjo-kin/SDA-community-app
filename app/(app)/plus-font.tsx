@@ -43,7 +43,7 @@ export default function PlusFont() {
                 accessibilityRole="radio"
                 accessibilityLabel={`${f.name}. ${f.sample}`}
                 accessibilityState={{ checked: on }}
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={{ color: C.fg, fontSize: 19, fontWeight: '700', fontFamily: f.bold || undefined }}>{f.name}</Text>
                   <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, fontFamily: f.regular || undefined }}>{f.sample}</Text>

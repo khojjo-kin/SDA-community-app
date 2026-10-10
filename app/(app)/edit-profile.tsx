@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Icon } from '../../src/components/Icon';
+import { Icon, IconName } from '../../src/components/Icon';
 import { Avatar, Button, Divider, Field, Radio, RoundButton, Screen, Sheet, Toggle, useToast } from '../../src/components/ui';
 import { fetchChurch, updateProfile, uploadImage } from '../../src/lib/api';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
+import { profileTheme, RING_STYLES } from '../../src/lib/styling';
 import { C, errText } from '../../src/lib/theme';
 
 const GENDERS = ['Female', 'Male', 'Custom', 'Prefer not to say'] as const;
@@ -21,20 +22,21 @@ function Line({ label, value, onChangeText, placeholder, multiline, ...rest }: T
         placeholder={placeholder ?? label}
         placeholderTextColor={C.fg3}
         multiline={multiline}
-        keyboardAppearance="dark"
+        keyboardAppearance={C.blurTint}
         selectionColor={C.accent2}
         accessibilityLabel={label}
         {...rest}
-        style={{ flex: 1, color: C.fg, fontSize: 16.5, paddingVertical: 12, paddingRight: 16, minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2c3138', textAlignVertical: multiline ? 'top' : 'center' }}
+        style={{ flex: 1, color: C.fg, fontSize: 16.5, paddingVertical: 12, paddingRight: 16, minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, textAlignVertical: multiline ? 'top' : 'center' }}
       />
     </View>
   );
 }
 
 /** A line that opens something else, showing the current value on the right. */
-function Pick({ label, value, sub, onPress, accent }: { label: string; value?: string; sub?: string; onPress: () => void; accent?: React.ReactNode }) {
+function Pick({ label, value, sub, onPress, accent, icon }: { label: string; value?: string; sub?: string; onPress: () => void; accent?: React.ReactNode; icon?: IconName }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 54, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 54, backgroundColor: pressed ? C.press : 'transparent' })}>
+      {icon ? <View style={{ marginRight: 14 }}><Icon name={icon} size={24} color={C.fg} /></View> : null}
       <View style={{ flex: 1, paddingVertical: sub ? 10 : 0 }}>
         <Text style={{ color: C.fg, fontSize: 16.5 }}>{label}</Text>
         {sub ? <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2 }}>{sub}</Text> : null}
@@ -62,9 +64,19 @@ function Switch({ label, sub, value, onChange, disabled, onPress }: { label: str
   const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, minHeight: 54 };
   if (!onPress) return <View style={style}>{body}</View>;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [style, { backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
       {body}
     </Pressable>
+  );
+}
+
+/** Marks a line as a Community Plus perk. */
+function PlusLabel() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.surface2, marginRight: 10 }}>
+      <Icon name="crown" size={12} color={C.close} weight={2.2} />
+      <Text style={{ color: C.close, fontSize: 12, fontWeight: '700' }}>Plus</Text>
+    </View>
   );
 }
 
@@ -83,6 +95,8 @@ export default function EditProfile() {
   const [phone, setPhone] = useState(profile?.contact_phone ?? '');
   const [church, setChurch] = useState<{ id: string | null; name: string }>({ id: profile?.church_id ?? null, name: profile?.church_name ?? '' });
   const [isPrivate, setIsPrivate] = useState(!!profile?.is_private);
+  // Members under 14 are always private: the switch shows on and can't be moved.
+  const restricted = profile?.restricted === true;
   const [readReceipts, setReadReceipts] = useState(profile ? profile.read_receipts !== false : true);
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [sheet, setSheet] = useState<'gender' | 'contact' | 'links' | null>(null);
@@ -132,7 +146,7 @@ export default function EditProfile() {
         contact_email: email.trim().slice(0, 200),
         contact_phone: phone.trim().slice(0, 40),
         church_id: church.id,
-        is_private: isPrivate,
+        is_private: restricted || isPrivate,
         read_receipts: readReceipts,
       };
       if (photo) patch.avatar_url = (await uploadImage(me, photo.uri, photo.width, 480)).url;
@@ -170,7 +184,7 @@ export default function EditProfile() {
           <Line label="Pronouns" value={pronouns} onChangeText={setPronouns} maxLength={40} autoCapitalize="none" />
           <Line label="Bio" value={bio} onChangeText={setBio} maxLength={500} multiline />
 
-          <Pick label="Links" sub={website.trim() || 'Add a website'} onPress={() => setSheet('links')} accent={!website.trim() ? <View style={{ height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: C.accent, justifyContent: 'center', marginRight: 10 }}><Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>New</Text></View> : null} />
+          <Pick label="Links" sub={website.trim() || 'Add a website'} onPress={() => setSheet('links')} accent={!website.trim() ? <View style={{ height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: C.accent, justifyContent: 'center', marginRight: 10 }}><Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 13 }}>New</Text></View> : null} />
           <Pick label="Gender" value={gender || 'Gender'} onPress={() => setSheet('gender')} />
           <Pick label="Church" sub={church.name || 'Choose your home church'} onPress={() => router.push({ pathname: '/churches', params: { pick: '1' } } as any)} />
 
@@ -182,7 +196,20 @@ export default function EditProfile() {
           <Pick label="Contact options" value={contact ? `${contact} added` : undefined} onPress={() => setSheet('contact')} />
           <Pick label="Action buttons" value={profile?.faq_enabled ? 'Questions on' : 'None active'} onPress={() => router.push('/faq')} />
           <Pick label="Profile display" value={profile?.show_view_counts ? 'View counts on' : 'View counts off'} onPress={() => router.push('/view-counts')} />
-          <Switch label="Private account" sub="Only people you approve can see your posts and stories" value={isPrivate} onChange={setIsPrivate} />
+          <Pick
+            icon="palette"
+            label="Profile style"
+            sub={profile?.plus ? `${RING_STYLES.find((r) => r.id === (profile.ring_color ?? ''))?.label ?? 'Green'} ring · ${profileTheme(profile.profile_theme).label} theme` : 'Your ring colour and profile theme'}
+            onPress={() => router.push('/profile-style')}
+            accent={<PlusLabel />}
+          />
+          <Switch
+            label="Private account"
+            sub={restricted ? 'Only people you approve can see your posts and stories. Accounts of members under 14 stay private.' : 'Only people you approve can see your posts and stories'}
+            value={restricted || isPrivate}
+            onChange={setIsPrivate}
+            disabled={restricted}
+          />
           <Switch
             label="Read receipts"
             sub="Let people see when you have read their messages"

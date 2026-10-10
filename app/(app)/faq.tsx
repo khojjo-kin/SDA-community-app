@@ -72,7 +72,7 @@ export default function FaqScreen() {
         ) : (
           <>
             {list.map((f) => (
-              <Pressable key={f.id} onPress={() => setEditing({ id: f.id, question: f.question, answer: f.answer })} accessibilityRole="button" accessibilityLabel={`Edit question: ${f.question}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              <Pressable key={f.id} onPress={() => setEditing({ id: f.id, question: f.question, answer: f.answer })} accessibilityRole="button" accessibilityLabel={`Edit question: ${f.question}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: C.fg, fontSize: 17 }}>{f.question}</Text>
                   <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 2 }}>{f.answer || 'No automatic answer. You reply yourself.'}</Text>

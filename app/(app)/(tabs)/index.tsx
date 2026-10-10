@@ -6,7 +6,7 @@ import { FeedSwitch } from '../../../src/components/FeedSwitch';
 import { PostCard } from '../../../src/components/PostCard';
 import { StoryTray } from '../../../src/components/StoryTray';
 import { Button, Empty, ErrorNote, IconButton, Loading, Screen } from '../../../src/components/ui';
-import { countUnreadNotices, fetchExplore, fetchFeed, FeedKind, recordView } from '../../../src/lib/api';
+import { countUnreadNotices, fetchExplore, fetchFeed, recordView } from '../../../src/lib/api';
 import { getActivePost, setActivePost } from '../../../src/lib/autoplay';
 import { cacheKey, peekCache, readCache, writeCache } from '../../../src/lib/cache';
 import { prefetchLibrary } from '../../../src/lib/library';
@@ -15,21 +15,23 @@ import { getPostNow, listen, putPosts } from '../../../src/lib/store';
 import { C, errText } from '../../../src/lib/theme';
 import type { Post } from '../../../src/lib/types';
 
-const FEEDS: readonly { key: FeedKind; label: string }[] = [
+/** Home offers only these two feeds; the API's other kinds aren't shown here. */
+type HomeFeed = 'foryou' | 'following';
+
+const FEEDS: readonly { key: HomeFeed; label: string }[] = [
   { key: 'foryou', label: 'For you' },
   { key: 'following', label: 'Following' },
-  { key: 'subscribers', label: 'Subscribers' },
 ];
 
 /** The feed last chosen in this session. Null until someone picks one, so the default can depend on who they follow. */
-let chosenFeed: FeedKind | null = null;
+let chosenFeed: HomeFeed | null = null;
 
 /** The first page of a feed as it was last shown, kept so the feed opens at once next time. */
 type CachedFeed = { posts: Post[]; suggested: boolean };
 const CACHED_POSTS = 12;
 /** How many of the first posts have their pictures fetched before they scroll into view. */
 const PREFETCH_IMAGES = 4;
-const feedKey = (me: string, kind: FeedKind) => cacheKey(me, `feed.${kind}`);
+const feedKey = (me: string, kind: HomeFeed) => cacheKey(me, `feed.${kind}`);
 
 /** The picture a post shows first: the photo, or a video's cover. */
 function firstPicture(p: Post): string | undefined {
@@ -41,7 +43,7 @@ function firstPicture(p: Post): string | undefined {
 export default function Home() {
   const { me, profile } = useSession();
   const router = useRouter();
-  const [kind, setKindState] = useState<FeedKind>(() => chosenFeed ?? ((profile?.following_count ?? 0) > 0 ? 'following' : 'foryou'));
+  const [kind, setKindState] = useState<HomeFeed>(() => chosenFeed ?? ((profile?.following_count ?? 0) > 0 ? 'following' : 'foryou'));
   // A first page already in memory from earlier in this session shows on the very first frame.
   const [seed] = useState(() => peekCache<CachedFeed>(feedKey(me, kind)));
   const [ids, setIds] = useState<string[]>(() => (seed ? seed.posts.map((p) => p.id).filter((id) => getPostNow(id)) : []));
@@ -186,7 +188,7 @@ export default function Home() {
     }, []),
   );
 
-  const setKind = (next: FeedKind) => {
+  const setKind = (next: HomeFeed) => {
     if (next === kind) return;
     chosenFeed = next;
     // Whatever the old feed still had on its way belongs to it, not to this one.
@@ -211,12 +213,9 @@ export default function Home() {
     router.push('/create');
   };
 
-  const empty =
-    kind === 'subscribers' ? (
-      <Empty icon="crown" title="Nothing from Plus members yet" body="Posts from Community Plus members will appear here. Switch to For you to see everyone." action={<Button small kind="ghost" label="Switch to For you" onPress={() => setKind('foryou')} style={{ marginTop: 8 }} />} />
-    ) : (
-      <Empty icon="image" title="Welcome to Community" body="Nobody has posted yet. Share the first photo, or find people to follow." action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label="Share a photo" onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label="Find people" onPress={() => router.push('/explore')} /></View>} />
-    );
+  const empty = (
+    <Empty icon="image" title="Welcome to Community" body="Nobody has posted yet. Share the first photo, or find people to follow." action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label="Share a photo" onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label="Find people" onPress={() => router.push('/explore')} /></View>} />
+  );
 
   return (
     <Screen>

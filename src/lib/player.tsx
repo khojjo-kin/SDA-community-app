@@ -258,8 +258,16 @@ export function useProgress(): Progress {
 let engines = 0;
 
 /**
- * Owns the expo-audio player. Mount it exactly once, somewhere that never unmounts while the app is open (the tabs layout).
- * A second copy does nothing, so a stray mount cannot start a duplicate sound.
+ * The track the engine last loaded, and for which load (the store's loadToken). It outlives the engine:
+ * the tab bar it sits in is put back after a theme change, and the new engine uses this to tell that
+ * remount apart from a request for a fresh start. The position to carry on from is `progress.position`.
+ */
+let engineTrack: { id: string; token: number } | null = null;
+
+/**
+ * Owns the expo-audio player. Mount it exactly once, somewhere that stays while the app is open (the tabs layout).
+ * A second copy does nothing, so a stray mount cannot start a duplicate sound. When that place is drawn again
+ * (a theme change does this), the new engine picks the track up where the old one left it: see `engineTrack`.
  */
 export function PlayerEngine() {
   const [primary, setPrimary] = useState(false);
@@ -283,6 +291,8 @@ function Engine() {
   /** Which track the native player holds, so a status from the old file is not read as the new one's. */
   const loadedId = useRef<string | null>(null);
   const loadedAt = useRef(0);
+  /** Set after a remount: where to put the track back to once the file is in, before it may play. */
+  const resumeAt = useRef<number | null>(null);
 
   // Songs should be heard with the ring switch off, like any music app.
   useEffect(() => {
@@ -322,6 +332,8 @@ function Engine() {
   useEffect(() => {
     try {
       if (!current) {
+        engineTrack = null;
+        resumeAt.current = null;
         // Nothing to play: fall silent. The old file stays loaded natively, which is cheaper and safer than swapping in nothing.
         if (loadedId.current === null) return;
         loadedId.current = null;
@@ -329,9 +341,18 @@ function Engine() {
         player.seekTo(0).catch(() => {});
         return;
       }
+      // The same load an earlier engine already made: this engine is a remount (the tab bar is drawn
+      // again after a theme change), not a new start. Carry on from where it was, and don't count a play.
+      const resuming = engineTrack?.id === current.id && engineTrack.token === snap.loadToken;
+      engineTrack = { id: current.id, token: snap.loadToken };
       loadedId.current = current.id;
       loadedAt.current = Date.now();
       player.replace({ uri: current.audio_url });
+      if (resuming) {
+        resumeAt.current = progress.position;
+        return;
+      }
+      resumeAt.current = null;
       if (playingRef.current) player.play();
       recordPodPlay(current.id);
     } catch {
@@ -342,7 +363,8 @@ function Engine() {
 
   // Follow the play/pause intent.
   useEffect(() => {
-    if (!current) return;
+    // While a remount puts the track back in place, playing waits for that (the effect below starts it).
+    if (!current || resumeAt.current !== null) return;
     try {
       if (snap.playing) player.play();
       else player.pause();
@@ -351,6 +373,28 @@ function Engine() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap.playing, player]);
+
+  // After a remount, once the file is in: back to where the last engine was, then play only if it was playing.
+  useEffect(() => {
+    const at = resumeAt.current;
+    if (at === null || !status.isLoaded || !current || loadedId.current !== current.id) return;
+    resumeAt.current = null;
+    lastSeek = { at: Date.now(), to: at };
+    const id = current.id;
+    const go = () => {
+      try {
+        if (playingRef.current && loadedId.current === id && resumeAt.current === null) player.play();
+      } catch {
+        // released
+      }
+    };
+    try {
+      player.seekTo(at).then(go, go);
+    } catch {
+      // released
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.isLoaded, player]);
 
   // Report where we are.
   useEffect(() => {
@@ -361,6 +405,8 @@ function Engine() {
     let position = status.isLoaded && Number.isFinite(status.currentTime) ? status.currentTime : 0;
     // A seek takes a moment to land; until it does, keep showing where the person put the handle.
     if (Date.now() - lastSeek.at < 1200 && Math.abs(position - lastSeek.to) > 1.5) position = lastSeek.to;
+    // Still putting the track back after a remount: keep showing where it was, not the new player's 0:00.
+    if (resumeAt.current !== null) position = resumeAt.current;
     setProgress({
       position,
       duration,

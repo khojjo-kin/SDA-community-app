@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, Text, TextInput, View } from 'react-native';
-import { C, fmt } from '../lib/theme';
+import { DARK, fmt } from '../lib/theme';
 import { Icon, VerifiedTick } from './Icon';
 import { LIVE_RED, LiveBadge } from './LiveBadge';
 import { Avatar } from './ui';
@@ -151,7 +151,7 @@ export function LiveComposer({ onSend, onHeart, placeholder = 'Comment…' }: { 
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', paddingLeft: 16, paddingRight: 4, backgroundColor: 'rgba(0,0,0,0.25)' }}>
         <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.7)" style={{ flex: 1, color: '#fff', fontSize: 15, paddingVertical: 0 }} returnKeyType="send" onSubmitEditing={submit} blurOnSubmit={false} maxLength={200} keyboardAppearance="dark" accessibilityLabel="Comment" />
         {text.trim() ? (
-          <Pressable onPress={submit} hitSlop={6} accessibilityRole="button" accessibilityLabel="Send comment" style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: C.accent, opacity: pressed ? 0.7 : 1 })}>
+          <Pressable onPress={submit} hitSlop={6} accessibilityRole="button" accessibilityLabel="Send comment" style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: DARK.accent, opacity: pressed ? 0.7 : 1 })}>
             <Icon name="send" size={17} color="#fff" weight={2.2} />
           </Pressable>
         ) : null}

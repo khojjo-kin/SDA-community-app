@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthShell } from '../../src/components/AuthShell';
+import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
+import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
-import { C, errText } from '../../src/lib/theme';
+import { DARK, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -71,35 +72,41 @@ export default function SignUp() {
 
   if (stage === 'verify') {
     return (
-      <AuthShell title={`Enter the code we sent to ${email.trim()}.`}>
-        <Field value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
-        <Button label="Confirm email" onPress={verify} busy={busy} />
-        <Pressable onPress={resend} style={{ padding: 10 }}>
-          <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
-        </Pressable>
-        <Pressable onPress={() => { setStage('form'); setCode(''); setErr(''); }} style={{ padding: 10 }}>
-          <Text style={{ color: C.accent2, textAlign: 'center', fontWeight: '600' }}>Use a different email</Text>
-        </Pressable>
-      </AuthShell>
+      <>
+        <DarkStatusBar />
+        <AuthShell title={`Enter the code we sent to ${email.trim()}.`}>
+          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
+          <Button label="Confirm email" onPress={verify} busy={busy} />
+          <Pressable onPress={resend} style={{ padding: 10 }}>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
+          </Pressable>
+          <Pressable onPress={() => { setStage('form'); setCode(''); setErr(''); }} style={{ padding: 10 }}>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Use a different email</Text>
+          </Pressable>
+        </AuthShell>
+      </>
     );
   }
 
   return (
-    <AuthShell
-      title="Join your church family: share, pray and grow together."
-      footer={
-        <Link href="/sign-in" replace asChild>
-          <Pressable>
-            <Text style={{ color: C.fg2 }}>
-              Have an account? <Text style={{ color: C.accent2, fontWeight: '600' }}>Log in</Text>
-            </Text>
-          </Pressable>
-        </Link>
-      }>
-      <Field value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
-      <Field value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
-      <Button label="Sign up" onPress={create} busy={busy} />
-      <SsoButtons onError={setErr} />
-    </AuthShell>
+    <>
+      <DarkStatusBar />
+      <AuthShell
+        title="Join your church family: share, pray and grow together."
+        footer={
+          <Link href="/sign-in" replace asChild>
+            <Pressable>
+              <Text style={{ color: DARK.fg2 }}>
+                Have an account? <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Log in</Text>
+              </Text>
+            </Pressable>
+          </Link>
+        }>
+        <Field {...DARK_FIELD} value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
+        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
+        <Button label="Sign up" onPress={create} busy={busy} />
+        <SsoButtons onError={setErr} />
+      </AuthShell>
+    </>
   );
 }

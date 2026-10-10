@@ -4,7 +4,7 @@ import type { ListRenderItemInfo, StyleProp, ViewStyle } from 'react-native';
 import { ColorMatrix } from 'react-native-color-matrix-image-filters';
 import { captureRef } from 'react-native-view-shot';
 import { FILTERS, FilterPreset, filterById, isNormal } from '../lib/filters';
-import { C } from '../lib/theme';
+import { DARK } from '../lib/theme';
 
 /* ---------- showing a photo under a filter ---------- */
 
@@ -32,10 +32,10 @@ const SIDE = 16;
 function Thumb({ uri, preset, selected, onPress }: { uri: string; preset: FilterPreset; selected: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${preset.name} filter`} accessibilityState={{ selected }} style={({ pressed }) => ({ width: THUMB, alignItems: 'center', gap: 5, opacity: pressed ? 0.75 : 1 })}>
-      <View style={{ width: THUMB, height: THUMB, borderRadius: 9, overflow: 'hidden', borderWidth: 2, borderColor: selected ? C.accent : 'transparent', backgroundColor: C.surface2 }}>
+      <View style={{ width: THUMB, height: THUMB, borderRadius: 9, overflow: 'hidden', borderWidth: 2, borderColor: selected ? DARK.accent : 'transparent', backgroundColor: DARK.surface2 }}>
         <FilteredImage uri={uri} filterId={preset.id} style={StyleSheet.absoluteFill} />
       </View>
-      <Text numberOfLines={1} style={{ color: selected ? C.accent2 : C.fg2, fontSize: 11.5, fontWeight: selected ? '700' : '500' }}>
+      <Text numberOfLines={1} style={{ color: selected ? DARK.accent2 : DARK.fg2, fontSize: 11.5, fontWeight: selected ? '700' : '500' }}>
         {preset.name}
       </Text>
     </Pressable>

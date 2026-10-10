@@ -1,4 +1,64 @@
-export const C = {
+/*
+ * The app's colours. Three themes are offered in Settings: Dark (the original), White and Green.
+ *
+ * `C` is one object whose values are swapped when the theme changes (applyTheme), and the app is
+ * then drawn again from the top, so every screen must read `C.x` while it renders — never copy a
+ * colour into a module-level constant. Screens that show photos and video full screen (the camera,
+ * the editors, the story viewer, reels, calls and live) stay dark in every theme: they use `DARK`.
+ */
+export type ThemeName = 'dark' | 'white' | 'green';
+
+type Palette = {
+  bg: string;
+  bg2: string;
+  surface: string;
+  surface2: string;
+  line: string;
+  fg: string;
+  fg2: string;
+  fg3: string;
+  /** The app's colour: buttons, links, switches, the "New" pill. */
+  accent: string;
+  /** The same green where it sits as text or a small icon: tuned so it reads on this theme's background. */
+  accent2: string;
+  /** Text and icons drawn on the accent colour (buttons). */
+  onAccent: string;
+  /** A soft wash of the accent, behind an accent icon or a selected row. */
+  accentSoft: string;
+  like: string;
+  ok: string;
+  /** Warnings and "pending" labels. */
+  warn: string;
+  /** Destructive actions. */
+  danger: string;
+  /** The frosted tab bar and player bar, over a blur of this tint. */
+  glass: string;
+  blurTint: 'dark' | 'light';
+  /** Thin borders on frosted and floating things. */
+  hairline: string;
+  /** The wash over a row while a finger is on it. */
+  press: string;
+  /** Behind sheets and dialogs. */
+  scrim: string;
+  /** Bottom sheets. */
+  sheet: string;
+  /** Search fields and the thick bands between settings sections. */
+  field: string;
+  /** Round buttons in screen headers. */
+  round: string;
+  /** The app's green, by name, for places that want it even if the accent ever changes. */
+  green: string;
+  /** Close friends: badges and the ring on a story shared only with them. */
+  close: string;
+  /** The verified tick. */
+  verified: string;
+  /** The message box in a chat. */
+  inputBar: string;
+  /** The phone's status bar text: light on dark themes, dark on White. */
+  statusBar: 'light' | 'dark';
+};
+
+const DARK_PALETTE: Palette = {
   bg: '#0b1014',
   bg2: '#131920',
   surface: '#1b222a',
@@ -7,28 +67,114 @@ export const C = {
   fg: '#f3f5f7',
   fg2: '#a4adb9',
   fg3: '#6d7783',
-  /** The app's colour: buttons, links, switches, the "New" pill. */
   accent: '#1fbf5a',
-  /** The same green where it sits on dark text-sized elements, a little lighter so it reads. */
   accent2: '#4fe08a',
+  onAccent: '#ffffff',
+  accentSoft: 'rgba(31,191,90,0.14)',
   like: '#ff3040',
   ok: '#3ddc84',
+  warn: '#ffc94d',
+  danger: '#ff4d4f',
   glass: 'rgba(40,46,55,0.78)',
-  /** Bottom sheets. */
+  blurTint: 'dark',
+  hairline: 'rgba(255,255,255,0.09)',
+  press: 'rgba(255,255,255,0.05)',
+  scrim: 'rgba(0,0,0,0.55)',
   sheet: '#191b1f',
-  /** Search fields and the thick bands between settings sections. */
   field: '#24292e',
-  /** Round buttons in screen headers. */
   round: '#25282b',
-  /** The app's green, by name, for places that want it even if the accent ever changes. */
   green: '#1fbf5a',
-  /** Close friends: badges and the ring on a story shared only with them. */
   close: '#3d8bff',
-  /** The verified tick. */
   verified: '#3d8bff',
-  /** The message box in a chat. */
   inputBar: '#1c1d1f',
+  statusBar: 'light',
 };
+
+const WHITE_PALETTE: Palette = {
+  bg: '#ffffff',
+  bg2: '#f5f6f7',
+  surface: '#f0f2f4',
+  surface2: '#e4e7eb',
+  line: '#e3e6ea',
+  fg: '#0f1419',
+  fg2: '#57606a',
+  fg3: '#8b939c',
+  accent: '#16a34a',
+  accent2: '#11823b',
+  onAccent: '#ffffff',
+  accentSoft: 'rgba(22,163,74,0.12)',
+  like: '#ed2939',
+  ok: '#16a34a',
+  warn: '#b7791f',
+  danger: '#e0262e',
+  glass: 'rgba(255,255,255,0.82)',
+  blurTint: 'light',
+  hairline: 'rgba(0,0,0,0.08)',
+  press: 'rgba(0,0,0,0.05)',
+  scrim: 'rgba(0,0,0,0.4)',
+  sheet: '#ffffff',
+  field: '#eff1f3',
+  round: '#eef0f2',
+  green: '#1fbf5a',
+  close: '#2f7bf5',
+  verified: '#2f7bf5',
+  inputBar: '#f0f2f4',
+  statusBar: 'dark',
+};
+
+const GREEN_PALETTE: Palette = {
+  bg: '#0c2118',
+  bg2: '#10291e',
+  surface: '#163326',
+  surface2: '#1f4032',
+  line: '#1b3a2c',
+  fg: '#eef7f1',
+  fg2: '#a6c3b3',
+  fg3: '#6e8f7d',
+  accent: '#2fd47a',
+  accent2: '#74eaa8',
+  onAccent: '#06210f',
+  accentSoft: 'rgba(47,212,122,0.16)',
+  like: '#ff4d5e',
+  ok: '#4fe08a',
+  warn: '#ffd166',
+  danger: '#ff5a5f',
+  glass: 'rgba(18,46,34,0.82)',
+  blurTint: 'dark',
+  hairline: 'rgba(255,255,255,0.1)',
+  press: 'rgba(255,255,255,0.06)',
+  scrim: 'rgba(0,0,0,0.55)',
+  sheet: '#123024',
+  field: '#1a3a2c',
+  round: '#1b3b2d',
+  green: '#1fbf5a',
+  close: '#5aa9ff',
+  verified: '#5aa9ff',
+  inputBar: '#143024',
+  statusBar: 'light',
+};
+
+export const PALETTES: Record<ThemeName, Palette> = { dark: DARK_PALETTE, white: WHITE_PALETTE, green: GREEN_PALETTE };
+
+/** The colours in use now. Read at render time; see the note at the top of this file. */
+export const C: Palette = { ...DARK_PALETTE };
+
+/** The dark colours, whatever the theme: for photo and video screens that are always dark. */
+export const DARK: Readonly<Palette> = DARK_PALETTE;
+
+let current: ThemeName = 'dark';
+
+/** The theme in use now. */
+export function themeName(): ThemeName {
+  return current;
+}
+
+/** Switches the colours. The caller redraws the app (the root layout does, keyed on the theme). */
+export function applyTheme(name: ThemeName) {
+  const next = PALETTES[name] ? name : 'dark';
+  Object.assign(C, PALETTES[next]);
+  current = next;
+}
 
 /** Your own chat bubbles. */
 export const BUBBLE = ['#1fbf5a', '#149a62'] as const;

@@ -133,7 +133,7 @@ export default function Insights() {
                     .map((t) => {
                       const thumb = t.media ? (t.media.type === 'video' ? t.media.poster : t.media.url) : undefined;
                       return (
-                        <Pressable key={t.id} onPress={() => router.push(t.kind === 'reel' ? `/watch/${t.id}` : `/post/${t.id}`)} accessibilityRole="button" accessibilityLabel={`${t.kind === 'reel' ? 'Reel' : 'Post'} with ${t.views} views`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+                        <Pressable key={t.id} onPress={() => router.push(t.kind === 'reel' ? `/watch/${t.id}` : `/post/${t.id}`)} accessibilityRole="button" accessibilityLabel={`${t.kind === 'reel' ? 'Reel' : 'Post'} with ${t.views} views`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
                           <Image source={thumb ? { uri: thumb } : undefined} style={{ width: 54, height: 72, borderRadius: 8, backgroundColor: C.surface2 }} contentFit="cover" />
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: C.fg, fontSize: 17, fontWeight: '600' }}>{count(t.views, 'view')}</Text>

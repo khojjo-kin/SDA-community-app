@@ -35,17 +35,19 @@ export type ProfileTheme = {
   accent: string;
   /** Text drawn on the accent colour. */
   onAccent: string;
+  /** The accent on the White app theme, where the pale accents above would not show (white text on it). */
+  lightAccent: string;
 };
 
 export const PROFILE_THEMES: ProfileTheme[] = [
-  { id: '', label: 'Standard', band: [], accent: '#1fbf5a', onAccent: '#ffffff' },
-  { id: 'sabbath', label: 'Sabbath', band: ['#1d2b64'], accent: '#f5c84b', onAccent: '#1a1400' },
-  { id: 'olive', label: 'Olive', band: ['#3f5a1e'], accent: '#9ccc65', onAccent: '#132006' },
-  { id: 'sunrise', label: 'Sunrise', band: ['#ff9a5a', '#5a2333'], accent: '#ff8a4c', onAccent: '#2a0d00' },
-  { id: 'ocean', label: 'Ocean', band: ['#0f4c81'], accent: '#4fb3ff', onAccent: '#001a2c' },
-  { id: 'lavender', label: 'Lavender', band: ['#5b3a8c'], accent: '#c49bff', onAccent: '#1d0b38' },
-  { id: 'rose', label: 'Rose', band: ['#8c2f4f'], accent: '#ff7aa2', onAccent: '#2b0614' },
-  { id: 'midnight', label: 'Midnight', band: ['#000000'], accent: '#e8eaf0', onAccent: '#0b1014' },
+  { id: '', label: 'Standard', band: [], accent: '#1fbf5a', onAccent: '#ffffff', lightAccent: '#16a34a' },
+  { id: 'sabbath', label: 'Sabbath', band: ['#1d2b64'], accent: '#f5c84b', onAccent: '#1a1400', lightAccent: '#a87b05' },
+  { id: 'olive', label: 'Olive', band: ['#3f5a1e'], accent: '#9ccc65', onAccent: '#132006', lightAccent: '#4d7c0f' },
+  { id: 'sunrise', label: 'Sunrise', band: ['#ff9a5a', '#5a2333'], accent: '#ff8a4c', onAccent: '#2a0d00', lightAccent: '#d9480f' },
+  { id: 'ocean', label: 'Ocean', band: ['#0f4c81'], accent: '#4fb3ff', onAccent: '#001a2c', lightAccent: '#1864ab' },
+  { id: 'lavender', label: 'Lavender', band: ['#5b3a8c'], accent: '#c49bff', onAccent: '#1d0b38', lightAccent: '#6f42c1' },
+  { id: 'rose', label: 'Rose', band: ['#8c2f4f'], accent: '#ff7aa2', onAccent: '#2b0614', lightAccent: '#c2255c' },
+  { id: 'midnight', label: 'Midnight', band: ['#000000'], accent: '#e8eaf0', onAccent: '#0b1014', lightAccent: '#111827' },
 ];
 
 export function profileTheme(id: string | null | undefined): ProfileTheme {

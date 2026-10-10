@@ -10,11 +10,24 @@ import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
-/** A line in the list. With `toggle`, it is a switch rather than a link; `href` then only names it for the search. */
-type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string; toggle?: 'read_receipts' };
+/**
+ * A line in the list. With `toggle`, it is a switch rather than a link; with `info`, it is only
+ * words to read. `href` then only names it for the search. `plus` puts a small Plus label on it.
+ */
+type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string; toggle?: 'read_receipts' | 'streaks_enabled'; info?: boolean; plus?: boolean };
 type Section = { label: string; items: Item[] };
 
+/** The small label on a line that is a Community Plus perk. */
+function PlusTag() {
+  return (
+    <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: C.accent }}>
+      <Text style={{ color: C.onAccent, fontSize: 11.5, fontWeight: '700' }}>Plus</Text>
+    </View>
+  );
+}
+
 const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Off' } as const;
+const THEME_LABEL: Record<string, string> = { dark: 'Dark', white: 'White', green: 'Green' };
 
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
@@ -23,13 +36,16 @@ export default function Settings() {
   const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const { appFont } = usePrefs();
+  const { appFont, theme } = usePrefs();
   const [q, setQ] = useState('');
   const [friends, setFriends] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
   // Read receipts: shown at once when tapped, then put back if the save fails.
   const [receipts, setReceipts] = useState(profile?.read_receipts ?? true);
   useEffect(() => { setReceipts(profile?.read_receipts ?? true); }, [profile?.read_receipts]);
+  // Chat streaks, the same way.
+  const [streaks, setStreaks] = useState(profile?.streaks_enabled ?? true);
+  useEffect(() => { setStreaks(profile?.streaks_enabled ?? true); }, [profile?.streaks_enabled]);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,15 +60,42 @@ export default function Settings() {
     updateProfile(me, { read_receipts: next }).then(refresh).catch((e) => { setReceipts(before); toast(errText(e)); });
   }
 
+  function setStreaksEnabled(next: boolean) {
+    const before = streaks;
+    setStreaks(next);
+    updateProfile(me, { streaks_enabled: next }).then(refresh).catch((e) => { setStreaks(before); toast(errText(e)); });
+  }
+
   const creator = profile?.account_type === 'creator';
   const admin = !!profile?.admin_role;
+  // Members under 14: no live broadcasts and no fundraisers, and a few things work differently.
+  const restricted = profile?.restricted === true;
   const plusValue = profile?.plus ? 'Active' : profile?.verified ? 'Verified' : undefined;
   const sections: Section[] = [
+    ...(restricted
+      ? [
+          {
+            label: 'Safety',
+            items: [
+              {
+                icon: 'shield' as IconName,
+                title: 'Under-14 account',
+                sub: "To keep you safe, your account stays private, sensitive posts are hidden, only people you follow can message you, you can only message people you follow, and Live and fundraisers aren't available.",
+                href: '#under-14',
+                words: 'under 14 age young child minor restricted safety private birthday',
+                info: true,
+              },
+            ],
+          },
+        ]
+      : []),
     {
       label: 'Your account',
       items: [
         { icon: 'account', title: 'Account', sub: 'Email, phone, password, other accounts and deleting your account', href: '/account', words: 'email phone password security delete personal details profile add account switch' },
-        { icon: 'verified', title: 'Community Plus', sub: 'The verified tick and more', value: plusValue, href: '/plus', words: 'subscribe subscription verified tick badge premium' },
+        { icon: 'devices', title: 'Login activity', sub: "Where you're logged in", href: '/login-activity', words: 'sessions devices phones logged in log out security sign in where location' },
+        { icon: 'crown', title: 'Community Plus', sub: 'Fonts, wallpapers, profile style and more', value: plusValue, href: '/plus', words: 'subscribe subscription premium plus fonts wallpaper profile style' },
+        ...(profile?.verified ? [] : [{ icon: 'verified' as IconName, title: 'Request verification', sub: 'Get the blue tick with an ID check', href: '/verify', words: 'verify verified blue tick badge id identity check request' }]),
       ],
     },
     ...(profile?.plus
@@ -77,7 +120,6 @@ export default function Settings() {
         { icon: 'lesson', title: 'Sabbath School', sub: "This week's lesson", href: '/sabbath-school', words: 'lesson quarterly study guide' },
         { icon: 'church', title: 'Churches', sub: 'Find churches near you and their members', value: profile?.church_name ?? undefined, href: '/churches', words: 'church near me members find location' },
         { icon: 'users', title: 'Communities and pages', sub: 'Join groups, follow ministries, or start your own', href: '/groups', words: 'groups community page ministry choir youth join create follow' },
-        { icon: 'sparkle', title: 'Erha', sub: 'Your church assistant', href: '/erha', words: 'ai assistant help chat ask' },
       ],
     },
     ...(admin
@@ -100,6 +142,14 @@ export default function Settings() {
         { icon: 'archive', title: 'Archive', href: '/archive', words: 'stories old expired' },
         { icon: 'activity', title: 'Your activity', href: '/activity', words: 'likes comments reposts history' },
         { icon: 'bell', title: 'Notifications', href: '/notifications', words: 'likes follows comments' },
+        {
+          icon: 'flame',
+          title: 'Chat streaks',
+          sub: 'Show how many days in a row you and a friend have chatted. If either of you turns this off, neither sees the streak.',
+          href: '#chat-streaks',
+          words: 'streak flame fire days messages chats in a row',
+          toggle: 'streaks_enabled',
+        },
       ],
     },
     {
@@ -112,21 +162,30 @@ export default function Settings() {
     },
     {
       label: 'Your app and media',
-      items: [{ icon: 'camera', title: 'Story and camera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' }],
+      items: [
+        { icon: 'sun', title: 'Theme', value: THEME_LABEL[theme] ?? 'Dark', href: '/theme', words: 'theme dark light white green colour color mode appearance look' },
+        { icon: 'palette', title: 'Profile style', sub: 'Ring colour and profile theme', href: '/profile-style', words: 'ring colour color theme look profile style customise', plus: true },
+        { icon: 'camera', title: 'Story and camera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' },
+      ],
     },
     {
       label: 'Your insights and tools',
-      items: creator
-        ? [
-            { icon: 'chart', title: 'Dashboard', href: '/dashboard', words: 'insights views followers analytics' },
-            { icon: 'tag', title: 'Creator tools and controls', href: '/creator', words: 'saved reply faq questions view counts category account type' },
-          ]
-        : [{ icon: 'chart', title: 'Account type and tools', sub: 'Switch to a creator account for insights, saved replies and more', href: '/account-type', words: 'creator professional dashboard insights' }],
+      items: [
+        ...(creator
+          ? [
+              { icon: 'chart' as IconName, title: 'Dashboard', href: '/dashboard', words: 'insights views followers analytics' },
+              { icon: 'tag' as IconName, title: 'Creator tools and controls', href: '/creator', words: 'saved reply faq questions view counts category account type' },
+            ]
+          : [{ icon: 'chart' as IconName, title: 'Account type and tools', sub: 'Switch to a creator account for insights, saved replies and more', href: '/account-type', words: 'creator professional dashboard insights' }]),
+        { icon: 'megaphone', title: 'Your ads', href: '/ads', words: 'ads advert advertising promote boost campaign sponsored' },
+        // Fundraisers aren't available to members under 14.
+        ...(restricted ? [] : [{ icon: 'gift' as IconName, title: 'Fundraisers and payouts', href: '/payouts', words: 'fundraiser donations giving money payout bank stripe raise' }]),
+      ],
     },
     {
       label: 'More info and support',
       items: [
-        { icon: 'lifebuoy', title: 'Help and support', sub: 'Common questions, and a line to the admins', href: '/help', words: 'help support contact questions faq ticket email problem' },
+        { icon: 'lifebuoy', title: 'Help and support', sub: 'Common questions and quick support', href: '/help', words: 'help support contact questions faq ticket email problem' },
         { icon: 'info', title: 'About', href: '/about', words: 'version privacy data help' },
       ],
     },
@@ -142,11 +201,17 @@ export default function Settings() {
 
   const needle = q.trim().toLowerCase();
   const matches = needle ? sections.flatMap((s) => s.items).filter((i) => `${i.title} ${i.sub ?? ''} ${i.words ?? ''}`.toLowerCase().includes(needle)) : [];
+  const toggles = {
+    read_receipts: { value: receipts, set: setReadReceipts },
+    streaks_enabled: { value: streaks, set: setStreaksEnabled },
+  };
   const row = (i: Item) =>
-    i.toggle === 'read_receipts' ? (
-      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} right={<Toggle value={receipts} onChange={setReadReceipts} label={i.title} />} />
+    i.toggle ? (
+      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} right={<Toggle value={toggles[i.toggle].value} onChange={toggles[i.toggle].set} label={i.title} />} />
+    ) : i.info ? (
+      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} />
     ) : (
-      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} onPress={() => router.push(i.href as any)} />
+      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} right={i.plus ? <PlusTag /> : undefined} onPress={() => router.push(i.href as any)} />
     );
 
   return (
@@ -172,8 +237,8 @@ export default function Settings() {
               </View>
             ))}
             <SectionLabel>Login</SectionLabel>
-            <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
-              <Text style={{ color: '#ff4d67', fontSize: 17.5 }}>Log out</Text>
+            <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? C.surface : 'transparent' })}>
+              <Text style={{ color: C.danger, fontSize: 17.5 }}>Log out</Text>
             </Pressable>
             <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6 }}>Logged in as {profile?.username}</Text>
           </>

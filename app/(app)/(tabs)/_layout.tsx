@@ -11,7 +11,7 @@ import { prefetchLibrary } from '../../../src/lib/library';
 import { PlayerEngine } from '../../../src/lib/player';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
-import { C } from '../../../src/lib/theme';
+import { C, DARK } from '../../../src/lib/theme';
 
 const ICONS: Record<string, { icon: IconName; label: string }> = {
   index: { icon: 'home', label: 'Home' },
@@ -44,13 +44,15 @@ function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { profile } = useSession();
   const unread = useUnreadThreads();
+  // Over Reels (always black video) the bar stays dark whatever the theme, as the video does.
+  const P = state.routes[state.index]?.name === 'reels' ? DARK : C;
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom - 8, 10), alignItems: 'center', gap: 8 }}>
       {/* Pod's sound lives here, where nothing unmounts it; the bar above the tabs shows once a track is loaded. */}
       <PlayerEngine />
       <NowPlayingBar />
-      <BlurView intensity={50} tint="dark" style={{ width: '92%', maxWidth: 420, height: 64, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' }}>
-        <View style={{ flex: 1, flexDirection: 'row', padding: 6, backgroundColor: C.glass }}>
+      <BlurView intensity={50} tint={P.blurTint} style={{ width: '92%', maxWidth: 420, height: 64, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: P.hairline }}>
+        <View style={{ flex: 1, flexDirection: 'row', padding: 6, backgroundColor: P.glass }}>
           {state.routes.map((route: any, i: number) => {
             const meta = ICONS[route.name];
             if (!meta) return null;
@@ -60,13 +62,13 @@ function TabBar({ state, navigation }: any) {
               if (!on && !e.defaultPrevented) navigation.navigate(route.name, route.params);
             };
             return (
-              <Pressable key={route.key} onPress={press} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={meta.label} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 26, backgroundColor: on ? 'rgba(255,255,255,0.14)' : 'transparent' }}>
+              <Pressable key={route.key} onPress={press} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={meta.label} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 26, backgroundColor: on ? (P.blurTint === 'light' ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.14)') : 'transparent' }}>
                 {route.name === 'profile' ? (
-                  <View style={{ borderRadius: 16, borderWidth: 1.5, borderColor: on ? C.fg : 'transparent' }}>
+                  <View style={{ borderRadius: 16, borderWidth: 1.5, borderColor: on ? P.fg : 'transparent' }}>
                     <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={27} />
                   </View>
                 ) : (
-                  <Icon name={meta.icon} size={26} weight={on ? 2.6 : 1.9} />
+                  <Icon name={meta.icon} size={26} color={P.fg} weight={on ? 2.6 : 1.9} />
                 )}
                 {route.name === 'inbox' && unread ? <View style={{ position: 'absolute', top: 13, right: '28%', width: 9, height: 9, borderRadius: 5, backgroundColor: C.like }} /> : null}
               </Pressable>

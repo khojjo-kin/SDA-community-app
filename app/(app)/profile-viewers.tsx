@@ -74,7 +74,7 @@ export default function ProfileViewers() {
               onPress={() => router.push(`/user/${v.viewer_id}`)}
               accessibilityRole="button"
               accessibilityLabel={`${v.full_name}, ${v.username}, viewed ${ago(v.viewed_at)} ago`}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Avatar uri={v.avatar_url} name={v.full_name} size={50} />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

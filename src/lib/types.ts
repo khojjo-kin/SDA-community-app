@@ -230,6 +230,8 @@ export type AdminStats = {
   groups: number;
   income_pence: number;
   income_month_pence: number;
+  /** Gifts to members' fundraisers (their money, not the app's). */
+  donations_pence?: number;
   deactivated: number;
   members: number;
   members_week: number;

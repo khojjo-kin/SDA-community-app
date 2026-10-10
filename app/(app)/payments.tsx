@@ -74,7 +74,7 @@ export default function Payments() {
                 accessible
                 accessibilityLabel={`${label}, ${money(amount, t.currency)}, ${method}, ${when(t.created_at)}${t.status === 'refunded' ? ', refunded' : t.status === 'failed' ? ', failed' : ''}`}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11 }}>
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.kind === 'plus' ? 'rgba(61,139,255,0.14)' : C.surface, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.kind === 'plus' ? C.close + '24' : C.surface, alignItems: 'center', justifyContent: 'center' }}>
                   {t.kind === 'plus' && !refund ? <Icon name="crown" size={21} color={C.close} weight={2.1} /> : <Icon name={refund ? 'undo' : t.kind === 'donation' ? 'gift' : t.kind === 'ad' ? 'megaphone' : 'receipt'} size={21} color={C.fg2} />}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>

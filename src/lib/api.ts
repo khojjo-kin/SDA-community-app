@@ -273,8 +273,8 @@ export async function fetchFeed(me: string, before?: string, kind: FeedKind = 'f
   if (before) q = q.lt('created_at', before);
   const page = keep(ok(await q));
   if (kind !== 'foryou' || before) return page;
-  // Boosted posts lead the first page of For you.
-  const boosted = keep(ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).order('boosted_until', { ascending: false }).limit(5)));
+  // Sponsored posts lead the first page of For you: a few of them, taken in turn, so every paid ad is seen.
+  const boosted = await someSponsored(5);
   const ids = new Set(boosted.map((p) => p.id));
   return [...boosted, ...page.filter((p) => !ids.has(p.id))];
 }
@@ -284,9 +284,19 @@ export async function fetchExplore(before?: string, limit = 30): Promise<Post[]>
   if (before) q = q.lt('created_at', before);
   const page = keep(ok(await q));
   if (before) return page;
-  const boosted = keep(ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).order('boosted_until', { ascending: false }).limit(6)));
+  const boosted = await someSponsored(6);
   const ids = new Set(boosted.map((p) => p.id));
   return [...boosted, ...page.filter((p) => !ids.has(p.id))];
+}
+
+/** Up to `n` of the posts being promoted right now, picked at random each time from all of them. */
+async function someSponsored(n: number): Promise<Post[]> {
+  const all: Post[] = ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).limit(60)) ?? [];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return keep(all.slice(0, n));
 }
 
 /* ---------- ads: paid promotion of a post ---------- */
@@ -326,9 +336,9 @@ async function withPosts(rows: Promotion[]): Promise<Promotion[]> {
   return rows.map((r) => ({ ...r, post: posts.find((p) => p.id === r.post_id) ?? null }));
 }
 
-/** Admins only: stops an ad early (the database refuses anyone else). */
+/** Admins only: stops an ad early (the database refuses anyone else). The ad's record is marked ended too. */
 export async function adminEndBoost(postId: string) {
-  ok(await supabase.from('community_posts').update({ boosted_until: null }).eq('id', postId));
+  ok(await supabase.rpc('community_admin_end_ad', { p_post: postId }));
   patchPost(postId, { boosted: false, boosted_until: null });
   announce('feed');
 }
@@ -1408,6 +1418,15 @@ export const closeFundraiser = (id: string) => updateFundraiser(id, { status: 'c
 export async function deleteFundraiser(id: string) {
   ok(await supabase.from('community_fundraisers').delete().eq('id', id));
   announce('profile');
+}
+
+/**
+ * Asks Stripe whether a fundraiser's owner can take gifts now (their payout setup may have finished
+ * since they last looked) and returns the up-to-date answer.
+ */
+export async function refreshFundraiserReady(fundraiserId: string): Promise<boolean> {
+  const r = await payments<{ accepting: boolean }>('fundraiser_ready', { fundraiser_id: fundraiserId });
+  return !!r.accepting;
 }
 
 /** Recent gifts, newest first. Anonymous givers are not named. */

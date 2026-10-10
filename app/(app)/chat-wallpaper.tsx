@@ -17,11 +17,11 @@ function Preview({ colors, width }: { colors: readonly [string, string, string] 
   const height = Math.round((width * 4) / 3);
   const bubbles = (
     <View style={{ flex: 1, justifyContent: 'flex-end', padding: 12, gap: 8 }}>
-      <View style={{ alignSelf: 'flex-start', width: '62%', height: 26, borderRadius: 13, backgroundColor: '#262a31' }} />
+      <View style={{ alignSelf: 'flex-start', width: '62%', height: 26, borderRadius: 13, backgroundColor: C.surface2 }} />
       <LinearGradient colors={[BUBBLE[0], BUBBLE[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ alignSelf: 'flex-end', width: '48%', height: 26, borderRadius: 13 }} />
     </View>
   );
-  const frame = { width, height, borderRadius: 18, overflow: 'hidden' as const, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' };
+  const frame = { width, height, borderRadius: 18, overflow: 'hidden' as const, borderWidth: 1, borderColor: C.hairline };
   if (!colors) return <View style={[frame, { backgroundColor: C.bg }]}>{bubbles}</View>;
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={frame}>
@@ -75,7 +75,7 @@ export default function ChatWallpaper() {
                   <Preview colors={w.colors} width={tile} />
                   {on ? (
                     <View style={{ position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 14, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg }}>
-                      <Icon name="check" size={16} color="#fff" weight={2.6} />
+                      <Icon name="check" size={16} color={C.onAccent} weight={2.6} />
                     </View>
                   ) : null}
                 </View>

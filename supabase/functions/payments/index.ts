@@ -109,8 +109,15 @@ async function ensureWebhook(db: SupabaseClient) {
 async function promote(ctx: Ctx, body: any) {
   const days = Math.round(Number(body?.days));
   if (!Number.isFinite(days) || days < 1 || days > 30) throw new StripeError('Choose between 1 and 30 days.', 400);
-  const { data: post } = await ctx.db.from('community_posts').select('id, user_id').eq('id', body?.post_id).maybeSingle();
+  const { data: post } = await ctx.db.from('community_posts').select('id, user_id, group_id').eq('id', body?.post_id).maybeSingle();
   if (!post || post.user_id !== ctx.me) throw new StripeError('You can only promote your own posts.', 403);
+  // An ad is for reaching new people: a post only followers or group members can see can't be promoted.
+  const { data: author } = await ctx.db.from('community_profiles').select('is_private').eq('id', ctx.me).maybeSingle();
+  if (author?.is_private) throw new StripeError('Your account is private, so new people can\'t see this post. Make your account public to promote it.', 400);
+  if (post.group_id) {
+    const { data: g } = await ctx.db.from('community_groups').select('privacy').eq('id', post.group_id).maybeSingle();
+    if (g?.privacy === 'private') throw new StripeError('This post is in a private group, so it can\'t be promoted.', 400);
+  }
   const customer = await customerFor(ctx);
   const amount = days * AD_DAY_PENCE;
   const pi = await stripe('POST', 'payment_intents', {
@@ -122,7 +129,13 @@ async function promote(ctx: Ctx, body: any) {
     description: `Community ad · ${days} day${days === 1 ? '' : 's'}`,
     metadata: { kind: 'ad', user_id: ctx.me, post_id: post.id, days: String(days) },
   });
-  await ctx.db.from('community_promotions').insert({ post_id: post.id, user_id: ctx.me, days, amount_pence: amount, currency: CURRENCY.toUpperCase(), payment_intent_id: pi.id });
+  const { error } = await ctx.db.from('community_promotions').insert({ post_id: post.id, user_id: ctx.me, days, amount_pence: amount, currency: CURRENCY.toUpperCase(), payment_intent_id: pi.id });
+  if (error) {
+    // Without its record the ad could never start: call the payment off rather than take the money.
+    await stripe('POST', `payment_intents/${pi.id}/cancel`).catch(() => null);
+    console.error('promote insert', error.message);
+    throw new StripeError('The ad could not be set up. You have not been charged. Try again.', 500);
+  }
   return { payment_intent_id: pi.id, client_secret: pi.client_secret, amount, currency: CURRENCY.toUpperCase(), day_pence: AD_DAY_PENCE };
 }
 
@@ -152,7 +165,7 @@ async function payoutsOnboard(ctx: Ctx, body: any) {
       country: typeof body?.country === 'string' && /^[A-Z]{2}$/.test(body.country) ? body.country : 'GB',
       email: p?.contact_email || undefined,
       capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-      business_profile: { product_description: 'Fundraising on Community', url: p?.username ? `https://community.app/${p.username}` : undefined },
+      business_profile: { product_description: p?.username ? `Fundraising by @${p.username} on the Community app` : 'Fundraising on the Community app' },
       metadata: { user_id: ctx.me },
     }, `account-${ctx.me}`);
     id = acct.id as string;
@@ -175,6 +188,7 @@ async function donate(ctx: Ctx, body: any) {
   if (!Number.isFinite(amount) || amount < 100 || amount > 1000000) throw new StripeError('Give between £1 and £10,000.', 400);
   const { data: f } = await ctx.db.from('community_fundraisers').select('id, user_id, title, currency, status, ends_at').eq('id', body?.fundraiser_id).maybeSingle();
   if (!f || f.status !== 'active' || (f.ends_at && new Date(f.ends_at) < new Date())) throw new StripeError('This fundraiser has ended.', 400);
+  if (f.user_id === ctx.me) throw new StripeError('You can\'t give to your own fundraiser.', 400);
   const { data: owner } = await ctx.db.from('community_billing').select('stripe_account_id').eq('user_id', f.user_id).maybeSingle();
   if (!owner?.stripe_account_id) throw new StripeError('This fundraiser cannot take donations yet.', 400);
   const acct = await stripe('GET', `accounts/${owner.stripe_account_id}`);
@@ -192,8 +206,28 @@ async function donate(ctx: Ctx, body: any) {
     description: `Donation · ${f.title}`.slice(0, 120),
     metadata: { kind: 'donation', user_id: ctx.me, fundraiser_id: f.id, owner_id: f.user_id, title: String(f.title).slice(0, 80) },
   });
-  await ctx.db.from('community_donations').insert({ fundraiser_id: f.id, donor_id: ctx.me, amount_pence: amount, currency: String(f.currency ?? 'GBP').toUpperCase(), message, anonymous: !!body?.anonymous, payment_intent_id: pi.id });
+  const { error } = await ctx.db.from('community_donations').insert({ fundraiser_id: f.id, donor_id: ctx.me, amount_pence: amount, currency: String(f.currency ?? 'GBP').toUpperCase(), message, anonymous: !!body?.anonymous, payment_intent_id: pi.id });
+  if (error) {
+    await stripe('POST', `payment_intents/${pi.id}/cancel`).catch(() => null);
+    console.error('donate insert', error.message);
+    throw new StripeError('The gift could not be set up. You have not been charged. Try again.', 500);
+  }
   return { payment_intent_id: pi.id, client_secret: pi.client_secret, amount, currency: String(f.currency ?? 'GBP').toUpperCase() };
+}
+
+/**
+ * Whether a fundraiser's owner can take gifts, asked of Stripe now: their payout setup may have
+ * finished since they last opened the app. Anyone signed in may ask; only the yes/no is returned.
+ */
+async function fundraiserReady(ctx: Ctx, body: any) {
+  const { data: f } = await ctx.db.from('community_fundraisers').select('user_id').eq('id', body?.fundraiser_id).maybeSingle();
+  if (!f) return { accepting: false };
+  const { data: owner } = await ctx.db.from('community_billing').select('stripe_account_id').eq('user_id', f.user_id).maybeSingle();
+  if (!owner?.stripe_account_id) return { accepting: false };
+  const acct = await stripe('GET', `accounts/${owner.stripe_account_id}`);
+  const state = { charges_enabled: !!acct.charges_enabled, payouts_enabled: !!acct.payouts_enabled, details_submitted: !!acct.details_submitted };
+  await ctx.db.from('community_billing').update({ ...state, updated_at: new Date().toISOString() }).eq('user_id', f.user_id);
+  return { accepting: state.charges_enabled };
 }
 
 /** After paying for an ad or a donation: read the payment back and settle it. Only the payer may ask. */
@@ -355,6 +389,8 @@ Deno.serve(async (req: Request) => {
         return json(await payoutsOnboard(ctx, body));
       case 'payouts_dashboard':
         return json(await payoutsDashboard(ctx));
+      case 'fundraiser_ready':
+        return json(await fundraiserReady(ctx, body));
       default:
         return json({ error: 'Unknown action.' }, 400);
     }

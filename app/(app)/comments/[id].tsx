@@ -136,7 +136,7 @@ export default function Comments() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 4, paddingBottom: insets.bottom + 8 }}>
         <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={36} />
-        <TextInput ref={input} value={text} onChangeText={setText} placeholder={post ? `Add a comment for ${post.username}…` : 'Add a comment…'} placeholderTextColor={C.fg3} maxLength={2200} multiline keyboardAppearance="dark" style={{ flex: 1, color: C.fg, fontSize: 16, minHeight: 42, maxHeight: 110, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, borderRadius: 21, borderWidth: 1, borderColor: C.surface2 }} accessibilityLabel="Comment" />
+        <TextInput ref={input} value={text} onChangeText={setText} placeholder={post ? `Add a comment for ${post.username}…` : 'Add a comment…'} placeholderTextColor={C.fg3} maxLength={2200} multiline keyboardAppearance={C.blurTint} style={{ flex: 1, color: C.fg, fontSize: 16, minHeight: 42, maxHeight: 110, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, borderRadius: 21, borderWidth: 1, borderColor: C.surface2 }} accessibilityLabel="Comment" />
         <Pressable onPress={send} disabled={!text.trim() || sending} hitSlop={8} accessibilityRole="button">
           <Text style={{ color: C.accent2, fontWeight: '600', opacity: !text.trim() || sending ? 0.4 : 1 }}>Post</Text>
         </Pressable>

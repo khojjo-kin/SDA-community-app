@@ -32,7 +32,11 @@ const WORD: Record<ActivityRow['kind'], string> = {
   group: 'group',
 };
 
-const TONE: Partial<Record<ActivityRow['kind'], string>> = { report: C.like, live: C.accent2, transaction: C.accent2, plus_request: C.close, joined: C.accent2 };
+/** A function, not a table, so the colours are read from the theme in use when it is drawn. */
+function tone(kind: ActivityRow['kind']): string | undefined {
+  const tones: Partial<Record<ActivityRow['kind'], string>> = { report: C.like, live: C.accent2, transaction: C.accent2, plus_request: C.close, joined: C.accent2 };
+  return tones[kind];
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const time = (iso: string) => {
@@ -89,7 +93,7 @@ export default function AdminActivity() {
           ListEmptyComponent={<Empty icon="pulse" title="Nothing yet" body="As people join, post, go live or write in, it shows up here." />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}
           renderItem={({ item: r }) => {
-            const color = TONE[r.kind] ?? C.fg2;
+            const color = tone(r.kind) ?? C.fg2;
             const who = r.username ? `@${r.username}` : 'Someone';
             const detail = r.detail?.trim() || WORD[r.kind];
             const body = (
@@ -109,7 +113,7 @@ export default function AdminActivity() {
             const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, paddingHorizontal: 16, paddingVertical: 8 };
             if (!r.user_id) return <View style={style}>{body}</View>;
             return (
-              <Pressable onPress={() => router.push(`/admin-member/${r.user_id}`)} accessibilityRole="button" accessibilityLabel={`${who}, ${detail}, ${time(r.at)}`} style={({ pressed }) => [style, { backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' }]}>
+              <Pressable onPress={() => router.push(`/admin-member/${r.user_id}`)} accessibilityRole="button" accessibilityLabel={`${who}, ${detail}, ${time(r.at)}`} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
                 {body}
               </Pressable>
             );

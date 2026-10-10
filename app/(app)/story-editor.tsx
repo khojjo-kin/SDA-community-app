@@ -6,13 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FilterStrip, useFilterExport } from '../../src/components/FilterStrip';
 import { HighlightPicker } from '../../src/components/HighlightPicker';
 import { Icon, IconName } from '../../src/components/Icon';
+import { DarkEmpty, DarkStatusBar } from '../../src/components/OnDark';
 import { DRAW_H, DRAW_W, fitFrame, overlayBox, OverlayLabel, STORY_BACKGROUNDS, STORY_COLORS, StoryCanvas } from '../../src/components/StoryCanvas';
 import { Avatar, Button, Empty, Loading, Radio, RoundButton, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { addStory, addToHighlight, countCloseFriends, coverOf, createHighlight, peopleToMessage, searchProfiles, sendToPeople, updateProfile, uploadImage, uploadVideo } from '../../src/lib/api';
 import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
-import { C, errText } from '../../src/lib/theme';
+import { C, DARK, errText } from '../../src/lib/theme';
 import type { Audience, Overlay, Profile, StoryItem, StoryReplies, Stroke } from '../../src/lib/types';
 import type { StorySource } from './add-story';
 
@@ -95,7 +96,7 @@ function Swatches({ value, onPick }: { value: string; onPick: (c: string) => voi
 
 function ShareRow({ left, title, sub, onSub, right, onPress }: { left: React.ReactNode; title: string; sub?: string; onSub?: () => void; right: React.ReactNode; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={sub ? `${title}, ${sub}` : title} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 60, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={sub ? `${title}, ${sub}` : title} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 60, backgroundColor: pressed ? C.press : 'transparent' })}>
       {left}
       <View style={{ flex: 1 }}>
         <Text style={{ color: C.fg, fontSize: 17.5, fontWeight: '700' }}>{title}</Text>
@@ -113,7 +114,7 @@ function ShareRow({ left, title, sub, onSub, right, onPress }: { left: React.Rea
 
 function CircleIcon({ name }: { name: IconName }) {
   return (
-    <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#33383f', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name={name} size={24} />
     </View>
   );
@@ -402,7 +403,8 @@ export default function StoryEditor() {
   if (kind !== 'text' && !sources.length) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <Empty title="Nothing to share" body="Go back and choose a photo or video." action={<Button small label="Go back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ marginTop: 8 }} />} />
+        <DarkStatusBar />
+        <DarkEmpty title="Nothing to share" body="Go back and choose a photo or video." action={<Button small label="Go back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ marginTop: 8 }} />} />
       </View>
     );
   }
@@ -463,7 +465,7 @@ export default function StoryEditor() {
               right={<Icon name="right" size={18} color={C.fg2} weight={2} />}
             />
           </ScrollView>
-          <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#2c3138', paddingHorizontal: 16, paddingTop: 14, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
+          <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingHorizontal: 16, paddingTop: 14, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
             <Button label={busy || 'Share'} busy={!!busy} onPress={() => share(audience, true)} />
             {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginTop: 8, fontSize: 13 }}>{busy}</Text> : null}
           </View>
@@ -487,7 +489,7 @@ export default function StoryEditor() {
                       <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{p.full_name}</Text>
                     </View>
                     <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: on ? C.accent : '#7d848e', backgroundColor: on ? C.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                      {on ? <Icon name="check" size={14} color="#fff" weight={3} /> : null}
+                      {on ? <Icon name="check" size={14} color={C.onAccent} weight={3} /> : null}
                     </View>
                   </Pressable>
                 );
@@ -503,6 +505,7 @@ export default function StoryEditor() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <DarkStatusBar />
       <View style={{ position: 'absolute', top: insets.top, left, width: frame.w, height: frame.h }}>
         <StoryCanvas item={tool === 'draw' ? { ...item, overlays } : item} width={frame.w} height={frame.h} radius={18} hideOverlays={tool !== 'draw'} hideCaption filter={filter} />
 
@@ -584,12 +587,12 @@ export default function StoryEditor() {
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' }}>Your story</Text>
           </Pressable>
           <Pressable onPress={() => share('close_friends', false)} disabled={!!busy} accessibilityRole="button" accessibilityLabel="Share with close friends" style={({ pressed }) => ({ flex: 1, height: 46, borderRadius: 23, backgroundColor: '#2e2f2f', flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 9, paddingRight: 12, opacity: pressed ? 0.7 : 1 })}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: DARK.close, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="star" size={15} color="#fff" fill />
             </View>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' }}>Close Friends</Text>
           </Pressable>
-          <Pressable onPress={() => { setSelected(null); setStage('share'); }} disabled={!!busy} accessibilityRole="button" accessibilityLabel="More ways to share" style={({ pressed }) => ({ width: 52, height: 52, borderRadius: 26, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+          <Pressable onPress={() => { setSelected(null); setStage('share'); }} disabled={!!busy} accessibilityRole="button" accessibilityLabel="More ways to share" style={({ pressed }) => ({ width: 52, height: 52, borderRadius: 26, backgroundColor: DARK.accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
             <Icon name="arrow" size={26} color="#fff" weight={2.4} />
           </Pressable>
         </View>
@@ -618,7 +621,7 @@ export default function StoryEditor() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.62)', justifyContent: 'flex-end' }]}>
           <Pressable style={{ flex: 1 }} onPress={() => setTool(null)} accessibilityLabel="Finish caption" />
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12 }}>
-            <TextInput value={caption} onChangeText={setCaption} autoFocus multiline maxLength={200} placeholder="Add a caption…" placeholderTextColor={C.fg3} keyboardAppearance="dark" style={{ flex: 1, minHeight: 46, maxHeight: 120, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 23, backgroundColor: C.inputBar, color: '#fff', fontSize: 16 }} accessibilityLabel="Caption" />
+            <TextInput value={caption} onChangeText={setCaption} autoFocus multiline maxLength={200} placeholder="Add a caption…" placeholderTextColor={DARK.fg3} keyboardAppearance="dark" style={{ flex: 1, minHeight: 46, maxHeight: 120, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 23, backgroundColor: DARK.inputBar, color: '#fff', fontSize: 16 }} accessibilityLabel="Caption" />
             <Pressable onPress={() => setTool(null)} accessibilityRole="button" style={{ height: 46, paddingHorizontal: 18, borderRadius: 23, backgroundColor: '#fff', justifyContent: 'center' }}>
               <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Done</Text>
             </Pressable>

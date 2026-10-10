@@ -9,7 +9,7 @@ import { recordView, setFlag, setFollow } from '../lib/api';
 import { setPrefs, usePrefs } from '../lib/prefs';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
-import { C, errText, fmt } from '../lib/theme';
+import { DARK, errText, fmt } from '../lib/theme';
 import { BurstHeart, Icon, IconName } from './Icon';
 import { PostMenu } from './PostCard';
 import { Avatar, useToast } from './ui';
@@ -137,9 +137,9 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
       ) : null}
 
       <View style={{ position: 'absolute', right: 10, bottom: bottomInset + 28, alignItems: 'center', gap: 18 }}>
-        <Rail icon="heart" count={post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : '#fff'} fill={post.liked} onPress={() => safe(() => setFlag(me, post, 'liked', !post.liked))} />
+        <Rail icon="heart" count={post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? DARK.like : '#fff'} fill={post.liked} onPress={() => safe(() => setFlag(me, post, 'liked', !post.liked))} />
         <Rail icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />
-        <Rail icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? C.ok : '#fff'} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
+        <Rail icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? DARK.ok : '#fff'} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Rail icon="send" label="Share" onPress={() => router.push(`/share/${post.id}`)} />
         {media?.type === 'video' ? <Rail icon={reelsMuted ? 'mute' : 'sound'} label={reelsMuted ? 'Turn sound on' : 'Turn sound off'} onPress={() => setPrefs({ reelsMuted: !reelsMuted })} /> : null}
         <Rail icon="more" label="More options" onPress={() => setMenu(true)} />

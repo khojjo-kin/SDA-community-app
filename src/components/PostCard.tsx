@@ -4,11 +4,11 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { boostPost, deletePost, report, setBlock, setFlag, setFollow, unboostPost } from '../lib/api';
+import { deletePost, report, setBlock, setFlag, setFollow, setPostSensitive } from '../lib/api';
 import { useIsActivePost } from '../lib/autoplay';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
-import { agoLong, C, errText, fmt } from '../lib/theme';
+import { agoLong, C, dayLabel, errText, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
@@ -22,10 +22,12 @@ const MEDIA_RADIUS = 14;
 
 /** The "…" menu shared by feed posts and reels. */
 export function PostMenu({ post, visible, onClose }: { post: Post; visible: boolean; onClose: () => void }) {
-  const { me, profile } = useSession();
+  const { me } = useSession();
   const toast = useToast();
   const router = useRouter();
   const mine = post.user_id === me;
+  // A running ad can be topped up: the new days are added on after the current ones.
+  const promotedUntil = post.boosted && post.boosted_until && new Date(post.boosted_until) > new Date() ? dayLabel(new Date(post.boosted_until)) : '';
   const act = (fn: () => Promise<void> | void) => async () => {
     onClose();
     // Give the sheet time to slide away; iOS drops an alert shown while a modal is closing.
@@ -42,16 +44,17 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
       <SheetRow icon="link" label="Copy link" onPress={act(async () => { await Clipboard.setStringAsync(`community://post/${post.id}`); toast('Link copied'); })} />
       {mine ? (
         <>
-          {/* Boosting is a Community Plus perk: a boosted post leads For you and Explore for a day. */}
-          {profile?.plus ? (
-            post.boosted ? (
-              <SheetRow icon="boost" label="Remove boost" sub="It will drop back into the feed in its usual place" onPress={act(async () => { await unboostPost(post.id); toast('Boost removed'); })} />
-            ) : (
-              <SheetRow icon="boost" label="Boost post" sub="Top of For you and Explore for 24 hours" onPress={act(async () => { await boostPost(post.id, 1); toast('Boosted for 24 hours'); })} />
-            )
-          ) : (
-            <SheetRow icon="crown" label="Boost post" sub="Join Community Plus to boost your posts" onPress={act(() => router.push('/plus'))} />
-          )}
+          {/* Ads are paid for, a day at a time: a promoted post leads For you and Explore, labelled Sponsored. */}
+          <SheetRow icon="megaphone" label="Promote" sub={promotedUntil ? `Promoted until ${promotedUntil}` : 'Pay to show it to more people'} onPress={act(() => router.push(`/promote/${post.id}`))} />
+          <SheetRow
+            icon="eye"
+            label={post.sensitive ? 'Unmark sensitive' : 'Mark as sensitive'}
+            sub="Hidden from members under 14"
+            onPress={act(async () => {
+              await setPostSensitive(post.id, !post.sensitive);
+              toast(post.sensitive ? 'No longer marked sensitive' : 'Marked as sensitive');
+            })}
+          />
           <SheetRow
             icon="trash"
             label="Delete"
@@ -164,14 +167,19 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{post.username}</Text>
               {post.verified ? <VerifiedTick size={14} /> : null}
-              {post.boosted ? (
-                <View accessibilityLabel="Boosted" style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 2, height: 17, paddingLeft: 4, paddingRight: 6, borderRadius: 9, backgroundColor: 'rgba(79,224,138,0.14)' }}>
-                  <Icon name="boost" size={11} color={C.accent2} weight={2.2} />
-                  <Text style={{ color: C.accent2, fontSize: 10.5, fontWeight: '700' }}>Boosted</Text>
-                </View>
-              ) : null}
             </View>
-            {post.group_id && post.group_name ? (
+            {/* A paid ad says so plainly, under the name, so it never passes for an ordinary post. */}
+            {post.boosted ? (
+              <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5 }}>
+                Sponsored
+                {post.group_id && post.group_name ? (
+                  <>
+                    {' · in '}
+                    <Text style={{ color: C.fg, fontWeight: '600' }} onPress={() => router.push({ pathname: '/group/[id]', params: { id: post.group_id } } as any)}>{post.group_name}</Text>
+                  </>
+                ) : null}
+              </Text>
+            ) : post.group_id && post.group_name ? (
               <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5 }} onPress={() => router.push({ pathname: '/group/[id]', params: { id: post.group_id } } as any)} accessibilityRole="link" accessibilityLabel={`In ${post.group_name}`}>
                 in <Text style={{ color: C.fg, fontWeight: '600' }}>{post.group_name}</Text>
               </Text>
@@ -199,7 +207,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
         </ScrollView>
         {many ? (
           <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(10,12,14,0.7)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12 }}>
-            <Text style={{ color: C.fg, fontSize: 12 }}>{page + 1}/{post.media.length}</Text>
+            <Text style={{ color: '#fff', fontSize: 12 }}>{page + 1}/{post.media.length}</Text>
           </View>
         ) : null}
         {burst ? (

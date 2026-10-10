@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AdminFrame, money } from '../../src/components/AdminFrame';
+import { penceFrom } from '../../src/components/FundraiserCard';
 import { Icon } from '../../src/components/Icon';
 import { Avatar, Button, Empty, ErrorNote, Field, Loading, RoundButton, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { addTransaction, deleteTransaction, fetchAdminStats, fetchMembers, fetchTransactions, PLUS_PRICE_PENCE } from '../../src/lib/api';
@@ -9,19 +10,30 @@ import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { AdminStats, MemberCard, Transaction } from '../../src/lib/types';
 
-const KINDS: { id: Transaction['kind']; label: string; color: string }[] = [
+/** A function, not a table, so the colours are read from the theme in use when it is drawn. */
+const kinds = (): { id: Transaction['kind']; label: string; color: string }[] => [
   { id: 'plus', label: 'Plus', color: C.close },
   { id: 'donation', label: 'Donation', color: C.accent2 },
   { id: 'refund', label: 'Refund', color: C.like },
   { id: 'other', label: 'Other', color: C.fg2 },
+  // Ads are only bought in the app, so this one is not offered when logging by hand.
+  { id: 'ad', label: 'Ad', color: C.warn },
 ];
-const kindOf = (id: Transaction['kind']) => KINDS.find((k) => k.id === id) ?? KINDS[3];
+const kindOf = (id: Transaction['kind']) => {
+  const all = kinds();
+  return all.find((k) => k.id === id) ?? all[3];
+};
 /** What a month of Plus costs, as typed into the amount field: "4.99". */
 const PLUS_POUNDS = (PLUS_PRICE_PENCE / 100).toFixed(2);
-/** Money going back out: Stripe records refunds as negative amounts, admins log them as positive ones. */
+/**
+ * Money going back out. Refunds are stored as negative amounts (Stripe's, and those logged here), so
+ * the server's income sum takes them off; older hand-logged ones may be positive, so either counts.
+ */
 const isRefund = (t: Transaction) => t.kind === 'refund' || t.amount_pence < 0;
-/** Refunds, softer than the red used for warnings. */
-const REFUND_RED = '#e0707a';
+/** Refunds, softer than the red used for warnings; on White the theme's red, as the soft one is too faint there. */
+const refundRed = () => (C.blurTint === 'light' ? C.danger : '#e0707a');
+/** Stripe's purple, lighter on the dark themes and deeper on White so it reads on either. */
+const stripePurple = () => (C.blurTint === 'light' ? '#635bff' : '#9d8cff');
 
 function Pill({ label, color, bg = C.surface2 }: { label: string; color: string; bg?: string }) {
   return (
@@ -96,12 +108,15 @@ export default function AdminTransactions() {
 
   async function add() {
     if (busy) return;
-    const pounds = parseFloat(amount.replace(/[£,\s]/g, ''));
-    if (!isFinite(pounds) || pounds <= 0) return toast('Enter an amount, like 4.99');
+    // "4,99" from a keypad with a decimal comma is £4.99, not £499.
+    const pence = penceFrom(amount);
+    if (pence === null || pence <= 0) return toast('Enter an amount, like 4.99');
     if (!/^[A-Za-z]{3}$/.test(currency.trim())) return toast('The currency is a three-letter code, like GBP');
     setBusy(true);
     try {
-      await addTransaction(me, { user_id: who?.id ?? null, kind, amount_pence: Math.round(pounds * 100), currency: currency.trim(), note });
+      // A refund is typed as a positive amount but stored as money out, as Stripe's are, so the server's
+      // income total takes it off rather than adding it.
+      await addTransaction(me, { user_id: who?.id ?? null, kind, amount_pence: kind === 'refund' ? -pence : pence, currency: currency.trim(), note });
       toast('Logged');
       reset();
       load();
@@ -120,25 +135,20 @@ export default function AdminTransactions() {
     ]);
   }
 
-  // The server's income totals count Plus, donations and other money in, but not refunds; take the
-  // refunds in the list off them so the totals are what was actually kept.
-  const refunded = useMemo(() => {
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    let month = 0;
-    let all = 0;
-    for (const t of list ?? []) {
-      if (!isRefund(t)) continue;
-      const back = Math.abs(t.amount_pence);
-      all += back;
-      if (new Date(t.created_at).getTime() >= monthStart) month += back;
-    }
-    return { month, all };
-  }, [list]);
-
+  // The totals are the server's, over every transaction rather than the latest 200 listed: Plus, ads
+  // and other payments, less refunds of those (a refund with no Stripe payment, logged here, counts
+  // against income too). Donations belong to the fundraisers' organisers, so they are shown apart.
   const header = (
-    <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 14 }}>
-      <Total label="This month" value={stats && list ? money(stats.income_month_pence - refunded.month) : undefined} />
-      <Total label="All time" value={stats && list ? money(stats.income_pence - refunded.all) : undefined} />
+    <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Total label="Income this month" value={stats ? money(stats.income_month_pence) : undefined} />
+        <Total label="Income all time" value={stats ? money(stats.income_pence) : undefined} />
+      </View>
+      {stats && stats.donations_pence === undefined ? null : (
+        <View style={{ flexDirection: 'row' }}>
+          <Total label="Given to fundraisers (paid to their organisers)" value={stats?.donations_pence === undefined ? undefined : money(stats.donations_pence)} />
+        </View>
+      )}
     </View>
   );
 
@@ -166,7 +176,7 @@ export default function AdminTransactions() {
                 accessibilityRole="button"
                 accessibilityLabel={`${k.label}, ${money(amount, t.currency)}${t.username ? `, ${t.username}` : ''}, ${stripe ? 'paid through Stripe' : 'logged by hand'}${t.method ? `, ${t.method}` : ''}${t.status === 'refunded' ? ', refunded' : ''}, ${when(t.created_at)}`}
                 accessibilityHint={owner ? 'Press and hold to delete' : undefined}
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>
                 {t.user_id ? (
                   <Avatar uri={t.avatar_url} name={t.full_name ?? '?'} size={44} />
                 ) : (
@@ -178,8 +188,8 @@ export default function AdminTransactions() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1, marginRight: 2 }}>{t.username ? `@${t.username}` : 'No member'}</Text>
                     <Pill label={k.label} color={k.color} />
-                    <Pill label={stripe ? 'Stripe' : 'Manual'} color={stripe ? '#9d8cff' : C.fg2} bg={stripe ? 'rgba(99,91,255,0.16)' : C.surface2} />
-                    {t.status === 'refunded' ? <Pill label="Refunded" color={REFUND_RED} bg="rgba(224,112,122,0.14)" /> : null}
+                    <Pill label={stripe ? 'Stripe' : 'Manual'} color={stripe ? stripePurple() : C.fg2} bg={stripe ? 'rgba(99,91,255,0.16)' : C.surface2} />
+                    {t.status === 'refunded' ? <Pill label="Refunded" color={refundRed()} bg="rgba(224,112,122,0.14)" /> : null}
                   </View>
                   {t.method ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{t.method}</Text> : null}
                   {t.note ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>{t.note}</Text> : null}
@@ -187,7 +197,7 @@ export default function AdminTransactions() {
                     {when(t.created_at)}{t.created_by_username ? ` · logged by @${t.created_by_username}` : ''}
                   </Text>
                 </View>
-                <Text style={{ color: refund ? REFUND_RED : C.fg, fontSize: 16.5, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{money(amount, t.currency)}</Text>
+                <Text style={{ color: refund ? refundRed() : C.fg, fontSize: 16.5, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{money(amount, t.currency)}</Text>
               </Pressable>
             );
           }}
@@ -230,7 +240,7 @@ export default function AdminTransactions() {
           <View style={{ gap: 8 }}>
             <Text style={{ color: C.fg2, fontSize: 12.5 }}>Kind</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {KINDS.map((k) => (
+              {kinds().filter((k) => k.id !== 'ad').map((k) => (
                 <Pressable key={k.id} onPress={() => setKind(k.id)} accessibilityRole="radio" accessibilityLabel={k.label} accessibilityState={{ checked: kind === k.id }} style={({ pressed }) => ({ height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: kind === k.id ? C.fg : C.surface, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
                   <Text style={{ color: kind === k.id ? C.bg : C.fg, fontWeight: '600' }}>{k.label}</Text>
                 </Pressable>
