@@ -9,10 +9,14 @@ export type Prefs = {
   toolsSide: 'left' | 'right';
   /** Start reels with the sound off. */
   reelsMuted: boolean;
+  /** Plus: the look behind every chat. '' is the plain dark background; see src/lib/wallpapers.ts for the others. */
+  chatWallpaper: string;
+  /** Plus: the app's text face. '' is the system font; see src/lib/fonts.ts for the others. */
+  appFont: string;
 };
 
 const KEY = 'community.prefs';
-const DEFAULTS: Prefs = { frontCamera: false, toolsSide: 'right', reelsMuted: false };
+const DEFAULTS: Prefs = { frontCamera: false, toolsSide: 'right', reelsMuted: false, chatWallpaper: '', appFont: '' };
 
 let current: Prefs = DEFAULTS;
 const listeners = new Set<() => void>();

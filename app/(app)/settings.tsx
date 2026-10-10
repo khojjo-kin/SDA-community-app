@@ -1,14 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth, useSession as useClerkSession } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
-import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, useToast } from '../../src/components/ui';
-import { countCloseFriends, listBlocked } from '../../src/lib/api';
+import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, Toggle, useToast } from '../../src/components/ui';
+import { countCloseFriends, listBlocked, updateProfile } from '../../src/lib/api';
+import { fontById } from '../../src/lib/fonts';
+import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
-type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string };
+/** A line in the list. With `toggle`, it is a switch rather than a link; `href` then only names it for the search. */
+type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string; toggle?: 'read_receipts' };
 type Section = { label: string; items: Item[] };
 
 const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Off' } as const;
@@ -17,12 +20,16 @@ const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Of
 export default function Settings() {
   const { signOut } = useAuth();
   const { session } = useClerkSession();
-  const { me, profile } = useSession();
+  const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const { appFont } = usePrefs();
   const [q, setQ] = useState('');
   const [friends, setFriends] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
+  // Read receipts: shown at once when tapped, then put back if the save fails.
+  const [receipts, setReceipts] = useState(profile?.read_receipts ?? true);
+  useEffect(() => { setReceipts(profile?.read_receipts ?? true); }, [profile?.read_receipts]);
 
   useFocusEffect(
     useCallback(() => {
@@ -30,6 +37,12 @@ export default function Settings() {
       listBlocked(me).then((b) => setBlocked(b.length)).catch(() => {});
     }, [me]),
   );
+
+  function setReadReceipts(next: boolean) {
+    const before = receipts;
+    setReceipts(next);
+    updateProfile(me, { read_receipts: next }).then(refresh).catch((e) => { setReceipts(before); toast(errText(e)); });
+  }
 
   const creator = profile?.account_type === 'creator';
   const admin = !!profile?.admin_role;
@@ -42,11 +55,25 @@ export default function Settings() {
         { icon: 'verified', title: 'Community Plus', sub: 'The verified tick and more', value: plusValue, href: '/plus', words: 'subscribe subscription verified tick badge premium' },
       ],
     },
+    ...(profile?.plus
+      ? [
+          {
+            label: 'Plus',
+            items: [
+              { icon: 'font' as IconName, title: 'App font', value: fontById(appFont).name, href: '/plus-font', words: 'typeface text nunito lora poppins' },
+              { icon: 'wallpaper' as IconName, title: 'Chat wallpaper', href: '/chat-wallpaper', words: 'background messages chats theme' },
+              { icon: 'eye' as IconName, title: 'Profile viewers', sub: 'Who looked at your profile', href: '/profile-viewers', words: 'views visitors who viewed' },
+              { icon: 'lock' as IconName, title: 'Read receipts', sub: 'Let people see when you have read their messages', href: '/plus#read-receipts', words: 'seen messages chats privacy', toggle: 'read_receipts' as const },
+            ],
+          },
+        ]
+      : []),
     {
       label: 'Church life',
       items: [
         { icon: 'bible', title: 'Bible', href: '/bible', words: 'scripture read verse chapter kjv' },
         { icon: 'hymnal', title: 'Hymnal', sub: 'The Seventh-day Adventist Hymnal', href: '/hymnal', words: 'hymns songs sing worship music' },
+        { icon: 'headphones', title: 'Pod', sub: 'Songs and podcasts', href: '/pod', words: 'music audio listen podcast episodes songs library' },
         { icon: 'lesson', title: 'Sabbath School', sub: "This week's lesson", href: '/sabbath-school', words: 'lesson quarterly study guide' },
         { icon: 'church', title: 'Churches', sub: 'Find churches near you and their members', value: profile?.church_name ?? undefined, href: '/churches', words: 'church near me members find location' },
         { icon: 'users', title: 'Communities and pages', sub: 'Join groups, follow ministries, or start your own', href: '/groups', words: 'groups community page ministry choir youth join create follow' },
@@ -57,7 +84,12 @@ export default function Settings() {
       ? [
           {
             label: 'Admin',
-            items: [{ icon: 'gavel' as IconName, title: 'Admin tools', sub: 'Reports, members, requests and admins', href: '/admin', words: 'admin moderation reports members verify suspend hymns churches' }],
+            items: [
+              { icon: 'gavel' as IconName, title: 'Admin tools', sub: 'Reports, members, requests and admins', href: '/admin', words: 'admin moderation reports members verify suspend hymns churches console overview' },
+              { icon: 'receipt' as IconName, title: 'Transactions', sub: 'Plus payments, donations and refunds', href: '/admin-transactions', words: 'admin money income payments donations refunds' },
+              { icon: 'pulse' as IconName, title: 'Activity', sub: 'What is happening across the community', href: '/admin-activity', words: 'admin timeline joined posts lives reports' },
+              { icon: 'lifebuoy' as IconName, title: 'Support inbox', sub: 'Questions from members', href: '/admin-support', words: 'admin tickets help answer reply' },
+            ],
           },
         ]
       : []),
@@ -93,7 +125,10 @@ export default function Settings() {
     },
     {
       label: 'More info and support',
-      items: [{ icon: 'info', title: 'About', href: '/about', words: 'version privacy data help' }],
+      items: [
+        { icon: 'lifebuoy', title: 'Help and support', sub: 'Common questions, and a line to the admins', href: '/help', words: 'help support contact questions faq ticket email problem' },
+        { icon: 'info', title: 'About', href: '/about', words: 'version privacy data help' },
+      ],
     },
   ];
 
@@ -107,7 +142,12 @@ export default function Settings() {
 
   const needle = q.trim().toLowerCase();
   const matches = needle ? sections.flatMap((s) => s.items).filter((i) => `${i.title} ${i.sub ?? ''} ${i.words ?? ''}`.toLowerCase().includes(needle)) : [];
-  const row = (i: Item) => <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} onPress={() => router.push(i.href as any)} />;
+  const row = (i: Item) =>
+    i.toggle === 'read_receipts' ? (
+      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} right={<Toggle value={receipts} onChange={setReadReceipts} label={i.title} />} />
+    ) : (
+      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} onPress={() => router.push(i.href as any)} />
+    );
 
   return (
     <Screen>

@@ -42,3 +42,39 @@ export function filterById(id: string | null | undefined): FilterPreset {
 export function isNormal(id: string | null | undefined): boolean {
   return filterById(id).id === NORMAL_FILTER;
 }
+
+/* ---------- adjustments (Community Plus) ---------- */
+
+/** Brightness, contrast, saturation and warmth, each from -100 to 100. Zero means no change. */
+export type Adjust = { brightness: number; contrast: number; saturation: number; warmth: number };
+
+export const DEFAULT_ADJUST: Adjust = { brightness: 0, contrast: 0, saturation: 0, warmth: 0 };
+
+export const ADJUST_KEYS: readonly (keyof Adjust)[] = ['brightness', 'contrast', 'saturation', 'warmth'];
+
+/** True when every slider sits at zero. */
+export function isDefaultAdjust(a: Adjust | null | undefined): boolean {
+  if (!a) return true;
+  return ADJUST_KEYS.every((k) => !a[k]);
+}
+
+/** The colour transform for a set of adjustments on their own. Kept gentle so the far end of a slider still looks like the photo. */
+export function adjustMatrix(a: Adjust): Matrix {
+  const b = 1 + a.brightness / 250;
+  const c = 1 + a.contrast / 200;
+  const s = Math.max(0, 1 + a.saturation / 100);
+  const t = a.warmth / 1250;
+  return concatColorMatrices(brightness(b), contrast(c), saturate(s), temperature(t));
+}
+
+/** The filter and the adjustments together, as the one matrix the image view applies. */
+export function lookMatrix(filterId: string | null | undefined, adjust?: Adjust | null): Matrix {
+  const preset = filterById(filterId);
+  if (!adjust || isDefaultAdjust(adjust)) return preset.matrix;
+  return concatColorMatrices(preset.matrix, adjustMatrix(adjust));
+}
+
+/** True when the photo would come out of the colour step exactly as it went in. */
+export function isPlainLook(filterId: string | null | undefined, adjust?: Adjust | null): boolean {
+  return isNormal(filterId) && isDefaultAdjust(adjust);
+}

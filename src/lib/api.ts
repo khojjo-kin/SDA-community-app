@@ -4,7 +4,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { AdminStats, ArchivedStory, Audience, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, Media, MemberCard, Message, Notice, PlusRequest, Post, Profile, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, Thread } from './types';
+import type { ActivityRow, AdminStats, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -40,7 +40,7 @@ export async function createProfile(row: { id: string; username: string; full_na
   ok(await supabase.from('community_profiles').insert({ avatar_url: '', ...row }));
 }
 
-type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id'>>;
+type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts'>>;
 
 export async function updateProfile(id: string, patch: ProfilePatch) {
   ok(await supabase.from('community_profiles').update(patch).eq('id', id));
@@ -92,6 +92,47 @@ export async function setFollow(me: string, userId: string, next: boolean) {
   }
   announce('profile');
   announce('stories');
+}
+
+/* ---------- private accounts and follow requests ---------- */
+
+/** Asks to follow a private account. The owner accepts or declines from their notifications. */
+export async function requestFollow(me: string, userId: string) {
+  ok(await supabase.from('community_follow_requests').upsert({ requester_id: me, target_id: userId }, { onConflict: 'requester_id,target_id', ignoreDuplicates: true }));
+  announce('profile');
+}
+
+/** Withdraws your own request (me = requester), or declines one sent to you (me = target). */
+export async function removeFollowRequest(requesterId: string, targetId: string) {
+  ok(await supabase.from('community_follow_requests').delete().eq('requester_id', requesterId).eq('target_id', targetId));
+  announce('profile');
+  announce('notices');
+}
+
+export async function acceptFollowRequest(requesterId: string) {
+  ok(await supabase.rpc('community_accept_follow_request', { p_requester: requesterId }));
+  announce('profile');
+  announce('notices');
+}
+
+/** People waiting to follow me, newest first. */
+export async function fetchFollowRequests(me: string): Promise<Profile[]> {
+  const rows: { requester_id: string; created_at: string }[] = ok(await supabase.from('community_follow_requests').select('requester_id, created_at').eq('target_id', me).order('created_at', { ascending: false }).limit(100)) ?? [];
+  if (!rows.length) return [];
+  const people: Profile[] = ok(await supabase.from('community_profile_cards').select('*').in('id', rows.map((r) => r.requester_id))) ?? [];
+  const order = new Map(rows.map((r, i) => [r.requester_id, i]));
+  return people.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+/** Notes that I looked at someone's profile. Plus members can see who looked at theirs. */
+export function recordProfileView(me: string, profileId: string) {
+  if (!me || me === profileId) return;
+  supabase.from('community_profile_views').upsert({ viewer_id: me, profile_id: profileId, viewed_at: new Date().toISOString() }, { onConflict: 'viewer_id,profile_id' }).then(() => {}, () => {});
+}
+
+/** Who looked at my profile, newest first. Empty unless I have Plus (the database refuses otherwise). */
+export async function fetchProfileViewers(me: string): Promise<ProfileViewer[]> {
+  return ok(await supabase.from('community_profile_viewer_cards').select('*').eq('profile_id', me).order('viewed_at', { ascending: false }).limit(200)) ?? [];
 }
 
 export async function setBlock(me: string, userId: string, next: boolean) {
@@ -176,17 +217,49 @@ function keep(list: Post[] | null): Post[] {
   return out;
 }
 
-export async function fetchFeed(me: string, before?: string): Promise<Post[]> {
-  // People I follow, my own posts, and posts in the communities and pages I belong to.
-  let q = supabase.from('community_post_cards').select('*').or(`following_author.eq.true,user_id.eq.${me},in_my_group.eq.true`).order('created_at', { ascending: false }).limit(PAGE);
+export type FeedKind = 'foryou' | 'following' | 'subscribers';
+
+/**
+ * The home feed. Following: people I follow, my own posts, and posts in my communities and pages.
+ * For you: everyone, newest first, with boosted posts on top of the first page. Subscribers: posts
+ * from Community Plus members.
+ */
+export async function fetchFeed(me: string, before?: string, kind: FeedKind = 'following'): Promise<Post[]> {
+  let q = supabase.from('community_post_cards').select('*');
+  if (kind === 'following') q = q.or(`following_author.eq.true,user_id.eq.${me},in_my_group.eq.true`);
+  else if (kind === 'subscribers') q = q.eq('author_plus', true);
+  q = q.order('created_at', { ascending: false }).limit(PAGE);
   if (before) q = q.lt('created_at', before);
-  return keep(ok(await q));
+  const page = keep(ok(await q));
+  if (kind !== 'foryou' || before) return page;
+  // Boosted posts lead the first page of For you.
+  const boosted = keep(ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).order('boosted_until', { ascending: false }).limit(5)));
+  const ids = new Set(boosted.map((p) => p.id));
+  return [...boosted, ...page.filter((p) => !ids.has(p.id))];
 }
 
 export async function fetchExplore(before?: string, limit = 30): Promise<Post[]> {
   let q = supabase.from('community_post_cards').select('*').order('created_at', { ascending: false }).limit(limit);
   if (before) q = q.lt('created_at', before);
-  return keep(ok(await q));
+  const page = keep(ok(await q));
+  if (before) return page;
+  const boosted = keep(ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).order('boosted_until', { ascending: false }).limit(6)));
+  const ids = new Set(boosted.map((p) => p.id));
+  return [...boosted, ...page.filter((p) => !ids.has(p.id))];
+}
+
+/** Plus: puts a post at the top of For you and Explore for `days` days (up to 7). */
+export async function boostPost(id: string, days = 1) {
+  const until = new Date(Date.now() + Math.min(7, Math.max(1, days)) * 86400e3).toISOString();
+  ok(await supabase.from('community_posts').update({ boosted_until: until }).eq('id', id));
+  patchPost(id, { boosted: true, boosted_until: until });
+  announce('feed');
+}
+
+export async function unboostPost(id: string) {
+  ok(await supabase.from('community_posts').update({ boosted_until: null }).eq('id', id));
+  patchPost(id, { boosted: false, boosted_until: null });
+  announce('feed');
 }
 
 export async function fetchReels(onlyFollowing: boolean, before?: string): Promise<Post[]> {
@@ -223,9 +296,9 @@ export const fetchSaved = (me: string) => fetchVia('community_saves', me);
 export const fetchLiked = (me: string) => fetchVia('community_likes', me);
 export const fetchReposts = (userId: string) => fetchVia('community_reposts', userId);
 
-export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null }): Promise<void> {
+export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string }): Promise<void> {
   const kind = input.media[0]?.type === 'video' ? 'reel' : 'post';
-  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null }));
+  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120) }));
   announce('feed');
   announce('profile');
 }
@@ -775,7 +848,12 @@ export async function decidePlusRequest(me: string, req: PlusRequest, approve: b
     }
   }
   ok(await supabase.from('community_plus_requests').update({ status: approve ? 'approved' : 'declined', decided_by: me, decided_at: new Date().toISOString() }).eq('id', req.id));
+  // Plus activated: one line in the books, which the admin can correct in Transactions.
+  if (approve && req.kind === 'plus') addTransaction(me, { user_id: req.user_id, kind: 'plus', amount_pence: PLUS_PRICE_PENCE, note: 'Community Plus, 1 month' }).catch(() => {});
 }
+
+/** What a month of Plus costs, in pence, for the books. Admins can change the amount on each line. */
+export const PLUS_PRICE_PENCE = 499;
 
 export async function listAdmins(): Promise<{ user_id: string; role: 'owner' | 'admin'; profile: Profile | null }[]> {
   const rows: { user_id: string; role: 'owner' | 'admin' }[] = ok(await supabase.from('community_admins').select('user_id,role').order('created_at')) ?? [];
@@ -792,6 +870,31 @@ export async function removeAdmin(userId: string) {
 }
 
 /* ---------- Erha ---------- */
+
+/** Erha's own account: the assistant chats like any other person in Messages. */
+export const ERHA_ID = 'user_3KTkRcnk7CCL3EaTDjWtptR4YMO';
+/** Pod's account, which shares songs and podcasts. */
+export const POD_ID = 'user_3KToGzk4LozAlSNYETyP4KwjzbU';
+
+/**
+ * Sends a message to Erha inside the ordinary chat with her account: the function answers in
+ * the same thread, so the chat shows up in Messages like any other and moves with its last message.
+ */
+export async function askErhaInThread(threadId: string, text: string): Promise<{ reply: string; remaining: number | null }> {
+  const { data, error } = await withTimeout(supabase.functions.invoke('erha', { body: { text, thread_id: threadId } }), 60000);
+  if (error) {
+    const ctx = (error as any)?.context;
+    try {
+      const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
+      if (body?.error) throw new Error(body.error);
+    } catch (e) {
+      if (e instanceof Error && e.message && !/JSON/.test(e.message)) throw e;
+    }
+    throw error;
+  }
+  announce('threads');
+  return data as { reply: string; remaining: number | null };
+}
 
 export async function fetchErhaHistory(me: string): Promise<ErhaMessage[]> {
   return ok(await supabase.from('community_erha_messages').select('*').eq('user_id', me).order('created_at').limit(200)) ?? [];
@@ -900,4 +1003,152 @@ export async function fetchGroupPosts(groupId: string, before?: string): Promise
 export function canPostIn(g: Pick<Group, 'kind' | 'my_standing'>): boolean {
   if (!g.my_standing || g.my_standing === 'pending') return false;
   return g.kind === 'community' || g.my_standing === 'owner' || g.my_standing === 'admin';
+}
+
+/* ---------- Pod: songs and podcasts ---------- */
+
+export async function fetchPod(kind?: 'song' | 'podcast', q = ''): Promise<PodItem[]> {
+  let query = supabase.from('community_pod_cards').select('*').order('created_at', { ascending: false }).limit(200);
+  if (kind) query = query.eq('kind', kind);
+  const needle = q.trim();
+  if (needle) query = query.or(`title.ilike.%${needle.replace(/[%,()]/g, '')}%,artist.ilike.%${needle.replace(/[%,()]/g, '')}%`);
+  return ok(await query) ?? [];
+}
+
+export async function fetchPodItem(id: string): Promise<PodItem | null> {
+  return ok(await supabase.from('community_pod_cards').select('*').eq('id', id).maybeSingle());
+}
+
+/** My library: what I saved, newest first. */
+export async function fetchPodLibrary(me: string): Promise<PodItem[]> {
+  const rows: { item_id: string; created_at: string }[] = ok(await supabase.from('community_pod_saves').select('item_id, created_at').eq('user_id', me).order('created_at', { ascending: false }).limit(300)) ?? [];
+  if (!rows.length) return [];
+  const items: PodItem[] = ok(await supabase.from('community_pod_cards').select('*').in('id', rows.map((r) => r.item_id))) ?? [];
+  const order = new Map(rows.map((r, i) => [r.item_id, i]));
+  return items.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+export async function fetchPopularPod(limit = 20): Promise<PodItem[]> {
+  return ok(await supabase.from('community_pod_cards').select('*').order('plays', { ascending: false }).limit(limit)) ?? [];
+}
+
+/** Admins and Plus members add to Pod. The audio file is uploaded first (uploadAudio) and its URL passed here. */
+export async function addPodItem(me: string, item: Pick<PodItem, 'kind' | 'title' | 'artist' | 'description' | 'cover_url' | 'audio_url' | 'duration_seconds'>): Promise<PodItem> {
+  const row: { id: string } = ok(await supabase.from('community_pod_items').insert({ user_id: me, ...item, title: item.title.trim().slice(0, 160), artist: item.artist.trim().slice(0, 160), description: item.description.trim().slice(0, 2000) }).select('id').single());
+  return (await fetchPodItem(row.id))!;
+}
+
+export async function updatePodItem(id: string, patch: Partial<Pick<PodItem, 'title' | 'artist' | 'description' | 'cover_url'>>) {
+  ok(await supabase.from('community_pod_items').update(patch).eq('id', id));
+}
+
+export async function deletePodItem(id: string) {
+  ok(await supabase.from('community_pod_items').delete().eq('id', id));
+}
+
+export async function setPodSaved(me: string, itemId: string, next: boolean) {
+  if (next) ok(await supabase.from('community_pod_saves').upsert({ user_id: me, item_id: itemId }, { onConflict: 'user_id,item_id', ignoreDuplicates: true }));
+  else ok(await supabase.from('community_pod_saves').delete().eq('user_id', me).eq('item_id', itemId));
+}
+
+/** Counts a listen. Fire and forget. */
+export function recordPodPlay(itemId: string) {
+  supabase.rpc('community_pod_played', { item: itemId }).then(() => {}, () => {});
+}
+
+/* ---------- live ---------- */
+
+export async function fetchLives(): Promise<LiveCard[]> {
+  return ok(await supabase.from('community_live_cards').select('*').order('started_at', { ascending: false }).limit(50)) ?? [];
+}
+
+export async function fetchLive(id: string): Promise<LiveCard | null> {
+  const row: LiveCard | null = ok(await supabase.from('community_live_cards').select('*').eq('id', id).maybeSingle());
+  return row;
+}
+
+/** Starts a live broadcast and returns its id. Everyone sees it in the story tray with a LIVE badge. */
+export async function startLive(me: string, title: string): Promise<string> {
+  const row: { id: string } = ok(await supabase.from('community_lives').insert({ user_id: me, title: title.trim().slice(0, 120) }).select('id').single());
+  announce('stories');
+  return row.id;
+}
+
+export async function endLive(id: string) {
+  ok(await supabase.from('community_lives').update({ ended_at: new Date().toISOString() }).eq('id', id));
+  announce('stories');
+}
+
+export async function setLiveViewers(id: string, viewers: number) {
+  await supabase.from('community_lives').update({ viewers: Math.max(0, viewers) }).eq('id', id);
+}
+
+/* ---------- calls (in the app, over WebRTC) ---------- */
+
+/** Rings the other person. The call row is what their phone sees arrive over Realtime. */
+export async function placeCall(me: string, calleeId: string, kind: 'voice' | 'video', threadId?: string | null): Promise<Call> {
+  return ok(await supabase.from('community_calls').insert({ caller_id: me, callee_id: calleeId, kind, thread_id: threadId ?? null }).select('*').single());
+}
+
+export async function fetchCall(id: string): Promise<Call | null> {
+  return ok(await supabase.from('community_calls').select('*').eq('id', id).maybeSingle());
+}
+
+export async function setCallStatus(id: string, status: Call['status']) {
+  const patch: Partial<Call> = { status };
+  if (status === 'accepted') patch.answered_at = new Date().toISOString();
+  if (status === 'ended' || status === 'declined' || status === 'missed' || status === 'busy') patch.ended_at = new Date().toISOString();
+  ok(await supabase.from('community_calls').update(patch).eq('id', id));
+}
+
+/** A call that is still ringing for me (so a phone that was closed can pick up when it reopens). */
+export async function fetchRingingCall(me: string): Promise<Call | null> {
+  const since = new Date(Date.now() - 45000).toISOString();
+  return ok(await supabase.from('community_calls').select('*').eq('callee_id', me).eq('status', 'ringing').gt('created_at', since).order('created_at', { ascending: false }).limit(1).maybeSingle());
+}
+
+/** Leaves a note of the call in the chat, like a call log. */
+export async function logCallInChat(me: string, threadId: string, kind: 'voice' | 'video', outcome: 'ended' | 'missed' | 'declined', seconds = 0) {
+  const label = outcome === 'ended' ? `${kind === 'video' ? 'Video' : 'Voice'} call · ${Math.max(1, Math.round(seconds / 60))} min` : outcome === 'missed' ? `Missed ${kind} call` : `${kind === 'video' ? 'Video' : 'Voice'} call declined`;
+  await sendMessage(me, threadId, { text: label, call_kind: kind, call_url: `community://call/${outcome}` });
+}
+
+/* ---------- transactions, support and the admin console ---------- */
+
+export async function fetchTransactions(limit = 200): Promise<Transaction[]> {
+  return ok(await supabase.from('community_transaction_cards').select('*').order('created_at', { ascending: false }).limit(limit)) ?? [];
+}
+
+export async function addTransaction(me: string, t: { user_id?: string | null; kind: Transaction['kind']; amount_pence: number; currency?: string; note?: string }) {
+  ok(await supabase.from('community_transactions').insert({ user_id: t.user_id ?? null, kind: t.kind, amount_pence: Math.round(t.amount_pence), currency: (t.currency ?? 'GBP').toUpperCase().slice(0, 3), note: (t.note ?? '').trim().slice(0, 500), created_by: me }));
+}
+
+export async function deleteTransaction(id: string) {
+  ok(await supabase.from('community_transactions').delete().eq('id', id));
+}
+
+export async function fetchAdminActivity(limit = 80): Promise<ActivityRow[]> {
+  return ok(await supabase.rpc('community_admin_activity', { p_limit: limit })) ?? [];
+}
+
+export async function fetchSupportTickets(all = false): Promise<SupportTicket[]> {
+  let q = supabase.from('community_support_cards').select('*').order('created_at', { ascending: false }).limit(200);
+  if (!all) q = q.neq('status', 'closed');
+  return ok(await q) ?? [];
+}
+
+export async function mySupportTickets(me: string): Promise<SupportTicket[]> {
+  return ok(await supabase.from('community_support_cards').select('*').eq('user_id', me).order('created_at', { ascending: false }).limit(50)) ?? [];
+}
+
+export async function openSupportTicket(me: string, subject: string, body: string) {
+  ok(await supabase.from('community_support_tickets').insert({ user_id: me, subject: subject.trim().slice(0, 140), body: body.trim().slice(0, 4000) }));
+}
+
+export async function answerSupportTicket(id: string, reply: string, status: SupportTicket['status'] = 'answered') {
+  ok(await supabase.from('community_support_tickets').update({ reply: reply.trim().slice(0, 4000), status, updated_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function closeSupportTicket(id: string) {
+  ok(await supabase.from('community_support_tickets').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', id));
 }

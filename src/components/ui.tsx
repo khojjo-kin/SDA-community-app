@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppFont } from '../lib/fonts';
 import { C, CLOSE_RING, RING } from '../lib/theme';
 import { Icon, IconName } from './Icon';
 
@@ -33,6 +34,7 @@ export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; na
 
 export function Button({ label, onPress, kind = 'primary', small, busy, disabled, style }: { label: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; small?: boolean; busy?: boolean; disabled?: boolean; style?: ViewStyle }) {
   const bg = kind === 'primary' ? C.accent : kind === 'danger' ? C.like : C.surface2;
+  const font = useAppFont('bold');
   return (
     <Pressable
       onPress={busy || disabled ? undefined : onPress}
@@ -40,17 +42,18 @@ export function Button({ label, onPress, kind = 'primary', small, busy, disabled
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       style={({ pressed }) => [{ height: small ? 32 : 46, paddingHorizontal: small ? 14 : 18, borderRadius: small ? 10 : 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : pressed ? 0.75 : 1 }, style]}>
-      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600', fontSize: small ? 13.5 : 15.5 }}>{label}</Text>}
+      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
     </Pressable>
   );
 }
 
 export function Field({ label, error, style, ...rest }: TextInputProps & { label?: string; error?: string }) {
+  const font = useAppFont();
   return (
     <View style={{ gap: 6 }}>
-      {label ? <Text style={{ color: C.fg2, fontSize: 12.5 }}>{label}</Text> : null}
-      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance="dark" accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface }, style]} />
-      {error ? <Text style={{ color: C.like, fontSize: 13 }}>{error}</Text> : null}
+      {label ? <Text style={{ color: C.fg2, fontSize: 12.5, fontFamily: font }}>{label}</Text> : null}
+      <TextInput placeholderTextColor={C.fg3} selectionColor={C.accent2} keyboardAppearance="dark" accessibilityLabel={label} {...rest} style={[{ color: C.fg, fontSize: 16, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, backgroundColor: C.surface, fontFamily: font }, style]} />
+      {error ? <Text style={{ color: C.like, fontSize: 13, fontFamily: font }}>{error}</Text> : null}
     </View>
   );
 }
@@ -120,10 +123,11 @@ export function NewPill({ label = 'New' }: { label?: string }) {
 
 export function Header({ title, left, right, center }: { title?: string; left?: React.ReactNode; right?: React.ReactNode; center?: boolean }) {
   const router = useRouter();
+  const font = useAppFont('bold');
   return (
     <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
       {left === undefined ? <IconButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} /> : left}
-      <Text numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: center ? 'center' : 'left' }}>
+      <Text numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: center ? 'center' : 'left', fontFamily: font }}>
         {title}
       </Text>
       {right ?? <View style={{ width: 40 }} />}
@@ -134,11 +138,12 @@ export function Header({ title, left, right, center }: { title?: string; left?: 
 /** Settings-style header: a round back button, the title in the middle, and room for one round button on the right. */
 export function ScreenHeader({ title, right, onBack, noBack }: { title: string; right?: React.ReactNode; onBack?: () => void; noBack?: boolean }) {
   const router = useRouter();
+  const font = useAppFont('bold');
   const back = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
       <View style={{ width: 44 }}>{noBack ? null : <RoundButton name="back" label="Back" onPress={back} />}</View>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8 }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8, fontFamily: font }}>
         {title}
       </Text>
       <View style={{ width: 44, alignItems: 'flex-end' }}>{right}</View>
@@ -153,14 +158,16 @@ export function Screen({ children, edges = true, style }: { children: React.Reac
 
 /** One line in a settings list. */
 export function Row({ icon, title, sub, value, onPress, right, color, chevron = true, bold }: { icon?: IconName; title: string; sub?: string; value?: string; onPress?: () => void; right?: React.ReactNode; color?: string; chevron?: boolean; bold?: boolean }) {
+  const font = useAppFont();
+  const fontBold = useAppFont('bold');
   const body = (
     <>
       {icon ? <Icon name={icon} size={26} color={color ?? C.fg} /> : null}
       <View style={{ flex: 1, paddingVertical: sub ? 9 : 0 }}>
-        <Text style={{ color: color ?? C.fg, fontSize: 17.5, fontWeight: bold ? '700' : '400' }}>{title}</Text>
-        {sub ? <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 1 }}>{sub}</Text> : null}
+        <Text style={{ color: color ?? C.fg, fontSize: 17.5, fontWeight: bold ? '700' : '400', fontFamily: bold ? fontBold : font }}>{title}</Text>
+        {sub ? <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
       </View>
-      {value ? <Text style={{ color: C.fg2, fontSize: 16.5 }}>{value}</Text> : null}
+      {value ? <Text style={{ color: C.fg2, fontSize: 16.5, fontFamily: font }}>{value}</Text> : null}
       {right}
       {onPress && chevron ? <Icon name="right" size={18} color={C.fg2} weight={2} /> : null}
     </>
@@ -175,9 +182,10 @@ export function Row({ icon, title, sub, value, onPress, right, color, chevron = 
 }
 
 export function SectionLabel({ children, right, strong }: { children: string; right?: React.ReactNode; strong?: boolean }) {
+  const font = useAppFont('bold');
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: strong ? 20 : 22, paddingBottom: strong ? 12 : 10 }}>
-      <Text accessibilityRole="header" style={strong ? { color: C.fg, fontSize: 20, fontWeight: '700' } : { color: C.fg2, fontSize: 15.5, fontWeight: '700' }}>
+      <Text accessibilityRole="header" style={strong ? { color: C.fg, fontSize: 20, fontWeight: '700', fontFamily: font } : { color: C.fg2, fontSize: 15.5, fontWeight: '700', fontFamily: font }}>
         {children}
       </Text>
       {right}
@@ -191,11 +199,13 @@ export function Divider({ thin }: { thin?: boolean }) {
 }
 
 export function Empty({ title, body, icon, action }: { title: string; body?: string; icon?: IconName; action?: React.ReactNode }) {
+  const font = useAppFont();
+  const fontBold = useAppFont('bold');
   return (
     <View style={{ padding: 36, alignItems: 'center', gap: 8 }}>
       {icon ? <Icon name={icon} size={44} color={C.fg2} /> : null}
-      <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
-      {body ? <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{body}</Text> : null}
+      <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700', textAlign: 'center', fontFamily: fontBold }}>{title}</Text>
+      {body ? <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20, fontFamily: font }}>{body}</Text> : null}
       {action}
     </View>
   );
@@ -246,13 +256,14 @@ export function Sheet({ visible, onClose, title, children, tall, footer }: { vis
 
 export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { icon: IconName; label: string; sub?: string; onPress: () => void; danger?: boolean; right?: React.ReactNode; first?: boolean }) {
   const color = danger ? C.like : C.fg;
+  const font = useAppFont();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
       <Icon name={icon} size={26} color={color} />
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: '#2c3138' }}>
         <View style={{ flex: 1, paddingVertical: sub ? 8 : 0 }}>
-          <Text style={{ color, fontSize: 18 }}>{label}</Text>
-          {sub ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>{sub}</Text> : null}
+          <Text style={{ color, fontSize: 18, fontFamily: font }}>{label}</Text>
+          {sub ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
         </View>
         {right}
       </View>

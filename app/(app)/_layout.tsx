@@ -5,6 +5,7 @@ import { Redirect, Stack } from 'expo-router';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
 import { purgeDate, restoreAccount } from '../../src/lib/api';
+import { CallProvider } from '../../src/lib/calls';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
@@ -67,23 +68,30 @@ export default function AppLayout() {
   if (profile.deleted_at) return <Deactivated me={me} deletedAt={profile.deleted_at} onRestored={refresh} onLogOut={() => signOut()} />;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
-      <Stack.Screen name="(tabs)" />
-      {/* Screens that slide up have a Close button and scroll, so the swipe-to-dismiss gesture is off: it would fight the scrolling. */}
-      <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="story/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
-      <Stack.Screen name="watch/[id]" options={{ animation: 'fade' }} />
-      <Stack.Screen name="comments/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="share/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="send-to" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="add-story" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="new-highlight" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="camera-settings" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="story-editor" options={{ animation: 'fade', gestureEnabled: false }} />
-      <Stack.Screen name="highlight/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
-      <Stack.Screen name="story-archive/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
-      <Stack.Screen name="group-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-      <Stack.Screen name="church-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-    </Stack>
+    // Calls live above every screen: an incoming call can ring over whatever is open.
+    <CallProvider>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+        <Stack.Screen name="(tabs)" />
+        {/* Screens that slide up have a Close button and scroll, so the swipe-to-dismiss gesture is off: it would fight the scrolling. */}
+        <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="story/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="watch/[id]" options={{ animation: 'fade' }} />
+        <Stack.Screen name="comments/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="share/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="send-to" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="add-story" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="new-highlight" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="camera-settings" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="story-editor" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="highlight/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="story-archive/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="group-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="church-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        {/* Calls and live video fill the screen; a swipe back would leave the camera running, so the gesture is off. */}
+        <Stack.Screen name="call/[id]" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="go-live" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="live/[id]" options={{ animation: 'fade', gestureEnabled: false }} />
+      </Stack>
+    </CallProvider>
   );
 }

@@ -15,6 +15,7 @@ export function CreateSheet({ visible, onClose }: { visible: boolean; onClose: (
       <SheetRow first icon="reels" label="Reel" onPress={go('/create?mode=reel')} />
       <SheetRow icon="grid" label="Post" onPress={go('/create?mode=post')} />
       <SheetRow icon="story" label="Story" onPress={go('/add-story')} />
+      <SheetRow icon="live" label="Live" sub="Broadcast to everyone, right now" onPress={go('/go-live')} />
       <SheetRow icon="highlight" label="Highlight" onPress={go('/new-highlight')} />
     </Sheet>
   );

@@ -12,6 +12,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const FREE_MESSAGES_A_DAY = 15;
 const HISTORY = 24;
+/** Erha's own account in the app. When the app passes a thread with this account, the reply is sent there as a chat message. */
+const ERHA_ID = Deno.env.get('ERHA_USER_ID') ?? 'user_3KTkRcnk7CCL3EaTDjWtptR4YMO';
 const MODEL = Deno.env.get('ERHA_MODEL') ?? 'claude-sonnet-5-5';
 
 const INSTRUCTIONS = `You are Erha, the assistant inside Community, a social app for a Seventh-day Adventist church family.
@@ -59,13 +61,12 @@ Deno.serve(async (req: Request) => {
   const me = subjectOf(req);
   if (!me) return json({ error: 'Sign in to talk to Erha.' }, 401);
 
-  const key = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!key) return json({ error: 'Erha is not set up yet. An admin needs to add the Claude API key.' }, 503);
-
   let text = '';
+  let threadId = '';
   try {
     const body = await req.json();
     text = String(body?.text ?? '').trim();
+    threadId = typeof body?.thread_id === 'string' ? body.thread_id : '';
   } catch {
     return json({ error: 'Send a POST with { text }.' }, 400);
   }
@@ -73,6 +74,25 @@ Deno.serve(async (req: Request) => {
   if (text.length > 4000) return json({ error: 'That message is too long. Keep it under 4,000 characters.' }, 400);
 
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+
+  // Chatting with Erha's account in Messages: the reply goes into that chat, as Erha.
+  let chat: string | null = null;
+  if (threadId) {
+    const { data: t } = await db.from('community_threads').select('id, user_a, user_b').eq('id', threadId).maybeSingle();
+    const pair = t ? [t.user_a, t.user_b] : [];
+    if (t && pair.includes(me) && pair.includes(ERHA_ID)) chat = t.id;
+    else return json({ error: 'That chat is not with Erha.' }, 403);
+  }
+  const say = async (content: string) => {
+    if (chat) await db.from('community_messages').insert({ thread_id: chat, sender_id: ERHA_ID, text: content.slice(0, 5000) });
+  };
+
+  const key = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!key) {
+    const why = 'Erha is not set up yet. An admin needs to add the Claude API key.';
+    await say(why);
+    return json({ error: why }, 503);
+  }
 
   // Community Plus lifts the daily allowance.
   const { data: profile } = await db.from('community_profiles').select('plus_until, suspended').eq('id', me).maybeSingle();
@@ -85,7 +105,9 @@ Deno.serve(async (req: Request) => {
     const { count } = await db.from('community_erha_messages').select('id', { count: 'exact', head: true }).eq('user_id', me).eq('role', 'user').gte('created_at', since.toISOString());
     const used = count ?? 0;
     if (used >= FREE_MESSAGES_A_DAY) {
-      return json({ error: `You have used today's ${FREE_MESSAGES_A_DAY} messages. They reset at midnight, or Community Plus removes the limit.`, remaining: 0 }, 429);
+      const why = `You have used today's ${FREE_MESSAGES_A_DAY} messages. They reset at midnight, or Community Plus removes the limit.`;
+      await say(why);
+      return json({ error: why, remaining: 0 }, 429);
     }
     remaining = FREE_MESSAGES_A_DAY - used - 1;
   }
@@ -121,5 +143,6 @@ Deno.serve(async (req: Request) => {
     { user_id: me, role: 'user', content: text },
     { user_id: me, role: 'assistant', content: reply },
   ]);
+  await say(reply);
   return json({ reply, remaining });
 });

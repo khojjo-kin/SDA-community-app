@@ -3,26 +3,37 @@ import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SectionTitle } from '../../src/components/Grid';
-import { Avatar, Button, Empty, ErrorNote, Header, Loading, Screen, useToast } from '../../src/components/ui';
-import { fetchNotices, markNoticesRead, setFollow } from '../../src/lib/api';
+import { Avatar, Button, Empty, ErrorNote, Header, Loading, Row, Screen, useToast } from '../../src/components/ui';
+import { acceptFollowRequest, fetchFollowRequests, fetchNotices, markNoticesRead, removeFollowRequest, setFollow } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { ago, C, errText } from '../../src/lib/theme';
 import type { Notice } from '../../src/lib/types';
 
-const VERB: Record<Notice['kind'], string> = { like: 'liked your post.', comment: 'commented:', follow: 'started following you.', repost: 'reposted your post.' };
+const VERB: Record<Notice['kind'], string> = {
+  like: 'liked your post.',
+  comment: 'commented:',
+  follow: 'started following you.',
+  repost: 'reposted your post.',
+  request: 'wants to follow you.',
+  accept: 'accepted your follow request.',
+};
 
 export default function Notifications() {
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
   const [list, setList] = useState<Notice[]>([]);
+  /** Who is still waiting for an answer, so a request notice only offers Accept and Decline while it is open. */
+  const [pending, setPending] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setList(await fetchNotices());
+      const [notices, requests] = await Promise.all([fetchNotices(), fetchFollowRequests(me).catch(() => [])]);
+      setList(notices);
+      setPending(new Set(requests.map((r) => r.id)));
       setStatus('ready');
       markNoticesRead(me);
     } catch (e) {
@@ -43,6 +54,18 @@ export default function Notifications() {
       toast(errText(e));
       load();
     });
+  }
+
+  function answer(n: Notice, accept: boolean) {
+    setPending((cur) => {
+      const next = new Set(cur);
+      next.delete(n.actor_id);
+      return next;
+    });
+    (accept ? acceptFollowRequest(n.actor_id) : removeFollowRequest(n.actor_id, me))
+      .then(() => toast(accept ? `${n.username} now follows you` : 'Request removed'))
+      .catch((e) => toast(errText(e)))
+      .finally(load);
   }
 
   const day = 86400e3;
@@ -83,10 +106,22 @@ export default function Notifications() {
                   </Pressable>
                 ) : n.kind === 'follow' ? (
                   <Button small label={n.is_following ? 'Following' : 'Follow back'} kind={n.is_following ? 'ghost' : 'primary'} onPress={n.is_following ? () => router.push(`/user/${n.actor_id}`) : () => follow(n)} />
+                ) : n.kind === 'request' && pending.has(n.actor_id) ? (
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <Button small label="Accept" onPress={() => answer(n, true)} />
+                    <Button small kind="ghost" label="Decline" onPress={() => answer(n, false)} />
+                  </View>
                 ) : null}
               </View>
             );
           }}
+          ListHeaderComponent={
+            pending.size ? (
+              <View style={{ paddingTop: 4 }}>
+                <Row icon="request" title="Follow requests" sub={`${pending.size} ${pending.size === 1 ? 'request' : 'requests'}`} onPress={() => router.push('/follow-requests')} />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={<Empty icon="heart" title="Activity on your posts" body="When someone likes, comments on or reposts your posts, or follows you, you'll see it here." />}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}

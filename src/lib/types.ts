@@ -67,6 +67,16 @@ export type Post = {
   group_kind: 'community' | 'page' | null;
   /** The post is in a group I belong to, so it belongs in my home feed. */
   in_my_group: boolean;
+  /** A Plus member has boosted it: it sits at the top of For you and Explore until boosted_until. */
+  boosted: boolean;
+  boosted_until: string | null;
+  /** The author is a Community Plus member. */
+  author_plus: boolean;
+  /** A song from Pod attached to the post, or null. */
+  audio_id: string | null;
+  audio_title: string | null;
+  audio_artist: string | null;
+  audio_url: string | null;
 };
 
 export type StoryReplies = 'everyone' | 'following' | 'off';
@@ -108,6 +118,18 @@ export type Profile = {
   admin_role: 'owner' | 'admin' | null;
   /** Set when the account was deactivated: hidden now, deleted for good 30 days later unless restored. */
   deleted_at: string | null;
+  /** Only followers see this account's posts and stories; following it sends a request. */
+  is_private: boolean;
+  /** Others see "Seen" under what they send you. Plus members can turn it off. */
+  read_receipts: boolean;
+  /** I have asked to follow this private account and they have not answered yet. */
+  requested: boolean;
+  /** This account has asked to follow me. */
+  requests_me: boolean;
+  /** Broadcasting live right now. */
+  is_live: boolean;
+  /** How many people looked at this profile in the last 7 days (the list itself is a Plus perk). */
+  views_week: number;
 };
 
 export type Church = {
@@ -177,6 +199,13 @@ export type MemberCard = {
 };
 
 export type AdminStats = {
+  lives_now: number;
+  pod_items: number;
+  support_open: number;
+  groups: number;
+  income_pence: number;
+  income_month_pence: number;
+  deactivated: number;
   members: number;
   members_week: number;
   posts: number;
@@ -272,7 +301,7 @@ export type Notice = {
   id: string;
   user_id: string;
   actor_id: string;
-  kind: 'like' | 'comment' | 'follow' | 'repost';
+  kind: 'like' | 'comment' | 'follow' | 'repost' | 'request' | 'accept';
   post_id: string | null;
   body: string;
   created_at: string;
@@ -335,3 +364,86 @@ export type GroupMember = {
   created_at: string;
   profile: Profile | null;
 };
+
+/** Someone who looked at a profile. Plus members see this list for their own profile. */
+export type ProfileViewer = { profile_id: string; viewer_id: string; viewed_at: string; username: string; full_name: string; avatar_url: string; verified: boolean };
+
+/** A song or a podcast episode on Pod. */
+export type PodItem = {
+  id: string;
+  user_id: string;
+  kind: 'song' | 'podcast';
+  title: string;
+  artist: string;
+  description: string;
+  cover_url: string;
+  audio_url: string;
+  duration_seconds: number;
+  plays: number;
+  created_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  /** In my library. */
+  saved: boolean;
+};
+
+/** Someone broadcasting live right now. */
+export type LiveCard = {
+  id: string;
+  user_id: string;
+  title: string;
+  started_at: string;
+  ended_at: string | null;
+  viewers: number;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  following: boolean;
+};
+
+/** A voice or video call between two people. Signalling goes over Realtime; this row says who is calling whom. */
+export type Call = {
+  id: string;
+  thread_id: string | null;
+  caller_id: string;
+  callee_id: string;
+  kind: 'voice' | 'video';
+  status: 'ringing' | 'accepted' | 'declined' | 'missed' | 'ended' | 'busy';
+  created_at: string;
+  answered_at: string | null;
+  ended_at: string | null;
+};
+
+export type Transaction = {
+  id: string;
+  user_id: string | null;
+  kind: 'plus' | 'donation' | 'refund' | 'other';
+  amount_pence: number;
+  currency: string;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  created_by_username: string | null;
+};
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  subject: string;
+  body: string;
+  status: 'open' | 'answered' | 'closed';
+  reply: string;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+};
+
+/** One line of the admin console's activity feed. */
+export type ActivityRow = { at: string; kind: 'joined' | 'post' | 'reel' | 'live' | 'report' | 'transaction' | 'support' | 'plus_request' | 'group'; user_id: string | null; username: string | null; detail: string | null };

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
-import { Avatar, Button, Divider, Field, Radio, RoundButton, Screen, Sheet, useToast } from '../../src/components/ui';
+import { Avatar, Button, Divider, Field, Radio, RoundButton, Screen, Sheet, Toggle, useToast } from '../../src/components/ui';
 import { fetchChurch, updateProfile, uploadImage } from '../../src/lib/api';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
@@ -46,6 +46,28 @@ function Pick({ label, value, sub, onPress, accent }: { label: string; value?: s
   );
 }
 
+/** A line with a switch on the right. When `onPress` is given the whole line is tappable instead (the switch is then disabled). */
+function Switch({ label, sub, value, onChange, disabled, onPress }: { label: string; sub: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean; onPress?: () => void }) {
+  const body = (
+    <>
+      <View style={{ flex: 1, paddingVertical: 10 }}>
+        <Text style={{ color: C.fg, fontSize: 16.5 }}>{label}</Text>
+        <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2, lineHeight: 19 }}>{sub}</Text>
+      </View>
+      <View pointerEvents={onPress ? 'none' : 'auto'}>
+        <Toggle value={value} onChange={onChange} label={label} disabled={disabled} />
+      </View>
+    </>
+  );
+  const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, minHeight: 54 };
+  if (!onPress) return <View style={style}>{body}</View>;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [style, { backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' }]}>
+      {body}
+    </Pressable>
+  );
+}
+
 export default function EditProfile() {
   const { me, profile, refresh } = useSession();
   const router = useRouter();
@@ -60,6 +82,8 @@ export default function EditProfile() {
   const [email, setEmail] = useState(profile?.contact_email ?? '');
   const [phone, setPhone] = useState(profile?.contact_phone ?? '');
   const [church, setChurch] = useState<{ id: string | null; name: string }>({ id: profile?.church_id ?? null, name: profile?.church_name ?? '' });
+  const [isPrivate, setIsPrivate] = useState(!!profile?.is_private);
+  const [readReceipts, setReadReceipts] = useState(profile ? profile.read_receipts !== false : true);
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [sheet, setSheet] = useState<'gender' | 'contact' | 'links' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,6 +132,8 @@ export default function EditProfile() {
         contact_email: email.trim().slice(0, 200),
         contact_phone: phone.trim().slice(0, 40),
         church_id: church.id,
+        is_private: isPrivate,
+        read_receipts: readReceipts,
       };
       if (photo) patch.avatar_url = (await uploadImage(me, photo.uri, photo.width, 480)).url;
       await updateProfile(me, patch);
@@ -156,6 +182,15 @@ export default function EditProfile() {
           <Pick label="Contact options" value={contact ? `${contact} added` : undefined} onPress={() => setSheet('contact')} />
           <Pick label="Action buttons" value={profile?.faq_enabled ? 'Questions on' : 'None active'} onPress={() => router.push('/faq')} />
           <Pick label="Profile display" value={profile?.show_view_counts ? 'View counts on' : 'View counts off'} onPress={() => router.push('/view-counts')} />
+          <Switch label="Private account" sub="Only people you approve can see your posts and stories" value={isPrivate} onChange={setIsPrivate} />
+          <Switch
+            label="Read receipts"
+            sub="Let people see when you have read their messages"
+            value={readReceipts}
+            onChange={setReadReceipts}
+            disabled={!profile?.plus}
+            onPress={profile?.plus ? undefined : () => { toast('Turning off read receipts is part of Community Plus'); router.push('/plus'); }}
+          />
           <Pressable onPress={() => router.push('/account')} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, paddingVertical: 18, opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ color: C.accent2, fontSize: 17 }}>Personal information settings</Text>
           </Pressable>

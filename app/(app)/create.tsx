@@ -1,42 +1,45 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { FilteredImage, FilterStrip, useFilterExport } from '../../src/components/FilterStrip';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/Icon';
-import { Button, IconButton, Radio, Screen, Sheet, useToast } from '../../src/components/ui';
+import { MediaPicker, PickMode, PickedItem } from '../../src/components/MediaPicker';
+import { isPlainEdit, PhotoEdit, PLAIN_EDIT, PostEditor, useLookExport } from '../../src/components/PostEditor';
+import { Button, IconButton, Radio, Sheet, useToast } from '../../src/components/ui';
 import { canPostIn, createPost, fetchMyGroups, uploadImage, uploadVideo } from '../../src/lib/api';
-import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
-import { Picked, pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../../src/lib/pick';
-import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
-import type { Group, Media } from '../../src/lib/types';
+import type { Group, Media, PodItem } from '../../src/lib/types';
 
-type Mode = 'post' | 'reel';
+type Step = 'pick' | 'edit' | 'share';
 
-/** Share a post (up to 10 photos) or a reel (one video up to 60 seconds). Stories have their own screen. */
+/**
+ * Share a post (up to 10 photos) or an Instant (one video up to 60 seconds), in three steps on one
+ * screen: choose, edit, share. Stories hand over to their own screen. Deep links arrive as
+ * ?mode=post|reel, and a verse or a hymn line can arrive as a ready-made caption.
+ */
 export default function Create() {
   const params = useLocalSearchParams<{ mode?: string; text?: string; group?: string }>();
-  const { me } = useSession();
-  const prefs = usePrefs();
+  const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const { width } = useWindowDimensions();
-  const [mode, setMode] = useState<Mode>(params.mode === 'reel' ? 'reel' : 'post');
-  const [items, setItems] = useState<Picked[]>([]);
-  // One filter per photo, in the same order as items. Missing entries mean Normal.
-  const [filters, setFilters] = useState<string[]>([]);
-  // Which photo the preview is showing, so the filter strip edits that one.
-  const [page, setPage] = useState(0);
-  const { exportFiltered, exporter } = useFilterExport();
-  // A verse or a hymn line can arrive as a ready-made caption.
+  const insets = useSafeAreaInsets();
+  const [mode, setMode] = useState<PickMode>(params.mode === 'reel' ? 'reel' : 'post');
+  const [step, setStep] = useState<Step>('pick');
+  const [items, setItems] = useState<PickedItem[]>([]);
+  // One edit per photo, in the same order as items.
+  const [edits, setEdits] = useState<PhotoEdit[]>([]);
+  const [audio, setAudio] = useState<PodItem | null>(null);
   const [caption, setCaption] = useState(typeof params.text === 'string' ? params.text.slice(0, 2200) : '');
+  const [location, setLocation] = useState('');
+  // Videos: the frame used as the cover. Starts as the first frame; the editor can pick another.
   const [poster, setPoster] = useState('');
+  const [posterChosen, setPosterChosen] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const { exportEdited, exporter } = useLookExport();
   // Where the post goes: your profile, or one of the communities and pages you can post in.
   // A group id can arrive from a group's own Post button.
   const [groups, setGroups] = useState<Group[]>([]);
@@ -52,49 +55,28 @@ export default function Create() {
   useEffect(() => () => { alive.current = false; }, []);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const filterOf = (i: number) => filters[i] ?? NORMAL_FILTER;
+  const isVideo = items[0]?.type === 'video';
 
-  function replaceItems(next: Picked[]) {
-    setItems(next);
-    setFilters(next.map(() => NORMAL_FILTER));
-    setPage(0);
-  }
-
-  function acceptVideo(video: Picked) {
-    const problem = videoProblem(video.duration, video.fileSize);
-    if (problem) return setErr(problem);
-    setPoster('');
-    VideoThumbnails.getThumbnailAsync(video.uri, { time: 300, quality: 0.6 }).then((t) => setPoster(t.uri)).catch(() => {});
-    replaceItems([video]);
-  }
-
-  async function choose(camera: boolean) {
-    setErr('');
-    try {
-      if (mode === 'reel') {
-        if (camera) {
-          const [shot] = await takePhoto({ front: prefs.frontCamera, videoOnly: true });
-          if (!shot) return;
-          if (shot.type !== 'video') return setErr('That was a photo. Record a video for a reel, or switch to Post.');
-          acceptVideo(shot);
-        } else {
-          // The phone copies and shrinks the video before handing it over, which can take a while.
-          setBusy('Getting the video ready…');
-          try {
-            const video = await pickVideo();
-            if (video) acceptVideo(video);
-          } finally {
-            if (alive.current) setBusy('');
-          }
-        }
-        return;
-      }
-      const picked = camera ? await takePhoto({ front: prefs.frontCamera }) : await pickFromLibrary({ multiple: true, limit: 10 });
-      const photos = picked.filter((p) => p.type !== 'video').slice(0, 10);
-      if (photos.length) replaceItems(photos);
-    } catch (e) {
-      setErr(errText(e));
+  function onMode(m: PickMode) {
+    if (m === 'story') {
+      router.replace('/add-story');
+      return;
     }
+    setMode(m);
+  }
+
+  function onPicked(list: PickedItem[]) {
+    setItems(list);
+    setEdits(list.map(() => PLAIN_EDIT));
+    setPoster('');
+    setPosterChosen(false);
+    setErr('');
+    if (list[0]?.type === 'video') {
+      VideoThumbnails.getThumbnailAsync(list[0].uri, { time: 300, quality: 0.6 })
+        .then((t) => { if (alive.current) setPoster((p) => p || t.uri); })
+        .catch(() => {});
+    }
+    setStep('edit');
   }
 
   async function share() {
@@ -107,21 +89,34 @@ export default function Create() {
         const which = items.length > 1 ? ` ${i + 1} of ${items.length}` : '';
         if (a.type === 'video') {
           setBusy('Uploading video…');
-          media.push(await uploadVideo(me, a.uri, a.width, a.height));
+          const m = await uploadVideo(me, a.uri, a.w, a.h);
+          // A cover chosen in the editor replaces the first frame the uploader took.
+          if (posterChosen && poster) {
+            try {
+              setBusy('Uploading the cover…');
+              m.poster = (await uploadImage(me, poster, undefined, 1080)).url;
+            } catch {
+              // the first frame will do
+            }
+          }
+          media.push(m);
           continue;
         }
-        // A filtered photo is drawn and saved with the filter baked in, then uploaded like any other.
+        // An edited photo is drawn with its filter, adjustments and text baked in, then uploaded like any other.
+        const e = edits[i] ?? PLAIN_EDIT;
         let uri = a.uri;
-        if (!isNormal(filterOf(i))) {
-          setBusy(`Applying the filter${which ? ' to' + which : ''}…`);
-          uri = await exportFiltered(a.uri, filterOf(i), a.width, a.height);
+        let w: number | undefined = a.w;
+        if (!isPlainEdit(e)) {
+          setBusy(`Preparing${which ? ' photo' + which : ' the photo'}…`);
+          uri = await exportEdited(a.uri, e, a.w, a.h);
+          w = undefined;
         }
         setBusy(`Uploading${which}…`);
-        media.push(await uploadImage(me, uri, a.width));
+        media.push(await uploadImage(me, uri, w));
       }
       setBusy('Sharing…');
-      await createPost(me, { caption, media, group_id: groupId });
-      toast(media[0].type === 'video' ? 'Your reel is live' : 'Your post is live');
+      await createPost(me, { caption, media, group_id: groupId, audio_id: audio?.id ?? null, location });
+      toast(media[0].type === 'video' ? 'Your Instant is live' : 'Your post is live');
       if (alive.current) close();
     } catch (e) {
       if (!alive.current) {
@@ -133,91 +128,82 @@ export default function Create() {
     }
   }
 
-  const box = width - 32;
-  const tall = mode === 'reel' ? 1.5 : 1.25;
-  const pageIdx = Math.max(0, Math.min(page, items.length - 1));
-  const shown = items.length ? items[pageIdx] : null;
-  const onPageEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.max(0, Math.min(items.length - 1, Math.round(e.nativeEvent.contentOffset.x / box))));
-  const pickFilter = (id: string) => setFilters((cur) => items.map((_, i) => (i === pageIdx ? id : cur[i] ?? NORMAL_FILTER)));
+  const thumb = isVideo ? poster : items[0]?.uri;
+  const disabled = !items.length || !!busy;
 
   return (
-    <Screen>
-      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
-        <IconButton name="close" label="Close" onPress={close} />
-        <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{mode === 'reel' ? 'New reel' : 'New post'}</Text>
-        <Pressable onPress={share} disabled={!items.length || !!busy} hitSlop={8} style={{ width: 56, alignItems: 'flex-end', paddingRight: 8 }} accessibilityRole="button" accessibilityState={{ disabled: !items.length || !!busy }}>
-          <Text style={{ color: C.accent2, fontWeight: '700', opacity: !items.length || busy ? 0.4 : 1 }}>Share</Text>
-        </Pressable>
-      </View>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+      {/* The picker stays underneath so its selection is still there when the editor closes. */}
+      <MediaPicker mode={mode} onMode={onMode} onNext={onPicked} onClose={close} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-          {items.length ? (
-            <ScrollView horizontal pagingEnabled={items.length > 1} showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onPageEnd} style={{ marginHorizontal: 16 }}>
-              {items.map((a, i) => (
-                <View key={a.uri + i} style={{ width: box, height: Math.round(box * tall), borderRadius: 14, overflow: 'hidden', backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
-                  {a.type !== 'video' ? (
-                    <FilteredImage uri={a.uri} filterId={filterOf(i)} style={{ position: 'absolute', width: '100%', height: '100%' }} />
-                  ) : poster ? (
-                    <Image source={{ uri: poster }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" />
-                  ) : null}
-                  {a.type === 'video' ? (
-                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="play" size={32} />
-                    </View>
-                  ) : null}
-                  {items.length > 1 ? (
-                    <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(10,12,14,0.7)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12 }}>
-                      <Text style={{ color: C.fg, fontSize: 12 }}>{i + 1}/{items.length}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={{ marginHorizontal: 16, height: Math.round(box * 0.9), borderRadius: 14, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 }}>
-              <Icon name={mode === 'reel' ? 'reels' : 'image'} size={46} color={C.fg2} />
-              <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{mode === 'reel' ? 'Choose or record one video, up to 60 seconds.' : 'Choose up to 10 photos. People swipe through them in one post.'}</Text>
-            </View>
-          )}
+      {step === 'edit' && items.length ? (
+        <View style={StyleSheet.absoluteFill}>
+          <PostEditor items={items} edits={edits} setEdits={setEdits} audio={audio} onAudio={setAudio} caption={caption} onCaption={setCaption} poster={poster} onPoster={(uri) => { setPoster(uri); setPosterChosen(true); }} plus={!!profile?.plus} onClose={() => setStep('pick')} onNext={() => setStep('share')} />
+        </View>
+      ) : null}
 
-          {shown && shown.type !== 'video' ? <FilterStrip uri={shown.uri} value={filterOf(pageIdx)} onChange={pickFilter} disabled={!!busy} style={{ marginTop: 6 }} /> : null}
-
-          <View style={{ flexDirection: 'row', gap: 6, marginHorizontal: 16, marginTop: 14, padding: 4, borderRadius: 12, backgroundColor: C.surface }} accessibilityRole="tablist">
-            {(['post', 'reel'] as Mode[]).map((m) => (
-              <Pressable key={m} onPress={() => { if (busy || m === mode) return; setMode(m); replaceItems([]); setPoster(''); setErr(''); }} accessibilityRole="tab" accessibilityState={{ selected: mode === m }} style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: mode === m ? C.surface2 : 'transparent' }}>
-                <Text style={{ color: mode === m ? C.fg : C.fg2, fontWeight: '600' }}>{m === 'post' ? 'Post' : 'Reel'}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 14 }}>
-            <Button label={items.length ? 'Choose different' : 'Choose from library'} onPress={() => choose(false)} style={{ flex: 1 }} disabled={!!busy} />
-            <Button label="Camera" kind="ghost" onPress={() => choose(true)} disabled={!!busy} />
-          </View>
-
-          {items.length ? (
-            <TextInput value={caption} onChangeText={setCaption} placeholder="Write a caption…" placeholderTextColor={C.fg3} multiline maxLength={2200} keyboardAppearance="dark" style={{ marginHorizontal: 16, marginTop: 14, minHeight: 90, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
-          ) : null}
-
-          {items.length && (groups.length || groupId) ? (
-            <Pressable onPress={() => setChoosingGroup(true)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={`Post to ${group ? group.name : 'your profile'}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 10, paddingHorizontal: 14, minHeight: 50, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 })}>
-              <Icon name={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} size={20} color={C.accent2} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg2, fontSize: 12.5 }}>Post to</Text>
-                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{group ? group.name : 'Your profile'}</Text>
-              </View>
-              <Icon name="down" size={18} color={C.fg2} weight={2.2} />
+      {step === 'share' && items.length ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg, paddingTop: insets.top }]}>
+          <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
+            <IconButton name="back" label="Back to editing" onPress={() => (busy ? undefined : setStep('edit'))} />
+            <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{isVideo ? 'New Instant' : 'New post'}</Text>
+            <Pressable onPress={share} disabled={disabled} hitSlop={8} style={({ pressed }) => ({ width: 56, alignItems: 'flex-end', paddingRight: 8, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel="Share" accessibilityState={{ disabled }}>
+              <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Share</Text>
             </Pressable>
-          ) : null}
+          </View>
 
-          {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginTop: 16 }} accessibilityLiveRegion="polite">{busy}</Text> : null}
-          {err ? <Text style={{ color: C.like, textAlign: 'center', marginTop: 16, marginHorizontal: 24, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+              <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 8 }}>
+                <Pressable onPress={() => (busy ? undefined : setStep('edit'))} accessibilityRole="button" accessibilityLabel={`${isVideo ? 'Video' : items.length > 1 ? `${items.length} photos` : 'Photo'}. Back to editing`} style={({ pressed }) => ({ width: 72, height: 90, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                  {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+                  {isVideo ? <Icon name="play" size={26} color="#fff" /> : null}
+                  {items.length > 1 ? (
+                    <View style={{ position: 'absolute', top: 5, right: 5, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(10,12,14,0.72)' }}>
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{items.length}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+                <TextInput value={caption} onChangeText={setCaption} placeholder="Write a caption…" placeholderTextColor={C.fg3} multiline maxLength={2200} keyboardAppearance="dark" editable={!busy} style={{ flex: 1, minHeight: 90, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
+              </View>
+
+              {groups.length || groupId ? (
+                <Pressable onPress={() => setChoosingGroup(true)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={`Post to ${group ? group.name : 'your profile'}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 })}>
+                  <Icon name={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} size={20} color={C.accent2} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: C.fg2, fontSize: 12.5 }}>Post to</Text>
+                    <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{group ? group.name : 'Your profile'}</Text>
+                  </View>
+                  <Icon name="down" size={18} color={C.fg2} weight={2.2} />
+                </Pressable>
+              ) : null}
+
+              <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Icon name="music" size={20} color={C.accent2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.fg2, fontSize: 12.5 }}>Audio</Text>
+                  <Text style={{ color: audio ? C.fg : C.fg3, fontSize: 16, fontWeight: audio ? '600' : '400' }} numberOfLines={1}>{audio ? `${audio.title} · ${audio.artist}` : 'None'}</Text>
+                </View>
+                {audio ? <IconButton name="close" size={20} label="Remove the audio" color={C.fg2} onPress={() => (busy ? undefined : setAudio(null))} /> : null}
+              </View>
+
+              <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Icon name="location" size={20} color={C.accent2} />
+                <TextInput value={location} onChangeText={setLocation} placeholder="Add location" placeholderTextColor={C.fg3} maxLength={120} keyboardAppearance="dark" editable={!busy} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 12 }} accessibilityLabel="Location" />
+              </View>
+
+              {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginTop: 18 }} accessibilityLiveRegion="polite">{busy}</Text> : null}
+              {err ? <Text style={{ color: C.like, textAlign: 'center', marginTop: 18, marginHorizontal: 24, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
+
+              <Button label={busy ? 'Sharing' : 'Share'} busy={!!busy} onPress={share} disabled={!items.length} style={{ marginHorizontal: 16, marginTop: 22 }} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      ) : null}
+
       <Sheet visible={choosingGroup} onClose={() => setChoosingGroup(false)} title="Post to">
         {[{ id: null as string | null, name: 'Your profile', sub: 'Everyone who follows you' }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: g.kind === 'page' ? 'Page' : g.privacy === 'private' ? 'Private community' : 'Community' }))].map((o) => (
-          <Pressable key={o.id ?? 'me'} onPress={() => { setGroupId(o.id); setChoosingGroup(false); }} accessibilityRole="radio" accessibilityState={{ checked: groupId === o.id }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 54 }}>
+          <Pressable key={o.id ?? 'me'} onPress={() => { setGroupId(o.id); setChoosingGroup(false); }} accessibilityRole="radio" accessibilityState={{ checked: groupId === o.id }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 54, backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: C.fg, fontSize: 16.5 }} numberOfLines={1}>{o.name}</Text>
               <Text style={{ color: C.fg2, fontSize: 13 }}>{o.sub}</Text>
@@ -226,8 +212,8 @@ export default function Create() {
           </Pressable>
         ))}
       </Sheet>
-      {/* Draws filtered photos offscreen at share time. Takes no space. */}
+      {/* Draws edited photos offscreen at share time. Takes no space. */}
       {exporter}
-    </Screen>
+    </View>
   );
 }

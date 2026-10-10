@@ -1,9 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
-import { Button, Screen, ScreenHeader, Sheet, useToast } from '../../src/components/ui';
-import { myPlusRequests, requestPlus } from '../../src/lib/api';
+import { Button, Row, Screen, ScreenHeader, SectionLabel, Sheet, Toggle, useToast } from '../../src/components/ui';
+import { myPlusRequests, PLUS_PRICE_PENCE, requestPlus, updateProfile } from '../../src/lib/api';
+import { fontById } from '../../src/lib/fonts';
+import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { PlusRequest } from '../../src/lib/types';
@@ -12,18 +14,31 @@ import type { PlusRequest } from '../../src/lib/types';
 const PLUS_FEATURES: { icon: IconName; title: string; body: string }[] = [
   { icon: 'verified', title: 'The verified tick', body: 'Next to your name on your profile, your posts, your comments and in chats.' },
   { icon: 'sparkle', title: 'Erha without limits', body: 'Ask Erha as much as you like. Everyone else gets 15 messages a day.' },
-  { icon: 'crown', title: 'Plus on your profile', body: 'A small Plus badge that shows you support the community.' },
+  { icon: 'font', title: 'App fonts', body: 'Set the whole app in Nunito, Lora or Poppins.' },
+  { icon: 'wallpaper', title: 'Chat wallpapers', body: 'A look of your own behind every conversation.' },
+  { icon: 'sliders', title: 'Advanced photo editing', body: 'Fine control over light, colour and detail before you post.' },
+  { icon: 'eye', title: 'See who viewed your profile', body: 'The people who looked at your profile this week, by name.' },
+  { icon: 'lock', title: 'Read receipts off', body: 'Read messages in your own time without anyone seeing "Seen".' },
+  { icon: 'boost', title: 'Boost a post', body: 'Put a post at the top of For you for everyone to see.' },
+  { icon: 'headphones', title: 'Share on Pod', body: 'Upload your songs and podcast episodes for the community to play.' },
   { icon: 'people', title: 'A direct line to the admins', body: 'Your reports and requests go to the front of the queue.' },
   { icon: 'bulb', title: 'New features first', body: 'Try what is coming to Community before everyone else.' },
 ];
 
+const PRICE = '£' + (PLUS_PRICE_PENCE / 100).toFixed(2);
+
 export default function Plus() {
-  const { me, profile } = useSession();
+  const { me, profile, refresh } = useSession();
+  const router = useRouter();
   const toast = useToast();
+  const { appFont } = usePrefs();
   const [requests, setRequests] = useState<PlusRequest[]>([]);
   const [asking, setAsking] = useState<'verify' | 'plus' | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // Read receipts: shown at once when tapped, then put back if the save fails.
+  const [receipts, setReceipts] = useState(profile?.read_receipts ?? true);
+  useEffect(() => { setReceipts(profile?.read_receipts ?? true); }, [profile?.read_receipts]);
 
   const load = useCallback(() => {
     myPlusRequests(me).then(setRequests).catch(() => {});
@@ -31,6 +46,12 @@ export default function Plus() {
   useFocusEffect(load);
 
   const pending = (kind: 'verify' | 'plus') => requests.find((r) => r.kind === kind && r.status === 'pending');
+
+  function setReadReceipts(next: boolean) {
+    const before = receipts;
+    setReceipts(next);
+    updateProfile(me, { read_receipts: next }).then(refresh).catch((e) => { setReceipts(before); toast(errText(e)); });
+  }
 
   async function send() {
     if (!asking || busy) return;
@@ -77,6 +98,20 @@ export default function Plus() {
             </View>
           ))}
         </View>
+
+        <Text style={{ color: C.fg, fontWeight: '700', textAlign: 'center', paddingTop: 18, fontSize: 15.5 }}>{PRICE} a month, arranged through your church</Text>
+
+        {profile?.plus ? (
+          <>
+            <SectionLabel>Your Plus settings</SectionLabel>
+            <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden', paddingVertical: 4 }}>
+              <Row icon="font" title="App font" value={fontById(appFont).name} onPress={() => router.push('/plus-font')} />
+              <Row icon="wallpaper" title="Chat wallpaper" onPress={() => router.push('/chat-wallpaper' as any)} />
+              <Row icon="eye" title="Profile viewers" onPress={() => router.push('/profile-viewers')} />
+              <Row icon="lock" title="Read receipts" sub={receipts ? 'People see when you have read their messages' : 'Nobody sees "Seen" on your side'} right={<Toggle value={receipts} onChange={setReadReceipts} label="Read receipts" />} />
+            </View>
+          </>
+        ) : null}
 
         <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 10 }}>
           {profile?.plus ? (

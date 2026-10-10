@@ -1,14 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, Screen, SearchField, useToast } from '../../../src/components/ui';
-import { fetchThreads, hideThread, setThreadMuted } from '../../../src/lib/api';
+import { ERHA_ID, fetchThreads, getProfile, hideThread, openThread, setThreadMuted } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { ago, C, errText } from '../../../src/lib/theme';
-import type { Thread } from '../../../src/lib/types';
+import type { Profile, Thread } from '../../../src/lib/types';
+
+/** A chat, or the one row that offers a first chat with Erha when there is none yet. */
+type Item = { kind: 'thread'; t: Thread } | { kind: 'erha' };
 
 export default function Inbox() {
   const { me, profile } = useSession();
@@ -19,6 +22,9 @@ export default function Inbox() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [q, setQ] = useState('');
+  // Erha's account card, for her picture on the starter row. Null until it has loaded, or if it cannot.
+  const [erha, setErha] = useState<Profile | null>(null);
+  const opening = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +48,34 @@ export default function Inbox() {
   );
   useEffect(() => listen('threads', () => { load(); }), [load]);
 
+  // Erha chats like anyone else, so her row only needs an invitation until the first message is sent.
+  const hasErhaChat = threads.some((t) => t.other_id === ERHA_ID);
+  const offerErha = status === 'ready' && me !== ERHA_ID && !hasErhaChat;
+  useEffect(() => {
+    if (!offerErha || erha) return;
+    let live = true;
+    getProfile(ERHA_ID)
+      .then((p) => { if (live && p) setErha(p); })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [offerErha, erha]);
+
+  /** Opens (or makes) the chat with Erha. */
+  async function startErha() {
+    if (opening.current) return;
+    opening.current = true;
+    try {
+      const id = await openThread(ERHA_ID);
+      router.push(`/chat/${id}`);
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      opening.current = false;
+    }
+  }
+
   /** Touch and hold a chat for its options. */
   function options(t: Thread) {
     Alert.alert(t.full_name, undefined, [
@@ -61,6 +95,10 @@ export default function Inbox() {
 
   const needle = q.trim().toLowerCase();
   const shown = needle ? threads.filter((t) => t.username.includes(needle) || t.full_name.toLowerCase().includes(needle)) : threads;
+  const items: Item[] = shown.map((t) => ({ kind: 'thread', t }));
+  if (offerErha && (!needle || 'erha'.includes(needle))) items.push({ kind: 'erha' });
+
+  const rowStyle = ({ pressed }: { pressed: boolean }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' });
 
   return (
     <Screen>
@@ -73,41 +111,41 @@ export default function Inbox() {
         <SearchField value={q} onChangeText={setQ} label="Search messages" />
       </View>
       <FlatList
-        data={shown}
-        keyExtractor={(t) => t.id}
-        ListHeaderComponent={
-          needle && !'erha'.includes(needle) ? null : (
-            <Pressable onPress={() => router.push('/erha')} accessibilityRole="button" accessibilityLabel="Chat with Erha, your church assistant" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 9, marginBottom: 4, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
-              <ErhaAvatar size={56} />
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>Erha</Text>
-                  <View style={{ height: 18, paddingHorizontal: 7, borderRadius: 9, backgroundColor: 'rgba(31,191,90,0.16)', justifyContent: 'center' }}>
-                    <Text style={{ color: C.accent2, fontSize: 11, fontWeight: '700' }}>AI</Text>
+        data={items}
+        keyExtractor={(it) => (it.kind === 'thread' ? it.t.id : 'erha')}
+        renderItem={({ item }) => {
+          if (item.kind === 'erha') {
+            return (
+              <Pressable onPress={startErha} accessibilityRole="button" accessibilityLabel="Chat with Erha, your church assistant" style={rowStyle}>
+                {erha?.avatar_url ? <Avatar uri={erha.avatar_url} name="Erha" size={56} /> : <ErhaAvatar size={56} />}
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, flexShrink: 1 }}>Erha</Text>
+                    <VerifiedTick size={14} />
                   </View>
+                  <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14 }}>Your church assistant · say hello</Text>
                 </View>
-                <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14 }}>Ask about the Bible, Sabbath School, hymns and church life</Text>
+              </Pressable>
+            );
+          }
+          const t = item.t;
+          return (
+            <Pressable onPress={() => router.push(`/chat/${t.id}`)} onLongPress={() => options(t)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={`Chat with ${t.full_name}`} accessibilityHint="Touch and hold for options" style={rowStyle}>
+              <Avatar uri={t.avatar_url} name={t.full_name} size={56} />
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: t.unread_count ? '700' : '400', flexShrink: 1 }}>{t.full_name}</Text>
+                  {t.verified ? <VerifiedTick size={14} /> : null}
+                </View>
+                <Text numberOfLines={1} style={{ color: t.unread_count ? C.fg : C.fg2, fontSize: 14, fontWeight: t.unread_count ? '700' : '400' }}>
+                  {t.unread_count > 1 ? `${t.unread_count} new messages` : t.last_message} · {ago(t.last_message_at)}
+                </Text>
               </View>
-              <Icon name="sparkle" size={20} color={C.accent2} />
+              {t.muted ? <Icon name="mute" size={17} color={C.fg3} /> : null}
+              {t.unread_count ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: C.accent2 }} /> : null}
             </Pressable>
-          )
-        }
-        renderItem={({ item: t }) => (
-          <Pressable onPress={() => router.push(`/chat/${t.id}`)} onLongPress={() => options(t)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={`Chat with ${t.full_name}`} accessibilityHint="Touch and hold for options" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
-            <Avatar uri={t.avatar_url} name={t.full_name} size={56} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: t.unread_count ? '700' : '400', flexShrink: 1 }}>{t.full_name}</Text>
-                {t.verified ? <VerifiedTick size={14} /> : null}
-              </View>
-              <Text numberOfLines={1} style={{ color: t.unread_count ? C.fg : C.fg2, fontSize: 14, fontWeight: t.unread_count ? '700' : '400' }}>
-                {t.unread_count > 1 ? `${t.unread_count} new messages` : t.last_message} · {ago(t.last_message_at)}
-              </Text>
-            </View>
-            {t.muted ? <Icon name="mute" size={17} color={C.fg3} /> : null}
-            {t.unread_count ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: C.accent2 }} /> : null}
-          </Pressable>
-        )}
+          );
+        }}
         ListEmptyComponent={
           status === 'loading' ? (
             <Loading />

@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import { ClerkProvider, useClerk } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { Lora_400Regular, Lora_700Bold } from '@expo-google-fonts/lora';
+import { Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
+import { Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import { useFonts } from 'expo-font';
 import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -86,10 +90,20 @@ function Gate({ children, onRetry }: { children: React.ReactNode; onRetry: () =>
 // Saved choices (camera side, sound) are read once, as the app starts.
 loadPrefs();
 
+/**
+ * The app fonts a Plus member can choose (see src/lib/fonts.ts). They load in the background:
+ * nothing waits on them, and the launch screen never does — text simply uses the system font
+ * until they arrive, which is a moment after start-up.
+ */
+function useLoadAppFonts() {
+  useFonts({ Nunito_400Regular, Nunito_700Bold, Lora_400Regular, Lora_700Bold, Poppins_400Regular, Poppins_600SemiBold });
+}
+
 export default function RootLayout() {
   // Changing the key starts sign-in again from scratch, which is what "Try again" does.
   const [attempt, setAttempt] = useState(0);
   useHideLaunchScreen();
+  useLoadAppFonts();
   if (!CLERK_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
     return (
       <>

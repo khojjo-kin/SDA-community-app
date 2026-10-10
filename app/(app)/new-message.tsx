@@ -5,7 +5,7 @@ import { SectionTitle } from '../../src/components/Grid';
 import { Icon } from '../../src/components/Icon';
 import { PersonRow } from '../../src/components/PersonRow';
 import { Empty, Header, Loading, Screen, useToast } from '../../src/components/ui';
-import { openThread, peopleToMessage, searchProfiles } from '../../src/lib/api';
+import { ERHA_ID, getProfile, openThread, peopleToMessage, searchProfiles } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Profile } from '../../src/lib/types';
@@ -20,7 +20,28 @@ export default function NewMessage() {
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
-    peopleToMessage(me).then(setBase).catch(() => setBase([]));
+    let live = true;
+    (async () => {
+      let people: Profile[] = [];
+      try {
+        people = await peopleToMessage(me);
+      } catch {
+        people = [];
+      }
+      // Erha, the church assistant, can always be messaged, followed or not: she sits at the top of the list.
+      if (me !== ERHA_ID && !people.some((p) => p.id === ERHA_ID)) {
+        try {
+          const erha = await getProfile(ERHA_ID);
+          if (erha && !erha.is_blocked) people = [erha, ...people];
+        } catch {
+          // Without her card the list is still fine; the search still finds her.
+        }
+      }
+      if (live) setBase(people);
+    })();
+    return () => {
+      live = false;
+    };
   }, [me]);
 
   useEffect(() => {

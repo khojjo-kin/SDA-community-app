@@ -1,21 +1,27 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { fetchStoryTray } from '../lib/api';
+import { fetchLives, fetchStoryTray } from '../lib/api';
 import { useSession } from '../lib/session';
 import { listen } from '../lib/store';
 import { C } from '../lib/theme';
-import type { StoryGroup } from '../lib/types';
+import type { LiveCard, StoryGroup } from '../lib/types';
 import { Icon } from './Icon';
+import { LiveAvatar } from './LiveBadge';
 import { Avatar } from './ui';
 
 export function StoryTray({ refreshKey }: { refreshKey: number }) {
   const { me, profile } = useSession();
   const router = useRouter();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [lives, setLives] = useState<LiveCard[]>([]);
 
   const load = useCallback(() => {
     fetchStoryTray(me).then(setGroups).catch(() => {});
+    // Anyone broadcasting right now sits at the front of the tray.
+    fetchLives()
+      .then((cards) => setLives(cards.filter((c) => !c.ended_at)))
+      .catch(() => {});
   }, [me]);
 
   useEffect(() => {
@@ -25,10 +31,33 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
 
   const mine = groups.find((g) => g.user_id === me);
   const others = groups.filter((g) => g.user_id !== me);
+  const myLive = lives.find((l) => l.user_id === me);
+  const otherLives = lives.filter((l) => l.user_id !== me);
+
+  /** Holding "Your story" offers the two things you can start from here. */
+  function storyMenu() {
+    Alert.alert('Your story', undefined, [
+      { text: 'Add to story', onPress: () => router.push('/add-story') },
+      { text: 'Go live', onPress: () => router.push('/go-live') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 14 }}>
-      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} style={{ width: 76, alignItems: 'center', gap: 5 }}>
+      {myLive ? (
+        <Pressable onPress={() => router.push('/go-live')} accessibilityRole="button" accessibilityLabel="Your live broadcast" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+          <LiveAvatar uri={myLive.avatar_url} name={myLive.full_name} size={66} />
+          <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, marginTop: 2 }}>You</Text>
+        </Pressable>
+      ) : null}
+      {otherLives.map((l) => (
+        <Pressable key={l.id} onPress={() => router.push(`/live/${l.id}`)} accessibilityRole="button" accessibilityLabel={`${l.username} is live`} style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+          <LiveAvatar uri={l.avatar_url} name={l.username} size={66} />
+          <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, maxWidth: 76, marginTop: 2 }}>{l.username}</Text>
+        </Pressable>
+      ))}
+      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={{ width: 76, alignItems: 'center', gap: 5 }}>
         <View>
           <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? 'seen' : null} />
           {!mine ? (

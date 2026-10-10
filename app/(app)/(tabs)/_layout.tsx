@@ -4,8 +4,10 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../../src/components/Icon';
+import { NowPlayingBar } from '../../../src/components/NowPlayingBar';
 import { Avatar } from '../../../src/components/ui';
 import { fetchThreads } from '../../../src/lib/api';
+import { PlayerEngine } from '../../../src/lib/player';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { C } from '../../../src/lib/theme';
@@ -42,7 +44,10 @@ function TabBar({ state, navigation }: any) {
   const { profile } = useSession();
   const unread = useUnreadThreads();
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom - 8, 10), alignItems: 'center' }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom - 8, 10), alignItems: 'center', gap: 8 }}>
+      {/* Pod's sound lives here, where nothing unmounts it; the bar above the tabs shows once a track is loaded. */}
+      <PlayerEngine />
+      <NowPlayingBar />
       <BlurView intensity={50} tint="dark" style={{ width: '92%', maxWidth: 420, height: 64, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' }}>
         <View style={{ flex: 1, flexDirection: 'row', padding: 6, backgroundColor: C.glass }}>
           {state.routes.map((route: any, i: number) => {
