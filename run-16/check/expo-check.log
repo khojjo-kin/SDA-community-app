@@ -1,0 +1,6 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+The following packages should be updated for best compatibility with the installed expo version:
+  @stripe/stripe-react-native@0.65.1 - expected version: 0.50.3
+Your project may not work correctly until you install the expected versions of the packages.
+Found outdated dependencies
