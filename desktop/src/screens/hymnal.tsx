@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchHymn, fetchHymns, saveHymn } from 'shared/api';
 import type { Hymn } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { Empty, Failed, Icon, Link, Modal, Spinner, toast, toastError, useLoad } from '../ui/kit';
 import { HYMN_COUNT, loadFavourites, loadHymnalSettings, saveHymnalSettings, toggleFavourite } from 'shared/hymnal';
@@ -41,16 +42,16 @@ export function Hymnal({ number }: { number?: string }) {
     <div className="split-page">
       <section className="split-list">
         <header>
-          <h1>Hymnal</h1>
+          <h1>{t('churchApps.hymnal')}</h1>
           <div className="panel-search in-modal">
-            <input placeholder="Number, title or section" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search hymns" />
+            <input placeholder={t('d.church.hymnSearch')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.church.searchHymns')} />
           </div>
           <div className="seg left pad-l">
             <button className={!onlyFavs ? 'on' : ''} onClick={() => setOnlyFavs(false)}>
-              All {list.data ? list.data.length : HYMN_COUNT}
+              {t('d.church.allCount', { count: list.data ? list.data.length : HYMN_COUNT })}
             </button>
             <button className={onlyFavs ? 'on' : ''} onClick={() => setOnlyFavs(true)}>
-              Favourites {favs.length}
+              {t('d.church.favouritesCount', { count: favs.length })}
             </button>
           </div>
         </header>
@@ -65,7 +66,7 @@ export function Hymnal({ number }: { number?: string }) {
               </span>
             </Link>
           ))}
-          {list.data && !shown.length ? <p className="muted-text pad">No hymn matches “{q}”.</p> : null}
+          {list.data && !shown.length ? <p className="muted-text pad">{t('d.church.noHymn', { query: q })}</p> : null}
         </div>
       </section>
       <section className="split-detail">
@@ -75,17 +76,17 @@ export function Hymnal({ number }: { number?: string }) {
               <div className="hymn-no big">{hymn.number}</div>
               <span className="grow" />
               {admin ? (
-                <button className="btn quiet small" onClick={() => setEditing(true)} aria-label="Edit hymn">
-                  <Icon name="compose" size={16} /> Edit
+                <button className="btn quiet small" onClick={() => setEditing(true)} aria-label={t('d.church.editHymn')}>
+                  <Icon name="compose" size={16} /> {t('ssPub.edit')}
                 </button>
               ) : null}
-              <button className="icon-btn" aria-label={favs.includes(hymn.number) ? 'Remove from favourites' : 'Add to favourites'} onClick={() => toggleFavourite(hymn.number).then(setFavs)}>
+              <button className="icon-btn" aria-label={favs.includes(hymn.number) ? t('d.church.unfavourite') : t('d.church.favourite')} onClick={() => toggleFavourite(hymn.number).then(setFavs)}>
                 <Icon name="heart" size={24} color={favs.includes(hymn.number) ? '#ff3040' : 'currentColor'} fill={favs.includes(hymn.number) ? '#ff3040' : 'none'} />
               </button>
-              <button className="btn quiet small" aria-label="Smaller text" onClick={() => resize(Math.max(14, size - 2))}>
+              <button className="btn quiet small" aria-label={t('d.church.smallerText')} onClick={() => resize(Math.max(14, size - 2))}>
                 A−
               </button>
-              <button className="btn quiet small" aria-label="Larger text" onClick={() => resize(Math.min(32, size + 2))}>
+              <button className="btn quiet small" aria-label={t('d.church.largerText')} onClick={() => resize(Math.min(32, size + 2))}>
                 A+
               </button>
             </div>
@@ -106,7 +107,7 @@ export function Hymnal({ number }: { number?: string }) {
             ) : null}
           </article>
         ) : (
-          <Empty icon="hymnal" title="Choose a hymn" body={list.data ? `${list.data.length} hymns from the Seventh-day Adventist Hymnal.` : undefined} />
+          <Empty icon="hymnal" title={t('d.church.chooseHymn')} body={list.data ? t('d.church.hymnCount', { count: list.data.length }) : undefined} />
         )}
       </section>
     </div>
@@ -124,7 +125,7 @@ function HymnEditor({ hymn, onClose, onSaved }: { hymn: Hymn; onClose: () => voi
   const save = async () => {
     const title = form.title.trim();
     if (!title) {
-      setError('Give the hymn a title.');
+      setError(t('d.church.hymnNeedsTitle'));
       return;
     }
     setBusy(true);
@@ -132,7 +133,7 @@ function HymnEditor({ hymn, onClose, onSaved }: { hymn: Hymn; onClose: () => voi
     const next: Hymn = { number: hymn.number, title, author: form.author.trim(), section: form.section.trim(), lyrics: form.lyrics.trim() };
     try {
       await saveHymn(me.id, next);
-      toast('Saved');
+      toast(t('ssPub.saved'));
       onSaved(next);
     } catch (e) {
       toastError(e);
@@ -140,33 +141,33 @@ function HymnEditor({ hymn, onClose, onSaved }: { hymn: Hymn; onClose: () => voi
     }
   };
   return (
-    <Modal onClose={() => !busy && onClose()} title={`Edit hymn ${hymn.number}`} wide closeOutside={!busy} className="ch-hymn-edit">
+    <Modal onClose={() => !busy && onClose()} title={t('d.church.editHymnNumber', { number: hymn.number })} wide closeOutside={!busy} className="ch-hymn-edit">
       <div className="form-pad">
         <label className="form-row">
-          Title
+          {t('ssPub.title')}
           <input value={form.title} onChange={set('title')} maxLength={160} />
         </label>
         <div className="form-2">
           <label className="form-row">
-            Author
+            {t('d.church.author')}
             <input value={form.author} onChange={set('author')} maxLength={160} />
           </label>
           <label className="form-row">
-            Section
+            {t('d.church.section')}
             <input value={form.section} onChange={set('section')} maxLength={80} />
           </label>
         </div>
         <label className="form-row">
-          Lyrics (leave a blank line between verses)
+          {t('d.church.lyrics')}
           <textarea value={form.lyrics} onChange={set('lyrics')} maxLength={20000} rows={14} />
         </label>
         {error ? <p className="form-error">{error}</p> : null}
         <div className="ch-dialog-actions">
           <button className="btn quiet" onClick={onClose} disabled={busy}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button className="btn grow" onClick={save} disabled={busy || !changed}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('d.church.saving') : t('ssPub.save')}
           </button>
         </div>
       </div>

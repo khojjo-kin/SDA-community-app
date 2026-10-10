@@ -12,6 +12,7 @@ import { setPrefs, usePrefs } from 'shared/prefs';
 import { ago } from 'shared/theme';
 import type { BibleMark, BibleMarkColor, Profile } from 'shared/types';
 import { type CreateRequest, openCreate } from '../lib/create';
+import { dateLocale, t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Modal, Spinner, ask, toast, toastError, useLoad, useOutside } from '../ui/kit';
@@ -19,13 +20,13 @@ import '../styles/church.css';
 
 /* ---------- highlight colours ---------- */
 
-/** The five highlight colours, in the order offered (as on the iPhone). The tints are in church.css. */
+/** The five highlight colours, in the order offered (as on the iPhone), with the key of each one's name. The tints are in church.css. */
 export const MARK_COLORS: { id: Exclude<BibleMarkColor, ''>; label: string }[] = [
-  { id: 'yellow', label: 'Yellow' },
-  { id: 'green', label: 'Green' },
-  { id: 'blue', label: 'Blue' },
-  { id: 'pink', label: 'Pink' },
-  { id: 'purple', label: 'Purple' },
+  { id: 'yellow', label: 'bibleMarks.yellow' },
+  { id: 'green', label: 'bibleMarks.green' },
+  { id: 'blue', label: 'bibleMarks.blue' },
+  { id: 'pink', label: 'bibleMarks.pink' },
+  { id: 'purple', label: 'bibleMarks.purple' },
 ];
 
 /** Copies text to the clipboard (or the older way where the clipboard API isn't allowed). False if it couldn't. */
@@ -104,46 +105,46 @@ function VerseCard({ translation }: { translation: TranslationId }) {
   }, [verse.ref, translation]);
   const quote = text ? `“${text}” — ${verse.ref} (${translation.toUpperCase()})` : '';
   return (
-    <section className="ch-votd" aria-label="Verse of the day">
+    <section className="ch-votd" aria-label={t('bible.verseOfDay')}>
       <div className="ch-votd-head">
-        <span>Verse of the day</span>
+        <span>{t('bible.verseOfDay')}</span>
         <div className="ch-menu-wrap" ref={menuRef}>
-          <button className="icon-btn tiny" aria-label="Verse of the day options" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+          <button className="icon-btn tiny" aria-label={t('bible.verseOptions')} aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <Icon name="more" size={20} />
           </button>
           {menu ? (
             <div className="popover ch-pop" role="menu">
-              <button role="menuitem" disabled={!text} onClick={() => { setMenu(false); copyText(quote).then((ok) => toast(ok ? 'Copied' : "The verse couldn't be copied")); }}>
-                <Icon name="copy" size={18} /> Copy
+              <button role="menuitem" disabled={!text} onClick={() => { setMenu(false); copyText(quote).then((ok) => toast(ok ? t('bibleMarks.copied') : t('d.church.verseNotCopied'))); }}>
+                <Icon name="copy" size={18} /> {t('bibleMarks.copy')}
               </button>
               <button
                 role="menuitem"
                 onClick={() => {
                   setMenu(false);
                   setPrefs({ dailyVerse: false });
-                  toast("You can turn it back on in the Bible's menu");
+                  toast(t('bible.hidden'));
                 }}
               >
-                <Icon name="close" size={18} /> Hide verse of the day
+                <Icon name="close" size={18} /> {t('bible.hideVerse')}
               </button>
             </div>
           ) : null}
         </div>
       </div>
-      <blockquote className="ch-votd-text">{text ? `“${text}”` : failed ? 'Open it to read today’s verse.' : '…'}</blockquote>
+      <blockquote className="ch-votd-text">{text ? `“${text}”` : failed ? t('bible.openToRead') : '…'}</blockquote>
       <p className="ch-votd-ref">
         {verse.ref}
         {text ? <span> {translation.toUpperCase()}</span> : null}
       </p>
       <div className="ch-votd-actions">
         <button className="ch-chip-btn" disabled={!text} onClick={() => setSend(true)}>
-          <Icon name="send" size={16} /> Share
+          <Icon name="send" size={16} /> {t('common.share')}
         </button>
         <button className="ch-chip-btn" onClick={() => nav(bibleLink(verse.book, verse.chapter, verse.from))}>
-          <Icon name="book" size={16} /> Read the chapter
+          <Icon name="book" size={16} /> {t('bible.readChapter')}
         </button>
       </div>
-      {send ? <SendText title="Send verse" text={quote} onClose={() => setSend(false)} /> : null}
+      {send ? <SendText title={t('d.church.sendVerse')} text={quote} onClose={() => setSend(false)} /> : null}
     </section>
   );
 }
@@ -171,7 +172,7 @@ export function SendText({ title, text, onClose }: { title: string; text: string
     try {
       await sendToPeople(me.id, picked, { text });
       if (note.trim()) await sendToPeople(me.id, picked, { text: note });
-      toast(picked.length === 1 ? 'Sent' : `Sent to ${picked.length} people`);
+      toast(tn('d.church.sent', picked.length));
       onClose();
     } catch (e) {
       toastError(e);
@@ -182,12 +183,12 @@ export function SendText({ title, text, onClose }: { title: string; text: string
     <Modal onClose={onClose} title={title} className="share">
       <p className="ch-send-preview">{text}</p>
       <div className="share-search">
-        <span>To:</span>
-        <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <span>{t('d.church.to')}</span>
+        <input autoFocus placeholder={t('d.church.searchDots')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text pad">No account found.</p> : null}
+        {people && !shown.length ? <p className="muted-text pad">{t('d.church.noAccount')}</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -195,14 +196,14 @@ export function SendText({ title, text, onClose }: { title: string; text: string
               <b>{p.full_name || p.username}</b>
               <span>{p.username}</span>
             </span>
-            <input type="checkbox" className="round-check" aria-label={'Send to ' + p.username} checked={picked.includes(p.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, p.id] : picked.filter((x) => x !== p.id))} />
+            <input type="checkbox" className="round-check" aria-label={t('d.church.sendTo', { username: p.username })} checked={picked.includes(p.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, p.id] : picked.filter((x) => x !== p.id))} />
           </label>
         ))}
       </div>
-      {picked.length ? <input className="share-note" placeholder="Write a message…" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Message" /> : null}
+      {picked.length ? <input className="share-note" placeholder={t('d.church.writeMessage')} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('d.church.message')} /> : null}
       <div className="modal-foot">
         <button className="btn block" disabled={!picked.length || busy} onClick={send}>
-          {busy ? 'Sending…' : 'Send'}
+          {busy ? t('d.church.sending') : t('common.send')}
         </button>
       </div>
     </Modal>
@@ -248,7 +249,7 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
   if (!settings) detail = <Spinner />;
   else if (marksPage) detail = <BibleMarks translation={settings.translation} />;
   else if (current) detail = <Reader key={current.name + ch} book={current.name} chapter={ch} settings={settings} onSettings={change} page={page} />;
-  else if (name) detail = <Empty icon="bible" title="That book isn't in the Bible" body="Choose a book on the left, or type a reference like John 3." />;
+  else if (name) detail = <Empty icon="bible" title={t('d.church.noBook')} body={t('d.church.noBookBody')} />;
   else detail = <BibleHome settings={settings} dailyVerse={dailyVerse} />;
 
   return (
@@ -256,21 +257,21 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
       <section className="split-list">
         <header>
           <div className="ch-list-head">
-            <h1>Bible</h1>
+            <h1>{t('churchApps.bible')}</h1>
             <div className="ch-menu-wrap" ref={menuRef}>
-              <button className="icon-btn" aria-label="Bible options" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+              <button className="icon-btn" aria-label={t('bible.options')} aria-expanded={menu} onClick={() => setMenu(!menu)}>
                 <Icon name="more" size={22} />
               </button>
               {menu ? (
                 <div className="popover ch-pop" role="menu">
                   <label className="ch-pop-row" role="menuitemcheckbox" aria-checked={dailyVerse}>
                     <Icon name="sparkle" size={18} />
-                    <span className="grow">Verse of the day</span>
-                    <input type="checkbox" role="switch" aria-label="Verse of the day" checked={dailyVerse} onChange={(e) => setPrefs({ dailyVerse: e.target.checked })} />
+                    <span className="grow">{t('bible.verseOfDay')}</span>
+                    <input type="checkbox" role="switch" aria-label={t('bible.verseOfDay')} checked={dailyVerse} onChange={(e) => setPrefs({ dailyVerse: e.target.checked })} />
                     <i className="switch" />
                   </label>
                   <button role="menuitem" onClick={() => { setMenu(false); nav('/bible/marks'); }}>
-                    <Icon name="compose" size={18} /> Highlights &amp; notes
+                    <Icon name="compose" size={18} /> {t('bibleMarks.title')}
                   </button>
                 </div>
               ) : null}
@@ -282,10 +283,10 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
               e.preventDefault();
               const ref = parseReference(q);
               if (ref) go(ref.book, ref.chapter);
-              else toastError(new Error('Type a book and chapter, like John 3 or Psalm 23.'));
+              else toastError(new Error(t('d.church.typeReference')));
             }}
           >
-            <input placeholder="Go to, e.g. John 3" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Go to a passage" />
+            <input placeholder={t('d.church.goToPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.church.goTo')} />
           </form>
         </header>
         <div className="split-scroll">
@@ -294,8 +295,8 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
               <Icon name="sparkle" size={18} />
             </span>
             <span className="row-text">
-              <b>Today</b>
-              <span>Verse of the day and where you left off</span>
+              <b>{t('liveSchedule.today')}</b>
+              <span>{t('d.church.todaySub')}</span>
             </span>
           </button>
           <button className={'hymn-row book' + (marksPage ? ' on' : '')} onClick={() => nav('/bible/marks')}>
@@ -303,14 +304,14 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
               <Icon name="compose" size={18} />
             </span>
             <span className="row-text">
-              <b>Highlights &amp; notes</b>
-              <span>Verses you marked</span>
+              <b>{t('bibleMarks.title')}</b>
+              <span>{t('d.church.marksSub')}</span>
             </span>
           </button>
-          {(['old', 'new'] as const).map((t) => (
-            <React.Fragment key={t}>
-              <h3 className="list-h">{t === 'old' ? 'Old Testament' : 'New Testament'}</h3>
-              {BOOKS.filter((b) => b.testament === t).map((b) => (
+          {(['old', 'new'] as const).map((testament) => (
+            <React.Fragment key={testament}>
+              <h3 className="list-h">{testament === 'old' ? t('d.church.oldTestament') : t('d.church.newTestament')}</h3>
+              {BOOKS.filter((b) => b.testament === testament).map((b) => (
                 <div key={b.name}>
                   <button className={'hymn-row book' + (current?.name === b.name ? ' on' : '')} aria-expanded={open === b.name} onClick={() => setOpen(open === b.name ? null : b.name)}>
                     <span className="row-text">
@@ -351,7 +352,7 @@ function BibleHome({ settings, dailyVerse }: { settings: BibleSettings; dailyVer
         <button className="ch-card-row" onClick={() => nav(bibleLink(last.book, last.chapter))}>
           <Icon name="bookmark" size={22} className="ch-accent" />
           <span className="row-text">
-            <span>Continue reading</span>
+            <span>{t('d.church.continueReading')}</span>
             <b>
               {last.book} {last.chapter}
             </b>
@@ -362,11 +363,11 @@ function BibleHome({ settings, dailyVerse }: { settings: BibleSettings; dailyVer
       <button className="ch-card-row" onClick={() => nav('/bible/marks')}>
         <Icon name="compose" size={22} className="ch-accent" />
         <span className="row-text">
-          <b>Highlights &amp; notes</b>
+          <b>{t('bibleMarks.title')}</b>
         </span>
         <Icon name="right" size={16} />
       </button>
-      <p className="ch-foot">King James Version and World English Bible, both public domain. Chapters you open stay available offline. Choose a book on the left to start reading.</p>
+      <p className="ch-foot">{t('d.church.bibleFoot')}</p>
     </div>
   );
 }
@@ -426,8 +427,8 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
     const el = page.current?.querySelector(`[data-verse="${target}"]`);
     el?.scrollIntoView({ block: 'center' });
     setFlash(target);
-    const t = setTimeout(() => setFlash(null), 1800);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFlash(null), 1800);
+    return () => clearTimeout(timer);
   }, [text, target]);
 
   // Escape lets go of the chosen verses (unless a dialog is open; it closes first).
@@ -496,7 +497,7 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
     setNoteFor(null);
     setSelected([]);
     setBibleNote(me.id, settings.translation, book, chapter, verse, note).then(
-      () => toast(note ? 'Note saved' : 'Note deleted'),
+      () => toast(note ? t('bibleMarks.noteSaved') : t('bibleMarks.noteDeleted')),
       (e) => {
         undo();
         toastError(e);
@@ -512,7 +513,7 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
   const copy = async () => {
     const ok = await copyText(quote());
     setSelected([]);
-    toast(ok ? 'Copied' : "The verses couldn't be copied");
+    toast(ok ? t('bibleMarks.copied') : t('d.church.versesNotCopied'));
   };
   const share = () => {
     setSending(quote());
@@ -526,7 +527,7 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
   };
   const note = () => {
     if (selected.length !== 1) {
-      toast('Choose one verse to write a note');
+      toast(t('bibleMarks.oneVerse'));
       return;
     }
     setNoteFor(selected[0]);
@@ -549,23 +550,23 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
           {book} {chapter}
         </h1>
         <span className="grow" />
-        <select value={settings.translation} onChange={(e) => onSettings({ translation: e.target.value as TranslationId })} aria-label="Translation">
-          {TRANSLATIONS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.short}
+        <select value={settings.translation} onChange={(e) => onSettings({ translation: e.target.value as TranslationId })} aria-label={t('d.church.translation')}>
+          {TRANSLATIONS.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.short}
             </option>
           ))}
         </select>
-        <button className="btn quiet small" aria-label="Smaller text" onClick={() => onSettings({ size: Math.max(14, size - 2) })}>
+        <button className="btn quiet small" aria-label={t('d.church.smallerText')} onClick={() => onSettings({ size: Math.max(14, size - 2) })}>
           A−
         </button>
-        <button className="btn quiet small" aria-label="Larger text" onClick={() => onSettings({ size: Math.min(30, size + 2) })}>
+        <button className="btn quiet small" aria-label={t('d.church.largerText')} onClick={() => onSettings({ size: Math.min(30, size + 2) })}>
           A+
         </button>
       </div>
-      <p className="ch-translation">{TRANSLATIONS.find((t) => t.id === settings.translation)?.name}</p>
+      <p className="ch-translation">{TRANSLATIONS.find((x) => x.id === settings.translation)?.name}</p>
       {error ? (
-        <Failed error={error} retry={() => setTick((t) => t + 1)} />
+        <Failed error={error} retry={() => setTick((n) => n + 1)} />
       ) : !text ? (
         <Spinner />
       ) : (
@@ -594,7 +595,7 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
                 {m?.note ? (
                   <button
                     className="ch-note-mark"
-                    aria-label={'Open note on verse ' + v.verse}
+                    aria-label={t('d.church.openNote', { verse: v.verse })}
                     title={m.note}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -612,15 +613,15 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
       )}
       <div className="reader-nav">
         <button className="btn quiet" disabled={!prevRef} onClick={() => prevRef && nav(bibleLink(prevRef.book, prevRef.chapter))}>
-          ← {prevRef ? (prevRef.book === book ? `Chapter ${prevRef.chapter}` : `${prevRef.book} ${prevRef.chapter}`) : 'Previous'}
+          ← {prevRef ? (prevRef.book === book ? t('d.church.chapter', { number: prevRef.chapter }) : `${prevRef.book} ${prevRef.chapter}`) : t('d.church.previous')}
         </button>
         <button className="btn quiet" disabled={!nextRef} onClick={() => nextRef && nav(bibleLink(nextRef.book, nextRef.chapter))}>
-          {nextRef ? (nextRef.book === book ? `Chapter ${nextRef.chapter}` : `${nextRef.book} ${nextRef.chapter}`) : 'Next'} →
+          {nextRef ? (nextRef.book === book ? t('d.church.chapter', { number: nextRef.chapter }) : `${nextRef.book} ${nextRef.chapter}`) : t('d.church.next')} →
         </button>
       </div>
       {selected.length && text ? <MarkBar reference={verseRef(book, chapter, selected)} active={active} single={selected.length === 1} onColor={colour} onNote={note} onCopy={copy} onShare={share} onPost={post} onClose={() => setSelected([])} /> : null}
       {noteFor !== null ? <NoteDialog reference={verseRef(book, chapter, [noteFor])} verseText={noteVerse?.text ?? ''} initial={markOf(noteFor)?.note ?? ''} onClose={() => setNoteFor(null)} onSave={(n) => saveNote(noteFor, n)} /> : null}
-      {sending ? <SendText title="Send verses" text={sending} onClose={() => setSending(null)} /> : null}
+      {sending ? <SendText title={t('d.church.sendVerses')} text={sending} onClose={() => setSending(null)} /> : null}
     </article>
   );
 }
@@ -628,32 +629,32 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
 /** The bar that rises while verses are chosen: the colours, then Note, Copy, Share and Post. */
 function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onPost: () => void; onClose: () => void }) {
   return (
-    <div className="ch-markbar" role="toolbar" aria-label={'Chosen verses: ' + reference}>
+    <div className="ch-markbar" role="toolbar" aria-label={t('d.church.chosenVerses', { reference })}>
       <div className="ch-markbar-top">
         <b className="ch-markbar-ref">{reference}</b>
-        <button className="icon-btn tiny ch-markbar-close" aria-label="Clear selection" title="Clear selection (Esc)" onClick={onClose}>
+        <button className="icon-btn tiny ch-markbar-close" aria-label={t('bibleMarks.clear')} title={t('d.church.clearEsc')} onClick={onClose}>
           <Icon name="close" size={16} />
         </button>
       </div>
       <div className="ch-markbar-row">
         <div className="ch-dots">
           {MARK_COLORS.map((c) => (
-            <button key={c.id} className={'ch-dot ch-dot-' + c.id + (active === c.id ? ' on' : '')} aria-label={c.label} aria-pressed={active === c.id} title={c.label} onClick={() => onColor(c.id)} />
+            <button key={c.id} className={'ch-dot ch-dot-' + c.id + (active === c.id ? ' on' : '')} aria-label={t(c.label)} aria-pressed={active === c.id} title={t(c.label)} onClick={() => onColor(c.id)} />
           ))}
-          <button className="ch-dot ch-dot-none" aria-label="No colour" title="No colour" onClick={() => onColor('')} />
+          <button className="ch-dot ch-dot-none" aria-label={t('bibleMarks.none')} title={t('bibleMarks.none')} onClick={() => onColor('')} />
         </div>
         <span className="ch-markbar-line" />
-        <button className={'ch-bar-action' + (single ? '' : ' dim')} onClick={onNote} title={single ? 'Write a note' : 'Choose one verse to write a note'}>
-          <Icon name="compose" size={18} /> Note
+        <button className={'ch-bar-action' + (single ? '' : ' dim')} onClick={onNote} title={single ? t('d.church.writeNote') : t('bibleMarks.oneVerse')}>
+          <Icon name="compose" size={18} /> {t('bibleMarks.note')}
         </button>
         <button className="ch-bar-action" onClick={onCopy}>
-          <Icon name="copy" size={18} /> Copy
+          <Icon name="copy" size={18} /> {t('bibleMarks.copy')}
         </button>
         <button className="ch-bar-action" onClick={onShare}>
-          <Icon name="send" size={18} /> Share
+          <Icon name="send" size={18} /> {t('common.share')}
         </button>
         <button className="ch-bar-action" onClick={onPost}>
-          <Icon name="pluscircle" size={18} /> Post
+          <Icon name="pluscircle" size={18} /> {t('bibleMarks.post')}
         </button>
       </div>
     </div>
@@ -668,15 +669,15 @@ function NoteDialog({ reference, verseText, initial, onClose, onSave }: { refere
     <Modal onClose={onClose} title={reference} className="ch-note-dialog">
       <div className="form-pad">
         {verseText ? <p className="ch-note-verse">{verseText}</p> : null}
-        <textarea className="ch-note-input" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={6} placeholder="Write a note…" aria-label="Note" autoFocus={!initial} />
+        <textarea className="ch-note-input" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={6} placeholder={t('bibleMarks.notePlaceholder')} aria-label={t('bibleMarks.note')} autoFocus={!initial} />
         <div className="ch-dialog-actions">
           {initial ? (
             <button className="btn quiet" onClick={() => onSave('')}>
-              Delete
+              {t('common.delete')}
             </button>
           ) : null}
           <button className="btn grow" disabled={!changed || (!initial && !text.trim())} onClick={() => onSave(text)}>
-            Save
+            {t('bibleMarks.save')}
           </button>
         </div>
       </div>
@@ -702,11 +703,11 @@ function BibleMarks({ translation }: { translation: TranslationId }) {
 
   const remove = async (m: BibleMark) => {
     const ref = verseRef(m.book, m.chapter, [m.verse]);
-    if (m.note && !(await ask(`Remove ${ref}?`, 'Its highlight and your note are taken off.', 'Remove'))) return;
+    if (m.note && !(await ask(t('d.church.removeQuestion', { reference: ref }), t('d.church.removeBody'), t('live.remove')))) return;
     try {
       if (m.color) await setBibleColor(me.id, m.translation, m.book, m.chapter, [m.verse], '');
       if (m.note) await setBibleNote(me.id, m.translation, m.book, m.chapter, m.verse, '');
-      toast('Removed');
+      toast(t('d.church.removed'));
       list.reload();
     } catch (e) {
       toastError(e);
@@ -718,25 +719,27 @@ function BibleMarks({ translation }: { translation: TranslationId }) {
       {swatch ? <span className={'ch-swatch ch-dot-' + swatch} /> : label}
     </button>
   );
+  // A colour's name in small letters, for the swatch's tooltip ("yellow").
+  const colourName = (color: BibleMarkColor) => t(MARK_COLORS.find((c) => c.id === color)?.label ?? 'bibleMarks.none').toLocaleLowerCase(dateLocale());
 
   return (
     <div className="ch-marks">
-      <h1 className="ch-h1">Highlights &amp; notes</h1>
-      <div className="chip-row ch-chips" role="tablist" aria-label="Show">
-        {chip('all', 'All')}
-        {chip('notes', 'Notes')}
-        {MARK_COLORS.map((c) => chip(c.id, c.label, c.id))}
+      <h1 className="ch-h1">{t('bibleMarks.title')}</h1>
+      <div className="chip-row ch-chips" role="tablist" aria-label={t('d.church.show')}>
+        {chip('all', t('bibleMarks.all'))}
+        {chip('notes', t('bibleMarks.notes'))}
+        {MARK_COLORS.map((c) => chip(c.id, t(c.label), c.id))}
       </div>
       {list.loading && !list.data ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : null}
-      {list.data && !shown.length ? <Empty icon="compose" title={list.data.rows.length ? 'Nothing here yet' : 'No highlights or notes yet'} body={list.data.rows.length ? undefined : 'Choose verses while you read to highlight them or write a note.'} /> : null}
+      {list.data && !shown.length ? <Empty icon="compose" title={list.data.rows.length ? t('bibleMarks.emptyFilter') : t('bibleMarks.empty')} body={list.data.rows.length ? undefined : t('d.church.marksEmptyBody')} /> : null}
       <div className="ch-mark-list">
         {shown.map((m) => {
           const ref = verseRef(m.book, m.chapter, [m.verse]);
           const words = list.data?.chapters[`${m.book} ${m.chapter}`]?.verses.find((v) => v.verse === m.verse)?.text ?? '';
           return (
             <div key={`${m.book}.${m.chapter}.${m.verse}`} className="ch-mark-row">
-              <button className="ch-mark-open" onClick={() => nav(bibleLink(m.book, m.chapter, m.verse))} aria-label={'Open ' + ref}>
-                <span className="ch-mark-icon">{m.color ? <span className={'ch-swatch ch-dot-' + m.color} title={m.color} /> : <Icon name="compose" size={18} className="ch-accent" />}</span>
+              <button className="ch-mark-open" onClick={() => nav(bibleLink(m.book, m.chapter, m.verse))} aria-label={t('d.church.openRef', { reference: ref })}>
+                <span className="ch-mark-icon">{m.color ? <span className={'ch-swatch ch-dot-' + m.color} title={colourName(m.color)} /> : <Icon name="compose" size={18} className="ch-accent" />}</span>
                 <span className="ch-mark-body">
                   <span className="ch-mark-top">
                     <b>{ref}</b>
@@ -751,7 +754,7 @@ function BibleMarks({ translation }: { translation: TranslationId }) {
                   ) : null}
                 </span>
               </button>
-              <button className="icon-btn ch-mark-remove" aria-label={'Remove ' + ref} title="Remove" onClick={() => remove(m)}>
+              <button className="icon-btn ch-mark-remove" aria-label={t('d.church.removeRef', { reference: ref })} title={t('live.remove')} onClick={() => remove(m)}>
                 <Icon name="trash" size={18} />
               </button>
             </div>

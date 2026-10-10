@@ -11,10 +11,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createSabbathPost, deleteSabbathPost, fetchMyPublisher, fetchSabbathPost, fetchSabbathPosts, requestPublisher, updateSabbathPost, uploadImage, type SabbathPostInput } from 'shared/api';
 import { type LessonProgress, dayKey, dayState, daySlot, daysRead, isSaved, lessonComplete, lessonKey, markDayDone, markDayOpened, parseKey, slotDayId, toggleSaved, useLessonProgress } from 'shared/lesson-progress';
-import { type Day, type Lesson, type MemoryText, type Quarterly, type Reading, chipLabel, currentLesson, currentQuarterly, dateRange, dayTitle, fetchDay, fetchLesson, fetchMemoryText, fetchQuarterlies, fetchQuarterly, isStandard, isThisWeek, loadSsSettings, parseDate, readingHtml, startOfToday, todayIndex, updateSsSettings } from 'shared/sabbath-school';
-import { ago, agoLong, errText, monthName } from 'shared/theme';
+import { type Day, type Lesson, type MemoryText, type Quarterly, type Reading, chipLabel, currentLesson, currentQuarterly, fetchDay, fetchLesson, fetchMemoryText, fetchQuarterlies, fetchQuarterly, isStandard, isThisWeek, loadSsSettings, parseDate, readingHtml, startOfToday, todayIndex, updateSsSettings } from 'shared/sabbath-school';
+import { ago, agoLong, dayLabel, errText, monthName } from 'shared/theme';
 import type { Media, Publisher, SabbathPost, SabbathPostKind } from 'shared/types';
 import { useAppearance } from '../lib/appearance';
+import { dateLocale, languageCode, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, parts } from '../lib/router';
 import { rememberSize } from '../shims/expo-file-system';
@@ -24,23 +25,57 @@ import '../styles/church.css';
 
 /* ---------- small helpers ---------- */
 
-const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sabbath'];
-const STUDY_DAYS = ['Sab', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+// The days' names (keys), by Date.getDay(): Saturday is the Sabbath.
+const WEEKDAY = ['d.church.sunday', 'd.church.monday', 'd.church.tuesday', 'd.church.wednesday', 'd.church.thursday', 'd.church.friday', 'd.church.sabbath'];
+const WEEKDAY_SHORT = ['d.church.sunShort', 'd.church.monShort', 'd.church.tueShort', 'd.church.wedShort', 'd.church.thuShort', 'd.church.friShort', 'd.church.sabShort'];
+// A study week, Sabbath to Friday, in short.
+const STUDY_DAYS = [6, 0, 1, 2, 3, 4, 5].map((i) => WEEKDAY_SHORT[i]);
 
 const lessonNumber = (l: Lesson, i = 0) => parseInt(l.id, 10) || i + 1;
+
+/**
+ * "11 Oct". English keeps the app's own short months (shared/theme), as it always has; other
+ * languages get the month as the browser writes it in that language.
+ */
+function shortDate(d: Date): string {
+  return languageCode() === 'en' ? dayLabel(d) : d.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
+}
+
+/** "11 Oct – 17 Oct": a lesson's week (shared/sabbath-school's dateRange, in the app's language). */
+function weekDates(start: string, end: string): string {
+  return `${shortDate(parseDate(start))} – ${shortDate(parseDate(end))}`;
+}
+
+/** "Sabbath · 10 Oct": a reading's day (empty when its date can't be read). */
+function dayLine(date: string): string {
+  const d = parseDate(date);
+  return isNaN(d.getTime()) ? '' : `${t(WEEKDAY[d.getDay()])} · ${shortDate(d)}`;
+}
+
+/** The short name on a day's button: "Sun" to "Fri", and "Sabbath" in full; an extra section keeps its own name. */
+function dayChip(d: Day): string {
+  const date = parseDate(d.date);
+  if (!/^\d+$/.test(d.id) || isNaN(date.getTime())) return chipLabel(d);
+  return t(date.getDay() === 6 ? WEEKDAY[6] : WEEKDAY_SHORT[date.getDay()]);
+}
 
 /** "Lesson 3, 11 Oct – 17 Oct 2026", for the Saved and Completed lists. */
 function lessonLine(l: Lesson, n: number): string {
   const end = parseDate(l.end_date);
-  const dates = `${dateRange(l.start_date, l.end_date)}${isNaN(end.getTime()) ? '' : ` ${end.getFullYear()}`}`;
-  return n ? `Lesson ${n}, ${dates}` : dates;
+  // Other languages put the year where they write it ("17 oct. 2026", "2026年10月17日").
+  const dates = isNaN(end.getTime())
+    ? weekDates(l.start_date, l.end_date)
+    : languageCode() === 'en'
+      ? `${weekDates(l.start_date, l.end_date)} ${end.getFullYear()}`
+      : `${shortDate(parseDate(l.start_date))} – ${end.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  return n ? t('d.church.lessonDates', { number: n, dates }) : dates;
 }
 
 /** A day's full name, "Wednesday" (or "Sabbath"); an extra section keeps its own name. */
 function dayName(d: Day): string {
   if (!/^\d+$/.test(d.id)) return chipLabel(d);
   const date = parseDate(d.date);
-  return isNaN(date.getTime()) ? d.title : WEEKDAY[date.getDay()];
+  return isNaN(date.getTime()) ? d.title : t(WEEKDAY[date.getDay()]);
 }
 
 /** The day to study: today in the lesson's own week, otherwise the first day not read yet. */
@@ -56,8 +91,8 @@ function studySlot(quarterId: string, l: Lesson, p: LessonProgress): { slot: num
 /** The weekday of day `slot` of a lesson, counted from its first day. */
 function slotName(l: Lesson, slot: number): string {
   const s = parseDate(l.start_date);
-  if (isNaN(s.getTime())) return WEEKDAY[(slot + 6) % 7];
-  return WEEKDAY[new Date(s.getFullYear(), s.getMonth(), s.getDate() + slot).getDay()];
+  if (isNaN(s.getTime())) return t(WEEKDAY[(slot + 6) % 7]);
+  return t(WEEKDAY[new Date(s.getFullYear(), s.getMonth(), s.getDate() + slot).getDay()]);
 }
 
 const lessonPath = (q: string, l: string, day?: string) => `/lessons/${q}/${l}${day ? `?day=${day}` : ''}`;
@@ -89,7 +124,7 @@ function useQuarter(): QuarterState {
       setList(all);
       const saved = all.find((q) => q.id === settings.quarterly);
       const q = saved && parseDate(saved.end_date) >= startOfToday() ? saved : currentQuarterly(all);
-      if (!q) throw new Error('No lessons are available right now. Try again later.');
+      if (!q) throw new Error(t('d.church.noLessons'));
       setQuarterId((id) => id || q.id);
     })().catch((e) => live && setError(e));
     return () => {
@@ -114,7 +149,7 @@ function useQuarter(): QuarterState {
     const q = list?.find((x) => x.id === id);
     if (q && parseDate(q.end_date) >= startOfToday()) updateSsSettings({ quarterly: id });
   };
-  return { list, quarterId, data, error, choose, reload: () => setTick((t) => t + 1) };
+  return { list, quarterId, data, error, choose, reload: () => setTick((n) => n + 1) };
 }
 
 /* ---------- publishing ---------- */
@@ -130,13 +165,14 @@ function usePublishing() {
   return { publisher, canPublish: !!me.admin_role || publisher?.status === 'approved', reload };
 }
 
+/** The kinds of post, with the key of each one's name. */
 const KINDS: { id: SabbathPostKind; label: string }[] = [
-  { id: 'study', label: 'Study' },
-  { id: 'lesson', label: 'Lesson help' },
-  { id: 'announcement', label: 'Announcement' },
-  { id: 'resource', label: 'Resource' },
+  { id: 'study', label: 'ssPub.kindStudy' },
+  { id: 'lesson', label: 'ssPub.kindLesson' },
+  { id: 'announcement', label: 'ssPub.kindAnnouncement' },
+  { id: 'resource', label: 'ssPub.kindResource' },
 ];
-const kindLabel = (k: SabbathPostKind) => KINDS.find((x) => x.id === k)?.label ?? 'Study';
+const kindLabel = (k: SabbathPostKind) => t(KINDS.find((x) => x.id === k)?.label ?? 'ssPub.kindStudy');
 
 /** The small labels over a post: its kind, Pinned, and the lesson it goes with. */
 function PostTags({ post }: { post: Pick<SabbathPost, 'kind' | 'pinned' | 'lesson_ref'> }) {
@@ -145,7 +181,7 @@ function PostTags({ post }: { post: Pick<SabbathPost, 'kind' | 'pinned' | 'lesso
       <span className="ch-tag strong">{kindLabel(post.kind)}</span>
       {post.pinned ? (
         <span className="ch-tag">
-          <Icon name="pin" size={11} /> Pinned
+          <Icon name="pin" size={11} /> {t('ssPub.pinned')}
         </span>
       ) : null}
       {post.lesson_ref ? <span className="ch-tag-ref">{post.lesson_ref}</span> : null}
@@ -188,7 +224,7 @@ function PostCard({ post, cover }: { post: SabbathPost; cover?: boolean }) {
 function PublisherEntry({ publisher }: { publisher: Publisher | null | undefined }) {
   const { me } = useMe();
   if (me.restricted || publisher === undefined || publisher?.status === 'approved') return null;
-  const label = publisher?.status === 'pending' ? 'Request pending' : publisher?.status === 'rejected' ? 'Not approved' : publisher?.status === 'revoked' ? 'Publishing turned off' : 'Become a publisher';
+  const label = publisher?.status === 'pending' ? t('ssPub.pending') : publisher?.status === 'rejected' ? t('ssPub.rejected') : publisher?.status === 'revoked' ? t('ssPub.revoked') : t('ssPub.become');
   return (
     <Link to="/lessons/publish" className="ch-entry">
       <Icon name={publisher ? 'clock' : 'compose'} size={18} />
@@ -219,7 +255,7 @@ export function SabbathSchool({ path = '/lessons' }: { path?: string }) {
   else if (seg[0] === 'write') detail = <Editor key="new" />;
   else if (seg[0] === 'publish') detail = <PublishRequest />;
   else if (seg[1]) detail = <LessonPage key={seg[0] + '/' + seg[1]} quarterId={seg[0]} lessonId={seg[1]} wantDay={query.get('day') ?? ''} />;
-  else detail = <Empty icon="lesson" title="Sorry, this page isn't available." body="Choose a lesson on the left." />;
+  else detail = <Empty icon="lesson" title={t('d.church.pageMissing')} body={t('d.church.chooseLesson')} />;
 
   return (
     <div className="split-page">
@@ -268,16 +304,16 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
   return (
     <section className="split-list">
       <header>
-        <h1>Sabbath School</h1>
+        <h1>{t('churchApps.sabbathSchool')}</h1>
         {list ? (
-          <select className="ss-select" value={quarterId} onChange={(e) => quarter.choose(e.target.value)} aria-label="Quarter">
+          <select className="ss-select" value={quarterId} onChange={(e) => quarter.choose(e.target.value)} aria-label={t('d.church.quarter')}>
             {coming.map((q) => (
               <option key={q.id} value={q.id}>
                 {q.title} · {q.human_date}
               </option>
             ))}
             {earlier.length ? (
-              <optgroup label="Earlier quarters">
+              <optgroup label={t('d.church.earlierQuarters')}>
                 {earlier.map((q) => (
                   <option key={q.id} value={q.id}>
                     {q.title} · {q.human_date}
@@ -289,13 +325,13 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
         ) : null}
       </header>
       <div className="split-scroll">
-        {nav2('/lessons', 'sparkle', 'Today', "This week's memory text and study", section === 'today')}
-        {nav2('/lessons/posts', 'lesson', 'From our publishers', 'Studies, lesson helps and announcements', section === 'posts')}
+        {nav2('/lessons', 'sparkle', t('liveSchedule.today'), t('d.church.todayLessonSub'), section === 'today')}
+        {nav2('/lessons/posts', 'lesson', t('ssPub.section'), t('d.church.publishersSub'), section === 'posts')}
         {error && !data ? (
           <div className="ch-list-error">
             <p>{errText(error)}</p>
             <button className="btn quiet small" onClick={quarter.reload}>
-              Try again
+              {t('common.tryAgain')}
             </button>
           </div>
         ) : !data ? (
@@ -308,7 +344,7 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
                 <b>{data.quarterly.title}</b>
                 <span>{data.quarterly.human_date}</span>
                 <span className="ch-progress-line">
-                  {finished} of {lessons.length} lessons done
+                  {t('d.church.lessonsDone', { done: finished, total: lessons.length })}
                 </span>
                 <span className="ch-progress" aria-hidden="true">
                   <i style={{ width: `${lessons.length ? Math.round((finished / lessons.length) * 100) : 0}%` }} />
@@ -318,13 +354,13 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
             <div className="seg left pad-l ch-tabs" role="tablist">
               {(
                 [
-                  ['quarter', 'This quarter'],
-                  ['saved', 'Saved'],
-                  ['done', 'Completed'],
+                  ['quarter', 'd.church.thisQuarter'],
+                  ['saved', 'settings.saved'],
+                  ['done', 'd.church.completed'],
                 ] as const
               ).map(([id, label]) => (
                 <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -339,11 +375,11 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
                       <span className="row-text">
                         <b>{l.title}</b>
                         <span>
-                          {dateRange(l.start_date, l.end_date)}
-                          {read && !done ? ` · ${read} of 7 read` : done ? ' · Done' : ''}
+                          {weekDates(l.start_date, l.end_date)}
+                          {read && !done ? ` · ${t('d.church.daysReadOf', { count: read })}` : done ? ` · ${t('feed.done')}` : ''}
                         </span>
                       </span>
-                      {isThisWeek(l) ? <span className="ch-week-tag">This week</span> : null}
+                      {isThisWeek(l) ? <span className="ch-week-tag">{t('d.church.thisWeek')}</span> : null}
                     </Link>
                   );
                 })
@@ -359,7 +395,7 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
 
 function SavedList({ progress }: { progress: LessonProgress }) {
   const items = [...progress.saved].reverse();
-  if (!items.length) return <p className="muted-text pad center">Nothing saved yet. Save a lesson or a day while you read.</p>;
+  if (!items.length) return <p className="muted-text pad center">{t('d.church.savedEmpty')}</p>;
   return (
     <>
       {items.map((s) => {
@@ -375,7 +411,7 @@ function SavedList({ progress }: { progress: LessonProgress }) {
                 <span>{s.s}</span>
               </span>
             </Link>
-            <button className="icon-btn" aria-label={`Remove ${s.t} from Saved`} onClick={() => toggleSaved(s)}>
+            <button className="icon-btn" aria-label={t('d.church.removeFromSaved', { title: s.t })} onClick={() => toggleSaved(s)}>
               <Icon name="heart" size={18} className="ch-like" fill="currentColor" />
             </button>
           </div>
@@ -390,7 +426,7 @@ function DoneList({ progress }: { progress: LessonProgress }) {
     const { quarterId, lessonId } = parseKey(x.k);
     return lessonComplete(quarterId, lessonId, 7, progress);
   });
-  if (!items.length) return <p className="muted-text pad center">No finished lessons yet. A lesson is done when every day from Sabbath to Friday has been read.</p>;
+  if (!items.length) return <p className="muted-text pad center">{t('d.church.doneEmpty')}</p>;
   return (
     <>
       {items.map((x) => {
@@ -443,7 +479,7 @@ function Today({ quarter }: { quarter: QuarterState }) {
   const now = new Date();
   const h = now.getHours();
   const first = (me.full_name ?? '').trim().split(/\s+/)[0] || me.username;
-  const greeting = `Good ${h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening'}, ${first}`;
+  const greeting = t(h < 12 ? 'd.church.goodMorning' : h < 18 ? 'd.church.goodAfternoon' : 'd.church.goodEvening', { name: first });
 
   let lessonPart: React.ReactNode = null;
   if (error && !data) {
@@ -451,16 +487,16 @@ function Today({ quarter }: { quarter: QuarterState }) {
       <div className="ch-note-card">
         <Icon name="lesson" size={22} />
         <span className="grow">
-          <b>The lessons couldn't be loaded</b>
+          <b>{t('d.church.lessonsFailed')}</b>
           <span className="muted-text">{errText(error)}</span>
         </span>
         <button className="btn quiet small" onClick={quarter.reload}>
-          Try again
+          {t('common.tryAgain')}
         </button>
       </div>
     );
   } else if (!data || !thisLesson) {
-    lessonPart = data ? null : <div className="ch-hero ch-skeleton" aria-label="Loading the lessons" />;
+    lessonPart = data ? null : <div className="ch-hero ch-skeleton" aria-label={t('d.church.loadingLessons')} />;
   } else {
     const l = thisLesson;
     const n = lessonNumber(l, data.lessons.indexOf(l));
@@ -472,15 +508,15 @@ function Today({ quarter }: { quarter: QuarterState }) {
     const title = days === null ? '' : days.find((d) => d.id === slotDayId(slot))?.title || l.title;
     const key = lessonKey(quarterId, l.id);
     const saved = isSaved(key, progress);
-    const action = states[slot] === 'done' ? 'Read again' : states[slot] ? 'Continue' : 'Start';
+    const action = states[slot] === 'done' ? t('d.church.readAgain') : states[slot] ? t('age.continue') : t('d.church.start');
     const read = () => nav(lessonPath(quarterId, l.id, slotDayId(slot)));
     const image = l.cover || data.quarterly.splash || '';
     lessonPart = (
       <>
-        <section className={'ch-hero' + (image ? ' has-image' : '')} style={image ? { backgroundImage: `url("${image}")` } : undefined} aria-label="This week's memory text">
+        <section className={'ch-hero' + (image ? ' has-image' : '')} style={image ? { backgroundImage: `url("${image}")` } : undefined} aria-label={t('d.church.thisWeeksMemory')}>
           <span className="ch-hero-label">
             <Icon name="sun" size={16} />
-            {memory ? (inWeek ? "This week's memory text" : `Memory text, lesson ${n}`) : inWeek ? "This week's lesson" : `Lesson ${n}`}
+            {memory ? (inWeek ? t('d.church.thisWeeksMemory') : t('d.church.memoryLesson', { number: n })) : inWeek ? t('d.church.thisWeeksLesson') : t('d.church.lessonNumber', { number: n })}
           </span>
           {memory === undefined ? (
             <span className="ch-hero-lines" aria-hidden="true">
@@ -491,24 +527,24 @@ function Today({ quarter }: { quarter: QuarterState }) {
           ) : (
             <span>
               <blockquote className="ch-hero-text">{memory ? memory.text : l.title}</blockquote>
-              <span className="ch-hero-ref">{memory ? memory.reference : dateRange(l.start_date, l.end_date)}</span>
+              <span className="ch-hero-ref">{memory ? memory.reference : weekDates(l.start_date, l.end_date)}</span>
             </span>
           )}
           <span className="ch-hero-actions">
             <button
               className={'ch-glass' + (saved ? ' on' : '')}
-              aria-label={saved ? "Remove this week's lesson from Saved" : "Save this week's lesson"}
+              aria-label={saved ? t('d.church.unsaveWeek') : t('d.church.saveWeek')}
               aria-pressed={saved}
-              onClick={() => toast(toggleSaved({ k: key, t: l.title, s: lessonLine(l, n) }) ? 'Saved' : 'Removed from Saved')}
+              onClick={() => toast(toggleSaved({ k: key, t: l.title, s: lessonLine(l, n) }) ? t('ssPub.saved') : t('d.church.removedFromSaved'))}
             >
               <Icon name="heart" size={20} fill={saved ? 'currentColor' : 'none'} />
             </button>
-            <button className="ch-glass" aria-label="Share the memory text" onClick={() => setSend(memory ? `“${memory.text}”${memory.reference ? ` (${memory.reference})` : ''}` : `${l.title}, Sabbath School lesson ${n}`)}>
+            <button className="ch-glass" aria-label={t('d.church.shareMemory')} onClick={() => setSend(memory ? `“${memory.text}”${memory.reference ? ` (${memory.reference})` : ''}` : t('d.church.shareLesson', { title: l.title, number: n }))}>
               <Icon name="send" size={20} />
             </button>
             <span className="grow" />
             <button className="ch-hero-read" onClick={read}>
-              <Icon name="book" size={18} /> Read
+              <Icon name="book" size={18} /> {t('d.church.read')}
             </button>
           </span>
         </section>
@@ -518,10 +554,10 @@ function Today({ quarter }: { quarter: QuarterState }) {
               <Icon name="calendar" size={22} />
             </span>
             <span className="grow">
-              <span className="muted-text">{inWeek ? "Today's study" : 'Up next'}</span>
+              <span className="muted-text">{inWeek ? t('d.church.todaysStudy') : t('d.church.upNext')}</span>
               <b>{slotName(l, slot)}</b>
             </span>
-            <span className="muted-text">{states.filter(Boolean).length} of 7</span>
+            <span className="muted-text">{t('d.church.ofSeven', { count: states.filter(Boolean).length })}</span>
           </div>
           {title ? <p className="ch-today-title">{title}</p> : <p className="ch-today-title ch-skeleton-line" />}
           <WeekDots states={states} today={inWeek ? slot : undefined} />
@@ -536,11 +572,11 @@ function Today({ quarter }: { quarter: QuarterState }) {
   return (
     <div className="ch-ss-page">
       <h1 className="ch-h1">{greeting}</h1>
-      <p className="muted-text ch-date">{`${WEEKDAY[now.getDay()]}, ${now.getDate()} ${monthName(now)}`}</p>
+      <p className="muted-text ch-date">{t('d.church.todayDate', { weekday: t(WEEKDAY[now.getDay()]), date: languageCode() === 'en' ? `${now.getDate()} ${monthName(now)}` : now.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long' }) })}</p>
       <div className="ch-today-grid">{lessonPart}</div>
       <PublishersSection />
-      <p className="ch-foot">Lessons from the free Sabbath School service by Adventech. They stay on this computer once you have opened them, and so does your progress.</p>
-      {send ? <SendText title="Share" text={send} onClose={() => setSend(null)} /> : null}
+      <p className="ch-foot">{t('d.church.ssFoot')}</p>
+      {send ? <SendText title={t('common.share')} text={send} onClose={() => setSend(null)} /> : null}
     </div>
   );
 }
@@ -548,11 +584,11 @@ function Today({ quarter }: { quarter: QuarterState }) {
 /** The week so far as seven dots, Sabbath to Friday: done, read, or not yet; today ringed. */
 function WeekDots({ states, today }: { states: ('done' | 'opened' | null)[]; today?: number }) {
   return (
-    <span className="ch-week" aria-label={`${states.filter(Boolean).length} of 7 days read`}>
+    <span className="ch-week" aria-label={t('d.church.daysReadLabel', { count: states.filter(Boolean).length })}>
       {states.map((s, i) => (
         <span key={i} className={'ch-week-day' + (s ? ' ' + s : '') + (today === i ? ' today' : '')}>
           <i>{s === 'done' ? <Icon name="check" size={12} stroke={3} /> : null}</i>
-          {STUDY_DAYS[i]}
+          {t(STUDY_DAYS[i])}
         </span>
       ))}
     </span>
@@ -569,18 +605,18 @@ function PublishersSection() {
   if (posts === null) return <Spinner />;
   if (!posts.length && !canPublish) return <PublisherEntry publisher={publisher} />;
   return (
-    <section className="ch-pub-section" aria-label="From our publishers">
+    <section className="ch-pub-section" aria-label={t('ssPub.section')}>
       <div className="ch-section-head">
-        <h2>From our publishers</h2>
+        <h2>{t('ssPub.section')}</h2>
         <span className="grow" />
         {posts.length ? (
           <Link to="/lessons/posts" className="link-btn">
-            See all
+            {t('ssPub.seeAll')}
           </Link>
         ) : null}
         {canPublish ? (
           <button className="btn small" onClick={() => nav('/lessons/write')}>
-            <Icon name="plus" size={14} stroke={2.6} /> Publish
+            <Icon name="plus" size={14} stroke={2.6} /> {t('ssPub.publish')}
           </button>
         ) : null}
       </div>
@@ -593,7 +629,7 @@ function PublishersSection() {
       ) : (
         <button className="ch-first" onClick={() => nav('/lessons/write')}>
           <Icon name="pluscircle" size={26} />
-          Publish the first study
+          {t('ssPub.publishFirst')}
         </button>
       )}
       {canPublish ? null : <PublisherEntry publisher={publisher} />}
@@ -703,9 +739,9 @@ function LessonPage({ quarterId, lessonId, wantDay }: { quarterId: string; lesso
     updateSsSettings({ size: next });
   };
 
-  if (error) return <Failed error={error} retry={() => setTick((t) => t + 1)} />;
+  if (error) return <Failed error={error} retry={() => setTick((n) => n + 1)} />;
   if (!lesson) return <Spinner />;
-  if (!lesson.days.length) return <Empty icon="lesson" title="This lesson has no daily readings in the app yet." />;
+  if (!lesson.days.length) return <Empty icon="lesson" title={t('d.church.noReadings')} />;
   const l = lesson.lesson;
   const d = lesson.days[at];
   const slot = daySlot(d.id);
@@ -729,45 +765,45 @@ function LessonPage({ quarterId, lessonId, wantDay }: { quarterId: string; lesso
           <span className="muted-text">{lessonLine(l, n)}</span>
           <h1 className="ch-h1">{l.title}</h1>
         </span>
-        <button className={'icon-btn' + (lessonSaved ? ' ch-like' : '')} aria-label={lessonSaved ? 'Remove this lesson from Saved' : 'Save this lesson'} aria-pressed={lessonSaved} onClick={() => toast(toggleSaved({ k: lessonKey(quarterId, lessonId), t: l.title, s: info.sub }) ? 'Saved' : 'Removed from Saved')}>
+        <button className={'icon-btn' + (lessonSaved ? ' ch-like' : '')} aria-label={lessonSaved ? t('d.church.unsaveLesson') : t('d.church.saveLesson')} aria-pressed={lessonSaved} onClick={() => toast(toggleSaved({ k: lessonKey(quarterId, lessonId), t: l.title, s: info.sub }) ? t('ssPub.saved') : t('d.church.removedFromSaved'))}>
           <Icon name="heart" size={22} fill={lessonSaved ? 'currentColor' : 'none'} />
         </button>
-        <button className="btn quiet small" aria-label="Smaller text" disabled={size <= 14} onClick={() => resize(-2)}>
+        <button className="btn quiet small" aria-label={t('d.church.smallerText')} disabled={size <= 14} onClick={() => resize(-2)}>
           A−
         </button>
-        <button className="btn quiet small" aria-label="Larger text" disabled={size >= 30} onClick={() => resize(2)}>
+        <button className="btn quiet small" aria-label={t('d.church.largerText')} disabled={size >= 30} onClick={() => resize(2)}>
           A+
         </button>
       </div>
       {memory ? (
         <blockquote className="ch-memory">
-          <span className="ch-memory-label">Memory text</span>
+          <span className="ch-memory-label">{t('d.church.memoryText')}</span>
           <span className="ch-memory-text">{memory.text}</span>
           {memory.reference ? <cite>{memory.reference}</cite> : null}
         </blockquote>
       ) : null}
-      <div className="ch-days" role="tablist" aria-label="Days">
+      <div className="ch-days" role="tablist" aria-label={t('d.church.days')}>
         {lesson.days.map((x, i) => {
           const st = dayState(quarterId, lessonId, daySlot(x.id), progress);
           return (
-            <button key={x.id} role="tab" aria-selected={i === at} className={'pill-btn ch-day' + (i === at ? ' on' : '') + (st ? ' ' + st : '')} title={x.title} onClick={() => go(i)} aria-label={`${chipLabel(x)}, ${x.title}${st === 'done' ? ', done' : ''}`}>
+            <button key={x.id} role="tab" aria-selected={i === at} className={'pill-btn ch-day' + (i === at ? ' on' : '') + (st ? ' ' + st : '')} title={x.title} onClick={() => go(i)} aria-label={t(st === 'done' ? 'd.church.dayTabDone' : 'd.church.dayTab', { day: dayChip(x), title: x.title })}>
               {st === 'done' ? <Icon name="check" size={12} stroke={3} /> : null}
-              {chipLabel(x)}
+              {dayChip(x)}
             </button>
           );
         })}
       </div>
       <div className="ch-day-head">
         <span className="grow">
-          <span className="muted-text">{dayTitle(d.date) || name}</span>
+          <span className="muted-text">{dayLine(d.date) || name}</span>
           <h2>{reading?.title ?? d.title}</h2>
         </span>
-        <button className={'icon-btn' + (daySaved ? ' ch-accent' : '')} aria-label={daySaved ? `Remove ${name}'s study from Saved` : `Save ${name}'s study`} aria-pressed={daySaved} onClick={() => toast(toggleSaved({ k: dayKey(quarterId, lessonId, slot), t: d.title, s: n ? `Lesson ${n}, ${name}` : name }) ? 'Saved' : 'Removed from Saved')}>
+        <button className={'icon-btn' + (daySaved ? ' ch-accent' : '')} aria-label={daySaved ? t('d.church.unsaveDay', { day: name }) : t('d.church.saveDay', { day: name })} aria-pressed={daySaved} onClick={() => toast(toggleSaved({ k: dayKey(quarterId, lessonId, slot), t: d.title, s: n ? t('d.church.lessonDay', { number: n, day: name }) : name }) ? t('ssPub.saved') : t('d.church.removedFromSaved'))}>
           <Icon name="bookmark" size={22} fill={daySaved ? 'currentColor' : 'none'} />
         </button>
       </div>
       {readError ? (
-        <Failed error={readError} retry={() => setTick((t) => t + 1)} />
+        <Failed error={readError} retry={() => setTick((n) => n + 1)} />
       ) : reading ? (
         // The day's own page, in a sealed frame: its HTML and verse pop-ups come from the Sabbath School service.
         <iframe ref={frame} className="ch-reading" title={reading.title} sandbox="allow-scripts" srcDoc={html} style={{ height: height || 600 }} />
@@ -775,21 +811,21 @@ function LessonPage({ quarterId, lessonId, wantDay }: { quarterId: string; lesso
         <Spinner />
       )}
       <div className="ch-lesson-foot">
-        <button className={'btn big' + (done ? ' quiet' : '')} aria-pressed={done} onClick={() => { markDayDone(quarterId, lessonId, slot, !done, info); if (!done) toast(`${name} marked as done`); }}>
+        <button className={'btn big' + (done ? ' quiet' : '')} aria-pressed={done} onClick={() => { markDayDone(quarterId, lessonId, slot, !done, info); if (!done) toast(t('d.church.markedDone', { day: name })); }}>
           {done ? (
             <>
-              <Icon name="check" size={16} /> Done
+              <Icon name="check" size={16} /> {t('feed.done')}
             </>
           ) : (
-            'Mark as done'
+            t('d.church.markDone')
           )}
         </button>
         <span className="grow" />
         <button className="btn quiet" disabled={!prev} onClick={() => go(at - 1)}>
-          ← {prev ? dayName(prev) : 'Previous'}
+          ← {prev ? dayName(prev) : t('d.church.previous')}
         </button>
         <button className="btn quiet" disabled={!next} onClick={() => go(at + 1)}>
-          {next ? dayName(next) : 'Next'} →
+          {next ? dayName(next) : t('d.church.next')} →
         </button>
       </div>
     </article>
@@ -830,17 +866,17 @@ function Posts() {
   return (
     <div className="ch-ss-page ch-feed">
       <div className="ch-section-head">
-        <h1 className="ch-h1">From our publishers</h1>
+        <h1 className="ch-h1">{t('ssPub.section')}</h1>
         <span className="grow" />
         {canPublish ? (
           <button className="btn" onClick={() => nav('/lessons/write')}>
-            <Icon name="plus" size={14} stroke={2.6} /> Publish
+            <Icon name="plus" size={14} stroke={2.6} /> {t('ssPub.publish')}
           </button>
         ) : null}
       </div>
-      <p className="muted-text ch-sub">Studies, lesson helps, announcements and resources from approved publishers. Pinned posts come first.</p>
+      <p className="muted-text ch-sub">{t('d.church.postsIntro')}</p>
       {posts === null ? error ? <Failed error={error} retry={load} /> : <Spinner /> : null}
-      {posts && !posts.length ? <Empty icon="lesson" title="Nothing published yet" /> : null}
+      {posts && !posts.length ? <Empty icon="lesson" title={t('ssPub.empty')} /> : null}
       <div className="ch-post-list">
         {(posts ?? []).map((p) => (
           <PostCard key={p.id} post={p} />
@@ -848,7 +884,7 @@ function Posts() {
       </div>
       {posts && !end ? (
         <button className="btn quiet block" disabled={more} onClick={next}>
-          {more ? 'Loading…' : 'Show more'}
+          {more ? t('d.church.loadingDots') : t('d.church.showMore')}
         </button>
       ) : null}
       {canPublish ? null : <PublisherEntry publisher={publisher} />}
@@ -872,7 +908,7 @@ function PostPage({ id }: { id: string }) {
   useEffect(load, [id]);
 
   if (post === undefined) return error ? <Failed error={error} retry={load} /> : <Spinner />;
-  if (post === null) return <Empty icon="lesson" title="This post is no longer here" body="It may have been deleted." />;
+  if (post === null) return <Empty icon="lesson" title={t('ssPub.notFound')} body={t('profile.unavailableBody')} />;
   const canEdit = post.mine || admin;
   const name = post.full_name || post.username;
   const paragraphs = post.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
@@ -883,16 +919,16 @@ function PostPage({ id }: { id: string }) {
     try {
       await updateSabbathPost(post.id, { pinned: !post.pinned });
       setPost({ ...post, pinned: !post.pinned });
-      toast(post.pinned ? 'Unpinned' : 'Pinned to top');
+      toast(post.pinned ? t('ssPub.unpinned') : t('ssPub.pinnedToast'));
     } catch (e) {
       toastError(e);
     }
   };
   const remove = async () => {
-    if (!(await ask('Delete this post?', 'It is taken out of Sabbath School for everyone.', 'Delete'))) return;
+    if (!(await ask(t('ssPub.deleteQuestion'), t('d.church.deletePostBody'), t('common.delete')))) return;
     try {
       await deleteSabbathPost(post.id);
-      toast('Post deleted');
+      toast(t('ssPub.deleted'));
       nav('/lessons/posts');
     } catch (e) {
       toastError(e);
@@ -903,14 +939,14 @@ function PostPage({ id }: { id: string }) {
     <article className="ch-ss-page ch-post">
       <div className="ch-post-bar">
         <Link to="/lessons/posts" className="link-btn muted">
-          ← From our publishers
+          ← {t('ssPub.section')}
         </Link>
         <span className="grow" />
-        <button className="icon-btn" aria-label="Share" title="Send to people" onClick={() => setSend(true)}>
+        <button className="icon-btn" aria-label={t('common.share')} title={t('d.church.sendToPeople')} onClick={() => setSend(true)}>
           <Icon name="send" size={20} />
         </button>
         {canEdit ? (
-          <button className="icon-btn" aria-label="Post options" onClick={() => setMenu(true)}>
+          <button className="icon-btn" aria-label={t('ssPub.options')} onClick={() => setMenu(true)}>
             <Icon name="more" size={22} />
           </button>
         ) : null}
@@ -939,7 +975,7 @@ function PostPage({ id }: { id: string }) {
         <a className="ch-link-card" href={post.link} target="_blank" rel="noreferrer noopener">
           <Icon name="link" size={22} />
           <span className="row-text">
-            <b>Open link</b>
+            <b>{t('ssPub.openLink')}</b>
             <span>{host}</span>
           </span>
           <Icon name="up" size={16} />
@@ -949,14 +985,14 @@ function PostPage({ id }: { id: string }) {
         <ChoiceMenu
           onClose={() => setMenu(false)}
           items={[
-            { label: 'Edit', onClick: () => nav(`/lessons/posts/${post.id}/edit`) },
-            ...(admin ? [{ label: post.pinned ? 'Unpin' : 'Pin to top', onClick: pin }] : []),
-            { label: 'Copy link', onClick: () => navigator.clipboard?.writeText(link).then(() => toast('Link copied'), () => toast("The link couldn't be copied")) },
-            { label: 'Delete', danger: true, onClick: remove },
+            { label: t('ssPub.edit'), onClick: () => nav(`/lessons/posts/${post.id}/edit`) },
+            ...(admin ? [{ label: post.pinned ? t('ssPub.unpin') : t('ssPub.pin'), onClick: pin }] : []),
+            { label: t('d.church.copyLink'), onClick: () => navigator.clipboard?.writeText(link).then(() => toast(t('d.church.linkCopied')), () => toast(t('d.church.linkNotCopied'))) },
+            { label: t('common.delete'), danger: true, onClick: remove },
           ]}
         />
       ) : null}
-      {send ? <SendText title="Share" text={`${post.title}\n${link}${post.link ? `\n${post.link}` : ''}`} onClose={() => setSend(false)} /> : null}
+      {send ? <SendText title={t('common.share')} text={`${post.title}\n${link}${post.link ? `\n${post.link}` : ''}`} onClose={() => setSend(false)} /> : null}
     </article>
   );
 }
@@ -1028,10 +1064,10 @@ function Editor({ id }: { id?: string }) {
     const text = body.trim();
     const url = withScheme(link);
     const errs: Errors = {};
-    if (!tt || tt.length > MAX.title) errs.title = 'Give it a title of up to 140 characters.';
-    if (ref.length > MAX.ref) errs.ref = 'Keep the lesson to 80 characters or fewer.';
-    if (text.length > MAX.body) errs.body = 'Keep the text to 10,000 characters or fewer.';
-    if (url && (!/^https:\/\/[^\s/]+\.[^\s]+$/i.test(url) || url.length > MAX.link)) errs.link = 'Use a link that starts with https://';
+    if (!tt || tt.length > MAX.title) errs.title = t('ssPub.errTitle');
+    if (ref.length > MAX.ref) errs.ref = t('ssPub.errRef');
+    if (text.length > MAX.body) errs.body = t('ssPub.errBody');
+    if (url && (!/^https:\/\/[^\s/]+\.[^\s]+$/i.test(url) || url.length > MAX.link)) errs.link = t('ssPub.errLink');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
@@ -1050,11 +1086,11 @@ function Editor({ id }: { id?: string }) {
       const input: SabbathPostInput = { kind, title: tt, body: text, lesson_ref: ref, media, link: url };
       if (existing) {
         await updateSabbathPost(existing.id, input);
-        toast('Saved');
+        toast(t('ssPub.saved'));
         nav('/lessons/posts/' + existing.id);
       } else {
         const newId = await createSabbathPost(me.id, input);
-        toast('Published');
+        toast(t('ssPub.published'));
         nav('/lessons/posts/' + newId);
       }
     } catch (e) {
@@ -1065,10 +1101,10 @@ function Editor({ id }: { id?: string }) {
 
   if (loadError) return <Failed error={loadError} retry={() => location.reload()} />;
   if (existing === undefined || (!admin && publisher === undefined)) return <Spinner />;
-  if (id && existing === null) return <Empty icon="lesson" title="This post is no longer here" />;
+  if (id && existing === null) return <Empty icon="lesson" title={t('ssPub.notFound')} />;
   if (existing ? !((existing.mine && canPublish) || admin) : !canPublish) {
     return (
-      <Empty icon="lesson" title="Only approved publishers can post here" body="Members who teach or lead a class can ask to publish studies and lesson helps.">
+      <Empty icon="lesson" title={t('ssPub.onlyPublishers')} body={t('d.church.onlyPublishersBody')}>
         <PublisherEntry publisher={publisher} />
       </Empty>
     );
@@ -1089,7 +1125,7 @@ function Editor({ id }: { id?: string }) {
         ) : (
           <input type={opts.type ?? 'text'} value={value} onChange={(e) => change(e.target.value)} placeholder={opts.placeholder} maxLength={opts.max} aria-invalid={!!error} />
         )}
-        {opts.area && value.length > opts.max - 1000 ? <em className="count">{`${value.length.toLocaleString()} / ${opts.max.toLocaleString()}`}</em> : null}
+        {opts.area && value.length > opts.max - 1000 ? <em className="count">{`${value.length.toLocaleString(dateLocale())} / ${opts.max.toLocaleString(dateLocale())}`}</em> : null}
         {error ? <span className="form-error">{error}</span> : null}
       </label>
     );
@@ -1097,46 +1133,46 @@ function Editor({ id }: { id?: string }) {
 
   return (
     <div className="ch-ss-page ch-editor">
-      <h1 className="ch-h1">{existing ? 'Edit post' : 'New post'}</h1>
-      <div className="ch-kinds" role="radiogroup" aria-label="Kind of post">
+      <h1 className="ch-h1">{existing ? t('ssPub.editPost') : t('ssPub.newPost')}</h1>
+      <div className="ch-kinds" role="radiogroup" aria-label={t('d.church.kindOfPost')}>
         {KINDS.map((k) => (
           <button key={k.id} role="radio" aria-checked={kind === k.id} className={'ch-kind' + (kind === k.id ? ' on' : '')} onClick={() => setKind(k.id)}>
-            {k.label}
+            {t(k.label)}
           </button>
         ))}
       </div>
-      {field('title', 'Title', title, setTitle, { placeholder: 'Give it a title', max: MAX.title })}
-      {field('ref', 'Lesson', lessonRef, setLessonRef, { placeholder: 'e.g. Lesson 2 · Oct 11', max: MAX.ref })}
-      {field('body', 'Text', body, setBody, { placeholder: 'Write your study…', max: MAX.body, area: true })}
+      {field('title', t('ssPub.title'), title, setTitle, { placeholder: t('ssPub.titlePlaceholder'), max: MAX.title })}
+      {field('ref', t('ssPub.lessonRef'), lessonRef, setLessonRef, { placeholder: t('ssPub.lessonRefPlaceholder'), max: MAX.ref })}
+      {field('body', t('ssPub.body'), body, setBody, { placeholder: t('ssPub.bodyPlaceholder'), max: MAX.body, area: true })}
       <div className="form-row">
         <span>
-          Photos <span className="muted-text ch-count">{`${photos.length}/${MAX.photos}`}</span>
+          {t('ssPub.photos')} <span className="muted-text ch-count">{`${photos.length}/${MAX.photos}`}</span>
         </span>
         <div className="ch-photos">
           {photos.map((p) => (
             <span key={p.key} className="ch-photo">
               <img src={p.url} alt="" />
-              <button className="ch-photo-x" aria-label="Remove photo" disabled={busy} onClick={() => setPhotos((all) => all.filter((x) => x.key !== p.key))}>
+              <button className="ch-photo-x" aria-label={t('ssPub.removePhoto')} disabled={busy} onClick={() => setPhotos((all) => all.filter((x) => x.key !== p.key))}>
                 <Icon name="close" size={12} stroke={2.8} />
               </button>
             </span>
           ))}
           {photos.length < MAX.photos ? (
-            <button className="ch-photo-add" aria-label="Add photos" onClick={() => fileInput.current?.click()} disabled={busy}>
+            <button className="ch-photo-add" aria-label={t('ssPub.addPhotos')} onClick={() => fileInput.current?.click()} disabled={busy}>
               <Icon name="image" size={24} />
             </button>
           ) : null}
           <input ref={fileInput} type="file" accept="image/*" multiple hidden data-testid="ss-photos" onChange={(e) => { addPhotos(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
         </div>
       </div>
-      {field('link', 'Link', link, setLink, { placeholder: 'https://', max: MAX.link, type: 'url' })}
+      {field('link', t('ssPub.link'), link, setLink, { placeholder: 'https://', max: MAX.link, type: 'url' })}
       {errors.form ? <p className="form-error">{errors.form}</p> : null}
       <div className="ch-dialog-actions">
         <button className="btn quiet" disabled={busy} onClick={() => (existing ? nav('/lessons/posts/' + existing.id) : nav('/lessons/posts'))}>
-          Cancel
+          {t('common.cancel')}
         </button>
         <button className="btn grow" disabled={busy} onClick={save}>
-          {busy ? (existing ? 'Saving…' : 'Publishing…') : existing ? 'Save' : 'Publish'}
+          {busy ? (existing ? t('d.church.saving') : t('d.church.publishing')) : existing ? t('ssPub.save') : t('ssPub.publish')}
         </button>
       </div>
     </div>
@@ -1178,7 +1214,7 @@ function PublishRequest() {
     setBusy(true);
     try {
       await requestPublisher(me.id, note, row?.status === 'rejected');
-      toast('Request sent');
+      toast(t('ssPub.sent'));
       // Pending straight away; the read that follows brings the server's copy.
       setRow({ user_id: me.id, decided_by: null, decided_at: null, created_at: new Date().toISOString(), ...row, status: 'pending', note: note.trim() });
       setAgain(false);
@@ -1189,53 +1225,53 @@ function PublishRequest() {
       setBusy(false);
     }
   };
-  const write = <button className="btn big" onClick={() => nav('/lessons/write')}>Publish</button>;
+  const write = <button className="btn big" onClick={() => nav('/lessons/write')}>{t('ssPub.publish')}</button>;
 
   let body: React.ReactNode;
   if (me.admin_role) {
     body = (
       <>
-        <Status icon="check" tone="ok" title="Admins can publish" />
+        <Status icon="check" tone="ok" title={t('ssPub.youCanPublish')} />
         {write}
       </>
     );
-  } else if (me.restricted) body = <Empty icon="lesson" title="Publishing is for members 14 and over" />;
+  } else if (me.restricted) body = <Empty icon="lesson" title={t('ssPub.under14')} />;
   else if (row === undefined) body = error ? <Failed error={error} retry={load} /> : <Spinner />;
   else if (!row || again) {
     body = (
       <div className="ch-ask">
-        <p className="muted-text">Approved publishers post studies, lesson helps, announcements and resources that everyone reads in Sabbath School. Tell the admins a little about yourself.</p>
+        <p className="muted-text">{t('d.church.askIntro')}</p>
         <label className="form-row">
-          About you
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={6} placeholder="Your church and your role there, e.g. Sabbath School teacher" autoFocus />
+          {t('ssPub.aboutYou')}
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={6} placeholder={t('ssPub.aboutPlaceholder')} autoFocus />
         </label>
         <button className="btn big" disabled={busy || !note.trim()} onClick={send}>
-          {busy ? 'Sending…' : 'Send request'}
+          {busy ? t('d.church.sending') : t('ssPub.send')}
         </button>
       </div>
     );
-  } else if (row.status === 'pending') body = <Status icon="clock" tone="wait" title="Request pending" note={row.note} />;
+  } else if (row.status === 'pending') body = <Status icon="clock" tone="wait" title={t('ssPub.pending')} note={row.note} />;
   else if (row.status === 'approved') {
     body = (
       <>
-        <Status icon="check" tone="ok" title="You're a publisher" />
+        <Status icon="check" tone="ok" title={t('ssPub.approved')} />
         {write}
       </>
     );
   } else if (row.status === 'rejected') {
     body = (
       <>
-        <Status icon="close" tone="off" title="Not approved" note={row.note} />
+        <Status icon="close" tone="off" title={t('ssPub.rejected')} note={row.note} />
         <button className="btn quiet big" onClick={() => setAgain(true)}>
-          Ask again
+          {t('ssPub.askAgain')}
         </button>
       </>
     );
-  } else body = <Status icon="block" tone="off" title="Publishing turned off" />;
+  } else body = <Status icon="block" tone="off" title={t('ssPub.revoked')} />;
 
   return (
     <div className="ch-ss-page ch-publish">
-      <h1 className="ch-h1">Become a publisher</h1>
+      <h1 className="ch-h1">{t('ssPub.become')}</h1>
       {body}
     </div>
   );
