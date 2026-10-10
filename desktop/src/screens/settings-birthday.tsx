@@ -6,6 +6,7 @@ import { ageFrom, fetchBirthDate, getProfile, MINOR_AGE, setBirthDate } from 'sh
 import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13 } from 'shared/age';
 import { retryConsentRecord } from 'shared/consent';
 import { errText } from 'shared/theme';
+import { t, tSplit } from '../lib/i18n';
 import { Icon, type IconName, Modal } from '../ui/kit';
 import { isPlaceholder } from './legal';
 import { LEGAL_DETAILS } from './legal-docs.gen';
@@ -18,8 +19,8 @@ declare const __DEMO__: boolean;
 export type BirthParts = { day: string; month: string; year: string };
 export const EMPTY_BIRTH: BirthParts = { day: '', month: '', year: '' };
 
-/** Shown under the boxes wherever the birthday is asked for. */
-export const BIRTHDAY_NOTE = "This won't be on your profile. It's used to keep younger members safe.";
+/** The key of the words shown under the boxes wherever the birthday is asked for (unless a screen gives its own). */
+export const BIRTHDAY_NOTE = 'd.settings-more.birthdayNote';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -28,39 +29,41 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * date as YYYY-MM-DD with the age it gives, or what is wrong in a sentence. (The iPhone's rules.)
  */
 export function checkBirthDate(p: BirthParts, now = new Date()): { iso: string; age: number } | { error: string } {
-  if (!p.day || !p.month || !p.year) return { error: 'Add your birthday: day, month and year.' };
-  if (p.year.length !== 4) return { error: 'Write the year in full, for example 2010.' };
+  if (!p.day || !p.month || !p.year) return { error: t('d.settings-more.errMissing') };
+  if (p.year.length !== 4) return { error: t('d.settings-more.errYear') };
   const d = Number(p.day);
   const m = Number(p.month);
   const y = Number(p.year);
-  if (m < 1 || m > 12) return { error: 'The month is a number from 1 to 12.' };
+  if (m < 1 || m > 12) return { error: t('d.settings-more.errMonth') };
   // Day 0 of the next month is the last day of this one, which also gets 29 February right.
   const days = new Date(y, m, 0).getDate();
-  if (d < 1 || d > days) return { error: `That month only has ${days} days.` };
-  if (new Date(y, m - 1, d).getTime() > now.getTime()) return { error: "That date hasn't happened yet." };
+  if (d < 1 || d > days) return { error: t('d.settings-more.errMonthDays', { days }) };
+  if (new Date(y, m - 1, d).getTime() > now.getTime()) return { error: t('d.settings-more.errFuture') };
   const iso = `${y}-${pad(m)}-${pad(d)}`;
   const age = ageFrom(iso, now);
-  if (age < 5) return { error: 'Check the year: members need to be at least 5.' };
-  if (age > 120) return { error: 'Check the year: that would make you older than 120.' };
+  if (age < 5) return { error: t('d.settings-more.errTooYoung') };
+  if (age > 120) return { error: t('d.settings-more.errTooOld') };
   return { iso, age };
 }
 
 /** Day / Month / Year as three number boxes. A full day or month moves on to the next box. */
-export function BirthDateInput({ value, onChange, error, disabled, note = BIRTHDAY_NOTE, autoFocus }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; disabled?: boolean; note?: string; autoFocus?: boolean }) {
+export function BirthDateInput({ value, onChange, error, disabled, note, autoFocus }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; disabled?: boolean; note?: string; autoFocus?: boolean }) {
+  // A screen's own note (words, or '' for none), otherwise the usual one.
+  const shownNote = note ?? t(BIRTHDAY_NOTE);
   const month = useRef<HTMLInputElement>(null);
   const year = useRef<HTMLInputElement>(null);
-  const digits = (t: string, max: number) => t.replace(/\D/g, '').slice(0, max);
+  const digits = (typed: string, max: number) => typed.replace(/\D/g, '').slice(0, max);
   return (
     <div className="st-birth">
       <div className="st-birth-boxes">
         <label>
-          <span>Day</span>
+          <span>{t('d.settings-more.day')}</span>
           <input
             value={value.day}
-            placeholder="DD"
+            placeholder={t('d.settings-more.dayHint')}
             inputMode="numeric"
             autoComplete="bday-day"
-            aria-label="Birthday, day"
+            aria-label={t('d.settings-more.dayLabel')}
             disabled={disabled}
             autoFocus={autoFocus}
             onChange={(e) => {
@@ -71,14 +74,14 @@ export function BirthDateInput({ value, onChange, error, disabled, note = BIRTHD
           />
         </label>
         <label>
-          <span>Month</span>
+          <span>{t('d.settings-more.month')}</span>
           <input
             ref={month}
             value={value.month}
-            placeholder="MM"
+            placeholder={t('d.settings-more.monthHint')}
             inputMode="numeric"
             autoComplete="bday-month"
-            aria-label="Birthday, month as a number"
+            aria-label={t('d.settings-more.monthLabel')}
             disabled={disabled}
             onChange={(e) => {
               const m = digits(e.target.value, 2);
@@ -88,8 +91,8 @@ export function BirthDateInput({ value, onChange, error, disabled, note = BIRTHD
           />
         </label>
         <label className="year">
-          <span>Year</span>
-          <input ref={year} value={value.year} placeholder="YYYY" inputMode="numeric" autoComplete="bday-year" aria-label="Birthday, year" disabled={disabled} onChange={(e) => onChange({ ...value, year: digits(e.target.value, 4) })} />
+          <span>{t('d.settings-more.year')}</span>
+          <input ref={year} value={value.year} placeholder={t('d.settings-more.yearHint')} inputMode="numeric" autoComplete="bday-year" aria-label={t('d.settings-more.yearLabel')} disabled={disabled} onChange={(e) => onChange({ ...value, year: digits(e.target.value, 4) })} />
         </label>
       </div>
       {error ? (
@@ -97,19 +100,19 @@ export function BirthDateInput({ value, onChange, error, disabled, note = BIRTHD
           {error}
         </p>
       ) : null}
-      {note ? <p className="st-birth-note">{note}</p> : null}
+      {shownNote ? <p className="st-birth-note">{shownNote}</p> : null}
     </div>
   );
 }
 
 /* ---------- what an under-14 account means ---------- */
 
-/** What changes for a member under 14: told to the member ("you"), or about them (Family centre). */
+/** What changes for a member under 14 (keys): told to the member ("you"), or about them (Family centre). */
 export const MINOR_RULES: { icon: IconName; you: string; them: string }[] = [
-  { icon: 'lock', you: 'Your account stays private: only people you approve see your posts and stories.', them: 'The account stays private: only people they approve see their posts and stories.' },
-  { icon: 'shield', you: 'Posts marked as sensitive are hidden from you.', them: 'Posts marked as sensitive are hidden from them.' },
-  { icon: 'send', you: 'You can only message and call people you follow, and only people you follow can message or call you.', them: 'They can only message and call people they follow, and only people they follow can message or call them.' },
-  { icon: 'info', you: "Live broadcasts, fundraisers and creator subscriptions aren't available.", them: "Live broadcasts, fundraisers and creator subscriptions aren't available." },
+  { icon: 'lock', you: 'd.settings-more.ruleYouPrivate', them: 'd.settings-more.ruleThemPrivate' },
+  { icon: 'shield', you: 'd.settings-more.ruleYouSensitive', them: 'd.settings-more.ruleThemSensitive' },
+  { icon: 'send', you: 'd.settings-more.ruleYouMessages', them: 'd.settings-more.ruleThemMessages' },
+  { icon: 'info', you: 'd.settings-more.ruleNoLive', them: 'd.settings-more.ruleNoLive' },
 ];
 
 export function MinorRules({ you = true }: { you?: boolean }) {
@@ -118,7 +121,7 @@ export function MinorRules({ you = true }: { you?: boolean }) {
       {MINOR_RULES.map((r) => (
         <li key={r.you}>
           <Icon name={r.icon} size={22} />
-          <span>{you ? r.you : r.them}</span>
+          <span>{t(you ? r.you : r.them)}</span>
         </li>
       ))}
     </ul>
@@ -130,12 +133,15 @@ export function MinorRules({ you = true }: { you?: boolean }) {
 /** "Sorry, you can't create an account" (or, once an account was closed for it, "…use Community yet"). */
 export function CannotJoin({ closed, action, onAction, busy }: { closed?: boolean; action: string; onAction: () => void; busy?: boolean }) {
   const email = LEGAL_DETAILS.contact_email ?? '';
+  const [before, after] = tSplit('age.parents', 'email');
   return (
     <div className="st-sorry" role="alert">
-      <h2>{closed ? "Sorry, you can't use Community yet" : "Sorry, you can't create an account"}</h2>
-      <p>{closed ? 'Community is for people aged 13 and over, so this account has been closed. It and everything in it will be deleted within two days.' : "Community is for people aged 13 and over, so we can't make an account for you. Nothing you entered has been saved."}</p>
+      <h2>{closed ? t('age.closedTitle') : t('age.sorryTitle')}</h2>
+      <p>{closed ? t('age.closedBody') : t('age.sorryBody')}</p>
       <p className="st-sorry-small">
-        Parent or guardian? If you think this is a mistake, email us at {isPlaceholder(email) ? email : <a href={'mailto:' + email}>{email}</a>}.
+        {before}
+        {isPlaceholder(email) ? email : <a href={'mailto:' + email}>{email}</a>}
+        {after}
       </p>
       <button className="btn block big" onClick={onAction} disabled={busy}>
         {action}
@@ -236,11 +242,11 @@ export function BirthdayQuestion({ me, onDone }: { me: string; onDone: () => voi
           <span className="st-birthday-icon">
             <Icon name="calendar" size={40} />
           </span>
-          <h2>Add your birthday</h2>
-          <p>We ask everyone for their birthday so Community can keep younger members safe.</p>
+          <h2>{t('d.settings-more.addBirthday')}</h2>
+          <p>{t('d.settings-more.askWhy')}</p>
           <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} disabled={busy} autoFocus />
           <button className="btn block big" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('d.settings-more.saving') : t('ssPub.save')}
           </button>
         </form>
       ) : stage === 'minor' ? (
@@ -248,15 +254,15 @@ export function BirthdayQuestion({ me, onDone }: { me: string; onDone: () => voi
           <span className="st-birthday-icon">
             <Icon name="shield" size={40} />
           </span>
-          <h2>Your account is set up for members under 14</h2>
-          <p>To help keep you safe on Community:</p>
+          <h2>{t('d.settings-more.under14Title')}</h2>
+          <p>{t('d.settings-more.under14Intro')}</p>
           <MinorRules />
           <button className="btn block big" onClick={onDone}>
-            Continue
+            {t('age.continue')}
           </button>
         </div>
       ) : (
-        <CannotJoin closed={stage === 'closed'} action="Log out" onAction={() => leaveAfterAgeCheck(stage === 'closed')} />
+        <CannotJoin closed={stage === 'closed'} action={t('settings.logOut')} onAction={() => leaveAfterAgeCheck(stage === 'closed')} />
       )}
     </Modal>
   );

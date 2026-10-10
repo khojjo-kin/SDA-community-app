@@ -7,6 +7,7 @@ import { LANGUAGES, languageName } from 'shared/i18n';
 import { setPrefs, usePrefs } from 'shared/prefs';
 import { wallpaperById } from 'shared/wallpapers';
 import { APP_FONTS, appFontById, loadFontFace, noteFontMember } from '../lib/font';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { WallpaperPicker } from '../ui/chat-wallpaper';
@@ -14,6 +15,14 @@ import { Modal, toast } from '../ui/kit';
 import { Block, Card, LinkRow, Page, PlusUpsell, RadioRow, ToggleRow } from './settings-ui';
 
 /* ---------- App font ---------- */
+
+/** Each face's name and sample line (keys), by its id; a face not listed here shows its own words. */
+const FONT_WORDS: Record<string, { name?: string; sample: string }> = {
+  '': { name: 'feed.standard', sample: 'd.settings-more.fontSampleStandard' },
+  nunito: { sample: 'd.settings-more.fontSampleNunito' },
+  lora: { sample: 'd.settings-more.fontSampleLora' },
+  poppins: { sample: 'd.settings-more.fontSamplePoppins' },
+};
 
 /**
  * The faces to choose from, each line drawn in its own face (name and sample), as on the iPhone. A
@@ -31,25 +40,28 @@ export function FontChooser({ onChosen }: { onChosen?: () => void }) {
   const choose = (id: string) => {
     if (!plus || id === appFont) return;
     setPrefs({ appFont: id });
-    toast('Font changed');
+    toast(t('d.settings-more.fontChanged'));
     onChosen?.();
   };
   return (
     <>
-      {plus ? null : <PlusUpsell title="App fonts are part of Community Plus" body="Set Community in Nunito, Lora or Poppins on this computer." />}
+      {plus ? null : <PlusUpsell title={t('d.settings-more.fontsUpsellTitle')} body={t('d.settings-more.fontsUpsellBody')} />}
       <Card className={'st-fonts' + (plus ? '' : ' preview')}>
         {APP_FONTS.map((f) => {
           const on = plus && appFontById(appFont).id === f.id;
+          const words = FONT_WORDS[f.id];
+          const name = words?.name ? t(words.name) : f.name;
+          const sample = words ? t(words.sample) : f.sample;
           return (
             <label key={f.id || 'standard'} className={'st-row st-choice st-font' + (on ? ' on' : '') + (plus ? '' : ' disabled')} data-font={f.id || 'standard'}>
               <span className="st-font-aa" style={{ fontFamily: f.stack }} aria-hidden="true">
                 Aa
               </span>
               <span className="st-row-text" style={{ fontFamily: f.stack }}>
-                <b>{f.name}</b>
-                <span>{f.sample}</span>
+                <b>{name}</b>
+                <span>{sample}</span>
               </span>
-              <input type="radio" className="st-radio" name="app-font" checked={on} disabled={!plus} onChange={() => choose(f.id)} aria-label={`${f.name}. ${f.sample}`} />
+              <input type="radio" className="st-radio" name="app-font" checked={on} disabled={!plus} onChange={() => choose(f.id)} aria-label={`${name}. ${sample}`} />
             </label>
           );
         })}
@@ -64,14 +76,14 @@ export function FontChooser({ onChosen }: { onChosen?: () => void }) {
 export function WallpaperRow() {
   const { me } = useMe();
   const { chatWallpaper } = usePrefs();
-  const value = me.plus ? wallpaperById(chatWallpaper)?.name ?? 'None' : 'Plus';
-  return <LinkRow icon="wallpaper" title="Chat wallpaper" sub="The background behind every chat." value={value} to="/accounts/chat-wallpaper" />;
+  const value = me.plus ? wallpaperById(chatWallpaper)?.name ?? t('create.none') : t('common.plus');
+  return <LinkRow icon="wallpaper" title={t('settings.chatWallpaper')} sub={t('d.settings-more.wallpaperSub')} value={value} to="/accounts/chat-wallpaper" />;
 }
 
 /** Settings → Chat wallpaper: the picker the chats use (it offers Plus to members without it). */
 export function ChatWallpaper() {
   return (
-    <Page title="Chat wallpaper" intro="Choose the background behind your chats. It is kept on this computer.">
+    <Page title={t('settings.chatWallpaper')} intro={t('d.settings-more.wallpaperIntro')}>
       <div className="st-wallpaper">
         <WallpaperPicker onDone={() => nav('/accounts/appearance')} />
       </div>
@@ -83,10 +95,10 @@ export function ChatWallpaper() {
 
 /** Captions can be shown in the app's languages, except Italian (as on the iPhone). '' follows the app. */
 const CAPTION_LANGUAGES: string[] = ['', ...LANGUAGES.map((l) => l.code).filter((code) => code !== 'it')];
-const captionName = (code: string) => (code ? languageName(code) : 'App language');
-/** The English name under a language's own name, when they differ ("Français", then "French"). */
+const captionName = (code: string) => (code ? languageName(code) : t('settings.appLanguage'));
+/** The English name under a language's own name, when they differ ("Français", then "French"), as on the iPhone. */
 function captionSub(code: string): string | undefined {
-  if (!code) return 'The language Community is in';
+  if (!code) return t('feed.appLanguageSub');
   const l = LANGUAGES.find((x) => x.code === code);
   return l && l.name !== l.native ? l.name : undefined;
 }
@@ -96,25 +108,25 @@ export function ShortsSettings() {
   const prefs = usePrefs();
   const [languages, setLanguages] = useState(false);
   return (
-    <Page title="Shorts" intro="How Shorts play on this computer. Your phone keeps its own choices.">
-      <Block title="Sound">
+    <Page title={t('tabs.clips')} intro={t('d.settings-more.shortsIntro')}>
+      <Block title={t('clips.sound')}>
         <Card>
-          <ToggleRow icon="mute" title="Start Shorts with the sound off" sub="Turn the sound on in any Short with its speaker button." on={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
+          <ToggleRow icon="mute" title={t('d.settings-more.startMuted')} sub={t('d.settings-more.startMutedSub')} on={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
         </Card>
       </Block>
-      <Block title="Captions">
+      <Block title={t('clips.captions')}>
         <Card>
-          <ToggleRow icon="text" title="Show captions" sub="Words on screen as people speak, on Shorts that have them." on={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
-          <LinkRow icon="globe" title="Caption language" sub="Captions in another language are translated for you." value={captionName(prefs.captionLang)} onClick={() => setLanguages(true)} testId="caption-language" />
+          <ToggleRow icon="text" title={t('feed.showCaptions')} sub={t('d.settings-more.captionsSub')} on={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
+          <LinkRow icon="globe" title={t('settings.captionLanguage')} sub={t('d.settings-more.captionLanguageSub')} value={captionName(prefs.captionLang)} onClick={() => setLanguages(true)} testId="caption-language" />
         </Card>
       </Block>
-      <Block title="What you see">
+      <Block title={t('clips.whatYouSee')}>
         <Card>
-          <LinkRow icon="sliders" title="Content preferences" sub="Topics you want more and less of in Shorts, For you and Explore, and sensitive content." to="/accounts/content" />
+          <LinkRow icon="sliders" title={t('d.settings-more.contentTitle')} sub={t('d.settings-more.contentPrefsSub')} to="/accounts/content" />
         </Card>
       </Block>
       {languages ? (
-        <Modal title="Caption language" onClose={() => setLanguages(false)}>
+        <Modal title={t('settings.captionLanguage')} onClose={() => setLanguages(false)}>
           <div className="st-modal-body st-caption-langs">
             <Card>
               {CAPTION_LANGUAGES.map((code) => (

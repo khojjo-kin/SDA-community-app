@@ -5,8 +5,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchSupportMessages, findSupportChat, mySupportTickets, openSupportTicket, sendFeedback, sendSupportMessage, startSupportChat, uploadImage } from 'shared/api';
 import { supabase } from 'shared/supabase';
-import { agoLong, chatStamp, errText } from 'shared/theme';
+import { ago, dayLabel, errText } from 'shared/theme';
 import type { Feedback, SupportChat, SupportMessage } from 'shared/types';
+import { dateLocale, languageCode, t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, parts, useRoute } from '../lib/router';
 import { rememberSize } from '../shims/expo-file-system';
@@ -21,18 +22,46 @@ const PLATFORM = /Electron/i.test(navigator.userAgent) ? (/Mac/.test(navigator.p
 
 /* ---------- the Help Centre ---------- */
 
+/** The common questions, as keys: the iPhone's own where the desktop asks and answers the same. */
 const QA: [string, string][] = [
-  ['Who answers when I chat with support?', "Our assistant answers straight away, at any time of day. If it can't help, someone from our team joins the same chat, and you'll see their name on their replies. Everything stays in one conversation, so you never have to explain twice."],
-  ['How do I change my profile, or add another account?', 'Your name, username, photo and bio are in Settings → Edit profile. To add a second account, open More → Switch accounts and log in to it. You can keep up to five accounts on one computer and switch without logging out.'],
-  ['What does a private account do?', 'Only the people who follow you see your posts and stories. Anyone else who clicks Follow sends you a request, which you accept or decline from Notifications. Turn it on or off in Settings → Account privacy.'],
-  ['Where are the Bible, Hymnal and Pod?', 'Open Church apps in the bar on the left: the Bible, Sabbath School, the Hymnal, Pod, Churches, Communities and Erha are all there.'],
-  ['What is Community Plus?', 'Plus is £4.99 a month. It gives you Erha without limits, profile viewers, read receipts off, your own ring colour and profile theme and more. Subscribe from More → Get Community Plus; you can cancel at any time.'],
-  ['How do I get the blue tick?', 'The blue tick shows an account is who it says it is. It is free and cannot be bought: request it from the Community Plus page with a photo of an ID document and a selfie. An admin checks them, and the photos are deleted once your request is decided.'],
-  ['How do ads and fundraisers work?', 'Any post of yours can be promoted from its menu or from the Professional dashboard: choose how many days and pay by card, and it shows as Sponsored at the top of For you and Explore. Fundraisers go on your profile, and gifts go straight to your own payout account.'],
-  ['What is Erha?', "Erha is the church assistant built into the app. Ask it about a Bible passage, a hymn, this week's lesson or anything about church life. Everyone gets 15 messages a day; Plus members have no limit."],
-  ['How do I delete my account, and what are the 30 days?', 'In Settings → Accounts Centre, choose Deactivate account. Your profile, posts and messages are hidden straight away. For 30 days you can log back in and restore everything exactly as it was. After that it is all deleted for good.'],
-  ['How do I report something?', 'Click the three dots on a post, comment or profile and choose Report, then say what is wrong. An admin looks at every report. You can also block an account from its profile.'],
+  ['help.qSupport', 'help.aSupport'],
+  ['d.settings-more.qProfile', 'd.settings-more.aProfile'],
+  ['help.qPrivate', 'd.settings-more.aPrivate'],
+  ['help.qApps', 'd.settings-more.aApps'],
+  ['d.settings-more.qPlus', 'd.settings-more.aPlus'],
+  ['help.qTick', 'd.settings-more.aTick'],
+  ['help.qAds', 'd.settings-more.aAds'],
+  ['help.qErha', 'help.aErha'],
+  ['help.qDelete', 'd.settings-more.aDelete'],
+  ['help.qReport', 'd.settings-more.aReport'],
 ];
+
+/** How long ago, for "Sent {when}": "3 days ago", "just now" (shared/theme's agoLong, in the app's language). */
+const AGO: Record<string, string> = { m: 'd.settings-more.agoMinutes', h: 'd.settings-more.agoHours', d: 'd.settings-more.agoDays', w: 'd.settings-more.agoWeeks' };
+function sentWhen(iso: string): string {
+  const a = ago(iso);
+  if (a === 'now') return t('d.settings-more.agoNow');
+  return tn(AGO[a.slice(-1)], parseInt(a, 10));
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** The line between groups of chat messages: "TODAY AT 08:24", "21 MAR AT 06:14" (shared/theme's chatStamp, in the app's language). */
+function stamp(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const time = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(d)) / 86400e3);
+  if (days === 0) return t('d.settings-more.stampToday', { time });
+  if (days === 1) return t('d.settings-more.stampYesterday', { time });
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const day =
+    languageCode() === 'en'
+      ? dayLabel(d).toUpperCase() + (sameYear ? '' : ' ' + d.getFullYear())
+      : d.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: sameYear ? undefined : 'numeric' }).toLocaleUpperCase(dateLocale());
+  return t('d.settings-more.stampDay', { day, time });
+}
 
 export function Help() {
   const route = useRoute();
@@ -55,68 +84,68 @@ function HelpCentre() {
   const [writing, setWriting] = useState(false);
   return (
     <div className="st-page wide">
-      <h1 className="st-title">Help Centre</h1>
+      <h1 className="st-title">{t('d.settings-more.helpCentre')}</h1>
       <button className="st-help-hero" onClick={() => nav('/help/chat')}>
         <span className="st-help-hero-icon">
           <Icon name="lifebuoy" size={30} />
         </span>
         <span className="st-row-text">
-          <b>Chat with support</b>
-          <span>Our assistant replies straight away. If it can't help, someone from our team joins the same chat.</span>
+          <b>{t('help.chat')}</b>
+          <span>{t('d.settings-more.chatSub')}</span>
         </span>
         <Icon name="right" size={20} stroke={2.2} />
       </button>
 
-      <Block title="Common questions">
+      <Block title={t('help.commonQuestions')}>
         <div className="st-card st-faq">
           {QA.map(([q, a], i) => (
             <div key={q} className={'st-qa' + (open === i ? ' open' : '')}>
               <button aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)}>
-                <span>{q}</span>
+                <span>{t(q)}</span>
                 <Icon name={open === i ? 'down' : 'right'} size={16} stroke={2} />
               </button>
-              {open === i ? <p>{a}</p> : null}
+              {open === i ? <p>{t(a)}</p> : null}
             </div>
           ))}
         </div>
       </Block>
 
-      <Block title="Tell us what you think">
+      <Block title={t('help.tellUs')}>
         <Card>
-          <LinkRow icon="star" title="Rate the app" onClick={() => setSheet('review')} />
-          <LinkRow icon="bulb" title="Suggest an idea" onClick={() => setSheet('idea')} />
-          <LinkRow icon="flag" title="Report a problem" to="/help/problem" />
+          <LinkRow icon="star" title={t('help.rateApp')} onClick={() => setSheet('review')} />
+          <LinkRow icon="bulb" title={t('help.suggestIdea')} onClick={() => setSheet('idea')} />
+          <LinkRow icon="flag" title={t('help.reportProblem')} to="/help/problem" />
         </Card>
       </Block>
 
       <Block
-        title="Your requests"
+        title={t('d.settings-more.yourRequests')}
         action={
           <button className="btn quiet small" onClick={() => setWriting(true)}>
-            Message support
+            {t('d.settings-more.messageSupport')}
           </button>
         }
       >
-        {tickets.loading ? <Spinner /> : !tickets.data?.length ? <p className="st-empty-line">You haven't sent a request yet. For most things, the chat is quickest.</p> : null}
-        {(tickets.data ?? []).map((t) => (
-          <section key={t.id} className="st-card ticket">
+        {tickets.loading ? <Spinner /> : !tickets.data?.length ? <p className="st-empty-line">{t('d.settings-more.noRequests')}</p> : null}
+        {(tickets.data ?? []).map((tk) => (
+          <section key={tk.id} className="st-card ticket">
             <div className="ticket-head">
-              <b>{t.subject || 'No subject'}</b>
-              <span className={'pill status-' + t.status}>{t.status === 'open' ? 'Open' : t.status === 'answered' ? 'Answered' : 'Closed'}</span>
+              <b>{tk.subject || t('help.noSubject')}</b>
+              <span className={'pill status-' + tk.status}>{tk.status === 'open' ? t('help.statusOpen') : tk.status === 'answered' ? t('help.statusAnswered') : t('help.statusClosed')}</span>
             </div>
-            <p className="pre">{t.body}</p>
-            <span className="st-note">Sent {agoLong(t.created_at).toLowerCase()}</span>
-            {t.reply ? (
+            <p className="pre">{tk.body}</p>
+            <span className="st-note">{t('help.sent', { when: sentWhen(tk.created_at) })}</span>
+            {tk.reply ? (
               <div className="ticket-reply">
-                <b>Reply from our team</b>
-                <p className="pre">{t.reply}</p>
+                <b>{t('help.replyFromTeam')}</b>
+                <p className="pre">{tk.reply}</p>
               </div>
             ) : null}
           </section>
         ))}
       </Block>
 
-      <Block title="Policies">
+      <Block title={t('d.settings-more.policies')}>
         <Card>
           {LEGAL_DOCS.map((d) => (
             <LinkRow key={d.id} icon={d.icon} title={d.label} to={'/legal/' + d.id} />
@@ -139,19 +168,19 @@ function HelpCentre() {
 
 /* ---------- feedback: a review with stars, or an idea ---------- */
 
-const STAR_WORDS = ['Click a star', 'Poor', 'Not great', 'Okay', 'Good', 'Love it'];
+const STAR_WORDS = ['d.settings-more.clickStar', 'feedback.poor', 'feedback.notGreat', 'feedback.okay', 'feedback.good', 'feedback.loveIt'];
 
 export function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
     <div className="st-stars">
-      <div role="radiogroup" aria-label="Rating">
+      <div role="radiogroup" aria-label={t('feedback.rating')}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={n === 1 ? '1 star' : n + ' stars'} className={n <= value ? 'on' : ''} onClick={() => onChange(n)}>
+          <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={t(n === 1 ? 'feedback.starOne' : 'feedback.stars', { count: n })} className={n <= value ? 'on' : ''} onClick={() => onChange(n)}>
             <Icon name="star" size={36} fill={n <= value ? 'currentColor' : 'none'} stroke={1.6} />
           </button>
         ))}
       </div>
-      <span>{STAR_WORDS[value]}</span>
+      <span>{t(STAR_WORDS[value])}</span>
     </div>
   );
 }
@@ -164,7 +193,7 @@ function FeedbackDialog({ kind, onClose }: { kind: Feedback['kind']; onClose: ()
   const review = kind === 'review';
   const canSend = review ? stars > 0 : !!words.trim();
   return (
-    <Modal title={review ? 'Rate Community' : 'Suggest an idea'} onClose={onClose}>
+    <Modal title={review ? t('help.rateTitle') : t('help.suggestIdea')} onClose={onClose}>
       <form
         className="st-modal-body"
         onSubmit={async (e) => {
@@ -174,7 +203,7 @@ function FeedbackDialog({ kind, onClose }: { kind: Feedback['kind']; onClose: ()
           try {
             await sendFeedback(me.id, { kind, rating: review ? stars : null, text: words, app_version: __VERSION__, platform: PLATFORM });
             onClose();
-            toast(review ? (stars >= 4 ? "Thank you! We're so glad you're enjoying Community." : 'Thank you for your review') : 'Thank you. The team reads every idea.');
+            toast(review ? (stars >= 4 ? t('d.settings-more.gladToast') : t('help.rateThanks')) : t('help.ideaThanks'));
           } catch (err) {
             toastError(err);
             setBusy(false);
@@ -182,9 +211,9 @@ function FeedbackDialog({ kind, onClose }: { kind: Feedback['kind']; onClose: ()
         }}
       >
         {review ? <StarPicker value={stars} onChange={setStars} /> : null}
-        <textarea className="st-input" rows={4} maxLength={2000} value={words} onChange={(e) => setWords(e.target.value)} placeholder={review ? 'What do you like, and what could be better? (optional)' : 'What would make Community better for you?'} aria-label={review ? 'Your review' : 'Your idea'} autoFocus={!review} />
+        <textarea className="st-input" rows={4} maxLength={2000} value={words} onChange={(e) => setWords(e.target.value)} placeholder={review ? t('help.ratePlaceholder') : t('help.ideaPlaceholder')} aria-label={review ? t('d.settings-more.yourReview') : t('d.settings-more.yourIdea')} autoFocus={!review} />
         <button className="btn block big" disabled={!canSend || busy}>
-          {busy ? 'Sending…' : 'Send'}
+          {busy ? t('d.settings-more.sending') : t('common.send')}
         </button>
       </form>
     </Modal>
@@ -199,17 +228,17 @@ function TicketDialog({ onClose }: { onClose: (sent: boolean) => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   return (
-    <Modal title="Message support" onClose={() => onClose(false)} wide>
+    <Modal title={t('d.settings-more.messageSupport')} onClose={() => onClose(false)} wide>
       <form
         className="form-pad"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!subject.trim()) return setErr('Give it a subject.');
-          if (body.trim().length < 10) return setErr('Tell us a little more.');
+          if (!subject.trim()) return setErr(t('d.settings-more.needSubject'));
+          if (body.trim().length < 10) return setErr(t('d.settings-more.tellMore'));
           setBusy(true);
           try {
             await openSupportTicket(me.id, subject, body);
-            toast('Sent. An admin will reply here.');
+            toast(t('d.settings-more.ticketSent'));
             onClose(true);
           } catch (e2) {
             setErr(errText(e2));
@@ -217,18 +246,18 @@ function TicketDialog({ onClose }: { onClose: (sent: boolean) => void }) {
           }
         }}
       >
-        <p className="st-text">Tell the team what is wrong or what you need. They reply here, under Your requests, and in the iPhone app.</p>
+        <p className="st-text">{t('d.settings-more.ticketIntro')}</p>
         <label className="form-row">
-          <span>Subject</span>
-          <input value={subject} maxLength={140} onChange={(e) => setSubject(e.target.value)} placeholder="What is it about?" autoFocus />
+          <span>{t('d.settings-more.subject')}</span>
+          <input value={subject} maxLength={140} onChange={(e) => setSubject(e.target.value)} placeholder={t('d.settings-more.subjectPlaceholder')} autoFocus />
         </label>
         <label className="form-row">
-          <span>Message</span>
-          <textarea rows={5} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder="What happened, and what you expected" />
+          <span>{t('d.settings-more.messageLabel')}</span>
+          <textarea rows={5} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t('d.settings-more.messagePlaceholder')} />
         </label>
         {err ? <p className="field-error">{err}</p> : null}
         <button className="btn block big" disabled={busy}>
-          {busy ? 'Sending…' : 'Send request'}
+          {busy ? t('d.settings-more.sending') : t('ssPub.send')}
         </button>
       </form>
     </Modal>
@@ -280,11 +309,11 @@ function ReportProblem() {
           <span className="st-status-icon">
             <Icon name="check" size={28} stroke={2.4} />
           </span>
-          <h1 className="st-title">Thanks for telling us</h1>
-          <p className="st-text">We'll look into it. If we need to know more, we'll ask in your support chat.</p>
+          <h1 className="st-title">{t('report.copyrightTitle')}</h1>
+          <p className="st-text">{t('d.settings-more.problemDone')}</p>
           <div className="st-actions">
             <Link to="/help" className="btn big quiet">
-              Back to Help
+              {t('d.settings-more.backToHelp')}
             </Link>
             <button
               className="btn big"
@@ -294,7 +323,7 @@ function ReportProblem() {
                 setShot(null);
               }}
             >
-              Report something else
+              {t('d.settings-more.reportElse')}
             </button>
           </div>
         </div>
@@ -304,32 +333,32 @@ function ReportProblem() {
   return (
     <div className="st-page wide">
       <Link to="/help" className="st-back">
-        <Icon name="back" size={18} /> Help Centre
+        <Icon name="back" size={18} /> {t('d.settings-more.helpCentre')}
       </Link>
-      <h1 className="st-title">Report a problem</h1>
-      <p className="st-intro">Tell us what went wrong. To report a post, comment or account instead, use Report in its menu.</p>
+      <h1 className="st-title">{t('help.reportProblem')}</h1>
+      <p className="st-intro">{t('d.settings-more.problemIntro')}</p>
       <label className="form-row st-field">
-        <span>What happened?</span>
-        <textarea rows={6} maxLength={1700} value={text} onChange={(e) => setText(e.target.value)} placeholder="What happened, and what were you trying to do?" aria-label="What happened" autoFocus />
+        <span>{t('d.settings-more.whatHappenedQ')}</span>
+        <textarea rows={6} maxLength={1700} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('help.problemPlaceholder')} aria-label={t('d.settings-more.whatHappened')} autoFocus />
         <em className="count">{text.length} / 1700</em>
       </label>
       <div className="form-row st-field">
-        <span>Screenshot (optional)</span>
+        <span>{t('d.settings-more.screenshotOptional')}</span>
         {shot ? (
           <div className="st-shot">
-            <img src={shot.url} alt="Your screenshot" />
+            <img src={shot.url} alt={t('d.settings-more.yourScreenshot')} />
             <button className="btn quiet small" onClick={() => setShot(null)}>
-              Remove
+              {t('live.remove')}
             </button>
           </div>
         ) : (
           <label className="btn quiet st-attach">
-            <Icon name="image" size={18} /> Add a screenshot
+            <Icon name="image" size={18} /> {t('d.settings-more.addScreenshot')}
             <input
               type="file"
               accept="image/*"
               hidden
-              aria-label="Add a screenshot"
+              aria-label={t('d.settings-more.addScreenshot')}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 e.target.value = '';
@@ -339,10 +368,10 @@ function ReportProblem() {
           </label>
         )}
       </div>
-      <p className="st-note">Your app version ({__VERSION__}) and the kind of computer are sent with it, to help us find the cause.</p>
+      <p className="st-note">{t('d.settings-more.problemNote', { version: __VERSION__ })}</p>
       <div className="st-submit">
         <button className="btn big" disabled={busy || !text.trim()} onClick={send}>
-          {busy ? 'Sending…' : 'Send report'}
+          {busy ? t('d.settings-more.sending') : t('d.settings-more.sendReport')}
         </button>
       </div>
     </div>
@@ -407,8 +436,8 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
   useEffect(() => {
     load();
     // In case a live update is missed, the conversation is fetched again now and then.
-    const t = setInterval(load, 10000);
-    return () => clearInterval(t);
+    const timer = setInterval(load, 10000);
+    return () => clearInterval(timer);
   }, [load]);
 
   // New messages arrive live (the team's replies, and the assistant's).
@@ -457,8 +486,8 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
       const c = chat ?? (await startSupportChat(me.id));
       if (!chat) setChat(c);
       const r = await sendSupportMessage(me.id, c.id, words);
-      if (r.answered_by === 'none') setNote("The assistant couldn't answer just now. Someone from our team will reply here.");
-      if (r.answered_by === 'busy') setNote('Lots of people are asking right now. Someone from our team will reply here.');
+      if (r.answered_by === 'none') setNote(t('d.settings-more.noAnswer'));
+      if (r.answered_by === 'busy') setNote(t('d.settings-more.busy'));
       const server = await fetchSupportMessages(c.id);
       setMsgs((prev) => reconcile(server, prev));
       findSupportChat(me.id).then((x) => x && setChat(x), () => {});
@@ -474,30 +503,30 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
   const first = (me.full_name || '').split(' ')[0];
   const agent = agentActive(chat);
   return (
-    <section className="st-chat" aria-label="Support chat">
+    <section className="st-chat" aria-label={t('d.settings-more.supportChat')}>
       <header className="st-chat-head">
         <span className="st-chat-avatar">
           <Icon name="lifebuoy" size={22} />
         </span>
         <div>
-          <b>Support</b>
-          <span className={agent ? 'st-ok' : ''}>{agent ? `${chat?.agent_name || 'Someone'} from the support team is here` : 'Our assistant replies straight away'}</span>
+          <b>{t('support.title')}</b>
+          <span className={agent ? 'st-ok' : ''}>{agent ? t('support.agentHere', { name: chat?.agent_name || t('support.someone') }) : t('support.assistantReplies')}</span>
         </div>
       </header>
       <div className="st-chat-scroll" ref={scroller}>
         <div className="st-msg them greeting">
-          <div className="bubble">{first ? `Hi ${first}! ` : 'Hi! '}Ask anything about using Community. If our assistant can't help, someone from our team will reply here.</div>
+          <div className="bubble">{first ? t('support.greeting', { name: first }) : t('support.greetingNoName')}</div>
         </div>
         {chat === undefined ? <Spinner size={22} /> : null}
         {error ? <p className="st-note">{error}</p> : null}
         {msgs.map((m, i) => {
           const prev = msgs[i - 1];
-          const stamp = !prev || Date.parse(m.created_at) - Date.parse(prev.created_at) > 3600e3;
-          const label = m.role === 'ai' ? 'Community assistant' : m.role === 'agent' ? `${m.agent_name || 'Support'} · Support team` : '';
+          const newHour = !prev || Date.parse(m.created_at) - Date.parse(prev.created_at) > 3600e3;
+          const label = m.role === 'ai' ? t('support.assistant') : m.role === 'agent' ? t('support.fromTeam', { name: m.agent_name || t('support.title') }) : '';
           const showLabel = label && !(prev && prev.role === m.role && prev.agent_name === m.agent_name);
           return (
             <React.Fragment key={m.id}>
-              {stamp ? <div className="st-chat-stamp">{chatStamp(m.created_at)}</div> : null}
+              {newHour ? <div className="st-chat-stamp">{stamp(m.created_at)}</div> : null}
               <div className={'st-msg ' + (m.role === 'member' ? 'mine' : 'them ' + m.role) + (isLocal(m) ? ' sending' : '')} data-role={m.role}>
                 {showLabel ? (
                   <span className="st-msg-who">
@@ -512,16 +541,16 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
         {thinking ? (
           <div className="st-msg them ai">
             <span className="st-msg-who">
-              <Icon name="sparkle" size={13} /> Community assistant
+              <Icon name="sparkle" size={13} /> {t('support.assistant')}
             </span>
-            <div className="bubble st-typing" aria-label="The assistant is thinking">
+            <div className="bubble st-typing" aria-label={t('d.settings-more.thinking')}>
               <i />
               <i />
               <i />
             </div>
           </div>
         ) : null}
-        {chat?.status === 'closed' ? <p className="st-chat-stamp">Our team closed this chat. Send a message if you need more help.</p> : null}
+        {chat?.status === 'closed' ? <p className="st-chat-stamp">{t('support.closed')}</p> : null}
         {note ? <p className="st-chat-stamp">{note}</p> : null}
       </div>
       <form
@@ -536,8 +565,8 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
           rows={1}
           value={text}
           maxLength={4000}
-          placeholder="Message support…"
-          aria-label="Message support"
+          placeholder={t('support.placeholder')}
+          aria-label={t('d.settings-more.messageSupport')}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -547,7 +576,7 @@ function SupportChatPanel({ focus }: { focus: boolean }) {
           }}
         />
         <button className="link-btn" disabled={!text.trim()}>
-          Send
+          {t('common.send')}
         </button>
       </form>
     </section>
