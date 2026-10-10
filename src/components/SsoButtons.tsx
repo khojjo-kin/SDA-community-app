@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { useSSO } from '@clerk/clerk-expo';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { useSignInWithApple, useSSO } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -16,12 +16,15 @@ const GOOGLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><pat
 type Strategy = 'oauth_apple' | 'oauth_google';
 
 /**
- * "Continue with Apple" and "Continue with Google". Both go through Clerk, which opens the
- * provider in a browser sheet and comes back to the app. A new person gets an account on the way.
- * `onStart` runs as either begins (sign-up keeps its consent for onboarding then).
+ * "Continue with Apple" and "Continue with Google". On an iPhone or iPad, Apple uses the
+ * system's own sign-in sheet, the way any native app does. Google — and Apple on Android —
+ * goes through Clerk, which opens the provider in a browser sheet and comes back to the app.
+ * A new person gets an account on the way. `onStart` runs as either begins (sign-up keeps
+ * its consent for onboarding then).
  */
 export function SsoButtons({ onError, disabled = false, onStart }: { onError: (message: string) => void; disabled?: boolean; onStart?: () => void }) {
   const { startSSOFlow } = useSSO();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
   const router = useRouter();
   const [busy, setBusy] = useState<Strategy | null>(null);
 
@@ -40,7 +43,10 @@ export function SsoButtons({ onError, disabled = false, onStart }: { onError: (m
     onStart?.();
     setBusy(strategy);
     try {
-      const { createdSessionId, setActive, signUp } = await startSSOFlow({ strategy, redirectUrl: AuthSession.makeRedirectUri({ scheme: 'community' }) });
+      const { createdSessionId, setActive, signUp } =
+        strategy === 'oauth_apple' && Platform.OS === 'ios'
+          ? await startAppleAuthenticationFlow()
+          : await startSSOFlow({ strategy, redirectUrl: AuthSession.makeRedirectUri({ scheme: 'community' }) });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         // Adding a second account keeps these pages reachable while signed in, so go home by hand.
