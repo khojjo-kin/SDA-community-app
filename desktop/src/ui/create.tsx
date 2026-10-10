@@ -1,13 +1,18 @@
-// Instagram's "Create new post" dialog: choose photos or a video, crop, write a caption, share.
-// Also shares a photo or video to your story. Uploads go through the same functions as the iPhone app.
+// Instagram's "Create new post" dialog: drag in or choose photos or a video, crop, apply a filter,
+// then the caption and everything else a post can carry (create-details.tsx), and share. Also makes
+// a Short (one video) and shares a photo or video to your story. Uploads and posting go through the
+// same functions as the iPhone app.
 import React, { useEffect, useRef, useState } from 'react';
 import { addStory, createPost, uploadImage, uploadVideo } from 'shared/api';
 import { ADJUST_KEYS, type Adjust, DEFAULT_ADJUST, FILTERS, isPlainLook, lookMatrix } from 'shared/filters';
-import type { Audience, Media, StoryItem } from 'shared/types';
+import type { Audience, StoryItem } from 'shared/types';
+import '../styles/posts.css';
 import { rememberSize } from '../shims/expo-file-system';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
+import { DetailsPanel, type Extras, NO_EXTRAS, cleanPoll } from './create-details';
 import { Avatar, Icon, Modal, Spinner, ask, toast, toastError } from './kit';
+import type { AltMedia } from './post-data';
 
 type Picked = { file: File; url: string; type: 'image' | 'video'; w: number; h: number; duration?: number };
 type Crop = 'original' | '1:1' | '4:5' | '16:9';
@@ -100,12 +105,12 @@ async function cropTo(p: Picked, ratio?: number): Promise<{ url: string; w: numb
   return { url, w: sw, h: sh };
 }
 
-function DropZone({ onFiles, accept, title }: { onFiles: (files: File[]) => void; accept: string; title: string }) {
+function DropZone({ onFiles, accept, title, multiple = true }: { onFiles: (files: File[]) => void; accept: string; title: string; multiple?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   return (
     <div
-      className={'dropzone' + (over ? ' over' : '')}
+      className={'dropzone pp-dropzone' + (over ? ' over' : '')}
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);
@@ -126,14 +131,21 @@ function DropZone({ onFiles, accept, title }: { onFiles: (files: File[]) => void
       <button className="btn" onClick={() => input.current?.click()}>
         Select from computer
       </button>
-      <input ref={input} type="file" accept={accept} multiple hidden data-testid="create-files" onChange={(e) => onFiles(Array.from(e.target.files ?? []))} />
+      <input ref={input} type="file" accept={accept} multiple={multiple} hidden data-testid="create-files" onChange={(e) => onFiles(Array.from(e.target.files ?? []))} />
     </div>
   );
 }
 
-export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void; start?: 'post' | 'story' }) {
+type Mode = 'post' | 'story' | 'short';
+
+/**
+ * Create: a post (up to 10 photos, or one video), a Short (one video), or a story. Choose, crop,
+ * edit the photos, then add the caption and the rest, and share. `start` is what the Create menu
+ * chose: Post, Story or Short.
+ */
+export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void; start?: Mode }) {
   const { me } = useMe();
-  const [mode, setMode] = useState<'post' | 'story'>(start);
+  const mode: Mode = start;
   const [items, setItems] = useState<Picked[]>([]);
   const [step, setStep] = useState<'pick' | 'crop' | 'edit' | 'details'>('pick');
   const [looks, setLooks] = useState<Record<string, Look>>({});
@@ -143,32 +155,45 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
   const [audience, setAudience] = useState<Audience>('everyone');
+  const [extras, setExtras] = useState<Extras>(NO_EXTRAS);
   const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
 
   useEffect(() => () => items.forEach((p) => URL.revokeObjectURL(p.url)), []);
 
+  const set = (patch: Partial<Extras>) => {
+    setErr('');
+    setExtras((x) => ({ ...x, ...patch }));
+  };
+  const singleVideo = items.length === 1 && items[0]?.type === 'video';
+  // A single video is a Short: always from Short, and from Post unless "Share as a Short" is off.
+  const isShort = mode === 'short' || (mode === 'post' && singleVideo && extras.asShort);
+
   const add = async (files: File[]) => {
     const good = files.filter((f) => /^image\/(jpeg|png|webp|heic|heif|gif)$|^video\//.test(f.type));
-    if (!good.length) return toast('Choose photos or videos.');
+    if (!good.length) return toast(mode === 'short' ? 'Choose a video for your Short.' : 'Choose photos or videos.');
     try {
-      const picked = await Promise.all(good.map(readPicked));
+      if (mode === 'short' && !good.some((f) => f.type.startsWith('video/'))) return toast('Choose a video for your Short.');
+      const picked = await Promise.all((mode === 'short' ? good.filter((f) => f.type.startsWith('video/')) : good).map(readPicked));
       const video = picked.find((p) => p.type === 'video');
       if (video && (video.duration ?? 0) > MAX_VIDEO_SECONDS + 0.5) return toast('Videos can be up to 60 seconds long.');
       let next: Picked[];
       if (mode === 'story') next = picked.slice(0, 1);
-      else if (video) next = [video]; // a post is photos, or one video (a reel)
+      else if (video) next = [video]; // a post is photos, or one video (a Short)
       else next = [...items.filter((p) => p.type === 'image'), ...picked].slice(0, MAX_PHOTOS);
-      if (mode === 'post' && picked.length + items.length > MAX_PHOTOS) toast('A post can have up to 10 photos.');
+      if (mode === 'post' && !video && picked.length + items.length > MAX_PHOTOS) toast('A post can have up to 10 photos.');
       setItems(next);
       setAt(0);
-      setStep(mode === 'story' ? (next[0]?.type === 'image' ? 'edit' : 'details') : 'crop');
+      setExtras((x) => ({ ...x, alts: next.map((_, i) => x.alts[i] ?? '') }));
+      // Photos go on to cropping (a story straight to its filters); a video has nothing to crop.
+      setStep(mode === 'story' ? (next[0]?.type === 'image' ? 'edit' : 'details') : next[0]?.type === 'video' ? 'details' : 'crop');
     } catch (e) {
       toastError(e);
     }
   };
 
   const close = async () => {
-    if (items.length && !busy && !(await ask('Discard post?', "If you leave, your edits won't be saved.", 'Discard'))) return;
+    if (items.length && !busy && !(await ask(mode === 'story' ? 'Discard story?' : 'Discard post?', "If you leave, your edits won't be saved.", 'Discard'))) return;
     if (!busy) onClose();
   };
 
@@ -176,6 +201,13 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   const current = items[at];
 
   const share = async () => {
+    const cleaned = cleanPoll(mode === 'story' ? null : extras.poll);
+    if (cleaned.error) {
+      setErr(cleaned.error);
+      toast(cleaned.error);
+      return;
+    }
+    setErr('');
     setBusy('Sharing');
     try {
       if (mode === 'story') {
@@ -192,39 +224,71 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
         }
         await addStory(me.id, item, audience);
         toast('Your story has been shared.');
-      } else {
-        const media: Media[] = [];
-        for (let i = 0; i < items.length; i++) {
-          setBusy(`Uploading ${i + 1} of ${items.length}`);
-          const p = items[i];
-          if (p.type === 'video') media.push(await uploadVideo(me.id, p.url, p.w, p.h));
-          else {
-            const c = await cropTo(p, CROPS.find((x) => x.id === crop)?.r);
-            const look = looks[p.url];
-            const url = look && !isPlainLook(look.filter, look.adjust) ? await applyLook(c.url, lookMatrix(look.filter, look.adjust)) : c.url;
-            media.push(await uploadImage(me.id, url, c.w));
-          }
-        }
-        setBusy('Sharing');
-        await createPost(me.id, { caption, media, location });
-        toast(media[0].type === 'video' ? 'Your reel has been shared.' : 'Your post has been shared.');
+        onClose();
+        nav('/');
+        return;
       }
+      const media: AltMedia[] = [];
+      for (let i = 0; i < items.length; i++) {
+        setBusy(items.length > 1 ? `Uploading ${i + 1} of ${items.length}` : 'Uploading');
+        const p = items[i];
+        if (p.type === 'video') media.push(await uploadVideo(me.id, p.url, p.w, p.h));
+        else {
+          const c = await cropTo(p, CROPS.find((x) => x.id === crop)?.r);
+          const look = looks[p.url];
+          const url = look && !isPlainLook(look.filter, look.adjust) ? await applyLook(c.url, lookMatrix(look.filter, look.adjust)) : c.url;
+          const m: AltMedia = await uploadImage(me.id, url, c.w);
+          // Alt text travels with the photo, for screen readers.
+          const alt = (extras.alts[i] ?? '').trim().slice(0, 300);
+          media.push(alt ? { ...m, alt } : m);
+        }
+      }
+      setBusy('Sharing');
+      await createPost(me.id, {
+        caption,
+        media,
+        location,
+        sensitive: extras.sensitive,
+        // Only creators who offer a subscription can keep a post for their subscribers.
+        audience: me.sub_price_pence && extras.subscribersOnly ? 'subscribers' : 'everyone',
+        kind: isShort ? 'reel' : 'post',
+        tagged_ids: extras.tagged.map((p) => p.id),
+        ai_label: extras.ai,
+        // Plus only: the server refuses it otherwise.
+        profile_only: !!me.plus && extras.profileOnly,
+        hide_likes: extras.hideLikes,
+        comments_off: extras.commentsOff,
+        prompt: (extras.prompt ?? '').trim(),
+        poll: cleaned.poll,
+      });
+      toast(isShort ? 'Your Short has been shared.' : 'Your post has been shared.');
       onClose();
-      nav(mode === 'story' ? '/' : '/u/' + me.username);
+      nav('/u/' + me.username + (isShort ? '/shorts' : ''));
     } catch (e) {
       toastError(e);
+      setErr('');
       setBusy('');
     }
   };
 
+  /** One step back: details → filters (photos) → crop → choosing again. A video goes straight back to choosing. */
+  const back = () => {
+    if (step === 'details' && items[0]?.type === 'image') return setStep('edit');
+    if (step === 'edit' && mode !== 'story') return setStep('crop');
+    setItems([]);
+    setStep('pick');
+  };
+
+  const titles: Record<Mode, string> = { post: 'Create new post', story: 'Add to your story', short: 'New Short' };
+  const title = busy ? busy + '…' : step === 'crop' ? 'Crop' : step === 'edit' ? 'Edit' : step === 'details' ? (mode === 'story' ? 'Your story' : isShort ? 'New Short' : 'Create new post') : titles[mode];
   const header = (
     <div className="modal-head create-head">
       {step === 'pick' ? <span /> : (
-        <button className="icon-btn" aria-label="Back" disabled={!!busy} onClick={() => (step === 'details' ? setStep(items[0]?.type === 'image' ? 'edit' : mode === 'post' ? 'crop' : 'pick') : step === 'edit' ? setStep(mode === 'post' ? 'crop' : 'pick') : (setItems([]), setStep('pick')))}>
+        <button className="icon-btn" aria-label="Back" disabled={!!busy} onClick={back}>
           <Icon name="back" size={24} />
         </button>
       )}
-      <h2>{busy ? busy + '…' : step === 'pick' ? (mode === 'post' ? 'Create new post' : 'Add to your story') : step === 'crop' ? 'Crop' : step === 'edit' ? 'Edit' : mode === 'post' ? 'Create new post' : 'Your story'}</h2>
+      <h2>{title}</h2>
       {step === 'crop' || step === 'edit' ? (
         <button className="link-btn" onClick={() => setStep(step === 'crop' && items[0]?.type === 'image' ? 'edit' : 'details')}>
           Next
@@ -239,37 +303,39 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
     </div>
   );
 
+  // A story and a Short are tall; a post shows in the shape it was cropped to.
+  const tall = mode === 'story' || (isShort && step === 'details');
   return (
-    <Modal onClose={close} bare className={'create-dialog' + (step === 'details' || step === 'edit' ? ' wide' : '')}>
+    <Modal onClose={close} bare className={'create-dialog pp-create' + (step === 'details' || step === 'edit' ? ' wide' : '')}>
       {header}
       {step === 'pick' ? (
-        <>
-          <div className="seg">
-            <button className={mode === 'post' ? 'on' : ''} onClick={() => setMode('post')}>
-              Post
-            </button>
-            <button className={mode === 'story' ? 'on' : ''} onClick={() => setMode('story')}>
-              Story
-            </button>
-          </div>
-          <DropZone onFiles={add} accept="image/*,video/*" title={mode === 'post' ? 'Drag photos and videos here' : 'Drag a photo or video here'} />
-        </>
+        <DropZone
+          onFiles={add}
+          accept={mode === 'short' ? 'video/*' : 'image/*,video/*'}
+          multiple={mode === 'post'}
+          title={mode === 'post' ? 'Drag photos and videos here' : mode === 'short' ? 'Drag a video here' : 'Drag a photo or video here'}
+        />
       ) : (
         <div className="create-body">
-          <div className="create-media" style={{ aspectRatio: mode === 'story' ? '9 / 16' : '1' }}>
+          <div className="create-media" style={{ aspectRatio: tall ? '9 / 16' : '1' }}>
             {busy ? (
               <div className="create-busy">
                 <Spinner size={40} />
               </div>
             ) : null}
             {current ? (
-              <div className="create-frame" style={{ aspectRatio: mode === 'story' ? '9 / 16' : String(ratio) }}>
+              <div className="create-frame" style={{ aspectRatio: tall ? '9 / 16' : String(ratio) }}>
                 {current.type === 'video' ? (
                   <video src={current.url} autoPlay muted loop playsInline />
                 ) : (
                   <img src={current.url} alt="" style={looks[current.url] && !isPlainLook(looks[current.url].filter, looks[current.url].adjust) ? { filter: 'url(#look-current)' } : undefined} />
                 )}
               </div>
+            ) : null}
+            {isShort && step === 'details' ? (
+              <span className="pp-short-tag">
+                <Icon name="reels" size={14} color="#fff" /> Short
+              </span>
             ) : null}
             {at > 0 ? (
               <button className="nav-arrow left" aria-label="Previous" onClick={() => setAt(at - 1)}>
@@ -358,30 +424,26 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
               )}
             </div>
           ) : null}
-          {step === 'details' ? (
+          {step === 'details' && mode !== 'story' ? (
+            <DetailsPanel mode={mode} items={items} caption={caption} setCaption={setCaption} location={location} setLocation={setLocation} extras={extras} set={set} busy={!!busy} error={err} />
+          ) : null}
+          {step === 'details' && mode === 'story' ? (
             <div className="create-side">
               <div className="who">
                 <Avatar src={me.avatar_url} name={me.username} size={28} />
                 <b>{me.username}</b>
               </div>
-              <textarea placeholder={mode === 'post' ? 'Write a caption…' : 'Add a caption (optional)…'} value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label="Caption" autoFocus />
+              <textarea placeholder="Add a caption (optional)…" value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label="Caption" autoFocus />
               <div className="count">{caption.length.toLocaleString()}/2,200</div>
-              {mode === 'post' ? (
-                <label className="side-row">
-                  <input placeholder="Add location" value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} aria-label="Location" />
-                  <Icon name="location" size={18} />
+              <div className="side-row column">
+                <b>Share with</b>
+                <label>
+                  <input type="radio" name="aud" checked={audience === 'everyone'} onChange={() => setAudience('everyone')} /> Your story (everyone who can see it)
                 </label>
-              ) : (
-                <div className="side-row column">
-                  <b>Share with</b>
-                  <label>
-                    <input type="radio" name="aud" checked={audience === 'everyone'} onChange={() => setAudience('everyone')} /> Your story (everyone who can see it)
-                  </label>
-                  <label>
-                    <input type="radio" name="aud" checked={audience === 'close_friends'} onChange={() => setAudience('close_friends')} /> Close friends only
-                  </label>
-                </div>
-              )}
+                <label>
+                  <input type="radio" name="aud" checked={audience === 'close_friends'} onChange={() => setAudience('close_friends')} /> Close friends only
+                </label>
+              </div>
             </div>
           ) : null}
         </div>
