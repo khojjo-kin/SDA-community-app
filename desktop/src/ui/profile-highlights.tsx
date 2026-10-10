@@ -6,12 +6,13 @@ import React, { useEffect, useState } from 'react';
 import { coverOf, deleteHighlight, fetchHighlight, fetchHighlights, removeHighlightItem, renameHighlight, setHighlightCover, uploadImage } from 'shared/api';
 import { listen } from 'shared/store';
 import { ringColors } from 'shared/styling';
-import { dayLabel } from 'shared/theme';
 import type { Highlight, HighlightItem, Profile, StoryGroup } from 'shared/types';
+import { t, tSplit, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { rememberSize } from '../shims/expo-file-system';
 import { Icon, Modal, Spinner, ask, toast, toastError } from './kit';
+import { shortDay } from './profile-parts';
 import { ringVar } from './profile-style';
 import { StoryCanvas, StoryViewer } from './stories';
 import '../styles/profile.css';
@@ -61,7 +62,7 @@ export function Highlights({ person, mine }: { person: Profile; mine: boolean })
     redraw((n) => n + 1);
     try {
       const got = await fetchHighlight(h.id);
-      if (!got || !got.items.length) return toast('This highlight is empty.');
+      if (!got || !got.items.length) return toast(t('d.profile.highlightEmpty'));
       setViewing([asGroup(person, got.items)]);
     } catch (e) {
       toastError(e);
@@ -73,7 +74,7 @@ export function Highlights({ person, mine }: { person: Profile; mine: boolean })
   const chosen = person.ring_color ? ringColors(person.ring_color) : null;
   return (
     <>
-      <div className="highlights prof-hl-row" role="list" aria-label="Highlights">
+      <div className="highlights prof-hl-row" role="list" aria-label={t('d.profile.highlights')}>
         {list.map((h) => {
           const fresh = !opened.has(h.id) && now - new Date(h.created_at).getTime() < FRESH_MS;
           const colors = chosen ?? (fresh ? ringColors('') : null);
@@ -90,7 +91,7 @@ export function Highlights({ person, mine }: { person: Profile; mine: boolean })
                       }
                     : undefined
                 }
-                aria-label={'Highlight: ' + h.title + (fresh ? ', new' : '')}
+                aria-label={t(fresh ? 'd.profile.highlightLabelNew' : 'd.profile.highlightLabel', { title: h.title })}
               >
                 <span className={'prof-hl-ring' + (colors ? ' on' : '')} style={ringVar(colors)}>
                   <Cover url={h.cover_url} />
@@ -98,7 +99,7 @@ export function Highlights({ person, mine }: { person: Profile; mine: boolean })
                 <span className="prof-hl-title">{h.title}</span>
               </button>
               {mine ? (
-                <button className="prof-hl-more" aria-label={'Edit ' + h.title} title="Edit highlight" onClick={() => setEditing(h.id)}>
+                <button className="prof-hl-more" aria-label={t('d.profile.editNamed', { title: h.title })} title={t('d.profile.editHighlight')} onClick={() => setEditing(h.id)}>
                   <Icon name="more" size={16} />
                 </button>
               ) : null}
@@ -107,11 +108,11 @@ export function Highlights({ person, mine }: { person: Profile; mine: boolean })
         })}
         {mine ? (
           <div className="prof-hl" role="listitem">
-            <button className="highlight" onClick={() => nav('/archive')} aria-label="New highlight">
+            <button className="highlight" onClick={() => nav('/archive')} aria-label={t('d.profile.newHighlight')}>
               <span className="prof-hl-ring new">
                 <Icon name="plus" size={40} stroke={1.2} />
               </span>
-              <span className="prof-hl-title">New</span>
+              <span className="prof-hl-title">{t('common.new')}</span>
             </button>
           </div>
         ) : null}
@@ -153,15 +154,15 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
 
   if (data === null) {
     return (
-      <Modal title="Edit highlight" onClose={onClose} className="prof-hl-edit">
+      <Modal title={t('d.profile.editHighlight')} onClose={onClose} className="prof-hl-edit">
         <Spinner />
       </Modal>
     );
   }
   if (data === 'missing' || data.highlight.user_id !== me.id) {
     return (
-      <Modal title="Edit highlight" onClose={onClose} className="prof-hl-edit">
-        <p className="muted-text center pad">This highlight isn't available. It may have been deleted.</p>
+      <Modal title={t('d.profile.editHighlight')} onClose={onClose} className="prof-hl-edit">
+        <p className="muted-text center pad">{t('d.profile.highlightMissing')}</p>
       </Modal>
     );
   }
@@ -178,16 +179,16 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
 
   const close = async () => {
     if (saving) return;
-    if (dirty && !(await ask('Discard your changes?', 'Your highlight stays as it was.', 'Discard'))) return;
+    if (dirty && !(await ask(t('d.profile.discardQuestion'), t('d.profile.discardBody'), t('d.profile.discard')))) return;
     onClose();
   };
 
   const remove = async () => {
-    if (!(await ask('Delete this highlight?', 'It comes off your profile. Your archive keeps the stories.', 'Delete'))) return;
+    if (!(await ask(t('d.profile.deleteHighlightQuestion'), t('d.profile.deleteHighlightBody'), t('common.delete')))) return;
     setSaving(true);
     try {
       await deleteHighlight(highlight.id);
-      toast('Highlight deleted');
+      toast(t('d.profile.highlightDeleted'));
       onClose();
     } catch (e) {
       toastError(e);
@@ -197,14 +198,14 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
 
   const save = async () => {
     if (saving || uploading) return;
-    if (!name) return toast('Give the highlight a name.');
+    if (!name) return toast(t('d.profile.highlightNeedsName'));
     if (!dirty) return onClose();
     if (!kept.length) {
-      if (!(await ask('Remove every story?', 'A highlight needs at least one story, so this one will be deleted. Your archive keeps the stories.', 'Delete highlight'))) return;
+      if (!(await ask(t('d.profile.removeAllQuestion'), t('d.profile.removeAllBody'), t('d.profile.deleteHighlight')))) return;
       setSaving(true);
       try {
         await deleteHighlight(highlight.id);
-        toast('Highlight deleted');
+        toast(t('d.profile.highlightDeleted'));
         onClose();
       } catch (e) {
         toastError(e);
@@ -228,7 +229,7 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
         await renameHighlight(saved.id, name);
         saved = { ...saved, title: name };
       }
-      toast('Highlight saved');
+      toast(t('d.profile.highlightSaved'));
       onClose();
     } catch (e) {
       toastError(e);
@@ -259,11 +260,13 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
     }
   };
 
+  // "To add more, open your {archive} and make a highlight from its stories.", with "archive" a link.
+  const [moreBefore, moreAfter] = tSplit('d.profile.addMore', 'archive');
   return (
-    <Modal title="Edit highlight" onClose={close} wide className="prof-hl-edit" closeOutside={false}>
+    <Modal title={t('d.profile.editHighlight')} onClose={close} wide className="prof-hl-edit" closeOutside={false}>
       <div className="prof-hl-edit-body">
         <div className="prof-hl-edit-top">
-          <button className="prof-hl-ring on big" style={ringVar(ring)} onClick={() => setPanel(panel === 'cover' ? null : 'cover')} aria-label="Edit cover">
+          <button className="prof-hl-ring on big" style={ringVar(ring)} onClick={() => setPanel(panel === 'cover' ? null : 'cover')} aria-label={t('d.profile.editCover')}>
             <Cover url={preview} size={88} />
             {uploading ? (
               <span className="prof-hl-busy">
@@ -272,18 +275,18 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
             ) : null}
           </button>
           <button className="link-btn" onClick={() => setPanel(panel === 'cover' ? null : 'cover')}>
-            {uploading ? 'Uploading…' : 'Edit cover'}
+            {uploading ? t('create.uploading') : t('d.profile.editCover')}
           </button>
         </div>
         {panel === 'cover' ? (
           <div className="prof-cover-panel">
-            <span className="muted-text small">From this highlight</span>
+            <span className="muted-text small">{t('d.profile.fromHighlight')}</span>
             {choices.length ? (
-              <div className="prof-cover-choices" role="radiogroup" aria-label="Cover">
+              <div className="prof-cover-choices" role="radiogroup" aria-label={t('d.profile.cover')}>
                 {choices.map((url) => {
                   const on = url === preview;
                   return (
-                    <button key={url} role="radio" aria-checked={on} aria-label={on ? 'The cover now' : 'Use this picture as the cover'} className={'prof-cover-choice' + (on ? ' on' : '')} onClick={() => setCover(url)}>
+                    <button key={url} role="radio" aria-checked={on} aria-label={on ? t('d.profile.coverNow') : t('d.profile.useAsCover')} className={'prof-cover-choice' + (on ? ' on' : '')} onClick={() => setCover(url)}>
                       <img src={url} alt="" />
                       {on ? (
                         <span className="prof-cover-tick">
@@ -295,16 +298,16 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
                 })}
               </div>
             ) : (
-              <p className="muted-text small">The stories here have no pictures to use.</p>
+              <p className="muted-text small">{t('d.profile.noCoverPictures')}</p>
             )}
             {me.plus ? (
               <label className={'prof-upload' + (uploading ? ' busy' : '')}>
                 <Icon name="image" size={20} />
                 <span className="grow">
-                  <b>Upload a photo</b>
-                  <span className="muted-text small block">Choose any photo from this computer</span>
+                  <b>{t('d.profile.uploadPhoto')}</b>
+                  <span className="muted-text small block">{t('d.profile.uploadAny')}</span>
                 </span>
-                <input type="file" accept="image/*" hidden disabled={uploading} aria-label="Upload a cover photo" onChange={(e) => {
+                <input type="file" accept="image/*" hidden disabled={uploading} aria-label={t('d.profile.uploadCoverLabel')} onChange={(e) => {
                   const f = e.target.files?.[0];
                   e.target.value = '';
                   if (f) upload(f);
@@ -314,10 +317,10 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
               <button className="prof-upload" onClick={() => setPanel('plus')}>
                 <Icon name="image" size={20} />
                 <span className="grow">
-                  <b>Upload a photo</b>
-                  <span className="muted-text small block">Any photo from this computer, with Community Plus</span>
+                  <b>{t('d.profile.uploadPhoto')}</b>
+                  <span className="muted-text small block">{t('d.profile.uploadWithPlus')}</span>
                 </span>
-                <span className="prof-plus-tag">Plus</span>
+                <span className="prof-plus-tag">{t('common.plus')}</span>
               </button>
             )}
           </div>
@@ -326,8 +329,8 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
           <div className="prof-upsell">
             <Icon name="crown" size={24} />
             <div className="grow">
-              <b>Your own cover photo</b>
-              <p className="muted-text">Uploading any photo as a highlight cover is part of Community Plus. You can always use a picture from the highlight itself.</p>
+              <b>{t('d.profile.ownCover')}</b>
+              <p className="muted-text">{t('d.profile.ownCoverBody')}</p>
             </div>
             <button
               className="btn"
@@ -336,30 +339,32 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
                 nav('/plus');
               }}
             >
-              See Community Plus
+              {t('d.profile.seePlus')}
             </button>
           </div>
         ) : null}
         <label className="form-row">
-          <span>Title</span>
-          <input value={title} maxLength={30} onChange={(e) => setTitle(e.target.value)} placeholder="Highlight name" aria-label="Highlight title" />
+          <span>{t('ssPub.title')}</span>
+          <input value={title} maxLength={30} onChange={(e) => setTitle(e.target.value)} placeholder={t('d.profile.highlightName')} aria-label={t('d.profile.highlightTitle')} />
           <em className="prof-count">{title.length}/30</em>
         </label>
         <div className="prof-hl-edit-h">
-          <b>Stories</b>
-          <span className="muted-text">{kept.length === 1 ? '1 story' : kept.length + ' stories'}</span>
+          <b>{t('profile.alertsStories')}</b>
+          <span className="muted-text">{tn('d.profile.stories', kept.length)}</span>
         </div>
         <div className="prof-hl-stories">
           {items.map((it) => {
             const out = removed.includes(it.id);
             const isCover = !out && !!preview && coverOf(it.item) === preview;
-            const day = dayLabel(new Date(it.created_at));
+            const day = shortDay(new Date(it.created_at));
             return (
               <div key={it.id} className={'prof-hl-story' + (out ? ' out' : '')}>
                 <StoryCanvas item={{ ...it.item, caption: undefined }} width={108} height={192} paused muted />
-                <span className="prof-hl-day">{day}</span>
-                {isCover ? <span className="prof-hl-badge">Cover</span> : null}
-                <button className={'prof-hl-toggle' + (out ? ' back' : '')} aria-label={out ? `Put back the story from ${day}` : `Remove the story from ${day}`} onClick={() => setRemoved((cur) => (cur.includes(it.id) ? cur.filter((x) => x !== it.id) : [...cur, it.id]))}>
+                <span className="prof-hl-foot">
+                  <span className="prof-hl-day">{day}</span>
+                  {isCover ? <span className="prof-hl-badge">{t('d.profile.cover')}</span> : null}
+                </span>
+                <button className={'prof-hl-toggle' + (out ? ' back' : '')} aria-label={out ? t('d.profile.putBack', { day }) : t('d.profile.removeStory', { day })} onClick={() => setRemoved((cur) => (cur.includes(it.id) ? cur.filter((x) => x !== it.id) : [...cur, it.id]))}>
                   <Icon name={out ? 'plus' : 'close'} size={12} stroke={3} />
                 </button>
               </div>
@@ -367,7 +372,7 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
           })}
         </div>
         <p className="muted-text small">
-          To add more, open your{' '}
+          {moreBefore}
           <button
             className="link-btn inline"
             onClick={() => {
@@ -375,21 +380,21 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
               nav('/archive');
             }}
           >
-            archive
-          </button>{' '}
-          and make a highlight from its stories.
+            {t('d.profile.addMoreArchive')}
+          </button>
+          {moreAfter}
         </p>
       </div>
       <div className="modal-foot prof-hl-edit-foot">
         <button className="btn danger-outline" onClick={remove} disabled={saving}>
-          Delete highlight
+          {t('d.profile.deleteHighlight')}
         </button>
         <span className="grow" />
         <button className="btn quiet" onClick={close} disabled={saving}>
-          Cancel
+          {t('common.cancel')}
         </button>
         <button className="btn" onClick={save} disabled={saving || uploading}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('d.profile.saving') : t('ssPub.save')}
         </button>
       </div>
     </Modal>

@@ -9,6 +9,7 @@ import { listen, putPosts } from 'shared/store';
 import { supabase } from 'shared/supabase';
 import { fmt } from 'shared/theme';
 import type { Post, Profile } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Empty, Failed, Icon, type IconName, Spinner, useLoad } from '../ui/kit';
@@ -40,25 +41,25 @@ export function tabPath(username: string, tab: ProfileTab): string {
 
 export function ProfileTabs({ person, tab, mine }: { person: Profile; tab: ProfileTab; mine: boolean }) {
   const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
-    { id: 'posts', label: 'Posts', icon: 'grid' },
-    { id: 'reels', label: 'Shorts', icon: 'reels' },
-    ...(mine ? [{ id: 'saved' as ProfileTab, label: 'Saved', icon: 'bookmark' as IconName }] : []),
-    { id: 'reposts', label: 'Reposts', icon: 'repost' },
-    { id: 'tagged', label: 'Tagged', icon: 'tagged' },
+    { id: 'posts', label: t('profile.tab.posts'), icon: 'grid' },
+    { id: 'reels', label: t('profile.tab.clips'), icon: 'reels' },
+    ...(mine ? [{ id: 'saved' as ProfileTab, label: t('settings.saved'), icon: 'bookmark' as IconName }] : []),
+    { id: 'reposts', label: t('profile.tab.reposts'), icon: 'repost' },
+    { id: 'tagged', label: t('d.profile.tagged'), icon: 'tagged' },
   ];
   return (
-    <nav className="profile-tabs prof-tabs" role="tablist" aria-label="Profile">
-      {tabs.map((t) => {
-        const on = tab === t.id;
-        const to = tabPath(person.username, t.id);
+    <nav className="profile-tabs prof-tabs" role="tablist" aria-label={t('tabs.profile')}>
+      {tabs.map((it) => {
+        const on = tab === it.id;
+        const to = tabPath(person.username, it.id);
         return (
           <a
-            key={t.id}
+            key={it.id}
             href={'#' + to}
             role="tab"
             aria-selected={on}
-            aria-label={t.label}
-            title={t.label}
+            aria-label={it.label}
+            title={it.label}
             className={'prof-tab' + (on ? ' on' : '')}
             onClick={(e) => {
               if (e.metaKey || e.ctrlKey) return;
@@ -66,7 +67,7 @@ export function ProfileTabs({ person, tab, mine }: { person: Profile; tab: Profi
               nav(to, true);
             }}
           >
-            <Icon name={t.icon} size={24} stroke={on ? 2 : 1.7} />
+            <Icon name={it.icon} size={24} stroke={on ? 2 : 1.7} />
           </a>
         );
       })}
@@ -80,7 +81,7 @@ function ShortTile({ post, onOpen }: { post: Post; onOpen: (post: Post) => void 
   const cover = m?.type === 'video' ? m.poster || '' : m?.url;
   useEffect(() => putPosts([post]), [post.id]);
   return (
-    <button className="tile prof-short" data-post={post.id} onClick={() => onOpen(post)} aria-label={'Short by ' + post.username + (post.view_count != null ? ', ' + fmt(post.view_count) + ' views' : '')}>
+    <button className="tile prof-short" data-post={post.id} onClick={() => onOpen(post)} aria-label={post.view_count != null ? t('d.profile.shortByViews', { username: post.username, count: fmt(post.view_count) }) : t('d.profile.shortBy', { username: post.username })}>
       {cover ? <img src={cover} alt="" loading="lazy" /> : m?.type === 'video' ? <video src={m.url} muted preload="metadata" /> : null}
       {post.view_count != null ? (
         <span className="prof-short-views">
@@ -108,10 +109,8 @@ function SubscriberCard({ person, onSubscribe }: { person: Profile; onSubscribe:
         <Icon name="lock" size={20} />
       </span>
       <span className="prof-card-text">
-        <b>
-          {fmt(n)} subscriber-only {n === 1 ? 'post' : 'posts'}
-        </b>
-        <span className="prof-card-sub">{person.sub_price_pence ? 'Subscribe to see them' : 'Only their subscribers can see them'}</span>
+        <b>{tn('profile.subOnly', n, { count: fmt(n) })}</b>
+        <span className="prof-card-sub">{person.sub_price_pence ? t('profile.subscribeToSee') : t('profile.onlySubscribers')}</span>
       </span>
       {person.sub_price_pence ? <Icon name="right" size={18} /> : null}
     </button>
@@ -268,22 +267,22 @@ export function ProfileGrid({ person, tab, mine, openPost, onCreate, onSubscribe
     const name = person.username;
     switch (tab) {
       case 'saved':
-        return <Empty icon="bookmark" title="Save" body="Save photos and videos that you want to see again. No one is notified, and only you can see what you've saved." />;
+        return <Empty icon="bookmark" title={t('ssPub.save')} body={t('d.profile.savedBody')} />;
       case 'reposts':
-        return <Empty icon="repost" title="No reposts yet" body={mine ? 'Posts you repost appear here.' : `Posts ${name} reposts will show up here.`} />;
+        return <Empty icon="repost" title={t('profile.emptyNoReposts')} body={mine ? t('profile.emptyMyRepostsBody') : t('profile.emptyTheirRepostsBody', { username: name })} />;
       case 'tagged':
-        return <Empty icon="tagged" title={mine ? 'Photos of you' : 'No photos yet'} body={mine ? "When people tag you in photos, they'll appear here." : `When people tag ${name} in photos, they'll appear here.`} />;
+        return <Empty icon="tagged" title={mine ? t('d.profile.photosOfYou') : t('d.profile.noPhotos')} body={mine ? t('d.profile.taggedMineBody') : t('d.profile.taggedTheirsBody', { username: name })} />;
       case 'reels':
         return mine ? (
-          <ShareFirst icon="reels" title="Share your first Short" body="Videos you post appear here. Click to make one." onClick={() => onCreate('short')} />
+          <ShareFirst icon="reels" title={t('d.profile.firstShort')} body={t('d.profile.firstShortBody')} onClick={() => onCreate('short')} />
         ) : (
-          <Empty icon="reels" title="No Shorts yet" body={`Videos from ${name} will show up here.`} />
+          <Empty icon="reels" title={t('d.profile.noShorts')} body={t('profile.emptyNoClipsBody', { username: name })} />
         );
       default:
         return mine ? (
-          <ShareFirst icon="camera" title="Share your first photo or Short" body="Click to add a post to your profile." onClick={() => onCreate('post')} />
+          <ShareFirst icon="camera" title={t('d.profile.firstPost')} body={t('d.profile.firstPostBody')} onClick={() => onCreate('post')} />
         ) : (
-          <Empty icon="camera" title="No posts yet" body={`When ${name} posts, it will show up here.`} />
+          <Empty icon="camera" title={t('profile.emptyNoPosts')} body={t('profile.emptyNoPostsBody', { username: name })} />
         );
     }
   }

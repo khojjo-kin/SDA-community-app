@@ -4,12 +4,41 @@
 // same list the iPhone app offers. Also the "Profile style" dialog where a Plus member picks them.
 import React, { useState } from 'react';
 import { updateProfile } from 'shared/api';
-import { PROFILE_THEMES, RING_STYLES, profileTheme, ringColors, type ProfileTheme } from 'shared/styling';
+import { PROFILE_THEMES, RING_STYLES, profileTheme, ringColors, type ProfileTheme, type RingStyle } from 'shared/styling';
 import { useAppearance } from '../lib/appearance';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, toast, toastError } from './kit';
 import '../styles/profile.css';
+
+/**
+ * The names of the ring colours and themes (the shared list has them in English), by id. A colour or
+ * theme added to the shared list later shows its English name until it has a key here.
+ */
+const RING_WORDS: Record<string, string> = {
+  '': 'bibleMarks.green',
+  gold: 'd.profile.ringGold',
+  sky: 'd.profile.ringSky',
+  violet: 'd.profile.ringViolet',
+  sunset: 'd.profile.ringSunset',
+  rose: 'd.profile.rose',
+  teal: 'd.profile.ringTeal',
+  silver: 'd.profile.ringSilver',
+  rainbow: 'd.profile.ringRainbow',
+};
+const THEME_WORDS: Record<string, string> = {
+  '': 'feed.standard',
+  sabbath: 'd.profile.themeSabbath',
+  olive: 'd.profile.themeOlive',
+  sunrise: 'd.profile.themeSunrise',
+  ocean: 'd.profile.themeOcean',
+  lavender: 'd.profile.themeLavender',
+  rose: 'd.profile.rose',
+  midnight: 'd.profile.themeMidnight',
+};
+const ringName = (r: RingStyle) => (RING_WORDS[r.id] ? t(RING_WORDS[r.id]) : r.label);
+const themeName = (th: ProfileTheme) => (THEME_WORDS[th.id] ? t(THEME_WORDS[th.id]) : th.label);
 
 /** A CSS gradient through a ring's colours, bottom-left to top-right as on the iPhone. */
 export function gradient(colors: readonly string[]): string {
@@ -58,7 +87,7 @@ function Preview({ ring, theme }: { ring: string; theme: string }) {
   const { me } = useMe();
   const look = useProfileLook(theme);
   return (
-    <div className="prof-style-preview" style={look.vars} aria-label="Preview of your profile" role="img">
+    <div className="prof-style-preview" style={look.vars} aria-label={t('d.profile.stylePreview')} role="img">
       <div className={'prof-style-band' + (look.banded ? ' on' : '')}>
         <span className="prof-ring on" style={ringVar(ringColors(ring))}>
           <Avatar src={me.avatar_url} name={me.username} size={64} />
@@ -66,8 +95,8 @@ function Preview({ ring, theme }: { ring: string; theme: string }) {
         <b>{me.full_name || me.username}</b>
         <span className="prof-style-user">{me.username}</span>
         <div className="prof-style-btns">
-          <span className="prof-btn primary">Follow</span>
-          <span className="prof-btn">Message</span>
+          <span className="prof-btn primary">{t('common.follow')}</span>
+          <span className="prof-btn">{t('profile.message')}</span>
         </div>
       </div>
       <div className="prof-style-dots">
@@ -92,7 +121,7 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
   const white = useAppearance() === 'white';
 
   // Everyone can look, so they can see what Plus offers; only members can choose.
-  const pick = (fn: () => void) => (plus ? fn() : toast('Profile style is part of Community Plus'));
+  const pick = (fn: () => void) => (plus ? fn() : toast(t('d.profile.styleIsPlus')));
 
   const save = async () => {
     if (busy || !changed) return;
@@ -104,7 +133,7 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
       // The database refuses this for anyone without Plus, whatever the dialog shows.
       await updateProfile(me.id, patch);
       await refresh();
-      toast('Profile style saved');
+      toast(t('d.profile.styleSaved'));
       onClose();
     } catch (e) {
       toastError(e);
@@ -113,15 +142,15 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Profile style" onClose={onClose} wide className="prof-style">
+    <Modal title={t('settings.profileStyle')} onClose={onClose} wide className="prof-style">
       <div className="prof-style-body">
         <Preview ring={ring} theme={theme} />
         {plus ? null : (
           <div className="prof-upsell">
             <Icon name="crown" size={24} />
             <div className="grow">
-              <b>Part of Community Plus</b>
-              <p className="muted-text">Choose the colour of your ring and the look of your profile.</p>
+              <b>{t('d.profile.partOfPlus')}</b>
+              <p className="muted-text">{t('d.profile.styleUpsell')}</p>
             </div>
             <button
               className="btn"
@@ -130,35 +159,35 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
                 nav('/plus');
               }}
             >
-              Get Community Plus
+              {t('d.profile.getPlus')}
             </button>
           </div>
         )}
         <div className={plus ? '' : 'prof-style-locked'}>
-          <h3 className="prof-style-h">Ring colour</h3>
-          <div className="prof-swatches" role="radiogroup" aria-label="Ring colour">
+          <h3 className="prof-style-h">{t('d.profile.ringColour')}</h3>
+          <div className="prof-swatches" role="radiogroup" aria-label={t('d.profile.ringColour')}>
             {RING_STYLES.map((r) => {
               const on = ring === r.id;
               return (
-                <button key={r.id || 'standard'} role="radio" aria-checked={on} aria-label={r.label + ' ring'} className={'prof-swatch' + (on ? ' on' : '')} onClick={() => pick(() => setRing(r.id))}>
+                <button key={r.id || 'standard'} role="radio" aria-checked={on} aria-label={t('d.profile.ringLabel', { name: ringName(r) })} className={'prof-swatch' + (on ? ' on' : '')} onClick={() => pick(() => setRing(r.id))}>
                   <span className="prof-swatch-dot" style={{ background: gradient(r.colors) }} />
-                  <span>{r.label}</span>
+                  <span>{ringName(r)}</span>
                 </button>
               );
             })}
           </div>
-          <h3 className="prof-style-h">Profile theme</h3>
-          <div className="prof-themes" role="radiogroup" aria-label="Profile theme">
-            {PROFILE_THEMES.map((t) => {
-              const on = theme === t.id;
-              const vars = themeVars(t, white);
+          <h3 className="prof-style-h">{t('d.profile.profileTheme')}</h3>
+          <div className="prof-themes" role="radiogroup" aria-label={t('d.profile.profileTheme')}>
+            {PROFILE_THEMES.map((th) => {
+              const on = theme === th.id;
+              const vars = themeVars(th, white);
               return (
-                <button key={t.id || 'standard'} role="radio" aria-checked={on} aria-label={t.label + ' theme'} className={'prof-theme-card' + (on ? ' on' : '')} onClick={() => pick(() => setTheme(t.id))} style={vars}>
-                  <span className={'prof-theme-art' + (t.band.length ? ' banded' : '')}>
+                <button key={th.id || 'standard'} role="radio" aria-checked={on} aria-label={t('theme.label', { name: themeName(th) })} className={'prof-theme-card' + (on ? ' on' : '')} onClick={() => pick(() => setTheme(th.id))} style={vars}>
+                  <span className={'prof-theme-art' + (th.band.length ? ' banded' : '')}>
                     <span className="prof-theme-dot" />
-                    <span className="prof-theme-follow">Follow</span>
+                    <span className="prof-theme-follow">{t('common.follow')}</span>
                   </span>
-                  <span className="prof-theme-name">{t.label}</span>
+                  <span className="prof-theme-name">{themeName(th)}</span>
                 </button>
               );
             })}
@@ -168,10 +197,10 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
       {plus ? (
         <div className="modal-foot prof-style-foot">
           <button className="btn quiet" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button className="btn" disabled={!changed || busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('d.profile.saving') : t('ssPub.save')}
           </button>
         </div>
       ) : null}

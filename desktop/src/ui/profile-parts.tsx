@@ -5,9 +5,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { activeLabel, cancelLiveSchedule, fetchFollowAlerts, fetchFundraiser, fetchLiveSchedules, hasLiveReminder, setFollowAlerts, setLiveReminder } from 'shared/api';
 import { listen } from 'shared/store';
-import { CLOSE_RING } from 'shared/theme';
+import { CLOSE_RING, dayLabel } from 'shared/theme';
 import { ringColors } from 'shared/styling';
 import type { FollowAlerts, Fundraiser, LiveSchedule, Profile } from 'shared/types';
+import { dateLocale, languageCode, t, tSplit, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { money } from '../lib/pay';
 import { nav } from '../lib/router';
@@ -43,7 +44,7 @@ export function ProfilePicture({ person, mine, ring, onClick, label }: { person:
           {body}
         </span>
       )}
-      {ring === 'live' ? <span className="live-badge big prof-live">LIVE</span> : null}
+      {ring === 'live' ? <span className="live-badge big prof-live">{t('common.live')}</span> : null}
       <div className="prof-note">
         <NoteBubble userId={person.id} mine={mine} />
       </div>
@@ -94,31 +95,47 @@ function AboutRow({ icon, title, value }: { icon: React.ReactNode; title: string
   );
 }
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/**
+ * When someone was last about, in the app's language. The shared activeLabel says it in English
+ * ("Active now", "Active 5m ago", "Active 3h ago", "Active yesterday"); each of those is said again here.
+ */
+function activeText(at: string | null | undefined): string {
+  const english = activeLabel(at);
+  if (english === 'Active now') return t('common.activeNow');
+  if (english === 'Active yesterday') return t('d.profile.activeYesterday');
+  const ago = /^Active (\d+)([mh]) ago$/.exec(english);
+  if (ago) return t(ago[2] === 'm' ? 'd.profile.activeMinutes' : 'd.profile.activeHours', { count: ago[1] });
+  return english;
+}
+
+/** "9 Sep" in English, as the app has always written it; the language's own day and short month otherwise. */
+export function shortDay(d: Date): string {
+  return languageCode() === 'en' ? dayLabel(d) : d.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
+}
 
 /** When the account joined, where it's based, how it was verified, its type and when it was last about. */
 export function AboutAccount({ person, onClose }: { person: Profile; onClose: () => void }) {
   const joined = new Date(person.created_at);
-  const how = person.verified_via === 'notable' ? 'Verified (notable account)' : person.verified_via === 'plus' ? 'Verified with Plus' : 'Verified';
-  const why = person.verified_via === 'notable' ? 'Confirmed as a notable account by the Community team.' : person.verified_via === 'plus' ? 'Identity confirmed as part of Community Plus.' : 'Confirmed by the Community team.';
-  const active = activeLabel(person.active_at);
-  const type = person.account_type === 'creator' ? 'Creator account' + (person.category ? ' · ' + person.category : '') : 'Personal account';
+  const how = person.verified_via === 'notable' ? t('profile.verifiedNotable') : person.verified_via === 'plus' ? t('profile.verifiedPlus') : t('common.verified');
+  const why = person.verified_via === 'notable' ? t('profile.verifiedWhyNotable') : person.verified_via === 'plus' ? t('profile.verifiedWhyPlus') : t('profile.verifiedWhy');
+  const active = activeText(person.active_at);
+  const type = person.account_type === 'creator' ? t('d.profile.creatorAccount') + (person.category ? ' · ' + person.category : '') : t('d.profile.personalAccount');
   return (
-    <Modal title="About this account" onClose={onClose} className="prof-about">
+    <Modal title={t('profile.about')} onClose={onClose} className="prof-about">
       <div className="prof-about-top">
         <Avatar src={person.avatar_url} name={person.username} size={76} />
         <b className="prof-about-name">
           {person.username}
           {person.verified ? <Verified size={14} /> : null}
         </b>
-        <p className="muted-text">A few details about this account, so you know who you're connecting with on Community.</p>
+        <p className="muted-text">{t('profile.aboutIntro')}</p>
       </div>
       <div className="prof-about-list">
-        {Number.isNaN(joined.getTime()) ? null : <AboutRow icon={<Icon name="calendar" size={22} />} title="Date joined" value={MONTHS[joined.getMonth()] + ' ' + joined.getFullYear()} />}
-        {person.country ? <AboutRow icon={<Icon name="location" size={22} />} title="Account based in" value={person.country} /> : null}
+        {Number.isNaN(joined.getTime()) ? null : <AboutRow icon={<Icon name="calendar" size={22} />} title={t('profile.dateJoined')} value={joined.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' })} />}
+        {person.country ? <AboutRow icon={<Icon name="location" size={22} />} title={t('profile.basedIn')} value={person.country} /> : null}
         {person.verified ? <AboutRow icon={<Verified size={22} />} title={how} value={why} /> : null}
-        <AboutRow icon={<Icon name="user" size={22} />} title="Account type" value={type} />
-        {active ? <AboutRow icon={<Icon name="clock" size={22} />} title="Active status" value={active} /> : null}
+        <AboutRow icon={<Icon name="user" size={22} />} title={t('d.profile.accountType')} value={type} />
+        {active ? <AboutRow icon={<Icon name="clock" size={22} />} title={t('profile.activeStatus')} value={active} /> : null}
       </div>
     </Modal>
   );
@@ -126,11 +143,12 @@ export function AboutAccount({ person, onClose }: { person: Profile; onClose: ()
 
 /* ---------- the bell ---------- */
 
-const ALERTS: { key: keyof FollowAlerts; label: string; icon: IconName }[] = [
-  { key: 'posts', label: 'Posts', icon: 'grid' },
-  { key: 'stories', label: 'Stories', icon: 'story' },
-  { key: 'clips', label: 'Shorts', icon: 'reels' },
-  { key: 'live', label: 'Live videos', icon: 'live' },
+/** `word` is the key of the switch's name, said with t() where it is drawn. */
+const ALERTS: { key: keyof FollowAlerts; word: string; icon: IconName }[] = [
+  { key: 'posts', word: 'profile.alertsPosts', icon: 'grid' },
+  { key: 'stories', word: 'profile.alertsStories', icon: 'story' },
+  { key: 'clips', word: 'profile.alertsClips', icon: 'reels' },
+  { key: 'live', word: 'profile.alertsLive', icon: 'live' },
 ];
 
 /**
@@ -187,18 +205,18 @@ export function AlertsBell({ person, onChange }: { person: Profile; onChange: (a
   const on = person.alerts_on;
   return (
     <div className="prof-bell" ref={box}>
-      <button className={'prof-btn square' + (on ? ' lit' : '')} aria-label={on ? `Notifications from ${person.username} are on` : `Notifications from ${person.username}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button className={'prof-btn square' + (on ? ' lit' : '')} aria-label={on ? t('profile.alertsOn', { username: person.username }) : t('profile.alertsTitle', { username: person.username })} aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="bell" size={20} fill={on ? 'currentColor' : undefined} stroke={on ? 1.4 : 1.8} />
       </button>
       {open ? (
-        <div className="prof-alerts" role="dialog" aria-label={`Notifications from ${person.username}`}>
-          <b className="prof-alerts-title">Notifications from {person.username}</b>
+        <div className="prof-alerts" role="dialog" aria-label={t('profile.alertsTitle', { username: person.username })}>
+          <b className="prof-alerts-title">{t('profile.alertsTitle', { username: person.username })}</b>
           {alerts ? (
             ALERTS.map((r) => (
               <label key={r.key} className="prof-alert-row">
                 <Icon name={r.icon} size={20} />
-                <span className="grow">{r.label}</span>
-                <input type="checkbox" role="switch" checked={alerts[r.key]} onChange={(e) => set(r.key, e.target.checked)} aria-label={`${r.label} from ${person.username}`} />
+                <span className="grow">{t(r.word)}</span>
+                <input type="checkbox" role="switch" checked={alerts[r.key]} onChange={(e) => set(r.key, e.target.checked)} aria-label={t('profile.alertsFrom', { what: t(r.word), username: person.username })} />
                 <i className="switch" aria-hidden="true" />
               </label>
             ))
@@ -247,9 +265,11 @@ export function FundraiserCard({ id }: { id: string }) {
   const pct = share > 0 ? Math.max(2, Math.round(share * 100)) : 0;
   const raised = money(f.raised_pence, f.currency);
   const goal = money(f.goal_pence, f.currency);
+  // "£120 raised of £500", with the amount raised in bold.
+  const [raisedBefore, raisedAfter] = tSplit('d.profile.raisedOf', 'raised', { goal });
   return (
     <div className="prof-card prof-fund">
-      <button className="prof-card-main" onClick={() => nav('/fundraisers/' + f.id)} aria-label={`Fundraiser: ${f.title}. ${raised} raised of ${goal}`}>
+      <button className="prof-card-main" onClick={() => nav('/fundraisers/' + f.id)} aria-label={t('d.profile.fundraiserLabel', { title: f.title, raised, goal })}>
         <span className="prof-card-icon accent">
           <Icon name="heart" size={20} />
         </span>
@@ -259,13 +279,15 @@ export function FundraiserCard({ id }: { id: string }) {
             <i style={{ width: pct + '%' }} />
           </span>
           <span className="prof-card-sub">
-            <b>{raised}</b> raised of {goal}
-            {f.donor_count ? ' · ' + f.donor_count + (f.donor_count === 1 ? ' supporter' : ' supporters') : ''}
+            {raisedBefore}
+            <b>{raised}</b>
+            {raisedAfter}
+            {f.donor_count ? ' · ' + tn('d.profile.supporters', f.donor_count, { count: f.donor_count }) : ''}
           </span>
         </span>
       </button>
       <button className="prof-btn primary small" onClick={() => nav('/fundraisers/' + f.id)}>
-        Donate
+        {t('liveSetup.donate')}
       </button>
     </div>
   );
@@ -276,13 +298,19 @@ export function FundraiserCard({ id }: { id: string }) {
 const DAY = 86400e3;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
-/** "Today 7:30 pm", "Tomorrow 9:00 am", "Sat 7:30 pm" within the week, then "Sat 12 Oct 7:30 pm". */
+/**
+ * "Today 7:30 pm", "Tomorrow 9:00 am", "Sat 7:30 pm" within the week, then "Sat 12 Oct 7:30 pm". In
+ * other languages the weekday, date and time are written the language's own way.
+ */
 export function whenLabel(iso: string): string {
   const d = new Date(iso);
   const days = Math.round((startOfDay(d) - startOfDay(new Date())) / DAY);
-  const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' });
-  const day = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? weekday : `${weekday} ${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
-  const time = d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s?([ap])\.?m\.?/i, ' $1m');
+  const locale = dateLocale();
+  const english = languageCode() === 'en';
+  const weekday = d.toLocaleDateString(locale, { weekday: 'short' });
+  const date = english ? `${weekday} ${d.getDate()} ${d.toLocaleDateString(locale, { month: 'short' })}` : d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  const day = days === 0 ? t('liveSchedule.today') : days === 1 ? t('liveSchedule.tomorrow') : days > 1 && days < 7 ? weekday : date;
+  const time = english ? d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s?([ap])\.?m\.?/i, ' $1m') : d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
   return `${day} ${time}`;
 }
 
@@ -303,7 +331,7 @@ function LiveRow({ s, mine, onCancelled }: { s: LiveSchedule; mine: boolean; onC
     const on = !reminded;
     setReminded(on);
     setLiveReminder(me.id, s.id, on).then(
-      () => toast(on ? "You'll be told when it starts" : 'Reminder removed'),
+      () => toast(on ? t('liveSchedule.reminderOn') : t('liveSchedule.reminderOff')),
       (e) => {
         setReminded(!on);
         toastError(e);
@@ -311,7 +339,7 @@ function LiveRow({ s, mine, onCancelled }: { s: LiveSchedule; mine: boolean; onC
     );
   };
   const cancel = async () => {
-    if (!(await ask('Cancel this live?', s.title || whenLabel(s.starts_at), 'Cancel live'))) return;
+    if (!(await ask(t('liveSchedule.cancelQuestion'), s.title || whenLabel(s.starts_at), t('liveSchedule.cancelLive')))) return;
     try {
       await cancelLiveSchedule(s.id);
       onCancelled();
@@ -326,21 +354,23 @@ function LiveRow({ s, mine, onCancelled }: { s: LiveSchedule; mine: boolean; onC
         <Icon name="live" size={20} />
       </span>
       <span className="prof-card-text">
-        <b>Live · {whenLabel(s.starts_at)}</b>
+        <b>
+          {t('liveSchedule.live')} · {whenLabel(s.starts_at)}
+        </b>
         {s.title ? <span className="prof-card-sub">{s.title}</span> : null}
       </span>
       {mine ? (
         <button className="prof-btn small" onClick={cancel}>
-          Cancel
+          {t('liveSchedule.cancel')}
         </button>
       ) : (
         <button className={'prof-btn small' + (reminded ? '' : ' primary')} aria-pressed={!!reminded} disabled={reminded === null} onClick={remind}>
           {reminded ? (
             <>
-              <Icon name="check" size={14} stroke={2.4} /> Reminder set
+              <Icon name="check" size={14} stroke={2.4} /> {t('liveSchedule.reminderSet')}
             </>
           ) : (
-            'Remind me'
+            t('liveSchedule.remindMe')
           )}
         </button>
       )}
@@ -361,7 +391,7 @@ export function UpcomingLives({ userId, mine }: { userId: string; mine: boolean 
   useEffect(load, [userId]);
   if (!list.length) return null;
   return (
-    <section className="prof-lives" aria-label="Upcoming lives">
+    <section className="prof-lives" aria-label={t('liveSchedule.upcoming')}>
       {list.map((s) => (
         <LiveRow key={s.id} s={s} mine={mine} onCancelled={load} />
       ))}
