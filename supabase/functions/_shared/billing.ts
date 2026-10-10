@@ -1,5 +1,5 @@
 // Shared by the payments and stripe-webhook functions: Stripe over plain HTTPS, and bringing the
-// app in line with a subscription (Plus, the tick, the billing row and the books).
+// app in line with a subscription (Plus, the billing row and the books), ads and donations.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /** Pinned so the shapes below (latest_invoice.payment_intent, current_period_end) stay put. */
@@ -9,7 +9,9 @@ export const PRICE_PENCE = Number(Deno.env.get('PLUS_PRICE_PENCE') ?? '499');
 export const CURRENCY = (Deno.env.get('PLUS_CURRENCY') ?? 'gbp').toLowerCase();
 /** A day of grace after the paid month, so a renewal that lands a little late never drops Plus. */
 const GRACE_MS = 86400e3;
-export const WEBHOOK_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'charge.refunded'];
+export const WEBHOOK_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'charge.refunded', 'payment_intent.succeeded', 'payment_intent.payment_failed'];
+/** What a day of promotion costs, in pence. */
+export const AD_DAY_PENCE = Number(Deno.env.get('AD_DAY_PENCE') ?? '200');
 
 export function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', Connection: 'keep-alive' } });
@@ -82,7 +84,7 @@ function methodLabel(pm: any): string {
 }
 
 /**
- * Brings the app in line with a Stripe subscription: Plus and the tick until the paid month ends,
+ * Brings the app in line with a Stripe subscription: Plus until the paid month ends,
  * the billing row, and one line on the books for its latest paid invoice. Safe to run any number
  * of times (the app runs it after paying, the webhook on every renewal).
  */
@@ -102,12 +104,12 @@ export async function applySubscription(db: SupabaseClient, userId: string, sub:
     },
     { onConflict: 'user_id' },
   );
+  // Plus only: the tick is never bought. It comes from an identity check an admin approves.
   if (paidUp && end) {
     const until = new Date(end.getTime() + GRACE_MS).toISOString();
     const { data: p } = await db.from('community_profiles').select('plus_until').eq('id', userId).maybeSingle();
     // Never shorten Plus an admin granted for longer.
-    if (!p?.plus_until || new Date(p.plus_until) < new Date(until)) await db.from('community_profiles').update({ plus_until: until, verified: true }).eq('id', userId);
-    else await db.from('community_profiles').update({ verified: true }).eq('id', userId);
+    if (!p?.plus_until || new Date(p.plus_until) < new Date(until)) await db.from('community_profiles').update({ plus_until: until }).eq('id', userId);
   }
   const invoice = typeof sub.latest_invoice === 'object' ? sub.latest_invoice : null;
   if (invoice) await recordInvoice(db, userId, invoice);
@@ -140,3 +142,55 @@ export async function recordInvoice(db: SupabaseClient, userId: string, invoice:
   );
 }
 
+
+/* ---------- one-off payments: ads and donations ---------- */
+
+/**
+ * Settles a one-off payment once Stripe says it went through: an ad starts running, a donation is
+ * counted. Safe to run more than once (the app runs it after paying, the webhook when Stripe says so).
+ */
+export async function settlePaymentIntent(db: SupabaseClient, pi: any) {
+  const kind = pi?.metadata?.kind;
+  if (!pi?.id || (kind !== 'ad' && kind !== 'donation')) return { settled: false };
+  if (pi.status !== 'succeeded') {
+    if (pi.status === 'canceled' || pi.last_payment_error) {
+      if (kind === 'ad') await db.from('community_promotions').update({ status: 'failed' }).eq('payment_intent_id', pi.id).eq('status', 'pending');
+      else await db.from('community_donations').update({ status: 'failed' }).eq('payment_intent_id', pi.id).eq('status', 'pending');
+    }
+    return { settled: false };
+  }
+  let pm = pi.payment_method;
+  if (typeof pm === 'string') pm = await stripe('GET', `payment_methods/${pm}`).catch(() => null);
+  const method = methodLabel(pm);
+  const userId = pi.metadata.user_id as string;
+
+  if (kind === 'ad') {
+    const { data: promo } = await db.from('community_promotions').select('*').eq('payment_intent_id', pi.id).maybeSingle();
+    if (promo && promo.status === 'pending') {
+      const { data: post } = await db.from('community_posts').select('boosted_until').eq('id', promo.post_id).maybeSingle();
+      const from = post?.boosted_until && new Date(post.boosted_until) > new Date() ? new Date(post.boosted_until) : new Date();
+      const ends = new Date(from.getTime() + promo.days * 86400e3);
+      await db.from('community_promotions').update({ status: 'active', starts_at: new Date().toISOString(), ends_at: ends.toISOString() }).eq('id', promo.id);
+      if (promo.post_id) await db.from('community_posts').update({ boosted_until: ends.toISOString() }).eq('id', promo.post_id);
+    }
+  } else {
+    await db.from('community_donations').update({ status: 'succeeded' }).eq('payment_intent_id', pi.id).neq('status', 'refunded');
+  }
+
+  await db.from('community_transactions').upsert(
+    {
+      user_id: userId ?? null,
+      kind,
+      amount_pence: pi.amount_received || pi.amount,
+      currency: String(pi.currency ?? CURRENCY).toUpperCase(),
+      note: kind === 'ad' ? `Ad · ${pi.metadata.days ?? '?'} day${pi.metadata.days === '1' ? '' : 's'}` : `Donation · ${String(pi.metadata.title ?? 'fundraiser').slice(0, 80)}`,
+      provider: 'stripe',
+      status: 'succeeded',
+      method,
+      stripe_invoice_id: `pi:${pi.id}`,
+      stripe_payment_intent_id: pi.id,
+    },
+    { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },
+  );
+  return { settled: true };
+}

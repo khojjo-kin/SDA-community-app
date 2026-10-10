@@ -70,7 +70,8 @@ export default function AppLayout() {
   return (
     // Calls live above every screen: an incoming call can ring over whatever is open.
     <CallProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+      {/* Swipe right from anywhere on a pushed screen (a profile, Settings, anything with a back arrow) to go back, not just from the edge. */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg }, fullScreenGestureEnabled: true }}>
         <Stack.Screen name="(tabs)" />
         {/* Screens that slide up have a Close button and scroll, so the swipe-to-dismiss gesture is off: it would fight the scrolling. */}
         <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

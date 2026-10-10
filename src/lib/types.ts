@@ -77,6 +77,8 @@ export type Post = {
   audio_title: string | null;
   audio_artist: string | null;
   audio_url: string | null;
+  /** Marked sensitive by its author or an admin: never shown to members under 14. */
+  sensitive: boolean;
 };
 
 export type StoryReplies = 'everyone' | 'following' | 'off';
@@ -130,6 +132,18 @@ export type Profile = {
   is_live: boolean;
   /** How many people looked at this profile in the last 7 days (the list itself is a Plus perk). */
   views_week: number;
+  /** Chat streaks are shown (both people must have them on). */
+  streaks_enabled: boolean;
+  /** Plus: the colour of the ring round this account's highlights and stories. '' is the app's green. See src/lib/styling.ts. */
+  ring_color: string;
+  /** Plus: the look of this profile page. '' is the plain one. See src/lib/styling.ts. */
+  profile_theme: string;
+  /** Your own profile only (null on anyone else's): the under-14 rules apply to you. */
+  restricted: boolean | null;
+  /** Your own profile only (null on anyone else's): the app still needs your birth date. */
+  needs_birth_date: boolean | null;
+  /** The account's running fundraiser, if it has one. */
+  fundraiser_id: string | null;
 };
 
 export type Church = {
@@ -144,6 +158,10 @@ export type Church = {
   service_times: string;
   created_by: string | null;
   created_at: string;
+  /** New churches wait for an admin. Members see their own while pending; everyone sees approved ones. */
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 };
 
 export type Hymn = { number: number; title: string; section: string; lyrics: string; author: string };
@@ -157,11 +175,18 @@ export type PlusRequest = {
   decided_by: string | null;
   decided_at: string | null;
   created_at: string;
+  /** Identity check for the tick: files in the private community-verification bucket. */
+  selfie_path: string;
+  document_path: string;
+  document_type: '' | DocumentType;
+  legal_name: string;
   /** Only on the admin's list. */
   username?: string;
   full_name?: string;
   avatar_url?: string;
 };
+
+export type DocumentType = 'passport' | 'driving_licence' | 'national_id' | 'other';
 
 export type ReportCard = {
   id: string;
@@ -280,6 +305,8 @@ export type Thread = {
   /** Messages up to this moment are hidden for you (you deleted the chat). */
   hidden_before: string | null;
   verified: boolean;
+  /** Days in a row you have both written. 0 when either of you has streaks off. Shown from 3. */
+  streak: number;
 };
 
 export type Message = {
@@ -421,7 +448,7 @@ export type Call = {
 export type Transaction = {
   id: string;
   user_id: string | null;
-  kind: 'plus' | 'donation' | 'refund' | 'other';
+  kind: 'plus' | 'donation' | 'refund' | 'other' | 'ad';
   amount_pence: number;
   currency: string;
   note: string;
@@ -461,7 +488,75 @@ export type PaymentsConfig = BillingStatus & {
   currency: string;
   /** Test keys: no real money moves; Stripe's test cards work. */
   test_mode: boolean;
+  /** What a day of promoting a post costs, in pence. */
+  ad_day_pence: number;
 };
+
+/** A one-off payment started by the payments function, to confirm with a card or Apple Pay. */
+export type OneOffPayment = { payment_intent_id: string; client_secret: string; amount: number; currency: string };
+
+/** Someone you might want to follow. */
+export type SuggestedPerson = {
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  /** People you follow who follow them. */
+  mutual_count: number;
+  /** Up to two of those people, newest first. */
+  mutual_avatars: string[];
+  mutual_names: string[];
+  /** They already follow you ("Follow back"). */
+  follows_me: boolean;
+};
+
+/** A paid promotion (an ad) of one of your posts. */
+export type Promotion = {
+  id: string;
+  post_id: string | null;
+  user_id: string;
+  days: number;
+  amount_pence: number;
+  currency: string;
+  status: 'pending' | 'active' | 'ended' | 'failed' | 'refunded';
+  payment_intent_id: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  /** Joined in the app: the post, when it still exists. */
+  post?: Post | null;
+};
+
+export type Fundraiser = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  goal_pence: number;
+  currency: string;
+  cover_url: string;
+  ends_at: string | null;
+  status: 'active' | 'closed';
+  created_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  raised_pence: number;
+  donor_count: number;
+  /** The owner's payout account is ready, so donations can be taken. */
+  accepting: boolean;
+};
+
+/** A recent gift to a fundraiser. Anonymous gifts have no username and say "Anonymous". */
+export type Supporter = { id: string; amount_pence: number; currency: string; message: string; created_at: string; username: string | null; full_name: string; avatar_url: string | null };
+
+/** The member's own Stripe account for receiving donations. */
+export type PayoutStatus = { has_account: boolean; charges_enabled: boolean; payouts_enabled: boolean; details_submitted: boolean };
+
+/** What is waiting for the admins. */
+export type AdminQueue = { churches_pending: number; verifications_pending: number; ads_active: number; fundraisers_active: number };
 
 export type SupportTicket = {
   id: string;

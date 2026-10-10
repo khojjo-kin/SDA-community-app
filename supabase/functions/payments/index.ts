@@ -10,13 +10,17 @@
 //                  client secret, which the app confirms with a new card, a saved card or Apple Pay
 //   sync           after paying, reads the subscription back from Stripe and switches Plus on
 //   cancel/resume  stop or restart renewal at the end of the paid month
+//   promote        a one-off payment to put a post in front of more people for a number of days
+//   donate         a one-off payment to a member's fundraiser, paid out to their own Stripe account
+//   settle         after paying for either, reads the payment back and starts the ad / counts the gift
+//   payouts        the member's own Stripe account for receiving donations: status, onboarding, dashboard
 //
 // Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and
 // optionally STRIPE_APPLE_MERCHANT_ID. The webhook for renewals registers itself with Stripe the
 // first time `config` runs, and keeps its signing secret in community_secrets.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { applySubscription, CURRENCY, json, PRICE_LOOKUP, PRICE_PENCE, STRIPE_VERSION, StripeError, stripe, subjectOf, WEBHOOK_EVENTS } from '../_shared/billing.ts';
+import { AD_DAY_PENCE, applySubscription, CURRENCY, json, PRICE_LOOKUP, PRICE_PENCE, settlePaymentIntent, STRIPE_VERSION, StripeError, stripe, subjectOf, WEBHOOK_EVENTS } from '../_shared/billing.ts';
 
 /* ---------- members and customers ---------- */
 
@@ -24,7 +28,7 @@ type Ctx = { db: SupabaseClient; me: string };
 
 async function billingRow({ db, me }: Ctx) {
   const { data } = await db.from('community_billing').select('*').eq('user_id', me).maybeSingle();
-  return data as null | { user_id: string; stripe_customer_id: string; stripe_subscription_id: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean };
+  return data as null | { user_id: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; stripe_account_id: string | null };
 }
 
 /** The member's Stripe customer, made the first time they pay or save a card. */
@@ -77,14 +81,129 @@ async function listCards(customer: string): Promise<Card[]> {
 /* ---------- the webhook registers itself ---------- */
 
 async function ensureWebhook(db: SupabaseClient) {
-  const { data } = await db.from('community_secrets').select('value').eq('key', 'stripe_webhook_secret').maybeSingle();
-  if (data?.value) return;
+  const { data: rows } = await db.from('community_secrets').select('key, value').in('key', ['stripe_webhook_secret', 'stripe_webhook_id', 'stripe_webhook_events']);
+  const stored = Object.fromEntries((rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
+  const events = WEBHOOK_EVENTS.join(',');
+  if (stored.stripe_webhook_secret && stored.stripe_webhook_events === events) return;
+  const save = async (key: string, value: string) => {
+    await db.from('community_secrets').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  };
+  // Already registered, but listening for fewer events than the app now handles: widen it in place.
+  if (stored.stripe_webhook_secret && stored.stripe_webhook_id) {
+    await stripe('POST', `webhook_endpoints/${stored.stripe_webhook_id}`, { enabled_events: WEBHOOK_EVENTS });
+    await save('stripe_webhook_events', events);
+    return;
+  }
   const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stripe-webhook`;
   // One made earlier whose secret was lost cannot be used: replace it.
   const existing = await stripe('GET', 'webhook_endpoints', { limit: 100 });
   for (const ep of existing?.data ?? []) if (ep.url === url) await stripe('DELETE', `webhook_endpoints/${ep.id}`);
-  const ep = await stripe('POST', 'webhook_endpoints', { url, enabled_events: WEBHOOK_EVENTS, api_version: STRIPE_VERSION, description: 'Community app: Plus renewals and refunds' });
-  await db.from('community_secrets').upsert({ key: 'stripe_webhook_secret', value: ep.secret, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  const ep = await stripe('POST', 'webhook_endpoints', { url, enabled_events: WEBHOOK_EVENTS, api_version: STRIPE_VERSION, description: 'Community app: Plus, ads, donations and refunds' });
+  await save('stripe_webhook_secret', ep.secret);
+  await save('stripe_webhook_id', ep.id);
+  await save('stripe_webhook_events', events);
+}
+
+/* ---------- ads ---------- */
+
+async function promote(ctx: Ctx, body: any) {
+  const days = Math.round(Number(body?.days));
+  if (!Number.isFinite(days) || days < 1 || days > 30) throw new StripeError('Choose between 1 and 30 days.', 400);
+  const { data: post } = await ctx.db.from('community_posts').select('id, user_id').eq('id', body?.post_id).maybeSingle();
+  if (!post || post.user_id !== ctx.me) throw new StripeError('You can only promote your own posts.', 403);
+  const customer = await customerFor(ctx);
+  const amount = days * AD_DAY_PENCE;
+  const pi = await stripe('POST', 'payment_intents', {
+    amount,
+    currency: CURRENCY,
+    customer,
+    payment_method_types: ['card'],
+    setup_future_usage: 'off_session',
+    description: `Community ad · ${days} day${days === 1 ? '' : 's'}`,
+    metadata: { kind: 'ad', user_id: ctx.me, post_id: post.id, days: String(days) },
+  });
+  await ctx.db.from('community_promotions').insert({ post_id: post.id, user_id: ctx.me, days, amount_pence: amount, currency: CURRENCY.toUpperCase(), payment_intent_id: pi.id });
+  return { payment_intent_id: pi.id, client_secret: pi.client_secret, amount, currency: CURRENCY.toUpperCase(), day_pence: AD_DAY_PENCE };
+}
+
+/* ---------- fundraisers ---------- */
+
+const RETURN_URL = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/stripe-return`;
+
+/** The member's own Stripe account (for receiving donations), refreshed from Stripe. */
+async function payouts(ctx: Ctx) {
+  const row = await billingRow(ctx);
+  const id = (row as any)?.stripe_account_id as string | null;
+  if (!id) return { has_account: false, charges_enabled: false, payouts_enabled: false, details_submitted: false };
+  const acct = await stripe('GET', `accounts/${id}`);
+  const state = { charges_enabled: !!acct.charges_enabled, payouts_enabled: !!acct.payouts_enabled, details_submitted: !!acct.details_submitted };
+  await ctx.db.from('community_billing').update({ ...state, updated_at: new Date().toISOString() }).eq('user_id', ctx.me);
+  return { has_account: true, ...state };
+}
+
+/** Starts (or continues) the Stripe form that sets up a member's payout account, and returns its address. */
+async function payoutsOnboard(ctx: Ctx, body: any) {
+  const row = await billingRow(ctx);
+  let id = (row as any)?.stripe_account_id as string | null;
+  if (!id) {
+    const { data: p } = await ctx.db.from('community_profiles').select('username, contact_email').eq('id', ctx.me).maybeSingle();
+    const acct = await stripe('POST', 'accounts', {
+      type: 'express',
+      country: typeof body?.country === 'string' && /^[A-Z]{2}$/.test(body.country) ? body.country : 'GB',
+      email: p?.contact_email || undefined,
+      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+      business_profile: { product_description: 'Fundraising on Community', url: p?.username ? `https://community.app/${p.username}` : undefined },
+      metadata: { user_id: ctx.me },
+    }, `account-${ctx.me}`);
+    id = acct.id as string;
+    await ctx.db.from('community_billing').upsert({ user_id: ctx.me, stripe_account_id: id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  }
+  const link = await stripe('POST', 'account_links', { account: id, refresh_url: `${RETURN_URL()}?to=payouts&again=1`, return_url: `${RETURN_URL()}?to=payouts`, type: 'account_onboarding' });
+  return { url: link.url };
+}
+
+async function payoutsDashboard(ctx: Ctx) {
+  const row = await billingRow(ctx);
+  const id = (row as any)?.stripe_account_id as string | null;
+  if (!id) throw new StripeError('Set up payouts first.', 400);
+  const link = await stripe('POST', `accounts/${id}/login_links`);
+  return { url: link.url };
+}
+
+async function donate(ctx: Ctx, body: any) {
+  const amount = Math.round(Number(body?.amount_pence));
+  if (!Number.isFinite(amount) || amount < 100 || amount > 1000000) throw new StripeError('Give between £1 and £10,000.', 400);
+  const { data: f } = await ctx.db.from('community_fundraisers').select('id, user_id, title, currency, status, ends_at').eq('id', body?.fundraiser_id).maybeSingle();
+  if (!f || f.status !== 'active' || (f.ends_at && new Date(f.ends_at) < new Date())) throw new StripeError('This fundraiser has ended.', 400);
+  const { data: owner } = await ctx.db.from('community_billing').select('stripe_account_id').eq('user_id', f.user_id).maybeSingle();
+  if (!owner?.stripe_account_id) throw new StripeError('This fundraiser cannot take donations yet.', 400);
+  const acct = await stripe('GET', `accounts/${owner.stripe_account_id}`);
+  if (!acct.charges_enabled) throw new StripeError('This fundraiser cannot take donations yet.', 400);
+  const customer = await customerFor(ctx);
+  const message = typeof body?.message === 'string' ? body.message.trim().slice(0, 300) : '';
+  // The whole gift goes to the fundraiser's owner: no fee is taken by the app.
+  const pi = await stripe('POST', 'payment_intents', {
+    amount,
+    currency: String(f.currency ?? 'GBP').toLowerCase(),
+    customer,
+    payment_method_types: ['card'],
+    transfer_data: { destination: owner.stripe_account_id },
+    on_behalf_of: owner.stripe_account_id,
+    description: `Donation · ${f.title}`.slice(0, 120),
+    metadata: { kind: 'donation', user_id: ctx.me, fundraiser_id: f.id, owner_id: f.user_id, title: String(f.title).slice(0, 80) },
+  });
+  await ctx.db.from('community_donations').insert({ fundraiser_id: f.id, donor_id: ctx.me, amount_pence: amount, currency: String(f.currency ?? 'GBP').toUpperCase(), message, anonymous: !!body?.anonymous, payment_intent_id: pi.id });
+  return { payment_intent_id: pi.id, client_secret: pi.client_secret, amount, currency: String(f.currency ?? 'GBP').toUpperCase() };
+}
+
+/** After paying for an ad or a donation: read the payment back and settle it. Only the payer may ask. */
+async function settle(ctx: Ctx, body: any) {
+  const id = typeof body?.payment_intent_id === 'string' ? body.payment_intent_id : '';
+  if (!id.startsWith('pi_')) throw new StripeError('Unknown payment.', 400);
+  const pi = await stripe('GET', `payment_intents/${id}`);
+  if (pi?.metadata?.user_id !== ctx.me) throw new StripeError('Unknown payment.', 404);
+  const r = await settlePaymentIntent(ctx.db, pi);
+  return { status: pi.status, ...r };
 }
 
 /* ---------- the actions ---------- */
@@ -186,6 +305,7 @@ Deno.serve(async (req: Request) => {
           price_pence: PRICE_PENCE,
           currency: CURRENCY.toUpperCase(),
           test_mode: publishable.startsWith('pk_test_'),
+          ad_day_pence: AD_DAY_PENCE,
           ...(await status(ctx)),
         });
       }
@@ -203,7 +323,7 @@ Deno.serve(async (req: Request) => {
         const cards = row?.stripe_customer_id ? await listCards(row.stripe_customer_id) : [];
         if (!cards.some((c) => c.id === body.payment_method_id)) return json({ error: 'That card is not on this account.' }, 404);
         await stripe('POST', `payment_methods/${body.payment_method_id}/detach`);
-        return json({ cards: await listCards(row!.stripe_customer_id) });
+        return json({ cards: await listCards(row!.stripe_customer_id!) });
       }
       case 'default_card': {
         const row = await billingRow(ctx);
@@ -211,7 +331,7 @@ Deno.serve(async (req: Request) => {
         if (!cards.some((c) => c.id === body.payment_method_id)) return json({ error: 'That card is not on this account.' }, 404);
         await stripe('POST', `customers/${row!.stripe_customer_id}`, { invoice_settings: { default_payment_method: body.payment_method_id } });
         if (row!.stripe_subscription_id) await stripe('POST', `subscriptions/${row!.stripe_subscription_id}`, { default_payment_method: body.payment_method_id }).catch(() => null);
-        return json({ cards: await listCards(row!.stripe_customer_id) });
+        return json({ cards: await listCards(row!.stripe_customer_id!) });
       }
       case 'subscribe':
         return json(await subscribe(ctx, body));
@@ -223,6 +343,18 @@ Deno.serve(async (req: Request) => {
         return json(await setRenewal(ctx, false));
       case 'status':
         return json(await status(ctx));
+      case 'promote':
+        return json(await promote(ctx, body));
+      case 'donate':
+        return json(await donate(ctx, body));
+      case 'settle':
+        return json(await settle(ctx, body));
+      case 'payouts':
+        return json(await payouts(ctx));
+      case 'payouts_onboard':
+        return json(await payoutsOnboard(ctx, body));
+      case 'payouts_dashboard':
+        return json(await payoutsDashboard(ctx));
       default:
         return json({ error: 'Unknown action.' }, 400);
     }

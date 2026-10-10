@@ -10,7 +10,8 @@ import { Icon, IconName } from './Icon';
 
 /* ---------- avatar ---------- */
 
-export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null }) {
+/** `ringColors` replaces the green of a 'new' ring: a Plus member's chosen colour (src/lib/styling.ts). */
+export function Avatar({ uri, name, size = 36, ring, ringColors }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[] }) {
   const inner = uri ? (
     <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
   ) : (
@@ -22,7 +23,8 @@ export function Avatar({ uri, name, size = 36, ring }: { uri?: string | null; na
   const pad = 2.5;
   const body = <View style={{ borderRadius: size, borderWidth: 2.5, borderColor: C.bg }}>{inner}</View>;
   if (ring === 'seen') return <View style={{ padding: pad, borderRadius: size, backgroundColor: C.surface2 }}>{body}</View>;
-  const colors = ring === 'close' ? ([CLOSE_RING[0], CLOSE_RING[1]] as const) : ([RING[0], RING[1], RING[2]] as const);
+  const chosen = ring === 'close' ? CLOSE_RING : ringColors && ringColors.length >= 2 ? ringColors : RING;
+  const colors = chosen as unknown as readonly [string, string, ...string[]];
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={{ padding: pad, borderRadius: size }}>
       {body}

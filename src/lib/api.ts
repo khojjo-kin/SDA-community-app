@@ -4,7 +4,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { ActivityRow, AdminStats, BillingStatus, PaymentsConfig, SavedCard, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
+import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, DocumentType, Fundraiser, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -40,7 +40,7 @@ export async function createProfile(row: { id: string; username: string; full_na
   ok(await supabase.from('community_profiles').insert({ avatar_url: '', ...row }));
 }
 
-type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts'>>;
+type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts' | 'streaks_enabled' | 'ring_color' | 'profile_theme'>>;
 
 export async function updateProfile(id: string, patch: ProfilePatch) {
   ok(await supabase.from('community_profiles').update(patch).eq('id', id));
@@ -134,6 +134,47 @@ export function recordProfileView(me: string, profileId: string) {
 export async function fetchProfileViewers(me: string): Promise<ProfileViewer[]> {
   return ok(await supabase.from('community_profile_viewer_cards').select('*').eq('profile_id', me).order('viewed_at', { ascending: false }).limit(200)) ?? [];
 }
+
+/* ---------- discover people ---------- */
+
+/** People you might know: followed by people you follow, people who follow you, then the newest verified accounts. */
+export async function fetchSuggestedPeople(limit = 30): Promise<SuggestedPerson[]> {
+  const rows: SuggestedPerson[] = ok(await supabase.rpc('community_suggested_people', { p_limit: limit })) ?? [];
+  return rows.map((r) => ({ ...r, mutual_avatars: (r.mutual_avatars ?? []).filter(Boolean), mutual_names: r.mutual_names ?? [] }));
+}
+
+/** Stops suggesting someone (the X on a suggestion card). */
+export async function dismissSuggestion(me: string, userId: string) {
+  ok(await supabase.from('community_suggestion_dismissals').upsert({ user_id: me, target_id: userId }, { onConflict: 'user_id,target_id', ignoreDuplicates: true }));
+}
+
+/* ---------- age ---------- */
+
+/** Your birth date as YYYY-MM-DD, or null if you have not given it. Only you (and admins) can read it. */
+export async function fetchBirthDate(me: string): Promise<string | null> {
+  const row: { birth_date: string | null } | null = ok(await supabase.from('community_private_details').select('birth_date').eq('user_id', me).maybeSingle());
+  return row?.birth_date ?? null;
+}
+
+/**
+ * Saves your birth date (YYYY-MM-DD). Once given it can only be changed by support. Under 14, the
+ * account becomes private and the under-14 rules apply.
+ */
+export async function setBirthDate(me: string, isoDate: string) {
+  ok(await supabase.from('community_private_details').upsert({ user_id: me, birth_date: isoDate }, { onConflict: 'user_id' }));
+  announce('profile');
+}
+
+/** Whole years between a YYYY-MM-DD birth date and today. */
+export function ageFrom(isoDate: string, now = new Date()): number {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  let age = now.getFullYear() - y;
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age -= 1;
+  return age;
+}
+
+/** The age below which the restricted experience applies. */
+export const MINOR_AGE = 14;
 
 export async function setBlock(me: string, userId: string, next: boolean) {
   if (next) {
@@ -248,17 +289,47 @@ export async function fetchExplore(before?: string, limit = 30): Promise<Post[]>
   return [...boosted, ...page.filter((p) => !ids.has(p.id))];
 }
 
-/** Plus: puts a post at the top of For you and Explore for `days` days (up to 7). */
-export async function boostPost(id: string, days = 1) {
-  const until = new Date(Date.now() + Math.min(7, Math.max(1, days)) * 86400e3).toISOString();
-  ok(await supabase.from('community_posts').update({ boosted_until: until }).eq('id', id));
-  patchPost(id, { boosted: true, boosted_until: until });
-  announce('feed');
+/* ---------- ads: paid promotion of a post ---------- */
+
+/**
+ * Starts paying to promote one of your posts for `days` days (1 to 30). Confirm the returned client
+ * secret with a card or Apple Pay (see src/lib/payments.ts), then call settlePayment: the post is
+ * then shown as Sponsored at the top of For you and Explore until the days run out.
+ */
+export async function promotePost(postId: string, days: number): Promise<OneOffPayment & { day_pence: number }> {
+  return payments('promote', { post_id: postId, days });
 }
 
-export async function unboostPost(id: string) {
-  ok(await supabase.from('community_posts').update({ boosted_until: null }).eq('id', id));
-  patchPost(id, { boosted: false, boosted_until: null });
+/** After paying for an ad or a donation: the server reads the payment back from Stripe and settles it. */
+export async function settlePayment(paymentIntentId: string): Promise<{ status: string; settled: boolean }> {
+  const r = await payments<{ status: string; settled: boolean }>('settle', { payment_intent_id: paymentIntentId });
+  announce('feed');
+  announce('profile');
+  return r;
+}
+
+/** My ads, newest first, with their posts. */
+export async function myPromotions(me: string): Promise<Promotion[]> {
+  const rows: Promotion[] = ok(await supabase.from('community_promotions').select('*').eq('user_id', me).neq('status', 'pending').order('created_at', { ascending: false }).limit(100)) ?? [];
+  return withPosts(rows);
+}
+
+/** Admins: every ad that has been paid for, newest first. */
+export async function fetchAllPromotions(): Promise<Promotion[]> {
+  const rows: Promotion[] = ok(await supabase.from('community_promotions').select('*').neq('status', 'pending').order('created_at', { ascending: false }).limit(200)) ?? [];
+  return withPosts(rows);
+}
+
+async function withPosts(rows: Promotion[]): Promise<Promotion[]> {
+  const ids = [...new Set(rows.map((r) => r.post_id).filter(Boolean))] as string[];
+  const posts: Post[] = ids.length ? keep(ok(await supabase.from('community_post_cards').select('*').in('id', ids))) : [];
+  return rows.map((r) => ({ ...r, post: posts.find((p) => p.id === r.post_id) ?? null }));
+}
+
+/** Admins only: stops an ad early (the database refuses anyone else). */
+export async function adminEndBoost(postId: string) {
+  ok(await supabase.from('community_posts').update({ boosted_until: null }).eq('id', postId));
+  patchPost(postId, { boosted: false, boosted_until: null });
   announce('feed');
 }
 
@@ -296,11 +367,18 @@ export const fetchSaved = (me: string) => fetchVia('community_saves', me);
 export const fetchLiked = (me: string) => fetchVia('community_likes', me);
 export const fetchReposts = (userId: string) => fetchVia('community_reposts', userId);
 
-export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string }): Promise<void> {
-  const kind = input.media[0]?.type === 'video' ? 'reel' : 'post';
-  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120) }));
+export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string; sensitive?: boolean }): Promise<void> {
+  // A single video is a reel; anything else (photos, or a carousel with a video in it) is a post.
+  const kind = input.media.length === 1 && input.media[0]?.type === 'video' ? 'reel' : 'post';
+  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120), sensitive: !!input.sensitive }));
   announce('feed');
   announce('profile');
+}
+
+/** Marks a post as sensitive (or not): sensitive posts are never shown to members under 14. */
+export async function setPostSensitive(id: string, sensitive: boolean) {
+  ok(await supabase.from('community_posts').update({ sensitive }).eq('id', id));
+  patchPost(id, { sensitive });
 }
 
 export async function deletePost(id: string) {
@@ -741,11 +819,25 @@ export async function fetchChurch(id: string): Promise<Church | null> {
   return ok(await supabase.from('community_churches').select('*').eq('id', id).maybeSingle());
 }
 
-export async function addChurch(me: string, church: Omit<Church, 'id' | 'created_by' | 'created_at'>): Promise<Church> {
+type ChurchInput = Omit<Church, 'id' | 'created_by' | 'created_at' | 'status' | 'reviewed_by' | 'reviewed_at'>;
+
+/** Suggests a church. A member's suggestion waits for an admin (status 'pending'); an admin's goes straight in. */
+export async function addChurch(me: string, church: ChurchInput): Promise<Church> {
   return ok(await supabase.from('community_churches').insert({ ...church, created_by: me }).select('*').single());
 }
 
-export async function updateChurch(id: string, patch: Partial<Omit<Church, 'id' | 'created_by' | 'created_at'>>) {
+/** Admins: churches waiting to be approved, oldest first. */
+export async function fetchPendingChurches(): Promise<(Church & { submitted_by: Profile | null })[]> {
+  const rows: Church[] = ok(await supabase.from('community_churches').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(200)) ?? [];
+  const people = await profilesInOrder([...new Set(rows.map((r) => r.created_by).filter(Boolean))] as string[]);
+  return rows.map((r) => ({ ...r, submitted_by: people.find((p) => p.id === r.created_by) ?? null }));
+}
+
+export async function decideChurch(me: string, id: string, approve: boolean) {
+  ok(await supabase.from('community_churches').update({ status: approve ? 'approved' : 'rejected', reviewed_by: me, reviewed_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function updateChurch(id: string, patch: Partial<ChurchInput>) {
   ok(await supabase.from('community_churches').update(patch).eq('id', id));
 }
 
@@ -794,10 +886,70 @@ export async function requestPlus(me: string, kind: 'verify' | 'plus', note: str
   ok(await supabase.from('community_plus_requests').insert({ user_id: me, kind, note: note.trim().slice(0, 500) }));
 }
 
+/** Private bucket for identity checks: only the member and admins can open these files. */
+export const VERIFICATION_BUCKET = 'community-verification';
+
+/**
+ * Uploads a photo for the identity check (a selfie or a document) to the private bucket and returns
+ * its path there (not a public address). Photos are re-encoded as JPEG, which also drops their location data.
+ */
+export async function uploadVerificationPhoto(me: string, uri: string, which: 'selfie' | 'document', width?: number): Promise<string> {
+  const actions = width && width > 2000 ? [{ resize: { width: 2000 } }] : [];
+  const out = await ImageManipulator.manipulateAsync(uri, actions, { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
+  const path = `${me}/verify-${which}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  ok(await supabase.storage.from(VERIFICATION_BUCKET).upload(path, await readBytes(out.uri), { contentType: 'image/jpeg', upsert: false }));
+  return path;
+}
+
+/** Asks for the blue tick with an identity check. Both photos must be uploaded first. */
+export async function requestVerification(me: string, input: { selfie_path: string; document_path: string; document_type: DocumentType; legal_name: string; note?: string }) {
+  ok(
+    await supabase.from('community_plus_requests').insert({
+      user_id: me,
+      kind: 'verify',
+      note: (input.note ?? '').trim().slice(0, 500),
+      selfie_path: input.selfie_path,
+      document_path: input.document_path,
+      document_type: input.document_type,
+      legal_name: input.legal_name.trim().slice(0, 120),
+    }),
+  );
+}
+
+/** Admins: a short-lived address to look at an identity photo. */
+export async function verificationFileUrl(path: string): Promise<string> {
+  const res = await supabase.storage.from(VERIFICATION_BUCKET).createSignedUrl(path, 600);
+  if (res.error) throw res.error;
+  return res.data.signedUrl;
+}
+
 /* ---------- admin ---------- */
 
 export async function fetchAdminStats(): Promise<AdminStats> {
   return ok(await supabase.rpc('community_admin_stats'));
+}
+
+/** What is waiting for the admins: churches to approve, identity checks, running ads and fundraisers. */
+export async function fetchAdminQueue(): Promise<AdminQueue> {
+  return ok(await supabase.rpc('community_admin_queue'));
+}
+
+/* Offensive words: masked with asterisks in comments and captions by the database as they are written. */
+
+export async function fetchBlockedWords(): Promise<string[]> {
+  const rows: { word: string }[] = ok(await supabase.from('community_blocked_words').select('word').order('word').limit(2000)) ?? [];
+  return rows.map((r) => r.word);
+}
+
+/** Lowercase letters and digits, 2 to 30 long; anything else is refused by the database. */
+export async function addBlockedWord(word: string) {
+  const w = word.trim().toLowerCase();
+  if (!/^[a-z0-9]{2,30}$/.test(w)) throw new Error('Use one word of 2 to 30 letters or digits, no spaces.');
+  ok(await supabase.from('community_blocked_words').upsert({ word: w }, { onConflict: 'word', ignoreDuplicates: true }));
+}
+
+export async function removeBlockedWord(word: string) {
+  ok(await supabase.from('community_blocked_words').delete().eq('word', word));
 }
 
 export async function fetchReports(status: 'open' | 'all' = 'open'): Promise<ReportCard[]> {
@@ -827,8 +979,10 @@ export async function adminSetAccount(id: string, patch: { verified?: boolean; p
   announce('profile');
 }
 
-export async function fetchPlusRequests(): Promise<PlusRequest[]> {
-  const rows: PlusRequest[] = ok(await supabase.from('community_plus_requests').select('*').eq('status', 'pending').order('created_at')) ?? [];
+export async function fetchPlusRequests(kind?: PlusRequest['kind']): Promise<PlusRequest[]> {
+  let q = supabase.from('community_plus_requests').select('*').eq('status', 'pending').order('created_at');
+  if (kind) q = q.eq('kind', kind);
+  const rows: PlusRequest[] = ok(await q) ?? [];
   if (!rows.length) return [];
   const people = await profilesInOrder([...new Set(rows.map((r) => r.user_id))]);
   return rows.map((r) => {
@@ -837,17 +991,22 @@ export async function fetchPlusRequests(): Promise<PlusRequest[]> {
   });
 }
 
-/** Approving grants what was asked for; a Plus approval also gives the tick, for the month. */
+/**
+ * Approving grants what was asked for: the tick for an identity check, a month of Plus for a Plus
+ * request (Plus never brings the tick with it). The identity photos are deleted once decided.
+ */
 export async function decidePlusRequest(me: string, req: PlusRequest, approve: boolean) {
   if (approve) {
     if (req.kind === 'verify') await adminSetAccount(req.user_id, { verified: true });
     else {
       const until = new Date();
       until.setMonth(until.getMonth() + 1);
-      await adminSetAccount(req.user_id, { verified: true, plus_until: until.toISOString() });
+      await adminSetAccount(req.user_id, { plus_until: until.toISOString() });
     }
   }
   ok(await supabase.from('community_plus_requests').update({ status: approve ? 'approved' : 'declined', decided_by: me, decided_at: new Date().toISOString() }).eq('id', req.id));
+  const files = [req.selfie_path, req.document_path].filter(Boolean);
+  if (files.length) await supabase.storage.from(VERIFICATION_BUCKET).remove(files).catch(() => null);
   // Plus activated: one line in the books, which the admin can correct in Transactions.
   if (approve && req.kind === 'plus') addTransaction(me, { user_id: req.user_id, kind: 'plus', amount_pence: PLUS_PRICE_PENCE, note: 'Community Plus, 1 month' }).catch(() => {});
 }
@@ -1202,3 +1361,74 @@ export const resumeSubscription = () => payments<BillingStatus>('resume');
 export async function myTransactions(me: string): Promise<Transaction[]> {
   return ok(await supabase.from('community_transaction_cards').select('*').eq('user_id', me).order('created_at', { ascending: false }).limit(50)) ?? [];
 }
+
+/* ---------- fundraisers ---------- */
+
+export async function fetchFundraiser(id: string): Promise<Fundraiser | null> {
+  return ok(await supabase.from('community_fundraiser_cards').select('*').eq('id', id).maybeSingle());
+}
+
+/** A member's fundraisers, running ones first, newest first. */
+export async function fetchUserFundraisers(userId: string): Promise<Fundraiser[]> {
+  const rows: Fundraiser[] = ok(await supabase.from('community_fundraiser_cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50)) ?? [];
+  return rows.sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'));
+}
+
+/** Admins: every fundraiser, newest first. */
+export async function fetchAllFundraisers(): Promise<Fundraiser[]> {
+  return ok(await supabase.from('community_fundraiser_cards').select('*').order('created_at', { ascending: false }).limit(200)) ?? [];
+}
+
+export type FundraiserInput = { title: string; description: string; goal_pence: number; cover_url?: string; ends_at?: string | null; currency?: string };
+
+/** Starts a fundraiser on your profile. Members under 14 cannot. Donations need a payout account (startPayoutsOnboarding). */
+export async function createFundraiser(me: string, input: FundraiserInput): Promise<string> {
+  const row: { id: string } = ok(
+    await supabase
+      .from('community_fundraisers')
+      .insert({ user_id: me, title: input.title.trim().slice(0, 80), description: input.description.trim().slice(0, 2000), goal_pence: Math.round(input.goal_pence), cover_url: input.cover_url ?? '', ends_at: input.ends_at ?? null, currency: (input.currency ?? 'GBP').toUpperCase() })
+      .select('id')
+      .single(),
+  );
+  announce('profile');
+  return row.id;
+}
+
+export async function updateFundraiser(id: string, patch: Partial<FundraiserInput> & { status?: 'active' | 'closed' }) {
+  const clean: Record<string, unknown> = { ...patch };
+  if (typeof patch.title === 'string') clean.title = patch.title.trim().slice(0, 80);
+  if (typeof patch.description === 'string') clean.description = patch.description.trim().slice(0, 2000);
+  if (typeof patch.goal_pence === 'number') clean.goal_pence = Math.round(patch.goal_pence);
+  ok(await supabase.from('community_fundraisers').update(clean).eq('id', id));
+  announce('profile');
+}
+
+export const closeFundraiser = (id: string) => updateFundraiser(id, { status: 'closed' });
+
+export async function deleteFundraiser(id: string) {
+  ok(await supabase.from('community_fundraisers').delete().eq('id', id));
+  announce('profile');
+}
+
+/** Recent gifts, newest first. Anonymous givers are not named. */
+export async function fetchSupporters(fundraiserId: string, limit = 30): Promise<Supporter[]> {
+  return ok(await supabase.rpc('community_fundraiser_supporters', { fid: fundraiserId, p_limit: limit })) ?? [];
+}
+
+/**
+ * Starts a donation (£1 to £10,000): the whole amount goes to the fundraiser's owner, the app takes
+ * nothing. Confirm the client secret with a card or Apple Pay, then call settlePayment.
+ */
+export async function startDonation(fundraiserId: string, amountPence: number, message = '', anonymous = false): Promise<OneOffPayment> {
+  return payments('donate', { fundraiser_id: fundraiserId, amount_pence: Math.round(amountPence), message, anonymous });
+}
+
+/* Payouts: each fundraiser's owner receives donations into their own Stripe account. */
+
+export const fetchPayouts = () => payments<PayoutStatus>('payouts');
+
+/** The address of Stripe's form for setting up (or finishing) a payout account. Open it in the in-app browser; it returns to community://payouts. */
+export const startPayoutsOnboarding = (country?: string) => payments<{ url: string }>('payouts_onboard', country ? { country } : {}).then((r) => r.url);
+
+/** The address of the member's Stripe Express dashboard (payouts, bank details, tax forms). */
+export const openPayoutsDashboard = () => payments<{ url: string }>('payouts_dashboard').then((r) => r.url);

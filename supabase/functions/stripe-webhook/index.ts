@@ -1,11 +1,12 @@
-// Stripe's calls back to the app: renewals, failed payments, cancellations and refunds.
+// Stripe's calls back to the app: renewals, failed payments, cancellations, refunds, and one-off
+// payments for ads and donations.
 //
 // Registered by the payments function the first time it runs with the Stripe keys in place; the
 // signing secret is kept in community_secrets. Stripe sends no session token, so this function is
 // deployed with JWT checking off and instead checks Stripe's signature on every request.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { applySubscription, json, stripe } from '../_shared/billing.ts';
+import { applySubscription, json, settlePaymentIntent, stripe } from '../_shared/billing.ts';
 
 /** How old a signed request may be, against replays. */
 const TOLERANCE_S = 300;
@@ -77,10 +78,22 @@ Deno.serve(async (req: Request) => {
         if (user) await applySubscription(db, user, event.type === 'customer.subscription.deleted' ? obj : await freshSubscription(obj.id));
         break;
       }
+      case 'payment_intent.succeeded':
+      case 'payment_intent.payment_failed': {
+        await settlePaymentIntent(db, obj);
+        break;
+      }
       case 'charge.refunded': {
         const user = await memberFor(db, obj.customer);
         if (!user || !obj.payment_intent) break;
         await db.from('community_transactions').update({ status: 'refunded' }).eq('stripe_payment_intent_id', obj.payment_intent);
+        // A refunded ad stops running; a refunded gift stops counting towards the total.
+        const { data: promo } = await db.from('community_promotions').select('id, post_id').eq('payment_intent_id', obj.payment_intent).maybeSingle();
+        if (promo) {
+          await db.from('community_promotions').update({ status: 'refunded', ends_at: new Date().toISOString() }).eq('id', promo.id);
+          if (promo.post_id) await db.from('community_posts').update({ boosted_until: null }).eq('id', promo.post_id);
+        }
+        await db.from('community_donations').update({ status: 'refunded' }).eq('payment_intent_id', obj.payment_intent);
         // The refund is its own line on the books, recorded once however often Stripe repeats it.
         await db.from('community_transactions').upsert(
           {
@@ -88,7 +101,7 @@ Deno.serve(async (req: Request) => {
             kind: 'refund',
             amount_pence: -Math.abs(obj.amount_refunded ?? 0),
             currency: String(obj.currency ?? 'gbp').toUpperCase(),
-            note: 'Community Plus · refund',
+            note: 'Refund',
             provider: 'stripe',
             status: 'succeeded',
             method: obj.payment_method_details?.card ? `${obj.payment_method_details.card.brand ?? 'Card'} •••• ${obj.payment_method_details.card.last4 ?? ''}`.slice(0, 60) : '',

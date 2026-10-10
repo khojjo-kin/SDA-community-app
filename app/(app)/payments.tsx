@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Icon, VerifiedTick } from '../../src/components/Icon';
+import { Icon } from '../../src/components/Icon';
 import { Empty, ErrorNote, Loading, Screen, ScreenHeader } from '../../src/components/ui';
 import { myTransactions } from '../../src/lib/api';
 import { money } from '../../src/lib/payments';
@@ -9,7 +9,7 @@ import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { Transaction } from '../../src/lib/types';
 
-const KIND_LABEL: Record<Transaction['kind'], string> = { plus: 'Community Plus', refund: 'Refund', donation: 'Donation', other: 'Payment' };
+const KIND_LABEL: Record<Transaction['kind'], string> = { plus: 'Community Plus', refund: 'Refund', donation: 'Donation', other: 'Payment', ad: 'Ad' };
 
 /** "9 Oct" this year, "9 Oct 2025" otherwise. */
 function when(iso: string): string {
@@ -75,7 +75,7 @@ export default function Payments() {
                 accessibilityLabel={`${label}, ${money(amount, t.currency)}, ${method}, ${when(t.created_at)}${t.status === 'refunded' ? ', refunded' : t.status === 'failed' ? ', failed' : ''}`}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.kind === 'plus' ? 'rgba(61,139,255,0.14)' : C.surface, alignItems: 'center', justifyContent: 'center' }}>
-                  {t.kind === 'plus' && !refund ? <VerifiedTick size={22} /> : <Icon name={refund ? 'undo' : t.kind === 'donation' ? 'heart' : 'receipt'} size={21} color={C.fg2} />}
+                  {t.kind === 'plus' && !refund ? <Icon name="crown" size={21} color={C.close} weight={2.1} /> : <Icon name={refund ? 'undo' : t.kind === 'donation' ? 'gift' : t.kind === 'ad' ? 'megaphone' : 'receipt'} size={21} color={C.fg2} />}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
