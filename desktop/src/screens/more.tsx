@@ -11,6 +11,7 @@ import { useMe } from '../lib/me';
 import { parts, useRoute } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, type IconName, Link, Spinner, useLoad } from '../ui/kit';
 import { Tile } from '../ui/post';
+import { LIST_SOURCE, gridIds } from '../ui/post-data';
 
 /* ---------- settings (in settings-frame.tsx) ---------- */
 
@@ -37,7 +38,7 @@ const ACTIVITY: { group: string; items: { id: string; label: string; icon: IconN
 ];
 
 /** Your activity: the same two-column layout as Settings, with likes, comments and account history. */
-export function Activity({ openPost }: { openPost: (id: string) => void }) {
+export function Activity({ openPost }: { openPost: (id: string, list?: string[]) => void }) {
   const { me } = useMe();
   const route = useRoute();
   const asked = parts(route)[1];
@@ -67,15 +68,18 @@ export function Activity({ openPost }: { openPost: (id: string) => void }) {
   );
 }
 
-function LikedPosts({ openPost }: { openPost: (id: string) => void }) {
+function LikedPosts({ openPost }: { openPost: (id: string, list?: string[]) => void }) {
   const { me } = useMe();
   const likes = useLoad<Post[]>(() => fetchLiked(me.id), []);
+  // The post dialog steps through the liked posts; a liked Short opens the Shorts player with the others.
+  const all = likes.data ?? [];
+  const ids = gridIds(all, me);
   return (
     <div className="st-page wide">
       <h1 className="st-title">Likes</h1>
       <p className="st-intro">Posts and Shorts you've liked, newest first. Only you can see this.</p>
-      {likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : likes.data?.length ? (
-        <div className="grid st-activity-grid">{likes.data.map((p) => <Tile key={p.id} post={p} onOpen={openPost} />)}</div>
+      {likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : all.length ? (
+        <div className="grid st-activity-grid">{all.map((p) => <Tile key={p.id} post={p} onOpen={(id) => openPost(id, ids)} grid={all} source={LIST_SOURCE} />)}</div>
       ) : (
         <Empty icon="heart" title="No likes yet" body="Posts you like appear here." />
       )}

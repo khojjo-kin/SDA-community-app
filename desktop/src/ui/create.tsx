@@ -1,16 +1,19 @@
 // Instagram's "Create new post" dialog: drag in or choose photos or a video, crop, apply a filter,
 // then the caption and everything else a post can carry (create-details.tsx), and share. Also makes
-// a Short (one video) and shares a photo or video to your story. Uploads and posting go through the
-// same functions as the iPhone app.
+// a Short (one video) and shares a photo or video to your story. A post can go into a community or
+// page (Post to; a group's own Post button arrives as request.groupId) and carry a song from Pod.
+// Uploads and posting go through the same functions as the iPhone app.
 import React, { useEffect, useRef, useState } from 'react';
 import { addStory, createPost, uploadImage, uploadVideo } from 'shared/api';
 import { ADJUST_KEYS, type Adjust, DEFAULT_ADJUST, FILTERS, isPlainLook, lookMatrix } from 'shared/filters';
-import type { Audience, StoryItem } from 'shared/types';
+import { errText } from 'shared/theme';
+import type { Audience, Media, StoryItem } from 'shared/types';
 import '../styles/posts.css';
 import { rememberSize } from '../shims/expo-file-system';
+import type { CreateRequest } from '../lib/create';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { DetailsPanel, type Extras, NO_EXTRAS, cleanPoll } from './create-details';
+import { DetailsPanel, type Extras, NO_EXTRAS, cleanPoll, placeRules } from './create-details';
 import { Avatar, Icon, Modal, Spinner, ask, toast, toastError } from './kit';
 import type { AltMedia } from './post-data';
 
@@ -138,12 +141,17 @@ function DropZone({ onFiles, accept, title, multiple = true }: { onFiles: (files
 
 type Mode = 'post' | 'story' | 'short';
 
+/** A post's first photo or video, as a story (the iPhone's storyOf in app/(app)/create.tsx). */
+function storyOf(m: Media, duration?: number): StoryItem {
+  return m.type === 'video' ? { url: m.url, type: 'video', w: m.w, h: m.h, poster: m.poster, duration } : { url: m.url, type: 'image', w: m.w, h: m.h };
+}
+
 /**
  * Create: a post (up to 10 photos, or one video), a Short (one video), or a story. Choose, crop,
  * edit the photos, then add the caption and the rest, and share. `start` is what the Create menu
  * chose: Post, Story or Short.
  */
-export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void; start?: Mode }) {
+export function CreateDialog({ onClose, start = 'post', request }: { onClose: () => void; start?: Mode; request?: CreateRequest }) {
   const { me } = useMe();
   const mode: Mode = start;
   const [items, setItems] = useState<Picked[]>([]);
@@ -155,7 +163,8 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
   const [audience, setAudience] = useState<Audience>('everyone');
-  const [extras, setExtras] = useState<Extras>(NO_EXTRAS);
+  // A group's Post button asks for a post in that group: it starts chosen under Post to.
+  const [extras, setExtras] = useState<Extras>(() => ({ ...NO_EXTRAS, groupId: request?.groupId ?? null }));
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
 
@@ -192,10 +201,22 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
     }
   };
 
+  // Asking "Discard post?" now: Escape on that question answers it, rather than asking again.
+  const asking = useRef(false);
   const close = async () => {
-    if (items.length && !busy && !(await ask(mode === 'story' ? 'Discard story?' : 'Discard post?', "If you leave, your edits won't be saved.", 'Discard'))) return;
+    if (asking.current) return;
+    if (items.length && !busy) {
+      asking.current = true;
+      const leave = await ask(mode === 'story' ? 'Discard story?' : 'Discard post?', "If you leave, your edits won't be saved.", 'Discard');
+      asking.current = false;
+      if (!leave) return;
+    }
     if (!busy) onClose();
   };
+  // The dialog keeps the Escape handler it was opened with, so it calls the latest close through this
+  // (otherwise Escape would close without asking once photos are chosen).
+  const latestClose = useRef(close);
+  latestClose.current = close;
 
   const ratio = CROPS.find((c) => c.id === crop)?.r ?? (items[0] ? Math.min(1.91, Math.max(0.8, items[0].w / items[0].h)) : 1);
   const current = items[at];
@@ -244,26 +265,38 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
         }
       }
       setBusy('Sharing');
+      const rules = placeRules(extras, me);
       await createPost(me.id, {
         caption,
         media,
+        // Your profile, or the community or page chosen under Post to.
+        group_id: extras.groupId,
+        audio_id: extras.song?.id ?? null,
         location,
         sensitive: extras.sensitive,
-        // Only creators who offer a subscription can keep a post for their subscribers.
-        audience: me.sub_price_pence && extras.subscribersOnly ? 'subscribers' : 'everyone',
+        // Only creators who offer a subscription can keep a post for their subscribers (on their own profile).
+        audience: rules.canLimit && extras.subscribersOnly ? 'subscribers' : 'everyone',
         kind: isShort ? 'reel' : 'post',
         tagged_ids: extras.tagged.map((p) => p.id),
         ai_label: extras.ai,
         // Plus only: the server refuses it otherwise.
-        profile_only: !!me.plus && extras.profileOnly,
+        profile_only: rules.canProfileOnly && extras.profileOnly,
         hide_likes: extras.hideLikes,
         comments_off: extras.commentsOff,
         prompt: (extras.prompt ?? '').trim(),
         poll: cleaned.poll,
       });
       toast(isShort ? 'Your Short has been shared.' : 'Your post has been shared.');
+      // "Also share to your story": the first photo or video, once the post is live.
+      if (extras.toStory && rules.canStory && media[0]) {
+        try {
+          await addStory(me.id, storyOf(media[0], items[0]?.duration));
+        } catch (e) {
+          toast(`Your post is live, but it wasn't added to your story. ${errText(e)}`);
+        }
+      }
       onClose();
-      nav('/u/' + me.username + (isShort ? '/shorts' : ''));
+      nav(extras.groupId ? '/groups/' + extras.groupId : '/u/' + me.username + (isShort ? '/shorts' : ''));
     } catch (e) {
       toastError(e);
       setErr('');
@@ -306,7 +339,7 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   // A story and a Short are tall; a post shows in the shape it was cropped to.
   const tall = mode === 'story' || (isShort && step === 'details');
   return (
-    <Modal onClose={close} bare className={'create-dialog pp-create' + (step === 'details' || step === 'edit' ? ' wide' : '')}>
+    <Modal onClose={() => latestClose.current()} bare className={'create-dialog pp-create' + (step === 'details' || step === 'edit' ? ' wide' : '')}>
       {header}
       {step === 'pick' ? (
         <DropZone

@@ -41,6 +41,8 @@ export const ext: Ext = {
       post('pp_tags', 'u_ruth', [img(p04), img(p10)], 'Garden club harvest with the best helpers 🌱 Swipe for the beans!', 18, 92, {
         tagged_ids: ['demo_me', 'u_grace', 'u_esther'],
         location: 'Church garden',
+        // A song from Pod goes with it (Create → Add music).
+        audio_id: 'pod1',
       }),
       post('pp_subs', 'u_grace', [img(p11, 720, 900)], 'Rehearsal notes for this month: the alto line for "It Is Well", bar by bar. Thank you for supporting the choir!', 20, 41, {
         audience: 'subscribers',
@@ -78,6 +80,8 @@ export const ext: Ext = {
           .map((p) => {
             const card = postCard(p);
             const group = p.group_id ? T('community_groups').find((g) => g.id === p.group_id) : null;
+            // As the real view: a post's song is read from Pod by its audio_id.
+            const song = p.audio_id ? T('community_pod_items').find((s) => s.id === p.audio_id) : null;
             return {
               ...card,
               // As the real view: boosted while the paid days last.
@@ -85,6 +89,10 @@ export const ext: Ext = {
               group_name: group?.name ?? card.group_name ?? null,
               group_kind: group?.kind ?? card.group_kind ?? null,
               in_my_group: group ? T('community_group_members').some((m) => m.group_id === group.id && m.user_id === me() && m.status === 'member') : !!card.in_my_group,
+              audio_id: song ? song.id : null,
+              audio_title: song?.title ?? null,
+              audio_artist: song?.artist ?? null,
+              audio_url: song?.audio_url ?? null,
             };
           })
       );

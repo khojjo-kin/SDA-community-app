@@ -2,7 +2,11 @@
 // for subscribers, sensitive posts, Sponsored posts, the "…" menu (hide like count, commenting,
 // edit, promote with the demo payment, report with the copyright reason), the grid tiles, and
 // the composer (a post with a tag, a poll, a prompt and the AI label; a Short from a video).
-// Usage: node tests/posts.test.cjs http://127.0.0.1:8802/ [screenshot dir]
+// Then the grid update from the iPhone's v21: the post dialog's arrows and ←/→ through Explore and a
+// profile (stopping at the ends), a Short's tile opening the Shorts player at it, "Comment…", Share
+// with Add to story, a song on a post, the Shorts settings (muted, captions), the sensitive filter
+// on Explore and For you, posting into a community with a song, and the empty tabs' writing.
+// Usage: node tests/posts.test.cjs http://127.0.0.1:8803/ [screenshot dir]
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -261,6 +265,204 @@ function sampleVideo() {
     await page.locator('.tile[data-post="p2"]').hover();
     check('hover counts show likes and comments otherwise', (await page.locator('.tile[data-post="p2"] .tile-hover span').count()) === 2);
 
+    /* ---------- stepping through a grid in the post dialog ---------- */
+    const shown = () => page.locator('.post-dialog .post-dialog-body').getAttribute('data-post');
+    const arrows = async () => [await page.locator('.pp-step.left').count(), await page.locator('.pp-step.right').count()].join();
+    // Explore: the dialog steps through the mosaic in its order.
+    const mosaic = await page.locator('.mosaic .tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-post')));
+    const at = mosaic.indexOf('p2');
+    await page.locator('.tile[data-post="p2"]').click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    await wait(300);
+    check('Explore: a photo opens in the dialog with arrows either side', (await shown()) === 'p2' && (await arrows()) === '1,1', await arrows());
+    await shot('posts-20-dialog-arrows-dark');
+    await page.locator('.pp-step.right').click();
+    await wait(300);
+    check('the right arrow moves to the next post in the mosaic', (await shown()) === mosaic[at + 1], (await shown()) + ' vs ' + mosaic[at + 1]);
+    await page.keyboard.press('ArrowLeft');
+    await wait(300);
+    check('← goes back to the previous one', (await shown()) === 'p2');
+    await page.keyboard.press('ArrowRight');
+    await wait(300);
+    check('→ goes to the next one', (await shown()) === mosaic[at + 1]);
+    await page.locator('.post-dialog').getByLabel('Add a comment').fill('typing');
+    await page.locator('.post-dialog').getByLabel('Add a comment').press('ArrowLeft');
+    await wait(200);
+    check('arrows in a comment being written move the cursor, not the post', (await shown()) === mosaic[at + 1]);
+    await page.locator('.post-dialog').getByLabel('Add a comment').fill('');
+    await page.keyboard.press('Escape');
+    await wait(300);
+    // The first and last posts of the mosaic: no arrow beyond the ends.
+    await page.locator(`.tile[data-post="${mosaic[0]}"]`).click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    await wait(300);
+    check('the first post has no previous arrow', (await arrows()) === '0,1');
+    await page.keyboard.press('ArrowLeft');
+    await wait(300);
+    check('and ← does nothing there', (await shown()) === mosaic[0]);
+    await page.keyboard.press('Escape');
+    await wait(300);
+    const lastPhoto = [...mosaic].reverse().find((id) => !id.startsWith('r'));
+    await page.locator(`.tile[data-post="${lastPhoto}"]`).scrollIntoViewIfNeeded();
+    await page.locator(`.tile[data-post="${lastPhoto}"]`).click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    await wait(300);
+    if (lastPhoto === mosaic[mosaic.length - 1]) {
+      check('the last post has no next arrow', (await arrows()) === '1,0');
+      await page.keyboard.press('ArrowRight');
+      await wait(300);
+      check('and → does nothing there', (await shown()) === lastPhoto);
+    }
+    await page.keyboard.press('Escape');
+    await wait(300);
+
+    // My profile: the grid's posts, newest first.
+    await goto('/u/you');
+    await page.waitForSelector('.prof-grid .tile');
+    const mineGrid = await page.locator('.prof-grid .tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-post')));
+    await page.locator('.prof-grid .tile').first().click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    await wait(300);
+    check('my profile: the first post opens with only a next arrow', (await shown()) === mineGrid[0] && (await arrows()) === '0,1', await arrows());
+    check('the comment box says "Comment…"', (await page.locator('.post-dialog').getByLabel('Add a comment').getAttribute('placeholder')) === 'Comment…');
+    // The comment box has the cursor when the dialog opens; with nothing typed, → still steps.
+    await page.keyboard.press('ArrowRight');
+    await wait(300);
+    check('→ steps through my grid', (await shown()) === mineGrid[1]);
+    check('the last of my posts has only a previous arrow', mineGrid.length !== 2 || (await arrows()) === '1,0', await arrows());
+    await page.locator('.pp-step.left').click();
+    await wait(300);
+    check('the left arrow steps back', (await shown()) === mineGrid[0]);
+    await page.keyboard.press('Escape');
+    await wait(300);
+
+    /* ---------- a Short's tile opens the Shorts player at it ---------- */
+    await goto('/explore');
+    await page.waitForSelector('.mosaic .tile');
+    const inView = () => page.locator('.sh-list').evaluate((list) => [...list.querySelectorAll('.sh-item')].find((el) => Math.abs(el.offsetTop - list.scrollTop) < 4)?.getAttribute('aria-label') ?? '');
+    await page.locator('.tile[data-post="r2"]').click();
+    await page.waitForFunction(() => location.hash === '#/shorts/r2', null, { timeout: 5000 }).catch(() => {});
+    await page.waitForSelector('.sh-item[aria-label]');
+    await wait(600);
+    check('a Short in Explore opens /shorts/<id>', (await page.evaluate(() => location.hash)) === '#/shorts/r2');
+    check('the player starts at that Short', (await inView()) === 'Short by daniel_owusu', await inView());
+    check("with Explore's other Shorts round it", (await page.locator('.sh-item').count()) === 2 && !(await page.getByRole('button', { name: 'Previous Short' }).isDisabled()));
+    const daniel = page.locator('.sh-item[aria-label="Short by daniel_owusu"]');
+    check('a Short shows how many have watched it, and can be reposted (as on the iPhone)', /\d views$/.test(await daniel.locator('.pp-short-meta').innerText()) && (await daniel.getByRole('button', { name: 'Repost', exact: true }).count()) === 1);
+    await daniel.getByRole('button', { name: 'Repost', exact: true }).click();
+    await wait(300);
+    check('Repost on a Short reposts it', (await daniel.getByRole('button', { name: 'Undo repost' }).count()) === 1);
+    await daniel.getByRole('button', { name: 'Undo repost' }).click();
+    await page.locator('.sh-item[aria-label="Short by daniel_owusu"]').getByRole('button', { name: 'Comments' }).click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    check("a Short's comments say \"Comment…\" too", (await page.locator('.post-dialog').getByLabel('Add a comment').getAttribute('placeholder')) === 'Comment…');
+    await page.keyboard.press('Escape');
+    await wait(300);
+    await shot('posts-21-short-from-grid-dark');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await wait(700);
+    check('Back returns to where it was opened from', (await page.evaluate(() => location.hash)) === '#/explore');
+    // From a profile's Shorts tab.
+    await goto('/u/samuel_boateng/shorts');
+    await page.waitForSelector('.prof-short');
+    await page.locator('.prof-short').first().click();
+    await page.waitForSelector('.sh-item[aria-label]');
+    await wait(500);
+    check("a profile's Short opens the player at it", (await page.evaluate(() => location.hash)) === '#/shorts/r1' && (await inView()) === 'Short by samuel_boateng');
+    // A link to a Short (nothing remembered): that Short, then the usual Shorts.
+    await page.evaluate(() => (location.hash = '#/shorts/r2'));
+    await page.reload();
+    await page.waitForSelector('.sh-item[aria-label]');
+    await wait(600);
+    check('a link to a Short starts at it and carries on with the Shorts feed', (await inView()) === 'Short by daniel_owusu' && (await page.locator('.sh-item').count()) === 2);
+    await goto('/shorts/nope');
+    await page.waitForSelector('.sh-list .empty');
+    check('a Short that is gone says so', (await page.locator('.sh-list .empty h2').innerText()) === "This Short isn't available");
+
+    /* ---------- "Comment…" and Share → Add to story ---------- */
+    await goto('/');
+    await page.waitForSelector('.feed-post');
+    await wait(500);
+    check('the feed comment box says "Comment…"', (await page.locator('.feed-post').first().getByLabel('Add a comment').getAttribute('placeholder')) === 'Comment…');
+    await page.evaluate(() => {
+      window.__creates = [];
+      window.addEventListener('community:create', (e) => window.__creates.push(e.detail));
+    });
+    const garden = card('pp_tags');
+    await garden.scrollIntoViewIfNeeded();
+    await garden.getByRole('button', { name: 'Share' }).click();
+    await page.waitForSelector('.pp-share-actions');
+    check('Share offers Copy link, Add to story and Repost', (await page.locator('.pp-share-act').allInnerTexts()).map((t) => t.trim()).join() === 'Copy link,Add to story,Repost');
+    await shot('posts-22-share-dark');
+    await page.locator('.pp-share-act', { hasText: 'Add to story' }).click();
+    await wait(500);
+    const asked = await page.evaluate(() => window.__creates);
+    check('Add to story asks Create for a story with the post', asked.length === 1 && asked[0].mode === 'story' && asked[0].sharePostId === 'pp_tags', JSON.stringify(asked));
+    check('and the share dialog closes', (await page.locator('.pp-share-actions').count()) === 0);
+    await page.keyboard.press('Escape');
+    await wait(300);
+    await garden.getByRole('button', { name: 'Share' }).click();
+    await page.locator('.pp-share-act', { hasText: 'Copy link' }).click();
+    await wait(400);
+    check('Copy link copies the post link', (await page.locator('.toast', { hasText: 'Link copied' }).count()) >= 1);
+    await garden.getByRole('button', { name: 'Share' }).click();
+    await page.getByLabel('Search people').fill('esther');
+    await page.waitForSelector('.share .row:has-text("esther_adjei")');
+    check('Share finds people to send to by name', (await page.locator('.share .row', { hasText: 'esther_adjei' }).count()) === 1);
+    await page.keyboard.press('Escape');
+    await wait(300);
+
+    /* ---------- the song with a post ---------- */
+    check('a post with a song names it under the author', (await garden.locator('.pp-song').innerText()).includes('Morning Hymn (sample) · Hillside Choir'));
+    await garden.locator('.pp-song').click();
+    await page.waitForSelector('.now-playing', { timeout: 4000 }).catch(() => {});
+    check('clicking the song plays it in the player', (await page.locator('.now-playing').innerText().catch(() => '')).includes('Morning Hymn'));
+    await page.getByRole('button', { name: 'Close player' }).click().catch(() => {});
+
+    /* ---------- the Shorts settings ---------- */
+    const prefs = (p) => page.evaluate((x) => localStorage.setItem('community.prefs', JSON.stringify(x)), p);
+    await prefs({ reelsMuted: true, captions: false });
+    await page.evaluate(() => (location.hash = '#/shorts'));
+    await page.reload();
+    await page.waitForSelector('.sh-item .sh-mute');
+    await wait(500);
+    const firstShort = page.locator('.sh-item').first();
+    check('Shorts start muted when the setting says so', (await firstShort.locator('.sh-mute').getAttribute('aria-label')) === 'Turn sound on' && (await firstShort.locator('video').evaluate((v) => v.muted)));
+    check('captions stay off when they are switched off', (await firstShort.locator('.sh-line').count()) === 0 && (await firstShort.getByRole('switch', { name: 'Captions' }).getAttribute('aria-checked')) === 'false');
+    await firstShort.locator('.sh-mute').click();
+    await wait(300);
+    check('the sound button changes the setting for every Short', (await page.evaluate(() => JSON.parse(localStorage.getItem('community.prefs')).reelsMuted)) === false && (await firstShort.locator('.sh-mute').getAttribute('aria-label')) === 'Turn sound off');
+    await firstShort.getByRole('switch', { name: 'Captions' }).click();
+    await wait(300);
+    check('CC turns captions on and keeps it', (await page.evaluate(() => JSON.parse(localStorage.getItem('community.prefs')).captions)) === true && (await firstShort.locator('.sh-line').count()) === 1);
+    await prefs({});
+
+    /* ---------- the member's topics and sensitive filter ---------- */
+    await goto('/accounts/content');
+    const less = page.getByRole('radio', { name: /^Less/ });
+    if (!(await less.count())) console.log('SKIP Content preferences (the Settings page has no "Less" choice)');
+    else {
+      await less.first().check();
+      await wait(600);
+      await goto('/explore');
+      await page.waitForSelector('.mosaic .tile');
+      check('Explore leaves sensitive posts out when the member asks for less', (await page.locator('.tile[data-post="pp_sensitive"]').count()) === 0);
+      await goto('/');
+      await page.getByRole('tab', { name: 'For you' }).click();
+      await page.waitForSelector('.feed-post');
+      await wait(600);
+      check('so does For you', (await page.locator('.feed-post[data-post="pp_sensitive"]').count()) === 0);
+      await page.getByRole('tab', { name: 'Following' }).click();
+      await wait(600);
+      check('Following is left as it is', (await page.locator('.feed-post[data-post="pp_sensitive"]').count()) === 1);
+      await goto('/accounts/content');
+      await page.getByRole('radio', { name: /^Standard/ }).first().check();
+      await wait(600);
+      await goto('/explore');
+      await page.waitForSelector('.mosaic .tile');
+      check('and they come back with Standard', (await page.locator('.tile[data-post="pp_sensitive"]').count()) === 1);
+    }
+
     /* ---------- the composer: a post with a tag, a poll, a prompt and the AI label ---------- */
     await goto('/');
     await page.waitForSelector('.feed-post');
@@ -392,6 +594,78 @@ function sampleVideo() {
       check('and shows in Shorts', (await page.locator('.reel').count()) === 3, await page.locator('.reel').count());
     }
 
+    /* ---------- Create: post into a community, with a song ---------- */
+    const toDetails = async (file) => {
+      await page.waitForSelector('.pp-dropzone');
+      await page.setInputFiles('[data-testid=create-files]', [path.join(MEDIA, file)]);
+      await page.waitForSelector('.crop-bar');
+      await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
+      await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
+      await page.waitForSelector('.pp-details');
+    };
+    await goto('/');
+    await page.waitForSelector('.feed-post');
+    await page.locator('.rail').getByRole('button', { name: 'Create' }).click();
+    await page.locator('.create-pop').getByRole('menuitem', { name: /^Post/ }).click();
+    await toDetails('03.jpg');
+    const postTo = page.getByRole('button', { name: /^Post to/ });
+    await postTo.waitFor({ timeout: 5000 }).catch(() => {});
+    check('Post to starts on my profile', (await postTo.innerText()).includes('Your profile'));
+    await postTo.click();
+    const places = (await page.locator('.pp-place-row').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+    check('it offers my profile and the communities I can post in (not a page I only follow)', places.length === 2 && places[0].startsWith('Your profile') && places[1].startsWith('Youth Ministry'), places.join(' / '));
+    await page.getByRole('radio', { name: 'Youth Ministry' }).click();
+    check('choosing a community shows it under Post to', (await postTo.innerText()).includes('Youth Ministry'));
+    check('a post in a community has no subscriber audience, no story and no profile-only switch', (await page.locator('.pp-audience').count()) === 0 && (await page.getByRole('switch', { name: 'Also share to your story' }).count()) === 0);
+    await page.getByRole('button', { name: /^Add music/ }).click();
+    await page.waitForSelector('.pp-song-row');
+    check('Add music lists the songs on Pod', (await page.locator('.pp-song-row').count()) === 2 && (await page.locator('.pp-song-row').first().innerText()).includes('Morning Hymn (sample)'));
+    await page.getByLabel('Search songs on Pod').fill('evening');
+    await page.waitForFunction(() => document.querySelectorAll('.pp-song-row').length === 1, null, { timeout: 4000 }).catch(() => {});
+    check('and finds them by name', (await page.locator('.pp-song-row').count()) === 1 && (await page.locator('.pp-song-row').innerText()).includes('Evening Prayer'));
+    await page.getByRole('radio', { name: /^Evening Prayer/ }).click();
+    await wait(200);
+    check('the song chosen shows under Add music', (await page.locator('.pp-song-chip').innerText()).includes('Evening Prayer (sample)'));
+    await page.getByLabel('Caption').fill('Youth worship night set list');
+    await shot('posts-23-post-to-and-music-dark');
+    await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
+    await page.waitForFunction(() => location.hash === '#/groups/g1', null, { timeout: 15000 }).catch(() => {});
+    check('sharing into a community goes to it', (await page.evaluate(() => location.hash)) === '#/groups/g1');
+    await goto('/');
+    await page.waitForSelector('.feed-post');
+    await wait(500);
+    const youth = page.locator('.feed-post', { hasText: 'Youth worship night set list' });
+    check('the post is in the community, with its song', (await youth.count()) === 1 && (await youth.locator('.pp-sub').innerText()).includes('in Youth Ministry') && (await youth.locator('.pp-song').innerText()).includes('Evening Prayer (sample) · Hillside Choir'));
+    // A community's own Post button asks for Create with the community chosen.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('community:create', { detail: { mode: 'post', groupId: 'g1' } })));
+    await toDetails('05.jpg');
+    await page.getByRole('button', { name: /^Post to Youth Ministry/ }).waitFor({ timeout: 5000 }).catch(() => {});
+    check("a community's Post button starts with the community chosen", (await page.getByRole('button', { name: /^Post to/ }).innerText()).includes('Youth Ministry'));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.confirm');
+    await page.locator('.confirm').getByRole('button', { name: 'Discard' }).click();
+    await wait(300);
+    // A song on a post to my profile, and the post also on my story.
+    await page.locator('.rail').getByRole('button', { name: 'Create' }).click();
+    await page.locator('.create-pop').getByRole('menuitem', { name: /^Post/ }).click();
+    await toDetails('10.jpg');
+    await page.getByRole('button', { name: /^Add music/ }).click();
+    await page.getByRole('radio', { name: /^Morning Hymn/ }).click();
+    await page.getByLabel('Caption').fill('Sunday hike, with a hymn');
+    await page.getByRole('switch', { name: 'Also share to your story' }).click();
+    await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
+    await page.waitForSelector('.profile-head', { timeout: 15000 });
+    await page.waitForSelector('.grid .tile');
+    await wait(500);
+    await page.locator('.grid .tile').first().click();
+    await page.waitForSelector('.post-dialog .pp-song');
+    check('my post carries its song', (await page.locator('.post-dialog .pp-song').innerText()).includes('Morning Hymn (sample) · Hillside Choir'));
+    await page.keyboard.press('Escape');
+    await goto('/');
+    await page.waitForSelector('.tray-item.is-me');
+    await wait(500);
+    check('and went on my story too', (await page.locator('.tray-item.is-me').getByRole('button', { name: 'Your story' }).count()) === 1);
+
     /* ---------- White ---------- */
     await goto('/');
     await page.waitForSelector('.feed-post');
@@ -402,10 +676,23 @@ function sampleVideo() {
     await shot('posts-13-feed-white');
     await card('pp_poll').scrollIntoViewIfNeeded();
     await shot('posts-14-poll-white');
+    // The posts shared above push it to the feed's second page: scroll down for it.
+    for (let i = 0; i < 4 && !(await card('pp_sensitive').count()); i++) {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await wait(700);
+    }
     await card('pp_sensitive').scrollIntoViewIfNeeded();
     await page.evaluate(() => window.scrollBy(0, -260));
     await wait(300);
     await shot('posts-15-subs-sensitive-white');
+    await goto('/explore');
+    await page.waitForSelector('.tile[data-post="p2"]');
+    await page.locator('.tile[data-post="p2"]').click();
+    await page.waitForSelector('.post-dialog .post-dialog-body');
+    check('White: the dialog has its arrows', (await page.locator('.pp-step').count()) === 2);
+    await shot('posts-26-dialog-arrows-white');
+    await page.keyboard.press('Escape');
+    await wait(300);
     await goto('/p/pp_prompt');
     await page.waitForSelector('.post-page .pp-prompt');
     await shot('posts-16-view-white');
@@ -447,6 +734,50 @@ function sampleVideo() {
     await page.waitForSelector('.post-dialog .pp-head');
     check('and says For subscribers, uncovered for its author', (await page.locator('.post-dialog .pp-head').innerText()).includes('For subscribers') && (await page.locator('.post-dialog .carousel').count()) === 1);
     await page.keyboard.press('Escape');
+
+    /* ---------- your own empty Posts and Shorts tabs write themselves and open Create ---------- */
+    // An account with nothing posted yet (the demo's assistant account), so both tabs are empty.
+    await page.evaluate(() => {
+      sessionStorage.setItem('community.demoAs', 'user_3KTkRcnk7CCL3EaTDjWtptR4YMO');
+      location.hash = '#/u/erha';
+    });
+    await page.reload();
+    await page.waitForSelector('.pp-first');
+    const writing = page.locator('.pp-first .pp-writing');
+    const progress = () => writing.evaluate((el) => [Number(el.dataset.shown), Number(el.dataset.total)]);
+    check('my empty Posts tab invites me to share', (await page.locator('.pp-first').getAttribute('aria-label')) === 'Share your first photo or Short');
+    await wait(900);
+    const [part, total] = await progress();
+    check('its words write themselves letter by letter', part > 0 && part < total, part + '/' + total);
+    await page.waitForFunction(() => { const el = document.querySelector('.pp-first .pp-writing'); return el && el.dataset.shown === el.dataset.total; }, null, { timeout: 6000 }).catch(() => {});
+    check('until they are all written', (await page.locator('.pp-first .pp-written').innerText()) === 'Share your first photo or Short');
+    await page.locator('.pp-first').scrollIntoViewIfNeeded();
+    await shot('posts-24-empty-tab-dark');
+    await page.locator('.pp-first').click();
+    await page.waitForSelector('.pp-dropzone');
+    check('clicking it opens Create for a post', (await page.locator('.create-head h2').innerText()) === 'Create new post');
+    await page.keyboard.press('Escape');
+    await wait(300);
+    await goto('/u/erha/shorts');
+    await page.waitForSelector('.pp-first');
+    check('my empty Shorts tab too', (await page.locator('.pp-first').getAttribute('aria-label')) === 'Share your first Short');
+    await page.locator('.pp-first').click();
+    await page.waitForSelector('.pp-dropzone');
+    check('which opens Create for a Short', (await page.locator('.create-head h2').innerText()) === 'New Short');
+    await page.keyboard.press('Escape');
+    await wait(300);
+    await theme('white');
+    await page.locator('.pp-first').scrollIntoViewIfNeeded();
+    await wait(2500);
+    await shot('posts-25-empty-tab-white');
+    await theme('dark');
+    // With reduce motion, the words are simply there.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await page.waitForSelector('.pp-first .pp-writing');
+    const [all, letters] = await progress();
+    check('with reduce motion on, the words are there at once, without a cursor', all === letters && (await page.locator('.pp-first .pp-cursor').evaluate((el) => getComputedStyle(el).opacity)) === '0');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
 
     check('no script errors', errors.length === 0, errors.join(' | '));
   } catch (e) {
