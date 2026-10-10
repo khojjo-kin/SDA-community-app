@@ -7,18 +7,58 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2023"
+    ],
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "shared/*": ["../src/lib/*"],
-      "expo-crypto": ["./src/shims/expo-crypto.ts"],
-      "expo-file-system": ["./src/shims/expo-file-system.ts"],
-      "expo-image-manipulator": ["./src/shims/expo-image-manipulator.ts"],
-      "expo-video-thumbnails": ["./src/shims/expo-video-thumbnails.ts"],
-      "react-native-url-polyfill/auto": ["./src/shims/empty.ts"]
+      "shared/*": [
+        "../src/lib/*"
+      ],
+      "expo-crypto": [
+        "./src/shims/expo-crypto.ts"
+      ],
+      "expo-file-system": [
+        "./src/shims/expo-file-system.ts"
+      ],
+      "expo-image-manipulator": [
+        "./src/shims/expo-image-manipulator.ts"
+      ],
+      "expo-video-thumbnails": [
+        "./src/shims/expo-video-thumbnails.ts"
+      ],
+      "react-native-url-polyfill/auto": [
+        "./src/shims/empty.ts"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom"
+      ],
+      "react-dom/*": [
+        "./node_modules/@types/react-dom/*"
+      ],
+      "@supabase/supabase-js": [
+        "./node_modules/@supabase/supabase-js"
+      ]
     }
   },
-  "include": ["src", "../src/lib/api.ts", "../src/lib/store.ts", "../src/lib/types.ts", "../src/lib/theme.ts", "../src/lib/supabase.ts"],
-  "exclude": ["src/fake"]
+  "include": [
+    "src",
+    "../src/lib/api.ts",
+    "../src/lib/store.ts",
+    "../src/lib/types.ts",
+    "../src/lib/theme.ts",
+    "../src/lib/supabase.ts"
+  ],
+  "exclude": [
+    "src/fake"
+  ]
 }
