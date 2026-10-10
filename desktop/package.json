@@ -1,0 +1,54 @@
+{
+  "name": "community-desktop",
+  "productName": "Community",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Community for Mac and the web",
+  "author": "Community",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:demo": "node build.mjs --demo",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "app": "node build.mjs && electron .",
+    "mac": "node build.mjs && electron-builder --mac dir --universal --publish never"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.57.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "~19.1.10",
+    "@types/react-dom": "~19.1.7",
+    "electron": "37.6.0",
+    "electron-builder": "26.0.12",
+    "esbuild": "0.25.10",
+    "typescript": "~5.9.2"
+  },
+  "build": {
+    "appId": "Kojo.SDAAPPGEMINI.desktop",
+    "productName": "Community",
+    "copyright": "Community",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**",
+      "dist/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "minimumSystemVersion": "12.0",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Community uses your camera for photos, videos and calls.",
+        "NSMicrophoneUsageDescription": "Community uses your microphone for voice messages and calls."
+      }
+    }
+  }
+}

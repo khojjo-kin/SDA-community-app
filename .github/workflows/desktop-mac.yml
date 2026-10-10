@@ -1,0 +1,94 @@
+name: Community for Mac
+
+# Builds the desktop app (desktop/) into a Mac app and publishes it as a download on the
+# "Community for Mac" release. Runs on every push that changes the desktop app, or by hand
+# from the Actions tab.
+on:
+  push:
+    branches: [desktop, main]
+    paths: ['desktop/**', 'src/lib/**', '.env', '.github/workflows/desktop-mac.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run typecheck
+        continue-on-error: true
+      - name: Build the app, the demo and the wiring build
+        run: node build.mjs && node build.mjs --demo && node build.mjs --wire
+      - name: Browser tests
+        run: |
+          npx --yes playwright@1.56.0 install --with-deps chromium
+          npm install --no-save playwright@1.56.0
+          (cd dist-demo && python3 -m http.server 8790 --bind 127.0.0.1 &)
+          (cd dist-wire && python3 -m http.server 8791 --bind 127.0.0.1 &)
+          sleep 2
+          node tests/ui.test.cjs http://127.0.0.1:8790/
+          node tests/wiring.test.cjs http://127.0.0.1:8791/
+
+  mac:
+    name: Mac app
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Build the app
+        run: node build.mjs
+      - name: Package Community.app (Apple silicon and Intel)
+        run: npx electron-builder --mac dir --universal --publish never
+      - name: Sign, check and pack
+        run: |
+          APP="release/mac-universal/Community.app"
+          # Ad-hoc signature: Apple silicon Macs refuse unsigned apps, and this needs no certificate.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP" && echo "signature ok"
+          lipo -archs "$APP/Contents/MacOS/Community"
+          mkdir -p out/dmg
+          ditto "$APP" out/dmg/Community.app
+          ln -s /Applications out/dmg/Applications
+          hdiutil create -volname Community -srcfolder out/dmg -ov -format UDZO out/Community.dmg
+          ditto -c -k --sequesterRsrc --keepParent "$APP" out/Community-mac.zip
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Community-for-Mac
+          path: |
+            desktop/out/Community.dmg
+            desktop/out/Community-mac.zip
+          if-no-files-found: error
+      - name: Publish the download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="community-mac"
+          NOTES="Community for Mac, built from ${GITHUB_SHA::7} on $(date -u '+%d %b %Y %H:%M') UTC. Download Community.dmg, open it and drag Community to Applications. The first time, macOS may say it can't check the app: open System Settings, then Privacy & Security, and click Open Anyway."
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Community for Mac" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          gh release edit "$TAG" --notes "$NOTES"
+          gh release upload "$TAG" out/Community.dmg out/Community-mac.zip --clobber
