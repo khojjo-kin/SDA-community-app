@@ -16,10 +16,47 @@ export type Prefs = {
   appFont: string;
   /** The app's colours: Dark, White or Green (src/lib/theme.ts). */
   theme: ThemeName;
+  /** A light tap felt on buttons, likes and switches (src/lib/haptics.ts). */
+  haptics: boolean;
+  /** The floating button that opens the church apps (Bible, Hymnal, Pod…). */
+  assistive: boolean;
+  /** Where the floating button rests: which side, and how far down as a fraction of the screen. */
+  assistiveSide: 'left' | 'right';
+  assistiveY: number;
+  /** Captions on clips, and the language to show them in ('' = the app's language). */
+  captions: boolean;
+  captionLang: string;
+  /** The app's language (src/lib/i18n.ts); '' follows the phone. */
+  language: string;
+  /** Plus: read messages without the other person seeing "Seen". */
+  readQuietly: boolean;
+  /** The verse of the day at the top of the Bible. */
+  dailyVerse: boolean;
+  /** For the occasional "How can we improve?" question: app opens counted, and when last asked (ms). */
+  opens: number;
+  feedbackAskedAt: number;
 };
 
 const KEY = 'community.prefs';
-const DEFAULTS: Prefs = { frontCamera: false, toolsSide: 'right', reelsMuted: false, chatWallpaper: '', appFont: '', theme: 'dark' };
+const DEFAULTS: Prefs = {
+  frontCamera: false,
+  toolsSide: 'right',
+  reelsMuted: false,
+  chatWallpaper: '',
+  appFont: '',
+  theme: 'dark',
+  haptics: true,
+  assistive: true,
+  assistiveSide: 'right',
+  assistiveY: 0.62,
+  captions: true,
+  captionLang: '',
+  language: '',
+  readQuietly: false,
+  dailyVerse: true,
+  opens: 0,
+  feedbackAskedAt: 0,
+};
 
 let current: Prefs = DEFAULTS;
 let loaded = false;

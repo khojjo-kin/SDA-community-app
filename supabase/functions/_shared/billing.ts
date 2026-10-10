@@ -5,7 +5,14 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 /** Pinned so the shapes below (latest_invoice.payment_intent, current_period_end) stay put. */
 export const STRIPE_VERSION = '2024-06-20';
 export const PRICE_LOOKUP = 'community_plus_monthly';
-export const PRICE_PENCE = Number(Deno.env.get('PLUS_PRICE_PENCE') ?? '499');
+export const PRICE_PENCE = Number(Deno.env.get('PLUS_PRICE_PENCE') ?? '299');
+/** The yearly plan: twelve months for the price of about nine and a half. */
+export const YEARLY_LOOKUP = 'community_plus_yearly';
+export const YEARLY_PENCE = Number(Deno.env.get('PLUS_YEARLY_PENCE') ?? '2849');
+/** New members' first week of Plus is free. */
+export const TRIAL_DAYS = Number(Deno.env.get('PLUS_TRIAL_DAYS') ?? '7');
+/** The app's share of a creator subscription, in per cent (the rest goes to the creator). */
+export const CREATOR_FEE_PERCENT = Number(Deno.env.get('CREATOR_FEE_PERCENT') ?? '10');
 export const CURRENCY = (Deno.env.get('PLUS_CURRENCY') ?? 'gbp').toLowerCase();
 /** A day of grace after the paid month, so a renewal that lands a little late never drops Plus. */
 const GRACE_MS = 86400e3;
@@ -83,6 +90,16 @@ function methodLabel(pm: any): string {
   return `${wallet}${brand} •••• ${card.last4}`.slice(0, 60);
 }
 
+/** A creator subscription carries kind 'creator' in its metadata; anything else is Community Plus. */
+export function isCreatorSub(sub: any): boolean {
+  return sub?.metadata?.kind === 'creator';
+}
+
+/** 'yearly' or 'monthly', from the subscription's price. */
+function planOf(sub: any): 'monthly' | 'yearly' {
+  return sub?.items?.data?.[0]?.price?.recurring?.interval === 'year' ? 'yearly' : 'monthly';
+}
+
 /**
  * Brings the app in line with a Stripe subscription: Plus until the paid month ends,
  * the billing row, and one line on the books for its latest paid invoice. Safe to run any number
@@ -100,6 +117,7 @@ export async function applySubscription(db: SupabaseClient, userId: string, sub:
       status: sub.status,
       current_period_end: end?.toISOString() ?? null,
       cancel_at_period_end: !!sub.cancel_at_period_end,
+      plan: planOf(sub),
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
@@ -130,7 +148,7 @@ export async function recordInvoice(db: SupabaseClient, userId: string, invoice:
       kind: 'plus',
       amount_pence: invoice.amount_paid,
       currency: String(invoice.currency ?? CURRENCY).toUpperCase(),
-      note: invoice.billing_reason === 'subscription_create' ? 'Community Plus · first month' : 'Community Plus · monthly renewal',
+      note: invoice.billing_reason === 'subscription_create' ? 'Community Plus · first payment' : 'Community Plus · renewal',
       provider: 'stripe',
       status: 'succeeded',
       method: methodLabel(pm),
@@ -199,4 +217,57 @@ export async function settlePaymentIntent(db: SupabaseClient, pi: any) {
     { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },
   );
   return { settled: true };
+}
+
+
+/* ---------- creator subscriptions ---------- */
+
+/**
+ * Brings the app in line with a member's subscription to a creator: the subscription row (which
+ * unlocks the creator's subscriber-only posts), a note to the creator when it starts, and one line
+ * on the books per paid invoice. Safe to run any number of times.
+ */
+export async function applyCreatorSub(db: SupabaseClient, sub: any) {
+  const creator = sub?.metadata?.creator_id;
+  const subscriber = sub?.metadata?.user_id;
+  if (!creator || !subscriber) return;
+  const { data: before } = await db.from('community_creator_subs').select('status').eq('creator_id', creator).eq('subscriber_id', subscriber).maybeSingle();
+  const live = ['active', 'trialing'].includes(sub.status);
+  await db.from('community_creator_subs').upsert(
+    {
+      creator_id: creator,
+      subscriber_id: subscriber,
+      stripe_subscription_id: sub.id,
+      status: sub.status,
+      current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+      cancel_at_period_end: !!sub.cancel_at_period_end,
+      amount_pence: sub.items?.data?.[0]?.price?.unit_amount ?? 0,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'creator_id,subscriber_id' },
+  );
+  if (live && !['active', 'trialing'].includes(before?.status ?? '')) {
+    await db.from('community_notifications').insert({ user_id: creator, actor_id: subscriber, kind: 'subscriber' });
+  }
+  const invoice = typeof sub.latest_invoice === 'object' ? sub.latest_invoice : null;
+  if (invoice?.id && invoice.status === 'paid' && invoice.amount_paid > 0) {
+    let pm = invoice.payment_intent?.payment_method;
+    if (typeof pm === 'string') pm = await stripe('GET', `payment_methods/${pm}`).catch(() => null);
+    const { data: c } = await db.from('community_profiles').select('username').eq('id', creator).maybeSingle();
+    await db.from('community_transactions').upsert(
+      {
+        user_id: subscriber,
+        kind: 'subscription',
+        amount_pence: invoice.amount_paid,
+        currency: String(invoice.currency ?? CURRENCY).toUpperCase(),
+        note: `Subscription to @${c?.username ?? 'creator'}`,
+        provider: 'stripe',
+        status: 'succeeded',
+        method: methodLabel(pm),
+        stripe_invoice_id: invoice.id,
+        stripe_payment_intent_id: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id ?? null,
+      },
+      { onConflict: 'stripe_invoice_id', ignoreDuplicates: true },
+    );
+  }
 }

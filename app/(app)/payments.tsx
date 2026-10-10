@@ -9,7 +9,7 @@ import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { Transaction } from '../../src/lib/types';
 
-const KIND_LABEL: Record<Transaction['kind'], string> = { plus: 'Community Plus', refund: 'Refund', donation: 'Donation', other: 'Payment', ad: 'Ad' };
+const KIND_LABEL: Record<Transaction['kind'], string> = { plus: 'Community Plus', refund: 'Refund', donation: 'Donation', other: 'Payment', ad: 'Ad', subscription: 'Subscription' };
 
 /** "9 Oct" this year, "9 Oct 2025" otherwise. */
 function when(iso: string): string {

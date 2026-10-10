@@ -4,7 +4,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, DocumentType, Fundraiser, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
+import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -40,7 +40,7 @@ export async function createProfile(row: { id: string; username: string; full_na
   ok(await supabase.from('community_profiles').insert({ avatar_url: '', ...row }));
 }
 
-type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts' | 'streaks_enabled' | 'ring_color' | 'profile_theme'>>;
+type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts' | 'streaks_enabled' | 'ring_color' | 'profile_theme' | 'show_activity' | 'country' | 'sub_price_pence' | 'sensitive_filter'> & { interests_more: string[]; interests_less: string[] }>;
 
 export async function updateProfile(id: string, patch: ProfilePatch) {
   ok(await supabase.from('community_profiles').update(patch).eq('id', id));
@@ -133,6 +133,37 @@ export function recordProfileView(me: string, profileId: string) {
 /** Who looked at my profile, newest first. Empty unless I have Plus (the database refuses otherwise). */
 export async function fetchProfileViewers(me: string): Promise<ProfileViewer[]> {
   return ok(await supabase.from('community_profile_viewer_cards').select('*').eq('profile_id', me).order('viewed_at', { ascending: false }).limit(200)) ?? [];
+}
+
+/* ---------- presence, the tick, and where an account is based ---------- */
+
+/** Online within this long counts as "Active now". */
+export const ONLINE_MS = 3 * 60e3;
+
+export function isOnline(activeAt: string | null | undefined, now = Date.now()): boolean {
+  return !!activeAt && now - new Date(activeAt).getTime() < ONLINE_MS;
+}
+
+/** "Active now", "Active 5m ago", "Active yesterday"… or '' when unknown. */
+export function activeLabel(activeAt: string | null | undefined, now = Date.now()): string {
+  if (!activeAt) return '';
+  const d = now - new Date(activeAt).getTime();
+  if (d < ONLINE_MS) return 'Active now';
+  if (d < 3600e3) return `Active ${Math.round(d / 60e3)}m ago`;
+  if (d < 86400e3) return `Active ${Math.round(d / 3600e3)}h ago`;
+  if (d < 2 * 86400e3) return 'Active yesterday';
+  return '';
+}
+
+/** Tells the server I'm here. Called every minute while the app is open; cheap and quiet. */
+export function touchPresence() {
+  supabase.rpc('community_touch').then(() => {}, () => {});
+}
+
+/** Plus: hide or show your tick. Showing it again works with or without Plus. */
+export async function setTickHidden(hidden: boolean) {
+  ok(await supabase.rpc('community_set_tick_hidden', { hidden }));
+  announce('profile');
 }
 
 /* ---------- discover people ---------- */
@@ -230,6 +261,37 @@ export async function deleteAccount(me: string) {
     if (!res.data?.length) throw new Error('Your photos and videos could not be removed. Try again.');
   }
   ok(await supabase.from('community_profiles').delete().eq('id', me));
+}
+
+/* ---------- notes (the short lines above the inbox) ---------- */
+
+/** Notes from mutual followers and close friends, mine first, newest first. */
+export async function fetchNotes(): Promise<Note[]> {
+  const rows: Note[] = ok(await supabase.from('community_note_cards').select('*').order('created_at', { ascending: false }).limit(100)) ?? [];
+  return [...rows.filter((n) => n.mine), ...rows.filter((n) => !n.mine)];
+}
+
+/** Writes (or replaces) my note for the next 24 hours: up to 60 characters. */
+export async function saveNote(me: string, text: string, audience: Note['audience'] = 'mutuals') {
+  const t = text.trim().slice(0, 60);
+  if (!t) throw new Error('Write something first.');
+  ok(await supabase.from('community_notes').upsert({ user_id: me, text: t, audience }, { onConflict: 'user_id' }));
+}
+
+export async function deleteNote(me: string) {
+  ok(await supabase.from('community_notes').delete().eq('user_id', me));
+}
+
+/* ---------- notifications from people you follow ---------- */
+
+export async function fetchFollowAlerts(me: string, targetId: string): Promise<FollowAlerts> {
+  const row: FollowAlerts | null = ok(await supabase.from('community_follow_alerts').select('posts, stories, clips, live').eq('user_id', me).eq('target_id', targetId).maybeSingle());
+  return row ?? { posts: false, stories: false, clips: false, live: false };
+}
+
+export async function setFollowAlerts(me: string, targetId: string, alerts: FollowAlerts) {
+  ok(await supabase.from('community_follow_alerts').upsert({ user_id: me, target_id: targetId, ...alerts }, { onConflict: 'user_id,target_id' }));
+  announce('profile');
 }
 
 /* ---------- close friends ---------- */
@@ -377,12 +439,26 @@ export const fetchSaved = (me: string) => fetchVia('community_saves', me);
 export const fetchLiked = (me: string) => fetchVia('community_likes', me);
 export const fetchReposts = (userId: string) => fetchVia('community_reposts', userId);
 
-export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string; sensitive?: boolean }): Promise<void> {
+export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string; sensitive?: boolean; audience?: 'everyone' | 'subscribers' }): Promise<void> {
   // A single video is a reel; anything else (photos, or a carousel with a video in it) is a post.
   const kind = input.media.length === 1 && input.media[0]?.type === 'video' ? 'reel' : 'post';
-  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120), sensitive: !!input.sensitive }));
+  const row: { id: string } = ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120), sensitive: !!input.sensitive, audience: input.audience ?? 'everyone' }).select('id').single());
+  // Clips get captions made from their audio in the background (only when the service is set up).
+  if (kind === 'reel') requestCaptions(row.id);
   announce('feed');
   announce('profile');
+}
+
+/** Asks the server to make captions for a clip. Fire and forget: the post shows them once ready. */
+export function requestCaptions(postId: string) {
+  supabase.functions.invoke('captions', { body: { action: 'make', post_id: postId } }).then(() => {}, () => {});
+}
+
+/** A clip's captions in another language (translated once, then kept), or null when unavailable. */
+export async function translateCaptions(postId: string, lang: string): Promise<CaptionLine[] | null> {
+  const { data, error } = await withTimeout(supabase.functions.invoke('captions', { body: { action: 'translate', post_id: postId, lang } }), 30000);
+  if (error) return null;
+  return (data as { captions: CaptionLine[] | null })?.captions ?? null;
 }
 
 /** Marks a post as sensitive (or not): sensitive posts are never shown to members under 14. */
@@ -488,7 +564,9 @@ function group(stories: Story[], me: string): StoryGroup[] {
   }
   const all = [...map.values()];
   const mine = all.filter((g) => g.user_id === me);
-  const rest = all.filter((g) => g.user_id !== me).sort((a, b) => Number(a.seen) - Number(b.seen));
+  // Unseen first; among those, Plus members' stories lead (a Plus perk), then the order they arrived in.
+  const plus = new Set(stories.filter((s) => s.author_plus).map((s) => s.user_id));
+  const rest = all.filter((g) => g.user_id !== me).sort((a, b) => Number(a.seen) - Number(b.seen) || Number(plus.has(b.user_id)) - Number(plus.has(a.user_id)));
   return [...mine, ...rest];
 }
 
@@ -514,8 +592,33 @@ export async function deleteStory(id: string) {
   announce('profile');
 }
 
-export async function markStorySeen(me: string, storyId: string) {
-  await supabase.from('community_story_views').upsert({ story_id: storyId, viewer_id: me }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true });
+/**
+ * Notes that I watched a story; watching it again counts as a rewatch (shown to Plus owners).
+ * `quiet` (a Plus preview) records nothing at all.
+ */
+export async function markStorySeen(me: string, storyId: string, quiet = false) {
+  if (quiet) return;
+  const res = await supabase.from('community_story_views').upsert({ story_id: storyId, viewer_id: me }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true }).select('story_id');
+  // Nothing new was written: I had seen it before, so this is a rewatch.
+  if (!res.error && !(res.data ?? []).length) await supabase.rpc('community_story_rewatch', { p_story: storyId });
+}
+
+/** Who watched a story, newest first, with how many times and when (Plus shows these). */
+export async function fetchStoryViewersDetailed(storyId: string): Promise<StoryViewer[]> {
+  const rows: { viewer_id: string; viewed_at: string; last_viewed_at: string; view_count: number }[] = ok(await supabase.from('community_story_views').select('viewer_id, viewed_at, last_viewed_at, view_count').eq('story_id', storyId).order('last_viewed_at', { ascending: false }).limit(300)) ?? [];
+  const people = await profilesInOrder(rows.map((r) => r.viewer_id));
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.viewer_id) ?? null }));
+}
+
+/** Plus: the people whose story views I'm told about. */
+export async function fetchStoryWatchList(me: string): Promise<Profile[]> {
+  const rows: { target_id: string }[] = ok(await supabase.from('community_story_watch').select('target_id').eq('user_id', me).order('created_at', { ascending: false })) ?? [];
+  return profilesInOrder(rows.map((r) => r.target_id));
+}
+
+export async function setStoryWatch(me: string, targetId: string, on: boolean) {
+  if (on) ok(await supabase.from('community_story_watch').upsert({ user_id: me, target_id: targetId }, { onConflict: 'user_id,target_id', ignoreDuplicates: true }));
+  else ok(await supabase.from('community_story_watch').delete().eq('user_id', me).eq('target_id', targetId));
 }
 
 /** Everyone who has seen one of your stories, most recent first. */
@@ -608,7 +711,7 @@ export async function fetchMessages(threadId: string, hiddenBefore?: string | nu
   return rows.reverse();
 }
 
-export async function sendMessage(me: string, threadId: string, msg: { text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number; call_url?: string; call_kind?: 'voice' | 'video' }) {
+export async function sendMessage(me: string, threadId: string, msg: { text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number; call_url?: string; call_kind?: 'voice' | 'video'; view_once?: boolean }) {
   const text = (msg.text ?? '').trim().slice(0, 5000) || (msg.post_id ? 'Sent a post' : msg.call_kind === 'video' ? 'Video call' : msg.call_kind === 'voice' ? 'Voice call' : '');
   ok(
     await supabase.from('community_messages').insert({
@@ -621,8 +724,23 @@ export async function sendMessage(me: string, threadId: string, msg: { text?: st
       audio_seconds: Math.min(600, Math.max(0, Math.round(msg.audio_seconds ?? 0))),
       call_url: msg.call_url ?? '',
       call_kind: msg.call_kind ?? '',
+      view_once: !!msg.view_once && !!msg.media_url,
     }),
   );
+  announce('threads');
+}
+
+/**
+ * Opens a view-once photo: from now on it is gone for both of you (the server clears it and deletes
+ * the file). Call this once the photo is showing, with its address already in hand.
+ */
+export async function openViewOnce(messageId: string) {
+  ok(await supabase.from('community_messages').update({ opened_at: new Date().toISOString() }).eq('id', messageId));
+}
+
+/** Tells the other person (a Plus member) that I took a screenshot of our chat. */
+export async function sendScreenshotNotice(me: string, threadId: string) {
+  ok(await supabase.from('community_messages').insert({ thread_id: threadId, sender_id: me, text: 'took a screenshot of the chat', system: 'screenshot' }));
   announce('threads');
 }
 
@@ -911,8 +1029,11 @@ export async function uploadVerificationPhoto(me: string, uri: string, which: 's
   return path;
 }
 
-/** Asks for the blue tick with an identity check. Both photos must be uploaded first. */
-export async function requestVerification(me: string, input: { selfie_path: string; document_path: string; document_type: DocumentType; legal_name: string; note?: string }) {
+/**
+ * Asks for the blue tick with an identity check. Both photos must be uploaded first. `path` is
+ * 'notable' (the free application, with the details below) or 'plus' (verified with Plus).
+ */
+export async function requestVerification(me: string, input: { selfie_path: string; document_path: string; document_type: DocumentType; legal_name: string; note?: string; path?: 'notable' | 'plus'; category?: string; country?: string; audience?: string; known_as?: string; links?: string[] }) {
   ok(
     await supabase.from('community_plus_requests').insert({
       user_id: me,
@@ -922,6 +1043,12 @@ export async function requestVerification(me: string, input: { selfie_path: stri
       document_path: input.document_path,
       document_type: input.document_type,
       legal_name: input.legal_name.trim().slice(0, 120),
+      path: input.path ?? 'notable',
+      category: (input.category ?? '').trim().slice(0, 60),
+      country: (input.country ?? '').trim().slice(0, 60),
+      audience: (input.audience ?? '').trim().slice(0, 500),
+      known_as: (input.known_as ?? '').trim().slice(0, 200),
+      links: (input.links ?? []).map((l) => l.trim()).filter(Boolean).slice(0, 5),
     }),
   );
 }
@@ -984,7 +1111,7 @@ export async function fetchMember(id: string): Promise<MemberCard | null> {
 }
 
 /** What an admin can set on an account. Everything else on a profile stays the account's own. */
-export async function adminSetAccount(id: string, patch: { verified?: boolean; plus_until?: string | null; suspended?: boolean; admin_note?: string }) {
+export async function adminSetAccount(id: string, patch: { verified?: boolean; plus_until?: string | null; suspended?: boolean; admin_note?: string; verified_via?: '' | 'notable' | 'plus' | 'admin'; hide_connections?: boolean; tick_hidden?: boolean }) {
   ok(await supabase.from('community_profiles').update(patch).eq('id', id));
   announce('profile');
 }
@@ -1007,7 +1134,7 @@ export async function fetchPlusRequests(kind?: PlusRequest['kind']): Promise<Plu
  */
 export async function decidePlusRequest(me: string, req: PlusRequest, approve: boolean) {
   if (approve) {
-    if (req.kind === 'verify') await adminSetAccount(req.user_id, { verified: true });
+    if (req.kind === 'verify') await adminSetAccount(req.user_id, { verified: true, tick_hidden: false, verified_via: req.path === 'plus' ? 'plus' : 'notable' });
     else {
       const until = new Date();
       until.setMonth(until.getMonth() + 1);
@@ -1354,8 +1481,8 @@ export const setDefaultCard = (id: string) => payments<{ cards: SavedCard[] }>('
  * the first payment's client secret to confirm with a card or Apple Pay, or `already: true` when
  * nothing is left to pay.
  */
-export const startSubscription = (savedCardId?: string | null) =>
-  payments<{ already?: boolean; subscription_id: string; client_secret?: string; status?: string; amount?: number; currency?: string }>('subscribe', savedCardId ? { payment_method_id: savedCardId } : {});
+export const startSubscription = (savedCardId?: string | null, plan: 'monthly' | 'yearly' = 'monthly') =>
+  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment' | 'setup'; trial_days?: number; status?: string; amount?: number; currency?: string }>('subscribe', { plan, ...(savedCardId ? { payment_method_id: savedCardId } : {}) });
 
 /** Reads the subscription back from Stripe after paying and switches Plus on. */
 export async function syncSubscription(): Promise<BillingStatus & { plus: boolean }> {
@@ -1451,3 +1578,102 @@ export const startPayoutsOnboarding = (country?: string) => payments<{ url: stri
 
 /** The address of the member's Stripe Express dashboard (payouts, bank details, tax forms). */
 export const openPayoutsDashboard = () => payments<{ url: string }>('payouts_dashboard').then((r) => r.url);
+
+/* ---------- subscriptions to creators ---------- */
+
+/** Starts subscribing to a creator. Confirm the client secret (card or Apple Pay), then syncCreatorSubscription. */
+export const startCreatorSubscription = (creatorId: string) =>
+  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment'; amount?: number; currency?: string }>('creator_subscribe', { creator_id: creatorId });
+
+export async function syncCreatorSubscription(creatorId: string) {
+  const r = await payments<{ status: string; cancel_at_period_end?: boolean; current_period_end?: string | null }>('creator_sync', { creator_id: creatorId });
+  announce('profile');
+  announce('feed');
+  return r;
+}
+
+/** Stops renewing at the end of the paid month (or, with resume, carries on after all). */
+export async function cancelCreatorSubscription(creatorId: string, resume = false) {
+  const r = await payments<{ status: string; cancel_at_period_end: boolean }>('creator_cancel', { creator_id: creatorId, resume });
+  announce('profile');
+  return r;
+}
+
+/** The creators I subscribe to, newest first. */
+export async function mySubscriptions(me: string): Promise<CreatorSub[]> {
+  const rows: CreatorSub[] = ok(await supabase.from('community_creator_subs').select('*').eq('subscriber_id', me).in('status', ['active', 'trialing', 'past_due']).order('created_at', { ascending: false })) ?? [];
+  const people = await profilesInOrder(rows.map((r) => r.creator_id));
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.creator_id) ?? null }));
+}
+
+/** People who subscribe to me, newest first. */
+export async function mySubscribers(me: string): Promise<CreatorSub[]> {
+  const rows: CreatorSub[] = ok(await supabase.from('community_creator_subs').select('*').eq('creator_id', me).in('status', ['active', 'trialing', 'past_due']).order('created_at', { ascending: false })) ?? [];
+  const people = await profilesInOrder(rows.map((r) => r.subscriber_id));
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.subscriber_id) ?? null }));
+}
+
+/* ---------- live support and feedback ---------- */
+
+/** My open support chat, made if there isn't one. */
+export async function openSupportChat(me: string): Promise<SupportChat> {
+  const open: SupportChat | null = ok(await supabase.from('community_support_chats').select('*').eq('user_id', me).eq('status', 'open').order('updated_at', { ascending: false }).limit(1).maybeSingle());
+  if (open) return open;
+  return ok(await supabase.from('community_support_chats').insert({ user_id: me }).select('*').single());
+}
+
+export async function fetchSupportMessages(chatId: string): Promise<SupportMessage[]> {
+  return ok(await supabase.from('community_support_messages').select('*').eq('chat_id', chatId).order('created_at', { ascending: true }).limit(500)) ?? [];
+}
+
+/** Sends my message, then asks the assistant to answer (it stays quiet while a person from the team is answering). */
+export async function sendSupportMessage(me: string, chatId: string, text: string): Promise<{ answered_by: 'ai' | 'agent' | 'none' }> {
+  ok(await supabase.from('community_support_messages').insert({ chat_id: chatId, sender_id: me, role: 'member', text: text.trim().slice(0, 4000) }));
+  const { data, error } = await withTimeout(supabase.functions.invoke('support', { body: { chat_id: chatId } }), 60000);
+  if (error) return { answered_by: 'none' };
+  return (data as { answered_by: 'ai' | 'agent' | 'none' }) ?? { answered_by: 'none' };
+}
+
+/** Admins: support chats, most recent first, with who they're from. */
+export async function fetchSupportChats(status: 'open' | 'all' = 'open'): Promise<SupportChat[]> {
+  let q = supabase.from('community_support_chats').select('*').order('updated_at', { ascending: false }).limit(200);
+  if (status === 'open') q = q.eq('status', 'open');
+  const rows: SupportChat[] = ok(await q) ?? [];
+  const people = await profilesInOrder([...new Set(rows.map((r) => r.user_id))]);
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.user_id) ?? null }));
+}
+
+/** Admins: answer in a support chat under your own name (the assistant steps back for half an hour). */
+export async function sendAgentReply(me: string, chatId: string, text: string) {
+  ok(await supabase.from('community_support_messages').insert({ chat_id: chatId, sender_id: me, role: 'agent', text: text.trim().slice(0, 4000) }));
+}
+
+export async function closeSupportChat(chatId: string) {
+  ok(await supabase.from('community_support_chats').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', chatId));
+}
+
+/** A review, an idea or a problem, from Help or the occasional "How can we improve?" prompt. */
+export async function sendFeedback(me: string, f: { kind: Feedback['kind']; rating?: number | null; text?: string; app_version?: string; platform?: string }) {
+  ok(await supabase.from('community_feedback').insert({ user_id: me, kind: f.kind, rating: f.rating ?? null, text: (f.text ?? '').trim().slice(0, 2000), app_version: (f.app_version ?? '').slice(0, 40), platform: (f.platform ?? '').slice(0, 20) }));
+}
+
+/** Admins: everything members have sent, newest first. */
+export async function fetchFeedback(): Promise<Feedback[]> {
+  return ok(await supabase.from('community_feedback_cards').select('*').order('created_at', { ascending: false }).limit(300)) ?? [];
+}
+
+/* ---------- live location ---------- */
+
+/** Shares (or updates) where I am with mutual followers or close friends. Members under 14 can't. */
+export async function shareLocation(me: string, loc: { lat: number; lng: number; accuracy?: number | null; audience: FriendLocation['audience'] }) {
+  ok(await supabase.from('community_locations').upsert({ user_id: me, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy ?? null, audience: loc.audience, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }));
+}
+
+export async function stopSharingLocation(me: string) {
+  ok(await supabase.from('community_locations').delete().eq('user_id', me));
+}
+
+/** Friends sharing where they are (updated in the last day), and me if I'm sharing. */
+export async function fetchFriendLocations(): Promise<FriendLocation[]> {
+  return ok(await supabase.from('community_friend_locations').select('*').order('updated_at', { ascending: false }).limit(300)) ?? [];
+}

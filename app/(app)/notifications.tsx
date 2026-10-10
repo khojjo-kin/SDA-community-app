@@ -17,6 +17,12 @@ const VERB: Record<Notice['kind'], string> = {
   repost: 'reposted your post.',
   request: 'wants to follow you.',
   accept: 'accepted your follow request.',
+  new_post: 'shared a new post.',
+  new_clip: 'shared a new clip.',
+  new_story: 'added to their story.',
+  live: 'started a live video.',
+  story_watch: 'watched your story.',
+  subscriber: 'subscribed to you.',
 };
 
 export default function Notifications() {

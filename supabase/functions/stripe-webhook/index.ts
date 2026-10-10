@@ -6,7 +6,7 @@
 // deployed with JWT checking off and instead checks Stripe's signature on every request.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { applySubscription, json, settlePaymentIntent, stripe } from '../_shared/billing.ts';
+import { applyCreatorSub, applySubscription, isCreatorSub, json, settlePaymentIntent, stripe } from '../_shared/billing.ts';
 
 /** How old a signed request may be, against replays. */
 const TOLERANCE_S = 300;
@@ -68,14 +68,26 @@ Deno.serve(async (req: Request) => {
     switch (event.type) {
       case 'invoice.paid':
       case 'invoice.payment_failed': {
+        if (!obj.subscription) break;
+        const sub = await freshSubscription(obj.subscription);
+        // A subscription to a creator is theirs, not Community Plus.
+        if (isCreatorSub(sub)) {
+          await applyCreatorSub(db, sub);
+          break;
+        }
         const user = await memberFor(db, obj.customer);
-        if (user && obj.subscription) await applySubscription(db, user, await freshSubscription(obj.subscription));
+        if (user) await applySubscription(db, user, sub);
         break;
       }
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
+        const sub = event.type === 'customer.subscription.deleted' ? obj : await freshSubscription(obj.id);
+        if (isCreatorSub(sub)) {
+          await applyCreatorSub(db, sub);
+          break;
+        }
         const user = (typeof obj.metadata?.user_id === 'string' && obj.metadata.user_id) || (await memberFor(db, obj.customer));
-        if (user) await applySubscription(db, user, event.type === 'customer.subscription.deleted' ? obj : await freshSubscription(obj.id));
+        if (user) await applySubscription(db, user, sub);
         break;
       }
       case 'payment_intent.succeeded':

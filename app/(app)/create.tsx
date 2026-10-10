@@ -196,8 +196,8 @@ export default function Create() {
           <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
             <IconButton name="back" label="Back to editing" onPress={() => (busy ? undefined : setStep('edit'))} />
             <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{isReel ? 'New reel' : 'New post'}</Text>
-            <Pressable onPress={share} disabled={disabled} hitSlop={8} style={({ pressed }) => ({ width: 56, alignItems: 'flex-end', paddingRight: 8, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel="Share" accessibilityState={{ disabled }}>
-              <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Share</Text>
+            <Pressable onPress={share} disabled={disabled} hitSlop={8} style={({ pressed }) => ({ minWidth: 64, flexShrink: 0, alignItems: 'flex-end', paddingRight: 8, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel="Share" accessibilityState={{ disabled }}>
+              <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Share</Text>
             </Pressable>
           </View>
 

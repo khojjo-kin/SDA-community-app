@@ -7,6 +7,7 @@ import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
 import { purgeDate, restoreAccount } from '../../src/lib/api';
 import { CallProvider } from '../../src/lib/calls';
+import { usePresence } from '../../src/lib/presence';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
@@ -42,6 +43,8 @@ export default function AppLayout() {
   const { me, loading, profile, error, refresh } = useSession();
   // Members who haven't given their birthday yet are asked for it before anything else.
   const needsBirthday = useBirthDateGate(me, profile);
+  // "Active now" for the people who can see it, while the app is open and signed in.
+  usePresence(!!isSignedIn && !!profile && !profile.deleted_at);
 
   if (!isSignedIn) return <Redirect href="/sign-in" />;
 

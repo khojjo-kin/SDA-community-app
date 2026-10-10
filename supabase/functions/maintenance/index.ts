@@ -3,6 +3,8 @@
 //   purged-files  removes the photos, videos, voice notes and identity documents of accounts the
 //                 nightly purge deleted 30 days after they were deactivated. Supabase does not let
 //                 SQL delete storage files, so this does it through the Storage API.
+//   media-trash   removes single files the database has queued, such as a view-once photo that has
+//                 been opened. Both run on every call, whichever was asked for.
 //
 // Called with the header x-maintenance-key, which must match the key kept in community_secrets.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
@@ -45,5 +47,17 @@ Deno.serve(async (req: Request) => {
     }
     if (ok) await db.from('community_purge_queue').update({ files_removed_at: new Date().toISOString() }).eq('user_id', user_id);
   }
-  return json({ accounts: queue?.length ?? 0, files: removed });
+
+  // Single files queued for removal, a bucket at a time.
+  const { data: trash } = await db.from('community_media_trash').select('path, bucket').lte('remove_after', new Date().toISOString()).limit(500);
+  let trashed = 0;
+  const byBucket = new Map<string, string[]>();
+  for (const t of (trash ?? []) as { path: string; bucket: string }[]) byBucket.set(t.bucket, [...(byBucket.get(t.bucket) ?? []), t.path]);
+  for (const [bucket, paths] of byBucket) {
+    const { error } = await db.storage.from(bucket).remove(paths);
+    if (error) continue;
+    trashed += paths.length;
+    await db.from('community_media_trash').delete().eq('bucket', bucket).in('path', paths);
+  }
+  return json({ accounts: queue?.length ?? 0, files: removed, trashed });
 });

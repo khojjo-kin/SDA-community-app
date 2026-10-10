@@ -10,8 +10,23 @@ import { Icon, IconName } from './Icon';
 
 /* ---------- avatar ---------- */
 
-/** `ringColors` replaces the green of a 'new' ring: a Plus member's chosen colour (src/lib/styling.ts). */
-export function Avatar({ uri, name, size = 36, ring, ringColors }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[] }) {
+/**
+ * `ringColors` replaces the green of a 'new' ring: a Plus member's chosen colour (src/lib/styling.ts).
+ * `online` adds the green dot of someone active now (see isOnline in src/lib/api.ts).
+ */
+export function Avatar({ uri, name, size = 36, ring, ringColors, online }: { uri?: string | null; name?: string; size?: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[]; online?: boolean }) {
+  const face = <AvatarFace uri={uri} name={name} size={size} ring={ring} ringColors={ringColors} />;
+  if (!online) return face;
+  const dot = Math.max(10, Math.round(size * 0.28));
+  return (
+    <View>
+      {face}
+      <View accessibilityLabel="Active now" style={{ position: 'absolute', right: ring ? 2 : 0, bottom: ring ? 2 : 0, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: C.ok, borderWidth: Math.max(2, dot * 0.18), borderColor: C.bg }} />
+    </View>
+  );
+}
+
+function AvatarFace({ uri, name, size, ring, ringColors }: { uri?: string | null; name?: string; size: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[] }) {
   const inner = uri ? (
     <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
   ) : (
@@ -147,11 +162,12 @@ export function ScreenHeader({ title, right, onBack, noBack }: { title: string; 
   const back = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-      <View style={{ width: 44 }}>{noBack ? null : <RoundButton name="back" label="Back" onPress={back} />}</View>
+      {/* Both sides take the same room, so the title stays centred; neither squeezes a word like "Done" onto two lines. */}
+      <View style={{ minWidth: 64, flexShrink: 0 }}>{noBack ? null : <RoundButton name="back" label="Back" onPress={back} />}</View>
       <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8, fontFamily: font }}>
         {title}
       </Text>
-      <View style={{ width: 44, alignItems: 'flex-end' }}>{right}</View>
+      <View style={{ minWidth: 64, flexShrink: 0, alignItems: 'flex-end' }}>{right}</View>
     </View>
   );
 }

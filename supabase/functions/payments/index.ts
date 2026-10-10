@@ -6,21 +6,24 @@
 //   add_card       a SetupIntent the app confirms with the card the member typed, which saves it
 //   remove_card    detaches a saved card
 //   default_card   makes a saved card the one renewals charge
-//   subscribe      starts (or resumes) the monthly subscription and returns the first payment's
-//                  client secret, which the app confirms with a new card, a saved card or Apple Pay
+//   subscribe      starts (or resumes, or switches) the monthly or yearly subscription. New members
+//                  get a free first week: then it returns a SetupIntent's client secret (save the
+//                  card, nothing charged yet); otherwise the first payment's, which the app confirms
+//                  with a new card, a saved card or Apple Pay
 //   sync           after paying, reads the subscription back from Stripe and switches Plus on
 //   cancel/resume  stop or restart renewal at the end of the paid month
 //   promote        a one-off payment to put a post in front of more people for a number of days
 //   donate         a one-off payment to a member's fundraiser, paid out to their own Stripe account
 //   settle         after paying for either, reads the payment back and starts the ad / counts the gift
 //   payouts        the member's own Stripe account for receiving donations: status, onboarding, dashboard
+//   creator_*      subscribing to a creator (paid to their own Stripe account, less the app's share)
 //
 // Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and
 // optionally STRIPE_APPLE_MERCHANT_ID. The webhook for renewals registers itself with Stripe the
 // first time `config` runs, and keeps its signing secret in community_secrets.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { AD_DAY_PENCE, applySubscription, CURRENCY, json, PRICE_LOOKUP, PRICE_PENCE, settlePaymentIntent, STRIPE_VERSION, StripeError, stripe, subjectOf, WEBHOOK_EVENTS } from '../_shared/billing.ts';
+import { AD_DAY_PENCE, applyCreatorSub, applySubscription, CREATOR_FEE_PERCENT, CURRENCY, isCreatorSub, json, PRICE_LOOKUP, PRICE_PENCE, settlePaymentIntent, STRIPE_VERSION, StripeError, stripe, subjectOf, TRIAL_DAYS, WEBHOOK_EVENTS, YEARLY_LOOKUP, YEARLY_PENCE } from '../_shared/billing.ts';
 
 /* ---------- members and customers ---------- */
 
@@ -28,7 +31,7 @@ type Ctx = { db: SupabaseClient; me: string };
 
 async function billingRow({ db, me }: Ctx) {
   const { data } = await db.from('community_billing').select('*').eq('user_id', me).maybeSingle();
-  return data as null | { user_id: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; stripe_account_id: string | null };
+  return data as null | { user_id: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; stripe_account_id: string | null; trial_used: boolean; plan: string };
 }
 
 /** The member's Stripe customer, made the first time they pay or save a card. */
@@ -46,20 +49,30 @@ async function customerFor(ctx: Ctx): Promise<string> {
   return customer.id;
 }
 
-/** The monthly Plus price, made in Stripe the first time it is needed (looked up by its key after that). */
-async function priceId(): Promise<string> {
-  const found = await stripe('GET', 'prices', { lookup_keys: [PRICE_LOOKUP], active: true, limit: 1 });
+type Plan = 'monthly' | 'yearly';
+
+/** A Plus price, made in Stripe the first time it is needed (looked up by its key after that, and remade if the amount changes). */
+async function priceId(plan: Plan = 'monthly'): Promise<string> {
+  const lookup = plan === 'yearly' ? YEARLY_LOOKUP : PRICE_LOOKUP;
+  const amount = plan === 'yearly' ? YEARLY_PENCE : PRICE_PENCE;
+  const found = await stripe('GET', 'prices', { lookup_keys: [lookup], active: true, limit: 1 });
   const existing = found?.data?.[0];
-  if (existing && existing.unit_amount === PRICE_PENCE && existing.currency === CURRENCY) return existing.id;
+  if (existing && existing.unit_amount === amount && existing.currency === CURRENCY) return existing.id;
   const price = await stripe('POST', 'prices', {
     currency: CURRENCY,
-    unit_amount: PRICE_PENCE,
-    recurring: { interval: 'month' },
-    product_data: { name: 'Community Plus' },
-    lookup_key: PRICE_LOOKUP,
+    unit_amount: amount,
+    recurring: { interval: plan === 'yearly' ? 'year' : 'month' },
+    product_data: { name: plan === 'yearly' ? 'Community Plus (yearly)' : 'Community Plus' },
+    lookup_key: lookup,
     transfer_lookup_key: true,
   });
   return price.id;
+}
+
+/** The member's Plus subscriptions (not their subscriptions to creators), newest first. */
+async function plusSubs(customer: string, expand: string[]) {
+  const subs = await stripe('GET', 'subscriptions', { customer, status: 'all', limit: 20, expand });
+  return ((subs?.data ?? []) as any[]).filter((s) => !isCreatorSub(s));
 }
 
 type Card = { id: string; brand: string; last4: string; exp_month: number; exp_year: number; wallet: string | null; is_default: boolean };
@@ -240,6 +253,80 @@ async function settle(ctx: Ctx, body: any) {
   return { status: pi.status, ...r };
 }
 
+/* ---------- subscriptions to creators ---------- */
+
+/** The creator's monthly price in Stripe, made when first needed and remade when they change it. */
+async function creatorPrice(db: SupabaseClient, creatorId: string): Promise<{ price: string; amount: number; account: string; username: string }> {
+  const { data: c } = await db.from('community_profiles').select('username, sub_price_pence, sub_price_id').eq('id', creatorId).maybeSingle();
+  if (!c?.sub_price_pence) throw new StripeError('This account doesn\'t offer subscriptions.', 400);
+  const { data: b } = await db.from('community_billing').select('stripe_account_id').eq('user_id', creatorId).maybeSingle();
+  if (!b?.stripe_account_id) throw new StripeError('This account can\'t take subscriptions yet.', 400);
+  const acct = await stripe('GET', `accounts/${b.stripe_account_id}`);
+  if (!acct.charges_enabled) throw new StripeError('This account can\'t take subscriptions yet.', 400);
+  let price = c.sub_price_id as string | null;
+  if (!price) {
+    const made = await stripe('POST', 'prices', {
+      currency: CURRENCY,
+      unit_amount: c.sub_price_pence,
+      recurring: { interval: 'month' },
+      product_data: { name: `Subscription to @${c.username}` },
+      metadata: { creator_id: creatorId },
+    });
+    price = made.id as string;
+    await db.from('community_profiles').update({ sub_price_id: price }).eq('id', creatorId);
+  }
+  return { price: price!, amount: c.sub_price_pence, account: b.stripe_account_id, username: c.username };
+}
+
+async function creatorSubscribe(ctx: Ctx, body: any) {
+  const creatorId = typeof body?.creator_id === 'string' ? body.creator_id : '';
+  if (!creatorId || creatorId === ctx.me) throw new StripeError('You can\'t subscribe to yourself.', 400);
+  const { data: existing } = await ctx.db.from('community_creator_subs').select('stripe_subscription_id, status').eq('creator_id', creatorId).eq('subscriber_id', ctx.me).maybeSingle();
+  if (existing?.stripe_subscription_id) {
+    const sub = await stripe('GET', `subscriptions/${existing.stripe_subscription_id}`, { expand: ['latest_invoice.payment_intent'] });
+    if (['active', 'trialing'].includes(sub.status)) {
+      if (sub.cancel_at_period_end) await stripe('POST', `subscriptions/${sub.id}`, { cancel_at_period_end: false });
+      await applyCreatorSub(ctx.db, { ...sub, cancel_at_period_end: false });
+      return { already: true, subscription_id: sub.id };
+    }
+    const pi = sub.latest_invoice?.payment_intent;
+    if (sub.status === 'incomplete' && pi?.client_secret && pi.status !== 'canceled') return { subscription_id: sub.id, client_secret: pi.client_secret, intent: 'payment', amount: pi.amount, currency: pi.currency };
+  }
+  const { price, account } = await creatorPrice(ctx.db, creatorId);
+  const customer = await customerFor(ctx);
+  const sub = await stripe('POST', 'subscriptions', {
+    customer,
+    items: [{ price }],
+    payment_behavior: 'default_incomplete',
+    payment_settings: { save_default_payment_method: 'on_subscription', payment_method_types: ['card'] },
+    transfer_data: { destination: account },
+    on_behalf_of: account,
+    application_fee_percent: CREATOR_FEE_PERCENT,
+    expand: ['latest_invoice.payment_intent'],
+    metadata: { kind: 'creator', creator_id: creatorId, user_id: ctx.me },
+  });
+  await applyCreatorSub(ctx.db, sub);
+  const pi = sub.latest_invoice?.payment_intent;
+  if (!pi?.client_secret) throw new StripeError('The payment could not be started. Try again.', 502);
+  return { subscription_id: sub.id, client_secret: pi.client_secret, intent: 'payment', amount: pi.amount, currency: pi.currency };
+}
+
+async function creatorSync(ctx: Ctx, body: any) {
+  const { data: row } = await ctx.db.from('community_creator_subs').select('stripe_subscription_id').eq('creator_id', body?.creator_id).eq('subscriber_id', ctx.me).maybeSingle();
+  if (!row?.stripe_subscription_id) return { status: 'none' };
+  const sub = await stripe('GET', `subscriptions/${row.stripe_subscription_id}`, { expand: ['latest_invoice.payment_intent.payment_method'] });
+  await applyCreatorSub(ctx.db, sub);
+  return { status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null };
+}
+
+async function creatorCancel(ctx: Ctx, body: any) {
+  const { data: row } = await ctx.db.from('community_creator_subs').select('stripe_subscription_id').eq('creator_id', body?.creator_id).eq('subscriber_id', ctx.me).maybeSingle();
+  if (!row?.stripe_subscription_id) throw new StripeError('There is no subscription to change.', 400);
+  const sub = await stripe('POST', `subscriptions/${row.stripe_subscription_id}`, { cancel_at_period_end: body?.resume ? false : true });
+  await applyCreatorSub(ctx.db, sub);
+  return { status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end };
+}
+
 /* ---------- the actions ---------- */
 
 async function status(ctx: Ctx) {
@@ -249,40 +336,68 @@ async function status(ctx: Ctx) {
     current_period_end: row?.current_period_end ?? null,
     cancel_at_period_end: row?.cancel_at_period_end ?? false,
     has_customer: !!row?.stripe_customer_id,
+    plan: row?.plan || null,
+    // The free week is for members who have never had Plus.
+    trial_available: TRIAL_DAYS > 0 && !row?.trial_used && !row?.stripe_subscription_id,
   };
 }
 
 async function subscribe(ctx: Ctx, body: any) {
   const customer = await customerFor(ctx);
   const savedCard: string | null = typeof body?.payment_method_id === 'string' ? body.payment_method_id : null;
+  const plan: Plan = body?.plan === 'yearly' ? 'yearly' : 'monthly';
+  const price = await priceId(plan);
 
-  // Already paying: nothing to start.
-  const subs = await stripe('GET', 'subscriptions', { customer, status: 'all', limit: 10, expand: ['data.latest_invoice.payment_intent'] });
+  const subs = await plusSubs(customer, ['data.latest_invoice.payment_intent', 'data.pending_setup_intent']);
   // A renewal that failed: pay its invoice now, with whatever the member chooses.
-  const overdue = (subs?.data ?? []).find((s: any) => s.status === 'past_due' && s.latest_invoice?.payment_intent?.client_secret && s.latest_invoice.payment_intent.status !== 'succeeded');
+  const overdue = subs.find((s: any) => s.status === 'past_due' && s.latest_invoice?.payment_intent?.client_secret && s.latest_invoice.payment_intent.status !== 'succeeded');
   if (overdue) {
     const pi = overdue.latest_invoice.payment_intent;
-    return { subscription_id: overdue.id, client_secret: pi.client_secret, status: pi.status, amount: pi.amount, currency: pi.currency };
+    return { subscription_id: overdue.id, client_secret: pi.client_secret, intent: 'payment', status: pi.status, amount: pi.amount, currency: pi.currency };
   }
-  const live = (subs?.data ?? []).find((s: any) => ['active', 'trialing', 'past_due'].includes(s.status));
+  // Already a member: switch plan if asked (Stripe settles the difference), and make sure it renews.
+  const live = subs.find((s: any) => ['active', 'trialing', 'past_due'].includes(s.status));
   if (live) {
-    if (live.cancel_at_period_end) await stripe('POST', `subscriptions/${live.id}`, { cancel_at_period_end: false });
-    await applySubscription(ctx.db, ctx.me, live);
+    const item = live.items?.data?.[0];
+    const patch: Record<string, unknown> = {};
+    if (live.cancel_at_period_end) patch.cancel_at_period_end = false;
+    if (item && item.price?.id !== price) {
+      patch.items = [{ id: item.id, price }];
+      patch.proration_behavior = 'create_prorations';
+    }
+    const updated = Object.keys(patch).length ? await stripe('POST', `subscriptions/${live.id}`, { ...patch, expand: ['latest_invoice.payment_intent'] }) : live;
+    await applySubscription(ctx.db, ctx.me, updated);
     return { already: true, subscription_id: live.id };
   }
 
-  // A checkout left half-way is picked up again rather than starting a second subscription.
-  let sub = (subs?.data ?? []).find((s: any) => s.status === 'incomplete' && s.latest_invoice?.payment_intent?.status && s.latest_invoice.payment_intent.status !== 'canceled');
+  // A checkout left half-way on the same plan is picked up again rather than starting a second one.
+  let sub = subs.find((s: any) => s.status === 'incomplete' && s.items?.data?.[0]?.price?.id === price && s.latest_invoice?.payment_intent?.status && s.latest_invoice.payment_intent.status !== 'canceled');
+  let trial = false;
   if (!sub) {
+    const row = await billingRow(ctx);
+    // One free week per member, ever: not after any earlier Plus subscription.
+    trial = TRIAL_DAYS > 0 && !row?.trial_used && subs.length === 0;
     sub = await stripe('POST', 'subscriptions', {
       customer,
-      items: [{ price: await priceId() }],
+      items: [{ price }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription', payment_method_types: ['card'] },
       default_payment_method: savedCard ?? undefined,
-      expand: ['latest_invoice.payment_intent'],
-      metadata: { user_id: ctx.me },
+      trial_period_days: trial ? TRIAL_DAYS : undefined,
+      // If no card is ever added, the free week simply ends: nothing is charged.
+      trial_settings: trial ? { end_behavior: { missing_payment_method: 'cancel' } } : undefined,
+      expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
+      metadata: { user_id: ctx.me, kind: 'plus' },
     });
+    if (trial) await ctx.db.from('community_billing').update({ trial_used: true, updated_at: new Date().toISOString() }).eq('user_id', ctx.me);
+  }
+
+  if (sub.status === 'trialing') {
+    await applySubscription(ctx.db, ctx.me, sub);
+    // A card is still needed for after the free week, unless a saved one was chosen.
+    const si = sub.pending_setup_intent;
+    if (si?.client_secret && !savedCard) return { subscription_id: sub.id, client_secret: si.client_secret, intent: 'setup', trial_days: TRIAL_DAYS, amount: 0, currency: CURRENCY };
+    return { already: true, subscription_id: sub.id, trial_days: TRIAL_DAYS };
   }
   const pi = sub.latest_invoice?.payment_intent;
   if (!pi?.client_secret) throw new StripeError('The payment could not be started. Try again.', 502);
@@ -291,14 +406,13 @@ async function subscribe(ctx: Ctx, body: any) {
     await applySubscription(ctx.db, ctx.me, fresh);
     return { already: true, subscription_id: sub.id };
   }
-  return { subscription_id: sub.id, client_secret: pi.client_secret, status: pi.status, amount: pi.amount, currency: pi.currency };
+  return { subscription_id: sub.id, client_secret: pi.client_secret, intent: 'payment', status: pi.status, amount: pi.amount, currency: pi.currency, trial: trial || undefined };
 }
 
 async function sync(ctx: Ctx) {
   const row = await billingRow(ctx);
   if (!row?.stripe_customer_id) return { plus: false, ...(await status(ctx)) };
-  const subs = await stripe('GET', 'subscriptions', { customer: row.stripe_customer_id, status: 'all', limit: 5, expand: ['data.latest_invoice.payment_intent.payment_method'] });
-  const list = subs?.data ?? [];
+  const list = await plusSubs(row.stripe_customer_id, ['data.latest_invoice.payment_intent.payment_method']);
   const best = list.find((s: any) => ['active', 'trialing', 'past_due'].includes(s.status)) ?? list[0];
   if (best) await applySubscription(ctx.db, ctx.me, best);
   const { data: p } = await ctx.db.from('community_profiles').select('plus_until').eq('id', ctx.me).maybeSingle();
@@ -337,6 +451,9 @@ Deno.serve(async (req: Request) => {
           publishable_key: ready ? publishable : '',
           apple_merchant_id: Deno.env.get('STRIPE_APPLE_MERCHANT_ID') ?? '',
           price_pence: PRICE_PENCE,
+          yearly_pence: YEARLY_PENCE,
+          trial_days: TRIAL_DAYS,
+          creator_fee_percent: CREATOR_FEE_PERCENT,
           currency: CURRENCY.toUpperCase(),
           test_mode: publishable.startsWith('pk_test_'),
           ad_day_pence: AD_DAY_PENCE,
@@ -391,6 +508,12 @@ Deno.serve(async (req: Request) => {
         return json(await payoutsDashboard(ctx));
       case 'fundraiser_ready':
         return json(await fundraiserReady(ctx, body));
+      case 'creator_subscribe':
+        return json(await creatorSubscribe(ctx, body));
+      case 'creator_sync':
+        return json(await creatorSync(ctx, body));
+      case 'creator_cancel':
+        return json(await creatorCancel(ctx, body));
       default:
         return json({ error: 'Unknown action.' }, 400);
     }

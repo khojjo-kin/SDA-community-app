@@ -168,8 +168,8 @@ export default function EditProfile() {
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
         <RoundButton name="back" label="Cancel" onPress={() => router.back()} />
         <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center' }}>Edit profile</Text>
-        <Pressable onPress={save} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Done" style={{ width: 44, alignItems: 'flex-end' }}>
-          <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 17, opacity: busy ? 0.4 : 1 }}>{busy ? '…' : 'Done'}</Text>
+        <Pressable onPress={save} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Done" style={{ minWidth: 56, flexShrink: 0, alignItems: 'flex-end' }}>
+          <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 17, opacity: busy ? 0.4 : 1 }}>{busy ? '…' : 'Done'}</Text>
         </Pressable>
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
