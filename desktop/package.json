@@ -47,7 +47,9 @@
       "minimumSystemVersion": "12.0",
       "extendInfo": {
         "NSCameraUsageDescription": "Community uses your camera for photos, videos and calls.",
-        "NSMicrophoneUsageDescription": "Community uses your microphone for voice messages and calls."
+        "NSMicrophoneUsageDescription": "Community uses your microphone for voice messages and calls.",
+        "NSLocationUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you.",
+        "NSLocationWhenInUseUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you."
       }
     }
   }

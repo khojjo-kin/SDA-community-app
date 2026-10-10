@@ -146,9 +146,10 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.themeSource = 'dark';
     const port = await serve();
     origin = `http://localhost:${port}`;
-    // Camera and microphone (calls, voice messages) and notifications, for the app's own pages only.
+    // Camera and microphone (calls, voice messages), location (the friends' map, churches near
+    // you) and notifications, for the app's own pages only.
     session.defaultSession.setPermissionRequestHandler((wc, permission, done, details) => {
-      const allowed = ['media', 'notifications', 'clipboard-sanitized-write', 'fullscreen'];
+      const allowed = ['media', 'geolocation', 'notifications', 'clipboard-sanitized-write', 'fullscreen'];
       done(allowed.includes(permission) && isOurs(details.requestingUrl || wc.getURL()));
     });
     buildMenu();

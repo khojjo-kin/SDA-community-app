@@ -1,6 +1,6 @@
 // Asking for Create from anywhere in the app: the Create button, "Add to story" on a post, a story
 // from the archive shared again, a post into a community. main.tsx listens and opens the right dialog.
-import type { StoryItem } from 'shared/types';
+import type { Audience, StoryItem } from 'shared/types';
 
 export type CreateRequest = {
   mode: 'post' | 'story' | 'short' | 'live' | 'ad';
@@ -10,6 +10,10 @@ export type CreateRequest = {
   storyItem?: StoryItem;
   /** Post into this community or page instead of your profile. */
   groupId?: string;
+  /** A story shared again keeps the audience it had (everyone or close friends). */
+  audience?: Audience;
+  /** Words to start the caption with (verses posted from the Bible). */
+  text?: string;
 };
 
 const EVENT = 'community:create';

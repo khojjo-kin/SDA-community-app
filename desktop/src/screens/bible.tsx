@@ -518,14 +518,11 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
     setSending(quote());
     setSelected([]);
   };
-  // As on the iPhone, Post starts a new post with the verses as its caption. Create on the desktop
-  // starts from a photo, so the verses also go on the clipboard to paste into the caption.
-  const post = async () => {
+  // As on the iPhone, Post starts a new post with the verses as its caption (pick a photo first).
+  const post = () => {
     const q = quote();
     setSelected([]);
-    await copyText(q);
-    openCreate({ mode: 'post', text: q } as CreateRequest & { text: string });
-    toast('The verses are copied. Paste them into your caption.');
+    openCreate({ mode: 'post', text: q });
   };
   const note = () => {
     if (selected.length !== 1) {

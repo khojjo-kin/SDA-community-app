@@ -160,7 +160,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
   const [editTab, setEditTab] = useState<'filters' | 'adjust'>('filters');
   const [crop, setCrop] = useState<Crop>('original');
   const [at, setAt] = useState(0);
-  const [caption, setCaption] = useState('');
+  const [caption, setCaption] = useState(request?.text ?? '');
   const [location, setLocation] = useState('');
   const [audience, setAudience] = useState<Audience>('everyone');
   // A group's Post button asks for a post in that group: it starts chosen under Post to.

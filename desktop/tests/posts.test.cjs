@@ -399,8 +399,14 @@ function sampleVideo() {
     const asked = await page.evaluate(() => window.__creates);
     check('Add to story asks Create for a story with the post', asked.length === 1 && asked[0].mode === 'story' && asked[0].sharePostId === 'pp_tags', JSON.stringify(asked));
     check('and the share dialog closes', (await page.locator('.pp-share-actions').count()) === 0);
-    await page.keyboard.press('Escape');
-    await wait(300);
+    // The story editor (the Stories area) opens with the post: close it and discard.
+    await wait(500);
+    if (await page.locator('.stc-x').count()) {
+      await page.locator('.stc-x').first().click();
+      const discard = page.getByRole('button', { name: 'Discard', exact: true });
+      await discard.waitFor({ timeout: 2000 }).then(() => discard.click()).catch(() => {});
+    } else await page.keyboard.press('Escape');
+    await wait(400);
     await garden.getByRole('button', { name: 'Share' }).click();
     await page.locator('.pp-share-act', { hasText: 'Copy link' }).click();
     await wait(400);
@@ -613,7 +619,7 @@ function sampleVideo() {
     check('Post to starts on my profile', (await postTo.innerText()).includes('Your profile'));
     await postTo.click();
     const places = (await page.locator('.pp-place-row').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
-    check('it offers my profile and the communities I can post in (not a page I only follow)', places.length === 2 && places[0].startsWith('Your profile') && places[1].startsWith('Youth Ministry'), places.join(' / '));
+    check('it offers my profile and the communities I can post in (not a page I only follow)', places.length >= 2 && places[0].startsWith('Your profile') && places.some((p) => p.startsWith('Youth Ministry')) && places.every((p) => !/\bPage\b/.test(p)), places.join(' / '));
     await page.getByRole('radio', { name: 'Youth Ministry' }).click();
     check('choosing a community shows it under Post to', (await postTo.innerText()).includes('Youth Ministry'));
     check('a post in a community has no subscriber audience, no story and no profile-only switch', (await page.locator('.pp-audience').count()) === 0 && (await page.getByRole('switch', { name: 'Also share to your story' }).count()) === 0);

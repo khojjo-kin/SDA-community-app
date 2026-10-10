@@ -208,7 +208,7 @@ function Shell() {
       screen = seg[1] === 'new' ? <GoLive /> : <LiveViewer id={seg[1]} />;
       break;
     case 'dashboard':
-      screen = <Dashboard path={route} />;
+      screen = <Dashboard path={route} openPost={openPost} />;
       break;
     case 'fundraisers':
       screen = <FundraiserPage id={seg[1]} />;

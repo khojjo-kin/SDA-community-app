@@ -66,11 +66,11 @@ const check = (name, ok, extra = '') => {
     check('the navigation has the iPhone console sections', ['Publishers', 'Feedback and reviews', 'Offensive words', 'Ads and fundraisers', 'Support', 'Tick and Plus requests', 'Churches'].every((x) => navText.includes(x)));
     check('and the app pages admins look after', ['Hymnal', 'Pod', 'Communities and pages'].every((x) => navText.includes(x)));
     await page.waitForSelector('.adm-nav-badge');
-    check('waiting publishers are counted in the navigation', (await navBadge('Publishers')) === 3, await navBadge('Publishers'));
+    check('waiting publishers are counted in the navigation', (await navBadge('Publishers')) === 2, await navBadge('Publishers'));
     check('so are identity checks and Plus requests', (await navBadge('Tick and Plus requests')) === 3, await navBadge('Tick and Plus requests'));
     await page.waitForSelector('.alert-chip');
     const chips = (await page.locator('.alert-chip').allInnerTexts()).join(' | ');
-    check("the dashboard's needs-attention list has publisher requests", /3\s+publisher requests/.test(chips), chips);
+    check("the dashboard's needs-attention list has publisher requests", /2\s+publisher requests/.test(chips), chips);
     check('and open support chats, identity checks and Plus requests', /open support chats/.test(chips) && /identity checks/.test(chips) && /Plus request/.test(chips), chips);
     await page.locator('.alert-chip', { hasText: 'publisher requests' }).click();
     await wait();
@@ -81,9 +81,9 @@ const check = (name, ok, extra = '') => {
     const pendingCards = () => page.locator('.adm-pub').filter({ has: page.getByRole('button', { name: 'Approve', exact: true }) });
     const approvedCards = () => page.locator('.adm-pub').filter({ has: page.getByRole('button', { name: 'Revoke', exact: true }) });
     const pending0 = await pendingCards().count();
-    check('publisher requests are listed with their notes', pending0 === 3 && (await page.locator('.adm-pub').first().innerText()).length > 10, pending0);
+    check('publisher requests are listed with their notes', pending0 === 2 && (await page.locator('.adm-pub').first().innerText()).length > 10, pending0);
     check('a request without a note says so', (await page.locator('.adm-pub', { hasText: 'No note' }).count()) === 1);
-    check('approved publishers are listed apart', (await approvedCards().count()) === 1 && (await approvedCards().first().innerText()).includes('Grace Mensah'));
+    check('approved publishers are listed apart', (await approvedCards().count()) === 2 && (await approvedCards().filter({ hasText: 'Grace Mensah' }).count()) === 1);
     await shot('admin-publishers-dark');
     const first = await pendingCards().first().locator('.adm-who-text b').innerText();
     await pendingCards().first().getByRole('button', { name: 'Approve', exact: true }).click();
@@ -104,7 +104,7 @@ const check = (name, ok, extra = '') => {
     await page.waitForSelector('.alert-chip');
     await page.waitForTimeout(600);
     const chips2 = (await page.locator('.alert-chip').allInnerTexts()).join(' | ');
-    check("the dashboard's count follows the decisions", /1\s+publisher request\b/.test(chips2), chips2);
+    check("the dashboard's count follows the decisions", !/publisher request/.test(chips2), chips2);
 
     /* ---------- feedback ---------- */
     await goto('/admin/feedback');

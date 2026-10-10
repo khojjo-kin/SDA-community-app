@@ -79,16 +79,16 @@ export const ext: Ext = {
     // The client exists once every module has loaded.
     setTimeout(addSignedUrls, 0);
 
-    // Sabbath School publishers: three asking, Grace already publishing. The Church area may add its
-    // own sample publishers; these are only added to an empty table so the two never clash.
-    if (!T('community_publishers').length) {
-      const pub = (id: string, user_id: string, status: string, note: string, hours: number, decidedHours: number | null = null) =>
-        T('community_publishers').push({ id, user_id, status, note, decided_by: decidedHours === null ? null : 'demo_me', decided_at: decidedHours === null ? null : ago(decidedHours), created_at: ago(hours) });
-      pub('adm_pub1', 'u_ruth', 'pending', 'I teach the adult Sabbath School class at Hillside and would like to share the weekly lesson helps with everyone.', 6);
-      pub('adm_pub2', 'u_samuel', 'pending', 'Our media team records the lesson study every week. We would post the videos with short notes.', 20);
-      pub('adm_pub3', 'u_joseph', 'pending', '', 30);
-      pub('adm_pub4', 'u_grace', 'approved', 'Lesson helps for the youth class, and the memory verse each week.', 400, 380);
-    }
+    // Sabbath School publishers. The Church area's demo data comes first (you and Grace publishing,
+    // Ruth asking, Esther refused, Joseph turned off); this adds Samuel asking without a note, and
+    // the same rows for anyone that data doesn't cover, one row per person as in the database.
+    const pub = (id: string, user_id: string, status: string, note: string, hours: number, decidedHours: number | null = null) => {
+      if (T('community_publishers').some((p) => p.user_id === user_id)) return;
+      T('community_publishers').push({ id, user_id, status, note, decided_by: decidedHours === null ? null : 'demo_me', decided_at: decidedHours === null ? null : ago(decidedHours), created_at: ago(hours) });
+    };
+    pub('adm_pub1', 'u_ruth', 'pending', 'I teach the adult Sabbath School class at Hillside and would like to share the weekly lesson helps with everyone.', 6);
+    pub('adm_pub2', 'u_samuel', 'pending', '', 20);
+    pub('adm_pub4', 'u_grace', 'approved', 'Lesson helps for the youth class, and the memory verse each week.', 400, 380);
 
     // What members have told us, from Help and the "Enjoying Community?" question.
     const fb = (id: string, user_id: string | null, kind: string, rating: number | null, text: string, platform: string, app_version: string, hours: number) =>

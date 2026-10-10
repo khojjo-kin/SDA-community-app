@@ -218,9 +218,12 @@ async function newPage(browser, errors, as, opts = {}) {
     const counted = await page.waitForFunction(() => /^0:0[1-9]$/.test(document.querySelector('.cv-rec-time')?.textContent || ''), null, { timeout: 6000 }).then(() => true, () => false);
     check('the time counts up while recording', counted, await text('.cv-rec-time'));
     check('calls are off while recording', await page.locator('.chat-head').getByRole('button', { name: 'Voice call' }).isDisabled());
-    check('the bars follow the microphone', (await page.locator('.cv-rec-wave i').evaluateAll((els) => els.filter((e) => parseInt(e.style.height) > 3).length)) > 0);
+    const moved = await page.waitForFunction(() => [...document.querySelectorAll('.cv-rec-wave i')].some((e) => parseInt(e.style.height) > 3), null, { timeout: 4000 }).then(() => true, () => false);
+    check('the bars follow the microphone', moved);
     await page.waitForTimeout(900);
     await shot('messages-recording-dark');
+    // Record for a little over two seconds before sending, whatever the machine's speed.
+    await page.waitForFunction(() => /^0:0[2-9]$/.test(document.querySelector('.cv-rec-time')?.textContent || ''), null, { timeout: 8000 }).catch(() => {});
     await page.locator('.cv-rec').getByRole('button', { name: 'Send voice message' }).click();
     const arrived = await page.waitForFunction((n) => document.querySelectorAll('.chat-log .msg.mine .bubble.voice').length > n, voicesBefore, { timeout: 8000 }).then(() => true, () => false);
     check('the voice message appears in the chat', arrived);

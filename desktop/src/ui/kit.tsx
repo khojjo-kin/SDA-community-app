@@ -109,10 +109,17 @@ export function Link({ to, className, children, onClick, title }: { to: string; 
 
 export function Modal({ onClose, children, className, title, wide, closeOutside = true, bare }: { onClose: () => void; children: React.ReactNode; className?: string; title?: React.ReactNode; wide?: boolean; closeOutside?: boolean; bare?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
+  // The latest onClose, so Escape calls the current one, not the one from when the dialog opened.
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // Only the dialog on top answers Escape (a confirmation over Create closes alone).
+      const scrims = document.querySelectorAll('.scrim');
+      if (scrims.length && scrims[scrims.length - 1] !== box.current?.parentElement) return;
+      close.current();
     };
     document.addEventListener('keydown', key);
     document.body.classList.add('no-scroll');
