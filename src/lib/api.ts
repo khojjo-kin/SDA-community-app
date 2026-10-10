@@ -4,7 +4,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { ActivityRow, AdminStats, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
+import type { ActivityRow, AdminStats, BillingStatus, PaymentsConfig, SavedCard, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -1151,4 +1151,54 @@ export async function answerSupportTicket(id: string, reply: string, status: Sup
 
 export async function closeSupportTicket(id: string) {
   ok(await supabase.from('community_support_tickets').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', id));
+}
+
+/* ---------- payments (Stripe, through the payments function) ---------- */
+
+/** Calls the payments function and turns its refusals into readable errors. */
+async function payments<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await withTimeout(supabase.functions.invoke('payments', { body: { action, ...extra } }), 30000);
+  if (error) {
+    const ctx = (error as any)?.context;
+    let message = '';
+    try {
+      const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
+      message = typeof body?.error === 'string' ? body.error : '';
+    } catch {
+      // Not JSON: fall back to the generic error below.
+    }
+    throw new Error(message || 'The payment service could not be reached. Check your connection and try again.');
+  }
+  return data as T;
+}
+
+export const fetchPaymentsConfig = () => payments<PaymentsConfig>('config');
+export const fetchBillingStatus = () => payments<BillingStatus>('status');
+export const fetchSavedCards = () => payments<{ cards: SavedCard[] }>('cards').then((r) => r.cards ?? []);
+/** A SetupIntent client secret: confirm it with the card the member typed and the card is saved. */
+export const startAddCard = () => payments<{ client_secret: string }>('add_card').then((r) => r.client_secret);
+export const removeSavedCard = (id: string) => payments<{ cards: SavedCard[] }>('remove_card', { payment_method_id: id }).then((r) => r.cards ?? []);
+export const setDefaultCard = (id: string) => payments<{ cards: SavedCard[] }>('default_card', { payment_method_id: id }).then((r) => r.cards ?? []);
+
+/**
+ * Starts the monthly Plus subscription (or picks up one left half-way, or a failed renewal). Returns
+ * the first payment's client secret to confirm with a card or Apple Pay, or `already: true` when
+ * nothing is left to pay.
+ */
+export const startSubscription = (savedCardId?: string | null) =>
+  payments<{ already?: boolean; subscription_id: string; client_secret?: string; status?: string; amount?: number; currency?: string }>('subscribe', savedCardId ? { payment_method_id: savedCardId } : {});
+
+/** Reads the subscription back from Stripe after paying and switches Plus on. */
+export async function syncSubscription(): Promise<BillingStatus & { plus: boolean }> {
+  const r = await payments<BillingStatus & { plus: boolean }>('sync');
+  announce('profile');
+  return r;
+}
+
+export const cancelSubscription = () => payments<BillingStatus>('cancel');
+export const resumeSubscription = () => payments<BillingStatus>('resume');
+
+/** My payments, newest first (the database only returns my own). */
+export async function myTransactions(me: string): Promise<Transaction[]> {
+  return ok(await supabase.from('community_transaction_cards').select('*').eq('user_id', me).order('created_at', { ascending: false }).limit(50)) ?? [];
 }

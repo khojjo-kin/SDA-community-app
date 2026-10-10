@@ -10,7 +10,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { thumbOf } from '../../../src/components/Grid';
-import { Icon, IconName } from '../../../src/components/Icon';
+import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
 import { TypingDots } from '../../../src/components/TypingDots';
 import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useToast } from '../../../src/components/ui';
 import { askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, markThreadRead, report, sendMessage, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
@@ -804,7 +804,10 @@ export default function Chat() {
           <Pressable onPress={() => router.push(`/user/${thread.other_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${thread.full_name}'s profile`}>
             {isErha && !thread.avatar_url ? <ErhaAvatar size={40} /> : <Avatar uri={thread.avatar_url} name={thread.full_name} size={40} />}
             <View style={{ flex: 1 }}>
-              <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700' }}>{thread.full_name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{thread.full_name}</Text>
+                {thread.verified ? <VerifiedTick size={16} /> : null}
+              </View>
               {showTyping ? (
                 <Text numberOfLines={1} style={{ color: C.accent2, fontSize: 13 }} accessibilityLiveRegion="polite">Typing…</Text>
               ) : isErha ? (
@@ -989,8 +992,8 @@ export default function Chat() {
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 52, paddingLeft: isErha ? 8 : 6, paddingRight: 8, borderRadius: 26, backgroundColor: C.inputBar }}>
                 {isErha ? null : (
-                  <Pressable onPress={() => sendPhotos(true)} disabled={sending} accessibilityRole="button" accessibilityLabel="Take a photo" style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: '#5454f0', alignItems: 'center', justifyContent: 'center', marginBottom: 6, opacity: pressed ? 0.7 : 1 })}>
-                    {sending ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="camerafill" size={23} color="#fff" ink="#5454f0" />}
+                  <Pressable onPress={() => sendPhotos(true)} disabled={sending} accessibilityRole="button" accessibilityLabel="Take a photo" style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 6, opacity: pressed ? 0.7 : 1 })}>
+                    {sending ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="camerafill" size={23} color="#fff" ink={C.accent} />}
                   </Pressable>
                 )}
                 <TextInput value={text} onChangeText={changeText} onFocus={() => setTray(false)} onBlur={tellStopped} placeholder={isErha ? 'Ask Erha…' : 'Message…'} placeholderTextColor={C.fg2} multiline maxLength={5000} keyboardAppearance="dark" style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel={isErha ? 'Message to Erha' : 'Message'} />

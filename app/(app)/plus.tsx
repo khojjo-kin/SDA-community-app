@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
 import { Button, Row, Screen, ScreenHeader, SectionLabel, Sheet, Toggle, useToast } from '../../src/components/ui';
-import { myPlusRequests, PLUS_PRICE_PENCE, requestPlus, updateProfile } from '../../src/lib/api';
-import { fontById } from '../../src/lib/fonts';
+import { cancelSubscription, fetchBillingStatus, myPlusRequests, PLUS_PRICE_PENCE, requestPlus, resumeSubscription, updateProfile } from '../../src/lib/api';
+import { fontById, useAppFont } from '../../src/lib/fonts';
+import { money } from '../../src/lib/payments';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
-import { C, dayLabel, errText } from '../../src/lib/theme';
-import type { PlusRequest } from '../../src/lib/types';
+import { C, dayLabel, errText, monthName } from '../../src/lib/theme';
+import type { BillingStatus, PlusRequest } from '../../src/lib/types';
 
 /** What Plus gives. The daily Erha allowance for everyone else lives in the Erha function. */
 const PLUS_FEATURES: { icon: IconName; title: string; body: string }[] = [
@@ -25,25 +26,83 @@ const PLUS_FEATURES: { icon: IconName; title: string; body: string }[] = [
   { icon: 'bulb', title: 'New features first', body: 'Try what is coming to Community before everyone else.' },
 ];
 
-const PRICE = '£' + (PLUS_PRICE_PENCE / 100).toFixed(2);
+const PRICE = money(PLUS_PRICE_PENCE);
+
+/** "9 November", with the year when it is not this year. */
+function longDay(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const year = d.getFullYear() === new Date().getFullYear() ? '' : ` ${d.getFullYear()}`;
+  return `${d.getDate()} ${monthName(d)}${year}`;
+}
+
+/** Subscriptions that still renew (or are trying to), and so can be cancelled. */
+const RENEWING = ['active', 'trialing', 'past_due', 'unpaid'];
+
+/** Where the subscription stands, in one line. */
+function subscriptionLine(b: BillingStatus): string {
+  const day = longDay(b.current_period_end);
+  if (b.status === 'past_due' || b.status === 'unpaid') return 'Payment failed — update your card';
+  if (b.status === 'incomplete') return 'Your first payment is not finished yet';
+  if (b.status === 'canceled') return day ? `Ended on ${day}` : 'Ended';
+  if (b.cancel_at_period_end) return day ? `Ends on ${day}` : 'Ends at the end of this month';
+  return day ? `Renews on ${day}` : 'Renews monthly';
+}
 
 export default function Plus() {
   const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
   const { appFont } = usePrefs();
+  const fontBold = useAppFont('bold');
   const [requests, setRequests] = useState<PlusRequest[]>([]);
   const [asking, setAsking] = useState<'verify' | 'plus' | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // The Stripe subscription, when there is one. Null when there is none or payments are not set up.
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [changing, setChanging] = useState(false);
   // Read receipts: shown at once when tapped, then put back if the save fails.
   const [receipts, setReceipts] = useState(profile?.read_receipts ?? true);
   useEffect(() => { setReceipts(profile?.read_receipts ?? true); }, [profile?.read_receipts]);
 
   const load = useCallback(() => {
     myPlusRequests(me).then(setRequests).catch(() => {});
+    fetchBillingStatus().then(setBilling).catch(() => setBilling(null));
   }, [me]);
   useFocusEffect(load);
+
+  const hasSub = !!billing && billing.status !== 'none' && billing.status !== 'incomplete_expired';
+  const failed = billing?.status === 'past_due' || billing?.status === 'unpaid';
+
+  function changeRenewal() {
+    if (!billing || changing) return;
+    const resume = billing.cancel_at_period_end;
+    const day = longDay(billing.current_period_end);
+    Alert.alert(
+      resume ? 'Resume Plus?' : 'Cancel Plus?',
+      resume ? `Plus will renew${day ? ` on ${day}` : ''} at ${PRICE} a month.` : `You will not be charged again. Plus stays on${day ? ` until ${day}` : ' until the end of this month'}.`,
+      [
+        { text: resume ? 'Not now' : 'Keep Plus', style: 'cancel' },
+        {
+          text: resume ? 'Resume' : 'Cancel subscription',
+          style: resume ? 'default' : 'destructive',
+          onPress: async () => {
+            setChanging(true);
+            try {
+              setBilling(await (resume ? resumeSubscription() : cancelSubscription()));
+              toast(resume ? 'Plus will renew as normal' : day ? `Plus will end on ${day}` : 'Plus will end at the end of this month');
+              refresh();
+            } catch (e) {
+              toast(errText(e));
+            } finally {
+              setChanging(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   const pending = (kind: 'verify' | 'plus') => requests.find((r) => r.kind === kind && r.status === 'pending');
 
@@ -99,7 +158,41 @@ export default function Plus() {
           ))}
         </View>
 
-        <Text style={{ color: C.fg, fontWeight: '700', textAlign: 'center', paddingTop: 18, fontSize: 15.5 }}>{PRICE} a month, arranged through your church</Text>
+        <Text style={{ color: C.fg, fontWeight: '700', textAlign: 'center', paddingTop: 18, fontSize: 15.5 }}>{PRICE} a month · cancel any time</Text>
+
+        {hasSub && billing ? (
+          <>
+            <SectionLabel>Your subscription</SectionLabel>
+            <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden', paddingBottom: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: failed ? 'rgba(255,48,64,0.14)' : 'rgba(31,191,90,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={failed ? 'info' : 'card'} size={22} color={failed ? C.like : C.accent2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.fg, fontWeight: '700', fontSize: 16 }}>Community Plus · {PRICE} a month</Text>
+                  <Text style={{ color: failed ? C.like : C.fg2, marginTop: 2, lineHeight: 19 }}>{subscriptionLine(billing)}</Text>
+                </View>
+              </View>
+              {failed || billing.status === 'incomplete' ? (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+                  <Button label={failed ? 'Pay now' : 'Finish paying'} onPress={() => router.push('/checkout')} />
+                </View>
+              ) : null}
+              <Row icon="card" title="Payment methods" onPress={() => router.push('/payment-methods')} />
+              <Row icon="receipt" title="Payment history" onPress={() => router.push('/payments')} />
+              {RENEWING.includes(billing.status) ? (
+                <Row
+                  icon={billing.cancel_at_period_end ? 'repeat' : 'close'}
+                  title={billing.cancel_at_period_end ? 'Resume subscription' : 'Cancel subscription'}
+                  color={billing.cancel_at_period_end ? C.accent2 : C.like}
+                  chevron={false}
+                  onPress={changing ? undefined : changeRenewal}
+                  right={changing ? <ActivityIndicator color={C.fg2} /> : undefined}
+                />
+              ) : null}
+            </View>
+          </>
+        ) : null}
 
         {profile?.plus ? (
           <>
@@ -115,14 +208,27 @@ export default function Plus() {
 
         <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 10 }}>
           {profile?.plus ? (
-            <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Plus renews through your church. Speak to an admin to extend it.</Text>
-          ) : pending('plus') ? (
-            <View style={{ padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
-              <Text style={{ color: C.fg, fontWeight: '700' }}>Your Plus request is with the admins</Text>
-              <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19 }}>Sent {dayLabel(new Date(pending('plus')!.created_at))}. Plus is activated once your church confirms your contribution.</Text>
-            </View>
+            hasSub ? null : <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Plus renews through your church. Speak to an admin to extend it.</Text>
           ) : (
-            <Button label="Get Community Plus" onPress={() => setAsking('plus')} />
+            <>
+              <Button label={`Get Plus · ${PRICE} a month`} onPress={() => router.push('/checkout')} />
+              {pending('plus') ? (
+                <View style={{ padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
+                  <Text style={{ color: C.fg, fontWeight: '700' }}>Your Plus request is with the admins</Text>
+                  <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19 }}>Sent {dayLabel(new Date(pending('plus')!.created_at))}. Plus is activated once your church confirms your contribution.</Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => setAsking('plus')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Arranged through your church? Ask an admin"
+                  style={({ pressed }) => ({ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: '#fff', fontWeight: '600', fontSize: 15.5, fontFamily: fontBold }}>
+                    Arranged through your church? Ask an admin
+                  </Text>
+                </Pressable>
+              )}
+            </>
           )}
           {!profile?.verified && !profile?.plus ? (
             pending('verify') ? (
@@ -132,7 +238,7 @@ export default function Plus() {
             )
           ) : null}
           <Text style={{ color: C.fg3, fontSize: 13, textAlign: 'center', lineHeight: 18, paddingTop: 6 }}>
-            Plus is arranged through your local church, so your contribution stays with your church. An admin activates it in the app.
+            Card payments are processed securely by Stripe and Plus switches on straight away. If your church arranges Plus for you, an admin can activate it instead.
           </Text>
         </View>
       </ScrollView>

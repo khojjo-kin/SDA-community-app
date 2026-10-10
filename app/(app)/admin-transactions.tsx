@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AdminFrame, money } from '../../src/components/AdminFrame';
@@ -18,6 +18,18 @@ const KINDS: { id: Transaction['kind']; label: string; color: string }[] = [
 const kindOf = (id: Transaction['kind']) => KINDS.find((k) => k.id === id) ?? KINDS[3];
 /** What a month of Plus costs, as typed into the amount field: "4.99". */
 const PLUS_POUNDS = (PLUS_PRICE_PENCE / 100).toFixed(2);
+/** Money going back out: Stripe records refunds as negative amounts, admins log them as positive ones. */
+const isRefund = (t: Transaction) => t.kind === 'refund' || t.amount_pence < 0;
+/** Refunds, softer than the red used for warnings. */
+const REFUND_RED = '#e0707a';
+
+function Pill({ label, color, bg = C.surface2 }: { label: string; color: string; bg?: string }) {
+  return (
+    <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: bg, justifyContent: 'center' }}>
+      <Text style={{ color, fontSize: 11.5, fontWeight: '700' }}>{label}</Text>
+    </View>
+  );
+}
 
 /** "9 Sep" this year, "9 Sep 2025" otherwise. */
 function when(iso: string): string {
@@ -108,10 +120,25 @@ export default function AdminTransactions() {
     ]);
   }
 
+  // The server's income totals count Plus, donations and other money in, but not refunds; take the
+  // refunds in the list off them so the totals are what was actually kept.
+  const refunded = useMemo(() => {
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    let month = 0;
+    let all = 0;
+    for (const t of list ?? []) {
+      if (!isRefund(t)) continue;
+      const back = Math.abs(t.amount_pence);
+      all += back;
+      if (new Date(t.created_at).getTime() >= monthStart) month += back;
+    }
+    return { month, all };
+  }, [list]);
+
   const header = (
     <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 14 }}>
-      <Total label="This month" value={stats ? money(stats.income_month_pence) : undefined} />
-      <Total label="All time" value={stats ? money(stats.income_pence) : undefined} />
+      <Total label="This month" value={stats && list ? money(stats.income_month_pence - refunded.month) : undefined} />
+      <Total label="All time" value={stats && list ? money(stats.income_pence - refunded.all) : undefined} />
     </View>
   );
 
@@ -128,14 +155,16 @@ export default function AdminTransactions() {
           ListEmptyComponent={<Empty icon="receipt" title="Nothing logged yet" body="Tap + to log a Plus payment, a donation or a refund." />}
           renderItem={({ item: t }) => {
             const k = kindOf(t.kind);
-            const sign = t.kind === 'refund' && t.amount_pence > 0 ? '-' : '';
+            const refund = isRefund(t);
+            const amount = refund ? -Math.abs(t.amount_pence) : t.amount_pence;
+            const stripe = t.provider === 'stripe';
             return (
               <Pressable
                 onPress={() => (t.user_id ? router.push(`/admin-member/${t.user_id}`) : undefined)}
                 onLongPress={owner ? () => remove(t) : undefined}
                 delayLongPress={450}
                 accessibilityRole="button"
-                accessibilityLabel={`${k.label}, ${money(t.amount_pence, t.currency)}${t.username ? `, ${t.username}` : ''}, ${when(t.created_at)}`}
+                accessibilityLabel={`${k.label}, ${money(amount, t.currency)}${t.username ? `, ${t.username}` : ''}, ${stripe ? 'paid through Stripe' : 'logged by hand'}${t.method ? `, ${t.method}` : ''}${t.status === 'refunded' ? ', refunded' : ''}, ${when(t.created_at)}`}
                 accessibilityHint={owner ? 'Press and hold to delete' : undefined}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? 'rgba(255,255,255,0.04)' : 'transparent' })}>
                 {t.user_id ? (
@@ -146,18 +175,19 @@ export default function AdminTransactions() {
                   </View>
                 )}
                 <View style={{ flex: 1, gap: 3 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{t.username ? `@${t.username}` : 'No member'}</Text>
-                    <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.surface2, justifyContent: 'center' }}>
-                      <Text style={{ color: k.color, fontSize: 11.5, fontWeight: '700' }}>{k.label}</Text>
-                    </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1, marginRight: 2 }}>{t.username ? `@${t.username}` : 'No member'}</Text>
+                    <Pill label={k.label} color={k.color} />
+                    <Pill label={stripe ? 'Stripe' : 'Manual'} color={stripe ? '#9d8cff' : C.fg2} bg={stripe ? 'rgba(99,91,255,0.16)' : C.surface2} />
+                    {t.status === 'refunded' ? <Pill label="Refunded" color={REFUND_RED} bg="rgba(224,112,122,0.14)" /> : null}
                   </View>
+                  {t.method ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{t.method}</Text> : null}
                   {t.note ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>{t.note}</Text> : null}
                   <Text style={{ color: C.fg3, fontSize: 12.5 }}>
                     {when(t.created_at)}{t.created_by_username ? ` · logged by @${t.created_by_username}` : ''}
                   </Text>
                 </View>
-                <Text style={{ color: t.kind === 'refund' ? C.like : C.fg, fontSize: 16.5, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{sign}{money(t.amount_pence, t.currency)}</Text>
+                <Text style={{ color: refund ? REFUND_RED : C.fg, fontSize: 16.5, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{money(amount, t.currency)}</Text>
               </Pressable>
             );
           }}

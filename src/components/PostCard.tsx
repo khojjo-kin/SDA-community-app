@@ -5,10 +5,12 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { boostPost, deletePost, report, setBlock, setFlag, setFollow, unboostPost } from '../lib/api';
+import { useIsActivePost } from '../lib/autoplay';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
 import { agoLong, C, errText, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
+import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
 import { Avatar, Button, IconButton, Sheet, SheetRow, useToast } from './ui';
 
@@ -115,6 +117,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
   const anim = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
+  const inView = useIsActivePost(id);
 
   if (!post) return null;
   const first = post.media[0];
@@ -134,7 +137,8 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
     safe(() => setFlag(me, post!, 'liked', next));
   }
 
-  function tap(x: number, y: number) {
+  /** Returns true when this tap completed a double tap, so a video can tell a like from a single tap. */
+  function tap(x: number, y: number): boolean {
     const now = Date.now();
     if (now - lastTap.current < 300) {
       lastTap.current = 0;
@@ -142,9 +146,10 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
       setBurst({ x, y });
       anim.setValue(0);
       Animated.sequence([Animated.spring(anim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(320), Animated.timing(anim, { toValue: 2, duration: 240, useNativeDriver: true })]).start(({ finished }) => { if (finished) setBurst(null); });
-    } else {
-      lastTap.current = now;
+      return true;
     }
+    lastTap.current = now;
+    return false;
   }
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / mediaW));
@@ -183,12 +188,8 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll} scrollEnabled={many}>
           {post.media.map((m, i) =>
             m.type === 'video' ? (
-              <Pressable key={i} onPress={() => router.push(`/watch/${post.id}`)} style={{ width: mediaW, height, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="Play video">
-                {m.poster ? <Image source={{ uri: m.poster }} style={{ position: 'absolute', width: mediaW, height }} contentFit="cover" transition={150} /> : null}
-                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="play" size={34} />
-                </View>
-              </Pressable>
+              // Plays by itself while this post is the one in view and this page of it is showing.
+              <FeedVideo key={i} post={post} media={m} width={mediaW} height={height} active={inView && i === page} onTap={tap} />
             ) : (
               <Pressable key={i} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Photo. Double tap to like.">
                 <Image source={{ uri: m.url }} style={{ width: mediaW, height }} contentFit="cover" transition={150} />

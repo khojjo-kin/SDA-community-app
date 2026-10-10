@@ -5,10 +5,10 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { acceptFollowRequest, fetchLives, fetchReposts, fetchStats, fetchUserPosts, getProfile, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow } from '../lib/api';
 import { useSession } from '../lib/session';
+import { prefetchLibrary } from '../lib/library';
 import { listen } from '../lib/store';
 import { C, errText, fmt } from '../lib/theme';
 import type { Post, Profile } from '../lib/types';
-import { CreateSheet } from './CreateSheet';
 import { PostGrid } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
 import { Icon, IconName, VerifiedTick } from './Icon';
@@ -44,7 +44,6 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [menu, setMenu] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [views, setViews] = useState<number | null>(null);
   /** The broadcast to open when the avatar is tapped while this person is live. */
   const [liveId, setLiveId] = useState<string | null>(null);
@@ -234,7 +233,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             </Text>
           </Pressable>
         ) : null}
-        {profile.admin_role || profile.plus || (profile.account_type === 'creator' && profile.category) ? (
+        {profile.admin_role === 'admin' || profile.plus || (profile.account_type === 'creator' && profile.category) ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
             {profile.plus ? (
               <Pressable onPress={() => (mine ? router.push('/plus') : undefined)} accessibilityRole={mine ? 'button' : 'text'} accessibilityLabel="Community Plus member" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(61,139,255,0.16)' }}>
@@ -242,16 +241,17 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
                 <Text style={{ color: C.close, fontSize: 12.5, fontWeight: '700' }}>Plus</Text>
               </Pressable>
             ) : null}
-            {profile.admin_role ? (
+            {/* The owner runs the app quietly: only appointed admins show a badge. */}
+            {profile.admin_role === 'admin' ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(31,191,90,0.16)' }}>
                 <Icon name="shield" size={13} color={C.accent2} weight={2.2} />
-                <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{profile.admin_role === 'owner' ? 'App owner' : 'Admin'}</Text>
+                <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>Admin</Text>
               </View>
             ) : null}
             {profile.account_type === 'creator' && profile.category ? <Text style={{ color: C.fg2, fontSize: 15 }}>{profile.category}</Text> : null}
           </View>
         ) : null}
-        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.admin_role || profile.plus || (profile.account_type === 'creator' && profile.category) ? 6 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
+        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.admin_role === 'admin' || profile.plus || (profile.account_type === 'creator' && profile.category) ? 6 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
         {profile.church_name ? (
           <Pressable onPress={() => (profile.church_id ? router.push(`/church/${profile.church_id}`) : undefined)} accessibilityRole="button" accessibilityLabel={`Church: ${profile.church_name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
             <Icon name="church" size={15} color={C.fg2} weight={2} />
@@ -337,7 +337,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   );
 
   // The same shape as Header, with room for a lock next to the username on a private account.
-  const left = mine && isTab ? <IconButton name="plus" size={28} label="Create" onPress={() => setCreating(true)} /> : <IconButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
+  const left = mine && isTab ? <IconButton name="plus" size={28} label="Create" onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : <IconButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
   const right = mine ? <IconButton name="menu" size={26} label="Settings and activity" onPress={() => router.push('/settings')} /> : <IconButton name="more" label="More options" onPress={() => setMenu(true)} />;
 
   return (
@@ -365,8 +365,6 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           )
         }
       />
-
-      <CreateSheet visible={creating} onClose={() => setCreating(false)} />
 
       <Sheet visible={menu} onClose={() => setMenu(false)}>
         <SheetRow first icon="link" label="Copy profile link" onPress={later(() => { Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast('Profile link copied')); })} />

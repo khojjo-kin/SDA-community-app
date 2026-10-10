@@ -83,7 +83,17 @@
           "cameraPermission": "Community uses your camera so you can take photos and videos to share, make video calls and broadcast live.",
           "microphonePermission": "Community uses your microphone for voice and video calls, live broadcasts, and when you record a video with sound or a voice message."
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "",
+          "enableGooglePay": false
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "applePayMerchantId": ""
+    }
   }
 }

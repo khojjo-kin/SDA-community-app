@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CreateSheet } from '../../../src/components/CreateSheet';
 import { Reel } from '../../../src/components/Reel';
 import { Button, Empty, ErrorNote, IconButton, Loading } from '../../../src/components/ui';
 import { fetchReels } from '../../../src/lib/api';
+import { prefetchLibrary } from '../../../src/lib/library';
 import { listen } from '../../../src/lib/store';
 import { errText } from '../../../src/lib/theme';
 
@@ -19,7 +19,6 @@ export default function Reels() {
   const [error, setError] = useState('');
   const [current, setCurrent] = useState(0);
   const [focused, setFocused] = useState(false);
-  const [creating, setCreating] = useState(false);
   const cursor = useRef<string | undefined>(undefined);
   const done = useRef(false);
   const request = useRef(0);
@@ -100,7 +99,7 @@ export default function Reels() {
         />
       )}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
-        <IconButton name="plus" size={28} label="Create" color="#fff" onPress={() => setCreating(true)} />
+        <IconButton name="plus" size={28} label="Create" color="#fff" onPress={() => { prefetchLibrary(); router.push('/create'); }} />
         <View style={{ flexDirection: 'row', gap: 16, paddingLeft: 8, flex: 1 }}>
           {[false, true].map((f) => (
             <Pressable key={String(f)} onPress={() => setFriends(f)} accessibilityRole="tab" accessibilityState={{ selected: friends === f }}>
@@ -109,7 +108,6 @@ export default function Reels() {
           ))}
         </View>
       </View>
-      <CreateSheet visible={creating} onClose={() => setCreating(false)} />
     </View>
   );
 }

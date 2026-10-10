@@ -5,6 +5,7 @@ import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, Screen, SearchField, useToast } from '../../../src/components/ui';
 import { ERHA_ID, fetchThreads, getProfile, hideThread, openThread, setThreadMuted } from '../../../src/lib/api';
+import { cacheKey, peekCache, readCache, writeCache } from '../../../src/lib/cache';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { ago, C, errText } from '../../../src/lib/theme';
@@ -17,27 +18,55 @@ export default function Inbox() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // The chats as they were last shown, so the list is there at once and refreshes behind.
+  const key = cacheKey(me, 'threads');
+  const [seed] = useState(() => peekCache<Thread[]>(key));
+  const [threads, setThreads] = useState<Thread[]>(() => seed ?? []);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(() => (seed ? 'ready' : 'loading'));
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [q, setQ] = useState('');
   // Erha's account card, for her picture on the starter row. Null until it has loaded, or if it cannot.
   const [erha, setErha] = useState<Profile | null>(null);
   const opening = useRef(false);
+  // Set once a fresh list has come back, so a saved copy arriving late cannot cover it.
+  const fresh = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      const t = await fetchThreads();
-      setThreads(t.filter((x) => x.has_messages));
+      const t = (await fetchThreads()).filter((x) => x.has_messages);
+      fresh.current = true;
+      setThreads(t);
       setStatus('ready');
+      if (alive.current) writeCache(key, t);
     } catch (e) {
       setError(errText(e));
       setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [key]);
+
+  // Nothing in memory yet: show the copy saved on the phone while the fresh list loads.
+  useEffect(() => {
+    if (seed) return;
+    let live = true;
+    readCache<Thread[]>(key).then((t) => {
+      if (!live || !t || fresh.current) return;
+      setThreads(t);
+      setStatus('ready');
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, seed]);
 
   useFocusEffect(
     useCallback(() => {

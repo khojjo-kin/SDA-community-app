@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SectionTitle } from '../../src/components/Grid';
+import { VerifiedTick } from '../../src/components/Icon';
 import { Avatar, Button, Empty, ErrorNote, Header, Loading, Row, Screen, useToast } from '../../src/components/ui';
 import { acceptFollowRequest, fetchFollowRequests, fetchNotices, markNoticesRead, removeFollowRequest, setFollow } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
@@ -97,7 +98,8 @@ export default function Notifications() {
                   <Avatar uri={n.avatar_url} name={n.full_name} size={46} />
                 </Pressable>
                 <Text style={{ flex: 1, color: C.fg, lineHeight: 20 }}>
-                  <Text style={{ fontWeight: '600' }} onPress={() => router.push(`/user/${n.actor_id}`)}>{n.username}</Text> {VERB[n.kind]}
+                  <Text style={{ fontWeight: '600' }} onPress={() => router.push(`/user/${n.actor_id}`)}>{n.username}</Text>
+                  {n.verified ? <Text> <VerifiedTick size={13} /></Text> : null} {VERB[n.kind]}
                   {n.kind === 'comment' && n.body ? ` ${n.body}` : ''} <Text style={{ color: C.fg2 }}>{ago(n.created_at)}</Text>
                 </Text>
                 {n.post_id ? (

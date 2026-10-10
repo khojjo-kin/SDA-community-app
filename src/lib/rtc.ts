@@ -100,14 +100,18 @@ export type PeerEvents = {
 /** A peer connection using the servers above, with the usual events wired to plain callbacks. */
 export function createPeer({ onIce, onTrack, onState }: PeerEvents): RTCPeerConnection {
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  pc.addEventListener('icecandidate', (e: any) => {
+  // The published typings of react-native-webrtc leave out the EventTarget methods the class does
+  // have at run time (they come from its vendored event-target-shim), so the listeners go through
+  // this narrow view of the same object.
+  const events = pc as unknown as { addEventListener(type: string, listener: (e: any) => void): void };
+  events.addEventListener('icecandidate', (e: any) => {
     if (e?.candidate) onIce(toIceInit(e.candidate));
   });
-  pc.addEventListener('track', (e: any) => {
+  events.addEventListener('track', (e: any) => {
     const stream: MediaStream | undefined = e?.streams?.[0];
     if (stream) onTrack(stream);
   });
-  pc.addEventListener('connectionstatechange', () => {
+  events.addEventListener('connectionstatechange', () => {
     onState?.(String(pc.connectionState));
   });
   return pc;

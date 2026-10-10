@@ -1,17 +1,19 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import { copyAsync } from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getCachedLibrary, invalidateLibrary, libraryPage, LibraryPage, refreshLibrary } from '../lib/library';
 import { pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../lib/pick';
 import { usePrefs } from '../lib/prefs';
 import { C, clock, errText } from '../lib/theme';
 import { Icon } from './Icon';
 import { Button, Empty, RoundButton, useToast } from './ui';
 
-/** POST is photos (one to ten), INSTANTS is one short video, STORY hands over to the story flow. */
+/** POST is photos (one to ten), INSTANTS is one short video, STORY hands over to the story flow. LIVE, next to them, opens Go live. */
 export type PickMode = 'post' | 'story' | 'reel';
 
 /** One chosen photo or video, as a file the uploader can read. `duration` is in seconds. */
@@ -20,7 +22,6 @@ export type PickedItem = { uri: string; type: 'image' | 'video'; w: number; h: n
 type Cell = { key: string; asset?: MediaLibrary.Asset };
 type Access = 'checking' | 'all' | 'limited' | 'none';
 
-const PAGE = 60;
 const LIMIT = 10;
 const MODES: { id: PickMode; label: string }[] = [
   { id: 'post', label: 'POST' },
@@ -59,81 +60,200 @@ async function fileOf(a: MediaLibrary.Asset): Promise<PickedItem> {
 
 const fits = (a: MediaLibrary.Asset, mode: PickMode) => (mode === 'reel' ? a.mediaType === 'video' : a.mediaType !== 'video');
 
+type TileProps = {
+  asset: MediaLibrary.Asset;
+  size: number;
+  /** Not the kind this post takes (a video while choosing photos, say). */
+  dim: boolean;
+  /** In the preview. */
+  isCurrent: boolean;
+  /** Place among the photos selected, from 0; -1 when not selected. */
+  order: number;
+  multi: boolean;
+  onPress: (a: MediaLibrary.Asset) => void;
+};
+
+/**
+ * One photo or video in the grid. Only redrawn when its own state changes, so a tap stays quick in a
+ * long grid. The thumbnail is drawn straight from the library address: no asset info is fetched
+ * until Next.
+ */
+const Tile = memo(function Tile({ asset: a, size, dim, isCurrent, order, multi, onPress }: TileProps) {
+  const video = a.mediaType === 'video';
+  return (
+    <Pressable onPress={() => onPress(a)} accessibilityRole="button" accessibilityLabel={video ? `Video, ${clock(a.duration)}` : 'Photo'} accessibilityState={{ selected: isCurrent || order >= 0 }} style={({ pressed }) => ({ width: size, height: size, backgroundColor: '#111', opacity: pressed ? 0.8 : 1 })}>
+      <Image source={{ uri: a.uri }} recyclingKey={a.id} cachePolicy="memory" transition={60} style={{ width: size, height: size, opacity: dim ? 0.3 : 1 }} contentFit="cover" />
+      {isCurrent && !multi ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.35)' }]} /> : null}
+      {video ? <Text style={{ position: 'absolute', right: 6, bottom: 5, color: '#fff', fontWeight: '700', fontSize: 12.5, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{clock(a.duration)}</Text> : null}
+      {multi && !video ? (
+        <View style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? C.accent : 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+          {order >= 0 ? <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{order + 1}</Text> : null}
+        </View>
+      ) : null}
+    </Pressable>
+  );
+});
+
 /**
  * The "New post" screen: a big preview, the photo library in a grid, and the POST / STORY / INSTANTS
- * switch at the bottom. Calls `onNext` with files ready for the editor.
+ * switch at the bottom, with LIVE next to them. Calls `onNext` with files ready for the editor.
+ *
+ * It opens with the newest photos already in it (loaded ahead of time by library.ts) and the first
+ * one in the preview, then refreshes the grid behind.
  */
 export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode; onMode: (m: PickMode) => void; onNext: (items: PickedItem[]) => void; onClose: () => void }) {
   const toast = useToast();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
   const { width } = useWindowDimensions();
-  const [access, setAccess] = useState<Access>('checking');
+  // The newest page loaded ahead of time, if there is one: it is on screen from the first frame.
+  const [seed] = useState<LibraryPage | null>(getCachedLibrary);
+  const [access, setAccess] = useState<Access>(seed ? seed.access : 'checking');
   const [canAsk, setCanAsk] = useState(true);
-  const [assets, setAssets] = useState<MediaLibrary.Asset[]>([]);
+  const [assets, setAssets] = useState<MediaLibrary.Asset[]>(() => seed?.assets ?? []);
   // What the preview shows, and (when selecting several) the photos in the order they were tapped.
-  const [current, setCurrent] = useState<MediaLibrary.Asset | null>(null);
+  const [current, setCurrent] = useState<MediaLibrary.Asset | null>(() => seed?.assets.find((a) => fits(a, mode)) ?? null);
   const [picked, setPicked] = useState<MediaLibrary.Asset[]>([]);
   const [multi, setMulti] = useState(false);
   const [busy, setBusy] = useState('');
-  const cursor = useRef<string | undefined>(undefined);
-  const more = useRef(true);
+  // The grid's photos as last set, for merging without waiting for a render.
+  const shown = useRef<MediaLibrary.Asset[]>(seed?.assets ?? []);
+  const cursor = useRef<string | undefined>(seed?.endCursor);
+  const more = useRef(seed ? seed.hasNextPage : true);
   const loading = useRef(false);
+  // Bumped when the grid starts again: further pages still on their way belong to the old one.
   const request = useRef(0);
+  // Each refresh of the newest page gets a number; only the latest one is shown.
+  const fresh = useRef(0);
+  // Further pages have been added since the newest page was last put in.
+  const extended = useRef(false);
+
+  // Set once the person has chosen something themselves; until then the preview follows the grid.
+  const touched = useRef(false);
 
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
-
-  const load = useCallback(
-    async (reset: boolean) => {
-      if (loading.current && !reset) return;
-      if (reset) {
-        cursor.current = undefined;
-        more.current = true;
-        request.current++;
-      }
-      if (!more.current) return;
-      loading.current = true;
-      const mine = request.current;
-      try {
-        const page = await MediaLibrary.getAssetsAsync({ first: PAGE, after: cursor.current, mediaType: ['photo', 'video'], sortBy: MediaLibrary.SortBy.creationTime });
-        if (mine !== request.current) return;
-        cursor.current = page.endCursor;
-        more.current = page.hasNextPage;
-        setAssets((cur) => (reset ? page.assets : [...cur, ...page.assets.filter((a) => !cur.some((c) => c.id === a.id))]));
-      } catch (e) {
-        if (mine === request.current) toast(errText(e));
-      } finally {
-        if (mine === request.current) loading.current = false;
-      }
-    },
-    [toast],
-  );
-
-  const check = useCallback(async (ask: boolean) => {
-    try {
-      let p = await MediaLibrary.getPermissionsAsync();
-      if (!p.granted && ask && p.canAskAgain) p = await MediaLibrary.requestPermissionsAsync();
-      setCanAsk(p.canAskAgain);
-      setAccess(p.granted ? (p.accessPrivileges === 'limited' ? 'limited' : 'all') : 'none');
-    } catch {
-      setAccess('none');
-    }
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
   }, []);
 
+  const show = useCallback((list: MediaLibrary.Asset[]) => {
+    shown.current = list;
+    setAssets(list);
+  }, []);
+
+  /** The next page, after what the grid already holds. */
+  const loadMore = useCallback(async () => {
+    // No cursor yet means the first page has not arrived; the refresh brings it.
+    if (loading.current || !more.current || cursor.current === undefined) return;
+    loading.current = true;
+    const mine = request.current;
+    try {
+      const page = await libraryPage(cursor.current);
+      if (mine !== request.current || !alive.current) return;
+      cursor.current = page.endCursor;
+      more.current = page.hasNextPage;
+      extended.current = true;
+      const have = new Set(shown.current.map((a) => a.id));
+      show([...shown.current, ...page.assets.filter((a) => !have.has(a.id))]);
+    } catch (e) {
+      if (mine === request.current) toast(errText(e));
+    } finally {
+      if (mine === request.current) loading.current = false;
+    }
+  }, [toast, show]);
+
+  /**
+   * The newest page, fresh from the library. It replaces the grid, unless further pages have been
+   * added by then: it is merged in front of them instead. `restart` (the library changed) always
+   * starts the grid again.
+   */
+  const refresh = useCallback(
+    async (restart: boolean) => {
+      const mine = ++fresh.current;
+      if (restart) {
+        request.current++;
+        loading.current = false;
+        invalidateLibrary();
+      }
+      let page: LibraryPage | null;
+      try {
+        page = await refreshLibrary();
+      } catch (e) {
+        // Quiet while photos are on screen already: they are only a little old.
+        if (mine === fresh.current && alive.current && !shown.current.length) toast(errText(e));
+        return;
+      }
+      if (!page || mine !== fresh.current || !alive.current) return;
+      if (restart || (!extended.current && !loading.current)) {
+        request.current++;
+        loading.current = false;
+        extended.current = false;
+        cursor.current = page.endCursor;
+        more.current = page.hasNextPage;
+        show(page.assets);
+      } else {
+        const ids = new Set(page.assets.map((a) => a.id));
+        show([...page.assets, ...shown.current.filter((a) => !ids.has(a.id))]);
+      }
+    },
+    [toast, show],
+  );
+
+  /** Access was taken away: nothing from the library stays on screen. */
+  const forget = useCallback(() => {
+    invalidateLibrary();
+    request.current++;
+    fresh.current++;
+    loading.current = false;
+    extended.current = false;
+    cursor.current = undefined;
+    more.current = true;
+    show([]);
+    setCurrent(null);
+    setPicked([]);
+  }, [show]);
+
+  /**
+   * Reads the access the person has given. `ask`: 'always' asks whenever the system still allows it
+   * (the Allow access button), 'first' only if they have never been asked, 'never' does not ask.
+   */
+  const check = useCallback(
+    async (ask: 'always' | 'first' | 'never') => {
+      try {
+        let p = await MediaLibrary.getPermissionsAsync();
+        const may = ask === 'always' ? p.canAskAgain : ask === 'first' && p.status === MediaLibrary.PermissionStatus.UNDETERMINED;
+        if (!p.granted && may) p = await MediaLibrary.requestPermissionsAsync();
+        if (!alive.current) return;
+        setCanAsk(p.canAskAgain);
+        if (!p.granted) forget();
+        setAccess(p.granted ? (p.accessPrivileges === 'limited' ? 'limited' : 'all') : 'none');
+      } catch {
+        if (!alive.current) return;
+        forget();
+        setAccess('none');
+      }
+    },
+    [forget],
+  );
+
+  // Asks only when nothing was loaded ahead of time and the person has never been asked.
   useEffect(() => {
-    check(true);
-  }, [check]);
+    check(seed ? 'never' : 'first');
+  }, [check, seed]);
 
   useEffect(() => {
     if (access !== 'all' && access !== 'limited') return;
-    load(true);
+    refresh(false);
     // The library says when photos are added or removed, or when the person changes which ones we may see.
     const sub = MediaLibrary.addListener(() => {
-      load(true);
+      refresh(true);
     });
     return () => sub.remove();
-  }, [access, load]);
+  }, [access, refresh]);
 
   // Start again when the kind of post changes, and keep something in the preview as photos arrive.
   useEffect(() => {
@@ -142,7 +262,8 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
     setCurrent((cur) => (cur && fits(cur, mode) ? cur : null));
   }, [mode]);
   useEffect(() => {
-    setCurrent((cur) => cur ?? assets.find((a) => fits(a, mode)) ?? null);
+    // A preview nobody chose (from the page loaded ahead of time) moves on if that photo has gone since.
+    setCurrent((cur) => (cur && (touched.current || assets.some((a) => a.id === cur.id)) ? cur : assets.find((a) => fits(a, mode)) ?? null));
   }, [assets, mode]);
 
   /** Runs a system picker or the camera with the screen covered, so a second tap cannot open a second one. */
@@ -203,6 +324,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
       toast(mode === 'reel' ? 'Instants are videos. Switch to Post to share photos.' : 'Switch to Instants to share a video.');
       return;
     }
+    touched.current = true;
     setCurrent(a);
     if (!multi) {
       setPicked([a]);
@@ -217,6 +339,11 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
       return [...cur, a];
     });
   }
+
+  // The grid's tiles keep one handler for good, so a tap does not redraw every tile.
+  const tapRef = useRef(tap);
+  tapRef.current = tap;
+  const onTile = useCallback((a: MediaLibrary.Asset) => tapRef.current(a), []);
 
   function toggleMulti() {
     setMulti((m) => !m);
@@ -245,9 +372,16 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   const previewH = Math.round((width * 5) / 4);
   const cells: Cell[] = [{ key: 'camera' }, ...assets.map((a) => ({ key: a.id, asset: a }))];
   const noAccess = access === 'none';
+  // Every row of tiles is the same height, so the grid never has to measure one. Rows sit under the
+  // header, whose height is measured once it is drawn.
+  const [headH, setHeadH] = useState(previewH + 52);
+  const row = cw + gap;
+  const getItemLayout = useCallback((_: unknown, index: number) => ({ length: row, offset: headH + row * index, index }), [row, headH]);
+  // Four choices share the bar; a narrow phone gets a little less room around each.
+  const pad = width < 380 ? 12 : 16;
 
   const header = (
-    <View>
+    <View onLayout={(e) => { const h = e.nativeEvent.layout.height; setHeadH((cur) => (Math.abs(cur - h) > 0.5 ? h : cur)); }}>
       <View style={{ width, height: previewH, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }} accessible accessibilityLabel={current ? (current.mediaType === 'video' ? `Chosen video, ${clock(current.duration)}` : 'Chosen photo') : 'Nothing chosen yet'}>
         {current ? <Image source={{ uri: current.uri }} style={StyleSheet.absoluteFill} contentFit="contain" transition={80} /> : null}
         {current?.mediaType === 'video' ? (
@@ -320,7 +454,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
                 body="Community can't see your photo library yet. Allow access, or choose with the system picker."
                 action={
                   <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 6 }}>
-                    <Button label="Allow access" onPress={() => (canAsk ? check(true) : Linking.openSettings().catch(() => {}))} />
+                    <Button label="Allow access" onPress={() => (canAsk ? check('always') : Linking.openSettings().catch(() => {}))} />
                     <Button label={mode === 'reel' ? 'Choose a video' : 'Choose photos'} kind="ghost" onPress={systemPicker} />
                   </View>
                 }
@@ -328,12 +462,15 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
             ) : null
           }
           ListEmptyComponent={<Text style={{ color: C.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
-          onEndReached={() => (noAccess ? undefined : load(false))}
+          onEndReached={() => (noAccess ? undefined : loadMore())}
           onEndReachedThreshold={1.2}
           contentContainerStyle={{ paddingBottom: insets.bottom + 84 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={16}
+          getItemLayout={getItemLayout}
+          initialNumToRender={24}
+          maxToRenderPerBatch={24}
           windowSize={7}
+          removeClippedSubviews
           extraData={[current?.id, picked, multi, mode]}
           renderItem={({ item }) => {
             const a = item.asset;
@@ -344,33 +481,23 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
                 </Pressable>
               );
             }
-            const order = multi ? picked.findIndex((p) => p.id === a.id) : -1;
-            const isCurrent = current?.id === a.id;
-            const video = a.mediaType === 'video';
-            return (
-              <Pressable onPress={() => tap(a)} accessibilityRole="button" accessibilityLabel={video ? `Video, ${clock(a.duration)}` : 'Photo'} accessibilityState={{ selected: isCurrent || order >= 0 }} style={({ pressed }) => ({ width: cw, height: cw, backgroundColor: '#111', opacity: pressed ? 0.8 : 1 })}>
-                <Image source={{ uri: a.uri }} recyclingKey={a.id} style={{ width: cw, height: cw, opacity: fits(a, mode) ? 1 : 0.3 }} contentFit="cover" />
-                {isCurrent && !multi ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.35)' }]} /> : null}
-                {video ? <Text style={{ position: 'absolute', right: 6, bottom: 5, color: '#fff', fontWeight: '700', fontSize: 12.5, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } }}>{clock(a.duration)}</Text> : null}
-                {multi && !video ? (
-                  <View style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#fff', backgroundColor: order >= 0 ? C.accent : 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
-                    {order >= 0 ? <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{order + 1}</Text> : null}
-                  </View>
-                ) : null}
-              </Pressable>
-            );
+            return <Tile asset={a} size={cw} dim={!fits(a, mode)} isCurrent={current?.id === a.id} order={multi ? picked.findIndex((p) => p.id === a.id) : -1} multi={multi} onPress={onTile} />;
           }}
         />
       )}
 
-      {/* POST · STORY · INSTANTS */}
+      {/* POST · STORY · INSTANTS · LIVE */}
       <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 14, alignItems: 'center' }}>
         <View accessibilityRole="tablist" style={{ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 6, borderRadius: 22, backgroundColor: 'rgba(28,30,34,0.94)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' }}>
           {MODES.map((m) => (
-            <Pressable key={m.id} onPress={() => (busy || m.id === mode ? undefined : onMode(m.id))} accessibilityRole="tab" accessibilityLabel={m.label} accessibilityState={{ selected: mode === m.id }} style={({ pressed }) => ({ height: 36, paddingHorizontal: 16, borderRadius: 18, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+            <Pressable key={m.id} onPress={() => (busy || m.id === mode ? undefined : onMode(m.id))} accessibilityRole="tab" accessibilityLabel={m.label} accessibilityState={{ selected: mode === m.id }} style={({ pressed }) => ({ height: 36, paddingHorizontal: pad, borderRadius: 18, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
               <Text style={{ color: mode === m.id ? '#fff' : 'rgba(255,255,255,0.45)', fontSize: 12.5, fontWeight: '700', letterSpacing: 1.6 }}>{m.label}</Text>
             </Pressable>
           ))}
+          {/* Live is a screen of its own, still one tap from here. */}
+          <Pressable onPress={() => (busy ? undefined : router.replace('/go-live'))} accessibilityRole="button" accessibilityLabel="Go live" accessibilityHint="Opens the camera to broadcast" style={({ pressed }) => ({ height: 36, paddingHorizontal: pad, borderRadius: 18, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12.5, fontWeight: '700', letterSpacing: 1.6 }}>LIVE</Text>
+          </Pressable>
         </View>
       </View>
 

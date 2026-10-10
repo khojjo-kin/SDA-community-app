@@ -311,6 +311,8 @@ export type Notice = {
   avatar_url: string;
   post_media: Media | null;
   is_following: boolean;
+  /** The person in the notification has the tick. */
+  verified: boolean;
 };
 
 export type SavedReply = { id: string; user_id: string; shortcut: string; body: string; created_at: string };
@@ -429,6 +431,36 @@ export type Transaction = {
   full_name: string | null;
   avatar_url: string | null;
   created_by_username: string | null;
+  /** 'stripe' for a card or Apple Pay payment in the app; 'manual' for one an admin logged. */
+  provider: 'manual' | 'stripe';
+  status: 'succeeded' | 'refunded' | 'failed';
+  /** "Apple Pay · Visa •••• 4242" for Stripe payments; empty for manual ones. */
+  method: string;
+  stripe_invoice_id: string | null;
+};
+
+/** A card saved to the member's Stripe customer. */
+export type SavedCard = { id: string; brand: string; last4: string; exp_month: number; exp_year: number; wallet: string | null; is_default: boolean };
+
+/** Where the member's Plus subscription stands, from the payments function. */
+export type BillingStatus = {
+  /** Stripe's subscription status ('active', 'past_due', 'canceled', 'incomplete'…) or 'none'. */
+  status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  has_customer: boolean;
+};
+
+export type PaymentsConfig = BillingStatus & {
+  /** False until the Stripe keys are added to the payments function. */
+  ready: boolean;
+  publishable_key: string;
+  /** Apple Pay's merchant id, or '' while Apple Pay is not set up. */
+  apple_merchant_id: string;
+  price_pence: number;
+  currency: string;
+  /** Test keys: no real money moves; Stripe's test cards work. */
+  test_mode: boolean;
 };
 
 export type SupportTicket = {

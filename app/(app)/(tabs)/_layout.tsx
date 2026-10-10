@@ -7,6 +7,7 @@ import { Icon, IconName } from '../../../src/components/Icon';
 import { NowPlayingBar } from '../../../src/components/NowPlayingBar';
 import { Avatar } from '../../../src/components/ui';
 import { fetchThreads } from '../../../src/lib/api';
+import { prefetchLibrary } from '../../../src/lib/library';
 import { PlayerEngine } from '../../../src/lib/player';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
@@ -78,6 +79,10 @@ function TabBar({ state, navigation }: any) {
 }
 
 export default function TabsLayout() {
+  // Load the newest photos ahead of time, so the + opens the library with them already there.
+  useEffect(() => {
+    prefetchLibrary();
+  }, []);
   return (
     <Tabs screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: C.bg } }} tabBar={(props) => <TabBar {...props} />}>
       <Tabs.Screen name="index" />
