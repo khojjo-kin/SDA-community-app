@@ -4,6 +4,7 @@
 import React from 'react';
 import { fetchTopPosts } from 'shared/api';
 import { openCreate } from '../lib/create';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { Failed, Icon, type IconName, Link, Spinner, useLoad } from '../ui/kit';
 import { Tile } from '../ui/post';
@@ -27,8 +28,8 @@ export function Inspiration() {
         <span className="pro-empty-ring">
           <Icon name="bulb" size={30} stroke={1.6} />
         </span>
-        <h3>Nothing to show yet</h3>
-        <p>When people share posts that others love, the most liked ones show here.</p>
+        <h3>{t('d.pro.inspirationEmpty')}</h3>
+        <p>{t('d.pro.inspirationEmptyBody')}</p>
       </div>
     );
   } else {
@@ -44,11 +45,11 @@ export function Inspiration() {
     <>
       <div className="pro-ins-head">
         <div>
-          <h2>Inspiration</h2>
-          <p className="muted-text">The most liked posts and Shorts from other people in the last 30 days.</p>
+          <h2>{t('d.pro.inspiration')}</h2>
+          <p className="muted-text">{t('d.pro.inspirationSub')}</p>
         </div>
         <button className="pro-chip" onClick={posts.reload} disabled={posts.loading}>
-          Refresh
+          {t('d.pro.refresh')}
         </button>
       </div>
       {body}
@@ -60,16 +61,16 @@ export function Inspiration() {
 
 type Tip = { icon: IconName; title: string; body: string; action: string; to?: string; create?: 'story' | 'short' };
 
-/** The iPhone's tips, pointing at the same tools on the desktop. */
+/** The iPhone's tips, pointing at the same tools on the desktop. title, body and action are keys for t(). */
 const TIPS: Tip[] = [
-  { icon: 'story', title: 'Share to your story often', body: 'Stories sit at the top of Home for 24 hours, so they are the first thing followers see. Add text, stickers or a drawing to make them yours.', action: 'Add to your story', create: 'story' },
-  { icon: 'highlight', title: 'Keep your best stories as highlights', body: 'Highlights stay on your profile after a story disappears. Use them for the things new visitors ask about most.', action: 'New highlight', to: '/archive' },
-  { icon: 'reels', title: 'Share Shorts', body: 'Shorts up to 60 seconds get their own tab, with captions made from the sound, and you can see how many people watched each one.', action: 'New Short', create: 'short' },
-  { icon: 'reply', title: 'Answer faster with saved replies', body: 'Write an answer once and drop it into any chat from the message box.', action: 'Saved replies', to: '/accounts/creator' },
-  { icon: 'question', title: 'Set up frequently asked questions', body: 'People click a question at the top of your chat and get your answer straight away, even when you are busy.', action: 'Frequently asked questions', to: '/accounts/creator' },
-  { icon: 'star', title: 'Use close friends for the personal things', body: 'Share some stories with a smaller list. They get a green ring so your friends know it is just for them.', action: 'Close friends', to: '/accounts/close-friends' },
-  { icon: 'chart', title: 'Check what works', body: 'Insights show views, new followers and your most viewed posts, so you can do more of what people respond to.', action: 'Open Insights', to: '/dashboard' },
-  { icon: 'boost', title: 'Help a good post reach further', body: "Promote a post for a few days and it is shown to people who don't follow you yet. Ad tools shows how it does.", action: 'Ad tools', to: '/dashboard/ads' },
+  { icon: 'story', title: 'd.pro.tipStory', body: 'd.pro.tipStoryBody', action: 'profile.addToStory', create: 'story' },
+  { icon: 'highlight', title: 'd.pro.tipHighlights', body: 'd.pro.tipHighlightsBody', action: 'd.pro.tipHighlightsAction', to: '/archive' },
+  { icon: 'reels', title: 'd.pro.tipShorts', body: 'd.pro.tipShortsBody', action: 'd.pro.tipShortsAction', create: 'short' },
+  { icon: 'reply', title: 'd.pro.tipReplies', body: 'd.pro.tipRepliesBody', action: 'd.pro.tipRepliesAction', to: '/accounts/creator' },
+  { icon: 'question', title: 'd.pro.tipFaq', body: 'd.pro.tipFaqBody', action: 'd.pro.tipFaqAction', to: '/accounts/creator' },
+  { icon: 'star', title: 'd.pro.tipCloseFriends', body: 'd.pro.tipCloseFriendsBody', action: 'settings.closeFriends', to: '/accounts/close-friends' },
+  { icon: 'chart', title: 'd.pro.tipInsights', body: 'd.pro.tipInsightsBody', action: 'd.pro.tipInsightsAction', to: '/dashboard' },
+  { icon: 'boost', title: 'd.pro.tipPromote', body: 'd.pro.tipPromoteBody', action: 'd.pro.adTools', to: '/dashboard/ads' },
 ];
 
 export function BestPractices() {
@@ -77,30 +78,30 @@ export function BestPractices() {
     <>
       <div className="pro-ins-head">
         <div>
-          <h2>Best practices</h2>
-          <p className="muted-text">Ways to reach more people, and to look after the ones who already follow you.</p>
+          <h2>{t('d.pro.bestPractices')}</h2>
+          <p className="muted-text">{t('d.pro.bestPracticesSub')}</p>
         </div>
       </div>
       <div className="pro-bp-grid">
-        {TIPS.map((t) => {
+        {TIPS.map((tip) => {
           const action = (
             <>
-              {t.action} <Icon name="right" size={14} stroke={2.4} />
+              {t(tip.action)} <Icon name="right" size={14} stroke={2.4} />
             </>
           );
           return (
-            <section key={t.title} className="pro-bp-card">
+            <section key={tip.title} className="pro-bp-card">
               <span className="pro-bp-icon">
-                <Icon name={t.icon} size={24} />
+                <Icon name={tip.icon} size={24} />
               </span>
-              <h3>{t.title}</h3>
-              <p>{t.body}</p>
-              {t.to ? (
-                <Link to={t.to} className="pro-bp-go">
+              <h3>{t(tip.title)}</h3>
+              <p>{t(tip.body)}</p>
+              {tip.to ? (
+                <Link to={tip.to} className="pro-bp-go">
                   {action}
                 </Link>
               ) : (
-                <button className="pro-bp-go" onClick={() => openCreate({ mode: t.create! })}>
+                <button className="pro-bp-go" onClick={() => openCreate({ mode: tip.create! })}>
                   {action}
                 </button>
               )}
