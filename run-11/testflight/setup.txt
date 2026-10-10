@@ -1,0 +1,27 @@
+lrwxr-xr-x  1 runner  admin  26 Sep  7 05:07 /Applications/Xcode_16.0.0.app -> /Applications/Xcode_16.app
+lrwxr-xr-x  1 runner  admin  26 Sep  7 05:07 /Applications/Xcode_16.0.app -> /Applications/Xcode_16.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_16.1.0.app -> /Applications/Xcode_16.1.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:07 /Applications/Xcode_16.1.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_16.2.0.app -> /Applications/Xcode_16.2.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:07 /Applications/Xcode_16.2.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_16.3.0.app -> /Applications/Xcode_16.3.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:07 /Applications/Xcode_16.3.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_16.4.0.app -> /Applications/Xcode_16.4.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:07 /Applications/Xcode_16.4.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:07 /Applications/Xcode_16.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:12 /Applications/Xcode_26.0.1.app
+lrwxr-xr-x  1 runner  admin  30 Sep  7 05:07 /Applications/Xcode_26.0.app -> /Applications/Xcode_26.0.1.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:12 /Applications/Xcode_26.1.1.app
+lrwxr-xr-x  1 runner  admin  30 Sep  7 05:07 /Applications/Xcode_26.1.app -> /Applications/Xcode_26.1.1.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_26.2.0.app -> /Applications/Xcode_26.2.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:12 /Applications/Xcode_26.2.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:07 /Applications/Xcode_26.3.0.app -> /Applications/Xcode_26.3.app
+drwxr-xr-x  3 runner  staff  96 Sep  7 04:12 /Applications/Xcode_26.3.app
+lrwxr-xr-x  1 runner  admin  28 Sep  7 05:08 /Applications/Xcode.app -> /Applications/Xcode_16.4.app
+using /Applications/Xcode_26.3.app
+Xcode 26.3
+Build version 17C529
+ios/fastlane/AuthKey_PD6DWK7T4C.p8: from this branch
+ios/PRZR6A95J9.p12: from this branch
+ios/PRZR6A95J9.cer: from this branch
+ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision: from this branch
