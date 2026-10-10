@@ -47,6 +47,8 @@
 .sv-card { position: relative; border-radius: 8px; overflow: hidden; background: #000; animation: sv-in 0.18s ease; }
 @keyframes sv-in { from { opacity: 0.4; transform: scale(0.985); } }
 .sv-card > .story-canvas { border-radius: 8px; }
+/* A mention on a story opens that person's profile, so it sits above the areas that move between stories. */
+.sv-card .story-mention { position: relative; z-index: 3; cursor: pointer; }
 .sv-shade { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; }
 .sv-shade.top { top: 0; height: 120px; background: linear-gradient(rgba(0, 0, 0, 0.55), transparent); }
 .sv-shade.bottom { bottom: 0; height: 130px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.5)); }
@@ -271,3 +273,243 @@
   .sh-line { bottom: 150px; }
   .sh-shade { height: 45%; background: linear-gradient(transparent, rgba(0, 0, 0, 0.6)); }
 }
+
+/* ---------- making a story (stc-) ----------
+   The window is dark in both appearances, like a story; the cards and panels on it (choosing files,
+   a tool's options, Share) are in the app's own colours, like its dialogs. */
+.stc-stage { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; background: #111214; color: #fff; animation: fade 0.15s ease; }
+/* Sheets and questions opened from the editor or the archive sit above them. */
+.stc-stage ~ .scrim, .sar-stage ~ .scrim { z-index: 125; }
+.stc-top { position: relative; flex: none; display: flex; align-items: center; height: 64px; padding: 0 16px 0 24px; }
+.stc-brand { line-height: 1; }
+.stc-brand .wordmark { color: #fff; font-size: 30px; }
+.stc-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: rgba(255, 255, 255, 0.85); white-space: nowrap; }
+.stc-x { margin-left: auto; padding: 6px; border-radius: 50%; line-height: 0; }
+.stc-x:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.stc-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; column-gap: 24px; padding: 0 24px 16px; }
+.stc-body.single { grid-template-columns: 1fr; place-items: center; padding-bottom: 64px; }
+.stc-body.single > .spinner, .stc-busy .spinner { margin: 0; border-color: rgba(255, 255, 255, 0.25); border-top-color: #fff; }
+.stc-left { min-width: 0; display: flex; justify-content: flex-end; }
+.stc-center { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+/* The tools and their panel fill the space right of the story; the panel narrows in a small window. */
+.stc-right { min-width: 0; display: flex; justify-content: flex-start; align-items: flex-start; gap: 16px; }
+.stc-tools { flex: none; }
+
+/* the canvas */
+.stc-canvas { position: relative; flex: none; border-radius: 12px; overflow: hidden; background: #000; user-select: none; -webkit-user-select: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.stc-canvas .story-canvas { border-radius: 12px; }
+.stc-base { position: absolute; inset: 0; }
+/* A chosen filter, previewed on the photo (and on its blurred copy behind a photo shown whole). */
+.stc-filtered .story-canvas > img.fill { filter: var(--stc-look); }
+.stc-filtered .story-canvas > img.fill.blur { filter: var(--stc-look) blur(28px) brightness(0.65); }
+.stc-hit { position: absolute; inset: 0; }
+.stc-box { position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+/* The dashed frame around text, a sticker or a mention; the negative margin keeps the words wrapping where the viewer wraps them. */
+.stc-ov { pointer-events: auto; margin: -5.5px; padding: 4px; border: 1.5px dashed transparent; border-radius: 10px; cursor: grab; touch-action: none; display: flex; justify-content: center; max-width: calc(100% + 11px); }
+.stc-ov:hover { border-color: rgba(255, 255, 255, 0.45); }
+.stc-ov.on { border-color: rgba(255, 255, 255, 0.95); }
+.stc-ov:active { cursor: grabbing; }
+.stc-ov.still { pointer-events: none; }
+.stc-ov:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stc-mention { display: inline-block; }
+/* Typing on the story: the box grows with the words (a hidden copy of them sets its size). */
+.stc-grow { display: inline-grid; max-width: 100%; min-width: 1.2em; pointer-events: auto; cursor: text; }
+.stc-grow::after { content: attr(data-value) ' '; visibility: hidden; white-space: pre-wrap; overflow-wrap: anywhere; grid-area: 1 / 1; }
+.stc-grow textarea { grid-area: 1 / 1; width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; font: inherit; line-height: inherit; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; text-shadow: inherit; }
+.stc-grow textarea::placeholder { color: inherit; opacity: 0.55; }
+.stc-type-here { position: absolute; left: 0; right: 0; top: 42%; text-align: center; color: rgba(255, 255, 255, 0.88); font-size: 26px; font-weight: 800; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
+.stc-caption-hint { position: absolute; left: 16px; right: 16px; bottom: 18px; text-align: left; color: #fff; font-size: 15px; font-weight: 600; opacity: 0.85; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.6); }
+.stc-caption-hint:hover { opacity: 1; }
+.stc-guide { position: absolute; background: rgba(255, 210, 63, 0.95); pointer-events: none; }
+.stc-guide.v { left: 50%; top: 0; bottom: 0; width: 1px; }
+.stc-guide.h { top: 50%; left: 0; right: 0; height: 1px; }
+.stc-drawpad { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+.stc-selbar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; padding: 5px; border-radius: 28px; background: rgba(20, 20, 22, 0.88); }
+.stc-round { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 15px; transition: background 0.15s; }
+.stc-round:hover { background: rgba(255, 255, 255, 0.24); }
+.stc-page { position: absolute; top: 50%; margin-top: -15px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 5px rgba(0, 0, 0, 0.3); }
+.stc-page:hover { background: #fff; }
+.stc-page.left { left: 10px; }
+.stc-page.right { right: 10px; }
+.stc-count { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 4px 12px; border-radius: 14px; background: rgba(0, 0, 0, 0.55); font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+/* under the canvas: Your story, Close friends, and the arrow to the share step */
+.stc-bottom { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; }
+.stc-bottom-note { justify-content: center; color: rgba(255, 255, 255, 0.65); font-size: 13px; text-align: center; }
+.stc-pill { flex: 1; min-width: 0; height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 9px; border-radius: 23px; background: #2e2f31; color: #fff; font-size: 14px; font-weight: 600; transition: background 0.15s; }
+.stc-pill:hover:not(:disabled) { background: #3b3c3f; }
+.stc-pill > span:last-child { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stc-star { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #2f6df6; flex: none; }
+/* A small window: the buttons may reach a little past the story, and squeeze up so their words fit. */
+.stc-bottom.narrow { width: calc(100% + 64px); gap: 6px; }
+.stc-bottom.narrow .stc-pill { gap: 5px; padding: 0 8px 0 7px; font-size: 13px; }
+.stc-bottom.narrow .stc-star, .stc-bottom.narrow .stc-pill .avatar { width: 24px !important; height: 24px !important; }
+.stc-next { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); transition: background 0.15s, transform 0.1s; }
+.stc-next:hover:not(:disabled) { background: var(--accent-hover); }
+.stc-next:active { transform: scale(0.95); }
+
+/* the tools column */
+.stc-tools { display: flex; flex-direction: column; gap: 10px; }
+.stc-tool { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 64px; color: #fff; }
+.stc-tool-icon { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.1); transition: background 0.15s; }
+.stc-tool-icon b { font-size: 18px; font-weight: 700; }
+.stc-tool-icon.swatch { box-shadow: inset 0 0 0 3px #fff; }
+.stc-tool:hover .stc-tool-icon:not(.swatch) { background: rgba(255, 255, 255, 0.2); }
+.stc-tool.on .stc-tool-icon:not(.swatch) { background: #fff; color: #000; }
+.stc-tool.on .stc-tool-icon.swatch { box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px #111214, 0 0 0 4px #fff; }
+.stc-tool-label { font-size: 11.5px; font-weight: 600; line-height: 14px; color: rgba(255, 255, 255, 0.8); text-align: center; }
+.stc-tool.on .stc-tool-label { color: #fff; }
+
+/* a tool's options, and the share step: cards in the app's colours */
+.stc-panel { width: 300px; min-width: 0; flex-shrink: 1; max-height: calc(100vh - 100px); display: flex; flex-direction: column; border-radius: 16px; background: var(--pop); color: var(--fg); border: 1px solid var(--pop-line); box-shadow: var(--shadow); overflow: hidden; animation: zoom 0.15s ease; }
+.stc-panel-head { flex: none; display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 14px 0 18px; border-bottom: 1px solid var(--line2); }
+.stc-panel-head h3 { flex: 1; font-size: 16px; font-weight: 700; }
+.stc-panel-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; overflow-y: auto; }
+.stc-panel-body h4 { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--fg2); }
+.stc-note { font-size: 12.5px; line-height: 17px; color: var(--fg2); }
+.stc-note.right { text-align: right; }
+.stc-note.pad { padding: 0 18px 10px; }
+.stc-swatches { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; padding: 2px; }
+.stc-swatch { width: 100%; aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--pop); box-shadow: 0 0 0 1px var(--line2); transition: transform 0.1s; }
+.stc-swatch:hover { transform: scale(1.08); }
+.stc-swatch.on { box-shadow: 0 0 0 2px var(--fg); transform: scale(1.1); }
+.stc-styles { display: flex; gap: 8px; }
+.stc-style { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line2); font-weight: 600; }
+.stc-style:hover { background: var(--hover); }
+.stc-style.on { border-color: var(--fg); }
+.stc-style b { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-size: 16px; font-weight: 800; }
+.stc-style b.plain { border: 2px solid var(--fg); }
+.stc-style b.label { background: var(--fg); color: var(--bg); }
+.stc-size { width: 100%; accent-color: var(--accent); }
+.stc-remove { margin-top: 6px; }
+.stc-pens { display: flex; gap: 8px; }
+.stc-pen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-height: 58px; padding: 10px 4px 8px; border-radius: 10px; border: 1px solid var(--line2); font-size: 12px; font-weight: 600; color: var(--fg2); }
+.stc-pen:hover { background: var(--hover); }
+.stc-pen i { display: block; border-radius: 50%; box-shadow: 0 0 0 1px var(--line2); }
+.stc-pen.on { border-color: var(--fg); color: var(--fg); }
+.stc-row-btns { display: flex; gap: 8px; margin-top: 4px; }
+.stc-row-btns .btn { flex: 1; }
+.stc-emoji { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.stc-emoji button { height: 42px; border-radius: 8px; font-size: 26px; line-height: 1; cursor: grab; }
+.stc-emoji button:hover { background: var(--hover); }
+.stc-people { gap: 2px; padding: 12px 0 8px; }
+.stc-people .spinner { margin: 16px auto; }
+.stc-people .stc-note { padding: 8px 18px; }
+.stc-search { margin: 0 14px 6px; height: 36px; padding: 0 12px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line2); }
+.stc-search:focus { border-color: var(--accent); }
+.stc-person { padding: 6px 18px; cursor: grab; }
+.stc-caption-input { width: 100%; min-height: 96px; padding: 10px 12px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--line2); line-height: 20px; resize: vertical; }
+.stc-caption-input:focus { border-color: var(--accent); }
+.stc-filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stc-filter { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; color: var(--fg2); }
+.stc-filter img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 2px solid transparent; }
+.stc-filter.on { color: var(--accent2); font-weight: 700; }
+.stc-filter.on img { border-color: var(--accent); }
+.stc-backgrounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stc-bgchoice { aspect-ratio: 9 / 16; border-radius: 10px; border: 3px solid transparent; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
+.stc-bgchoice.on { border-color: var(--fg); }
+
+/* left of the story: a few tips for the mouse and keyboard */
+.stc-tips { display: flex; flex-direction: column; gap: 10px; max-width: 240px; margin: 0; padding: 8px 0 0; list-style: none; font-size: 12.5px; line-height: 17px; text-align: right; color: rgba(255, 255, 255, 0.5); }
+
+/* a batch: every chosen photo and video down the left */
+.stc-strip { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; max-height: calc(100vh - 100px); overflow-y: auto; padding: 6px 6px 6px 0; }
+.stc-strip p { max-width: 150px; font-size: 12.5px; line-height: 17px; text-align: right; color: rgba(255, 255, 255, 0.7); }
+.stc-thumb { position: relative; flex: none; width: 72px; height: 128px; }
+.stc-thumb-pic { display: block; width: 100%; height: 100%; border-radius: 8px; overflow: hidden; border: 2px solid transparent; opacity: 0.65; transition: opacity 0.15s; }
+.stc-thumb-pic:hover { opacity: 0.9; }
+.stc-thumb.on .stc-thumb-pic { border-color: #fff; opacity: 1; }
+.stc-thumb-pic img, .stc-thumb-pic video { width: 100%; height: 100%; object-fit: cover; }
+.stc-thumb-kind { position: absolute; left: 6px; bottom: 6px; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6)); }
+.stc-thumb-x { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #3b3c3f; box-shadow: 0 0 0 2px #111214; }
+.stc-thumb-x:hover { background: #55575b; }
+.stc-thumb-add { display: grid; place-items: center; border-radius: 8px; border: 2px dashed rgba(255, 255, 255, 0.35); }
+.stc-thumb-add:hover { border-color: rgba(255, 255, 255, 0.7); }
+
+/* choosing what to share */
+.stc-card { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 120px); display: flex; flex-direction: column; border-radius: 16px; background: var(--pop); color: var(--fg); box-shadow: var(--shadow); overflow: hidden; animation: zoom 0.15s ease; }
+.stc-card-head { flex: none; display: flex; align-items: center; justify-content: center; height: 46px; border-bottom: 1px solid var(--line2); }
+.stc-card-head h2 { font-size: 16px; font-weight: 700; text-align: center; }
+.stc-card-head.with-actions { display: grid; grid-template-columns: 60px 1fr 60px; padding: 0 8px; }
+.stc-card-head.with-actions .link-btn { justify-self: end; padding-right: 8px; }
+.stc-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 330px; padding: 32px 24px; text-align: center; transition: background 0.15s; }
+.stc-drop.over, .stc-collage-body.over { background: rgba(31, 191, 90, 0.1); }
+.stc-drop-art { display: flex; align-items: flex-end; gap: 2px; margin-bottom: 4px; color: var(--fg); }
+.stc-drop h3 { font-size: 20px; line-height: 26px; font-weight: 400; }
+.stc-drop p { max-width: 340px; line-height: 19px; color: var(--fg2); }
+.stc-drop .btn { margin-top: 6px; }
+.stc-modes { display: flex; flex-direction: column; padding: 8px; border-top: 1px solid var(--line2); }
+.stc-mode { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 10px; text-align: left; }
+.stc-mode:hover { background: var(--hover); }
+.stc-mode-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
+.stc-mode-icon b { font-size: 17px; font-weight: 700; }
+.stc-mode-text { flex: 1; display: flex; flex-direction: column; line-height: 19px; }
+.stc-mode-text b { font-size: 15px; }
+.stc-mode-text span { font-size: 13px; color: var(--fg2); }
+.stc-collage { width: min(700px, calc(100vw - 48px)); }
+.stc-collage-body { display: flex; gap: 24px; padding: 24px; overflow-y: auto; transition: background 0.15s; }
+.stc-collage-frame { position: relative; flex: none; width: 230px; height: 409px; border-radius: 12px; overflow: hidden; background: #15191e; }
+.stc-collage-frame img { min-height: 0; }
+.stc-slot { display: grid; place-items: center; min-height: 0; background: rgba(255, 255, 255, 0.07); border: 2px dashed rgba(255, 255, 255, 0.3); }
+.stc-slot:hover { background: rgba(255, 255, 255, 0.14); }
+.stc-collage-side { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.stc-collage-help { font-size: 15px; line-height: 21px; }
+.stc-collage-list { display: flex; flex-direction: column; gap: 6px; align-self: stretch; }
+.stc-collage-item { display: flex; align-items: center; gap: 12px; padding: 4px; border-radius: 10px; background: var(--surface); }
+.stc-collage-item img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+.stc-collage-item span { flex: 1; font-weight: 600; }
+
+/* the share step */
+.stc-share { width: 360px; }
+.stc-share .stc-panel-head { padding: 0 8px; }
+.stc-share .stc-panel-head h3 { text-align: center; }
+.stc-share .stc-panel-head > span { width: 36px; }
+.stc-share-rows { padding: 6px 0; border-bottom: 1px solid var(--line2); }
+.stc-share-row { position: relative; }
+.stc-share-main { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 8px 18px; text-align: left; }
+.stc-share-main:hover { background: var(--hover); }
+.stc-share-text { flex: 1; min-width: 0; padding-bottom: 18px; }
+.stc-share-text b { font-size: 15px; font-weight: 700; }
+.stc-share-sub { position: absolute; left: 76px; bottom: 12px; display: inline-flex; align-items: center; gap: 2px; max-width: calc(100% - 140px); font-size: 13px; color: var(--fg2); white-space: nowrap; overflow: hidden; }
+.stc-share-sub:hover { color: var(--fg); }
+.stc-share-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line2); flex: none; }
+.stc-share-icon.close { background: #2f6df6; border: 0; }
+.stc-radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--fg3); flex: none; transition: border 0.1s; }
+.stc-radio.on { border: 7px solid var(--accent); }
+.stc-share-foot { padding: 16px 18px 18px; }
+.stc-hl-on .hl-ring { border: 2px solid var(--accent); }
+.stc-hl-none { width: 100%; padding: 12px; border-top: 1px solid var(--line2); color: var(--like); font-weight: 600; }
+.stc-hl-none:hover { background: var(--hover); }
+.stc-sheet-note { padding: 12px 18px 4px; font-size: 13px; line-height: 18px; color: var(--fg2); }
+
+/* uploading */
+.stc-busy { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(0, 0, 0, 0.62); }
+.stc-busy b { font-size: 15px; }
+.stc-progress { width: 220px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.2); }
+.stc-progress i { display: block; height: 100%; background: #fff; transition: width 0.25s; }
+
+/* ---------- the story archive (sar-) ---------- */
+.sar-thumb { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
+/* The grid's own rule puts every picture over the whole tile; a collage keeps its layout. */
+.sar-tile .collage img { position: static; }
+.sar-tile:hover .sar-thumb { opacity: 0.88; }
+.sar-friends { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #2f6df6; }
+.sar-now { position: absolute; left: 8px; bottom: 8px; color: #fff; font-size: 11.5px; font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.sar-stage { position: fixed; inset: 0; z-index: 120; background: #1a1a1a; color: #fff; animation: fade 0.15s ease; }
+.sar-stage > .stc-brand { position: absolute; top: 18px; left: 24px; z-index: 2; }
+.sar-stage > .stc-x { position: absolute; top: 14px; right: 16px; z-index: 2; }
+.sar-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.sar-wrap { position: relative; }
+.sar-card { position: relative; border-radius: 8px; overflow: hidden; background: #000; animation: sv-in 0.18s ease; }
+.sar-card > .story-canvas { border-radius: 8px; }
+.sar-top { position: absolute; top: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 8px 0 16px; }
+.sar-top .sv-close-friends { margin-left: 0; }
+.sar-live { padding: 3px 8px; border-radius: 10px; background: rgba(31, 191, 90, 0.9); font-size: 12px; font-weight: 700; }
+.sar-pos { padding-right: 8px; font-size: 12.5px; color: rgba(255, 255, 255, 0.8); }
+.sar-nav { position: absolute; top: 50%; z-index: 4; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.72); transition: background 0.15s; }
+.sar-nav:hover { background: #fff; }
+.sar-nav.left { left: -50px; }
+.sar-nav.right { right: -50px; }
+.sar-actions { display: flex; gap: 8px; }
+.sar-action { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; padding: 8px 0; border-radius: 10px; color: #fff; font-size: 12.5px; font-weight: 600; }
+.sar-action:hover { background: rgba(255, 255, 255, 0.1); }

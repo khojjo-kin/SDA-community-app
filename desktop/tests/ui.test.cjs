@@ -160,15 +160,15 @@ const check = (label, ok, extra) => {
   await page.waitForSelector('.grid .tile');
   check('deleted post is gone from my profile', (await page.locator('.grid .tile').count()) === 2);
 
-  // Share a story
+  // Share a story (the story editor: choose a photo, add a caption, share to Your story)
   await page.locator('.rail').getByRole('button', { name: 'Create' }).click();
   await page.locator('.create-pop').getByRole('menuitem', { name: /^Story/ }).click();
-  await page.setInputFiles('[data-testid=create-files]', [path.join(MEDIA, '11.jpg')]);
-  await page.waitForSelector('.filter-cell');
-  await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
-  await page.waitForSelector('.create-side textarea');
-  await page.getByLabel('Caption').fill('My first desktop story');
-  await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
+  await page.setInputFiles('[data-testid=story-files]', [path.join(MEDIA, '11.jpg')]);
+  await page.waitForSelector('.stc-canvas img.fill');
+  await page.locator('.stc-tools').getByRole('button', { name: 'Caption' }).click();
+  await page.getByRole('textbox', { name: 'Caption' }).fill('My first desktop story');
+  await page.getByRole('button', { name: 'Share to your story' }).click();
+  await page.waitForSelector('.stc-stage', { state: 'detached', timeout: 15000 });
   await page.waitForSelector('.tray', { timeout: 15000 });
   await wait(800);
   await page.locator('.tray-item.is-me').locator('button').first().click();

@@ -1,6 +1,7 @@
 // Demo data for stories, Shorts and live: a live by Samuel with comments and a fundraiser, timed
 // captions on a Short (and their translations), my own story with viewers who watched it again,
-// a Plus member's ring colour, a story alert, and a live I have planned.
+// a Plus member's ring colour, a story alert, and a live I have planned. The story editor needs
+// nothing more: it saves through the stand-in's own tables.
 import p10 from '../media/10.jpg';
 import reel2 from '../media/reel2.mp4';
 import reel2Poster from '../media/reel2.jpg';
@@ -62,6 +63,10 @@ export const ext: Ext = {
 
     // Timed captions on the first Short, made from its audio in English.
     Object.assign(T('community_posts').find((p) => p.id === 'r1') ?? {}, { captions: CAPTIONS, captions_lang: 'en', captions_status: 'ready' });
+
+    // The stories test reads what the story editor saved (stories, highlights, messages, close
+    // friends) through this. Only the demo build has it.
+    (globalThis as any).__storiesDemo = { T };
   },
 
   views: ({ T, me, profile, follows }) => ({
