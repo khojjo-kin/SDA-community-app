@@ -10,6 +10,7 @@ import { errText } from 'shared/theme';
 import type { BillingStatus, PaymentsConfig, SavedCard } from 'shared/types';
 import { wallpaperById } from 'shared/wallpapers';
 import { appFontById, noteFontMember } from '../lib/font';
+import { t, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { money, paymentsConfig } from '../lib/pay';
 import { nav, useRoute } from '../lib/router';
@@ -19,41 +20,41 @@ import { FontChooser } from './settings-media';
 
 type Plan = 'monthly' | 'yearly';
 
-/** The headline benefits. The tick itself is not one on purpose: Plus only lets a verified member hide it. */
+/** The headline benefits (the keys of their words). The tick itself is not one on purpose: Plus only lets a verified member hide it. */
 const BENEFITS: { icon: IconName; title: string }[] = [
-  { icon: 'eye', title: 'Preview stories quietly' },
-  { icon: 'repeat', title: 'Count story rewatches' },
-  { icon: 'clock', title: 'See when your story was viewed' },
-  { icon: 'chatdots', title: 'Read messages quietly' },
-  { icon: 'star', title: 'Story priority' },
-  { icon: 'bell', title: 'Story alerts' },
-  { icon: 'phone', title: 'Screenshot alerts' },
-  { icon: 'sparkle', title: 'Profile style' },
-  { icon: 'shield', title: 'Hide your tick' },
-  { icon: 'font', title: 'App fonts and chat wallpapers' },
-  { icon: 'account', title: 'Profile viewers' },
-  { icon: 'lifebuoy', title: 'Quick support' },
+  { icon: 'eye', title: 'plus.benefitPreview' },
+  { icon: 'repeat', title: 'plus.benefitRewatches' },
+  { icon: 'clock', title: 'plus.benefitViewTimes' },
+  { icon: 'chatdots', title: 'settings.readQuietly' },
+  { icon: 'star', title: 'plus.benefitPriority' },
+  { icon: 'bell', title: 'settings.storyAlerts' },
+  { icon: 'phone', title: 'plus.benefitScreenshots' },
+  { icon: 'sparkle', title: 'settings.profileStyle' },
+  { icon: 'shield', title: 'plus.benefitHideTick' },
+  { icon: 'font', title: 'plus.benefitFonts' },
+  { icon: 'account', title: 'settings.profileViewers' },
+  { icon: 'lifebuoy', title: 'plus.benefitSupport' },
 ];
 
-/** Every perk in one line each, for "Explore all benefits". */
+/** Every perk in one line each (the keys of their words), for "Explore all benefits". */
 const ALL_BENEFITS = [
-  'Preview stories without showing on the viewer list',
-  'See how many times each person rewatched your story',
-  'See the time of every view',
-  'Read messages without showing Seen',
-  "Your story first in your friends' trays",
-  'Alerts when people you pick watch your story',
-  'Alerts when someone screenshots your chat',
-  'Your own ring colour, profile theme and memory covers',
-  'Choose whether your tick shows (verified members)',
-  'Erha without daily limits',
-  'App fonts: Nunito, Lora or Poppins',
-  'Chat wallpapers',
-  'See who viewed your profile',
-  'Advanced photo editing',
-  'Share your songs and podcasts on Pod',
-  'Quick support',
-  'New features first',
+  'plus.allPreview',
+  'plus.allRewatches',
+  'plus.allViewTimes',
+  'plus.allReadQuietly',
+  'plus.allPriority',
+  'plus.allStoryAlerts',
+  'plus.allScreenshots',
+  'plus.allProfileStyle',
+  'plus.allTick',
+  'plus.allErha',
+  'plus.allFonts',
+  'plus.allWallpapers',
+  'plus.allViewers',
+  'plus.allEditing',
+  'plus.allPod',
+  'plus.benefitSupport',
+  'plus.allNewFeatures',
 ];
 
 /** Subscriptions that still renew (or are trying to), and so can be cancelled. */
@@ -62,12 +63,12 @@ const RENEWING = ['active', 'trialing', 'past_due', 'unpaid'];
 /** Where the subscription stands, in one line. */
 function subscriptionLine(b: BillingStatus): string {
   const day = longDay(b.current_period_end);
-  if (b.status === 'past_due' || b.status === 'unpaid') return 'Payment failed — update your card';
-  if (b.status === 'incomplete') return 'Your first payment is not finished yet';
-  if (b.status === 'canceled') return day ? `Ended on ${day}` : 'Ended';
-  if (b.cancel_at_period_end) return day ? `Ends on ${day}` : 'Ends at the end of this period';
-  if (b.status === 'trialing') return day ? `Free week ends on ${day}` : 'Free week';
-  return day ? `Renews on ${day}` : b.plan === 'yearly' ? 'Renews yearly' : 'Renews monthly';
+  if (b.status === 'past_due' || b.status === 'unpaid') return t('plus.statusFailed');
+  if (b.status === 'incomplete') return t('plus.statusIncomplete');
+  if (b.status === 'canceled') return day ? t('plus.statusEndedOn', { day }) : t('plus.statusEnded');
+  if (b.cancel_at_period_end) return day ? t('plus.statusEndsOn', { day }) : t('plus.statusEndsPeriod');
+  if (b.status === 'trialing') return day ? t('plus.statusTrialEndsOn', { day }) : t('plus.statusTrial');
+  return day ? t('plus.statusRenewsOn', { day }) : b.plan === 'yearly' ? t('plus.statusRenewsYearly') : t('plus.statusRenewsMonthly');
 }
 
 /** The yearly plan's saving against twelve months, rounded down so it is never overstated. */
@@ -144,8 +145,8 @@ export function Plus() {
   const needsCard = billing?.status === 'trialing' && !!billing.needs_card;
   const trialOffer = !!config?.trial_available && !isPlus && !member;
   const priceOf = (p: Plan | null) => (config ? (p === 'yearly' ? config.yearly_pence : config.price_pence) : 0);
-  const per = (p: Plan | null) => (p === 'yearly' ? 'a year' : 'a month');
-  const priceLine = (p: Plan | null) => (config ? `${money(priceOf(p), config.currency)} ${per(p)}` : '');
+  /** A plan's price and how often: "£4.99 a month". */
+  const priceLine = (p: Plan | null) => (config ? t(p === 'yearly' ? 'plus.perYear' : 'plus.perMonth', { price: money(priceOf(p), config.currency) }) : '');
   const ticked = !!me.verified || tickHidden;
   const pending = (requests.data ?? []).find((r) => r.kind === 'verify' && r.status === 'pending');
   const save = config ? savePercent(config.price_pence, config.yearly_pence) : 0;
@@ -167,17 +168,17 @@ export function Plus() {
   /** Starts Plus: a free week saves a card (nothing charged); otherwise the first payment. */
   async function subscribe() {
     if (!config || busy) return;
-    if (!config.ready) return toast("Payments aren't available yet.");
+    if (!config.ready) return toast(t('pay.unavailable'));
     setBusy('pay');
     setError('');
     try {
       const r = await startSubscription(savedCard, plan);
       const currency = (r.currency ?? config.currency).toUpperCase();
       if (!r.already) {
-        if (!r.client_secret) throw new Error('The payment could not be started. Try again.');
+        if (!r.client_secret) throw new Error(t('checkout.couldNotStart'));
         // This page offered a free week but the server would charge today: stop, so nobody pays who expected not to.
         if (trialOffer && r.intent !== 'setup' && (r.amount ?? 0) > 0) {
-          setError(`The free week isn't available on this account any more, so Plus would start at ${money(r.amount ?? priceOf(plan), currency)} today. Nothing has been charged. Press the button again to go ahead.`);
+          setError(t('d.plus.trialGone', { amount: money(r.amount ?? priceOf(plan), currency) }));
           load();
           return;
         }
@@ -187,18 +188,18 @@ export function Plus() {
           // The saved card pays (or is kept for after the free week) without the card form.
           await payWithSavedCard(r.client_secret, savedCard, trial ? 'setup' : 'payment');
           await finish();
-          toast(trial ? 'Your free week has started' : 'Welcome to Plus');
+          toast(trial ? t('checkout.trialStarted') : t('checkout.welcome'));
           if (then.startsWith('/')) nav(then);
           return;
         }
         const ok = await pay({
-          title: `Community Plus · ${plan === 'yearly' ? 'Yearly' : 'Monthly'}`,
-          detail: trial ? `Free for ${r.trial_days ?? config.trial_days} days, then ${priceLine(plan)}. Nothing is charged today. Renews automatically until cancelled.` : renewalText(amount, currency, plan === 'yearly' ? 'year' : 'month'),
+          title: `${t('common.communityPlus')} · ${t(plan === 'yearly' ? 'plus.yearly' : 'plus.monthly')}`,
+          detail: trial ? t('d.plus.trialDetail', { days: r.trial_days ?? config.trial_days, price: priceLine(plan) }) : renewalText(amount, currency, plan === 'yearly' ? 'year' : 'month'),
           amountPence: trial ? 0 : amount,
           currency,
           clientSecret: r.client_secret,
           intent: trial ? 'setup' : 'payment',
-          action: trial ? 'Start free week' : `Pay ${money(amount, currency)}`,
+          action: trial ? t('checkout.startFreeWeek') : t('checkout.pay', { price: money(amount, currency) }),
         });
         if (!ok) {
           // The free week starts with or without the card: show where things stand.
@@ -209,10 +210,10 @@ export function Plus() {
           return;
         }
         await finish();
-        toast(trial ? 'Your free week has started' : 'Welcome to Plus');
+        toast(trial ? t('checkout.trialStarted') : t('checkout.welcome'));
       } else {
         await finish();
-        toast(r.trial_days ? 'Your free week has started' : 'Welcome to Plus');
+        toast(r.trial_days ? t('checkout.trialStarted') : t('checkout.welcome'));
       }
       if (then.startsWith('/')) nav(then);
     } catch (e) {
@@ -225,8 +226,8 @@ export function Plus() {
   /** A member moving to the other plan: the server swaps the price on the same subscription. */
   async function switchPlan() {
     if (!config || !currentPlan || busy) return;
-    const label = plan === 'yearly' ? 'Switch to yearly' : 'Switch to monthly';
-    const sure = await ask(label + '?', `${priceLine(plan)} instead of ${priceLine(currentPlan)}. Stripe adjusts your next payment for the time left on your current plan.`, label, false);
+    const label = t(plan === 'yearly' ? 'plus.switchToYearly' : 'plus.switchToMonthly');
+    const sure = await ask(t(plan === 'yearly' ? 'd.plus.switchToYearlyQ' : 'd.plus.switchToMonthlyQ'), t('d.plus.switchBody', { price: priceLine(plan), old: priceLine(currentPlan) }), label, false);
     if (!sure) return;
     setBusy('pay');
     setError('');
@@ -234,14 +235,14 @@ export function Plus() {
       const r = await startSubscription(null, plan);
       // In the free week with no card yet: the plan has switched, and a card for after the week comes next.
       if (r.intent === 'setup' && r.client_secret) {
-        const ok = await pay({ title: 'Card for after your free week', detail: `Then ${priceLine(plan)}. Nothing is charged today.`, amountPence: 0, currency: config.currency, clientSecret: r.client_secret, intent: 'setup', action: 'Save card' });
+        const ok = await pay({ title: t('checkout.cardForAfter'), detail: t('d.plus.thenNothingToday', { price: priceLine(plan) }), amountPence: 0, currency: config.currency, clientSecret: r.client_secret, intent: 'setup', action: t('checkout.saveCard') });
         await finish();
-        toast(ok ? 'Your card is saved' : plan === 'yearly' ? "You're on the yearly plan" : "You're on the monthly plan");
+        toast(ok ? t('checkout.cardSaved') : plan === 'yearly' ? t('checkout.onYearly') : t('checkout.onMonthly'));
         return;
       }
-      if (!r.already) throw new Error('Your last renewal needs paying first. Choose Pay now above.');
+      if (!r.already) throw new Error(t('d.plus.payRenewalFirst'));
       await finish();
-      toast(plan === 'yearly' ? "You're on the yearly plan" : "You're on the monthly plan");
+      toast(plan === 'yearly' ? t('checkout.onYearly') : t('checkout.onMonthly'));
     } catch (e) {
       setError(errText(e));
     } finally {
@@ -258,30 +259,30 @@ export function Plus() {
       // A saved card chosen here is put on the subscription (in the free week) or pays the renewal.
       const r = await startSubscription(savedCard, p);
       if (!r.already) {
-        if (!r.client_secret) throw new Error('The payment could not be started. Try again.');
+        if (!r.client_secret) throw new Error(t('checkout.couldNotStart'));
         const setup = r.intent === 'setup';
         const amount = r.amount ?? priceOf(p);
         if (savedCard) {
           await payWithSavedCard(r.client_secret, savedCard, setup ? 'setup' : 'payment');
           await finish();
-          toast(setup ? 'Your card is saved' : 'Welcome back to Plus');
+          toast(setup ? t('checkout.cardSaved') : t('d.plus.welcomeBack'));
           return;
         }
         const ok = await pay({
-          title: setup ? 'Card for after your free week' : 'Community Plus',
-          detail: setup ? `Free until ${longDay(billing.current_period_end)}, then ${priceLine(p)}. Nothing is charged today.` : renewalText(amount, r.currency ?? config.currency, p === 'yearly' ? 'year' : 'month'),
+          title: setup ? t('checkout.cardForAfter') : t('common.communityPlus'),
+          detail: setup ? t('d.plus.freeUntilDetail', { day: longDay(billing.current_period_end), price: priceLine(p) }) : renewalText(amount, r.currency ?? config.currency, p === 'yearly' ? 'year' : 'month'),
           amountPence: setup ? 0 : amount,
           currency: (r.currency ?? config.currency).toUpperCase(),
           clientSecret: r.client_secret,
           intent: setup ? 'setup' : 'payment',
-          action: setup ? 'Save card' : `Pay ${money(amount, r.currency ?? config.currency)}`,
+          action: setup ? t('checkout.saveCard') : t('checkout.pay', { price: money(amount, r.currency ?? config.currency) }),
         });
         if (!ok) return;
         await finish();
-        toast(setup ? 'Your card is saved' : 'Welcome back to Plus');
+        toast(setup ? t('checkout.cardSaved') : t('d.plus.welcomeBack'));
       } else {
         await finish();
-        if (savedCard) toast(needsCard ? 'Your card is saved' : 'Welcome back to Plus');
+        if (savedCard) toast(needsCard ? t('checkout.cardSaved') : t('d.plus.welcomeBack'));
       }
     } catch (e) {
       toastError(e);
@@ -296,18 +297,18 @@ export function Plus() {
     const day = longDay(billing.current_period_end);
     const trialling = billing.status === 'trialing';
     const sure = resume
-      ? await ask('Resume Plus?', day ? `Plus will renew on ${day} at ${priceLine(billing.plan)}.` : `Plus will renew at ${priceLine(billing.plan)}.`, 'Resume', false)
+      ? await ask(t('plus.resumeQuestion'), day ? t('plus.willRenewOn', { day, price: priceLine(billing.plan) }) : t('plus.willRenew', { price: priceLine(billing.plan) }), t('plus.resume'), false)
       : await ask(
-          'Cancel Plus?',
-          trialling ? (day ? `You won't be charged. Plus stays on until ${day}.` : "You won't be charged. Plus stays on until your free week ends.") : day ? `You will not be charged again. Plus stays on until ${day}.` : 'You will not be charged again. Plus stays on until the end of this period.',
-          'Cancel subscription',
+          t('plus.cancelQuestion'),
+          trialling ? (day ? t('plus.trialCancelUntil', { day }) : t('plus.trialCancel')) : day ? t('plus.cancelUntil', { day }) : t('plus.cancelPeriod'),
+          t('plus.cancelSubscription'),
         );
     if (!sure) return;
     setBusy('renewal');
     try {
       const next = await (resume ? resumeSubscription() : cancelSubscription());
       setBilling(next);
-      toast(resume ? 'Plus will renew as normal' : day ? `Plus will end on ${day}` : 'Plus will end at the end of this period');
+      toast(resume ? t('plus.renewsAsNormal') : day ? t('plus.willEndOn', { day }) : t('plus.willEndPeriod'));
       refresh().catch(() => {});
     } catch (e) {
       toastError(e);
@@ -321,7 +322,7 @@ export function Plus() {
     setTickHiddenNow(hidden);
     try {
       await setTickHidden(hidden);
-      toast(hidden ? 'Your tick is hidden. You are still verified.' : 'Your tick shows again');
+      toast(hidden ? t('plus.tickHidden') : t('plus.tickShowsAgain'));
       await refresh();
     } catch (e) {
       setTickHiddenNow(before);
@@ -356,20 +357,20 @@ export function Plus() {
                 <CardChip brand={c.brand} />
                 <span className="grow">
                   <b>{cardTitle(c)}</b>
-                  <span className={expired ? 'pro-bad-text' : 'muted-text'}>{expired ? `Expired ${exp}` : `Expires ${exp}`}</span>
+                  <span className={expired ? 'pro-bad-text' : 'muted-text'}>{expired ? t('checkout.expired', { date: exp }) : t('checkout.expires', { date: exp })}</span>
                 </span>
-                {c.is_default ? <span className="pro-tag">Default</span> : null}
+                {c.is_default ? <span className="pro-tag">{t('checkout.default')}</span> : null}
               </button>
             );
           })}
-          <button type="button" role="radio" aria-checked={method === NEW} aria-label="New card" disabled={!!busy} className={'pro-paywith-card' + (method === NEW ? ' on' : '')} onClick={() => setMethod(NEW)}>
+          <button type="button" role="radio" aria-checked={method === NEW} aria-label={t('checkout.newCard')} disabled={!!busy} className={'pro-paywith-card' + (method === NEW ? ' on' : '')} onClick={() => setMethod(NEW)}>
             <span className={'pro-paywith-dot' + (method === NEW ? ' on' : '')} />
             <span className="pro-paywith-new">
               <Icon name="plus" size={16} stroke={2.2} />
             </span>
             <span className="grow">
-              <b>New card</b>
-              <span className="muted-text">Credit or debit card</span>
+              <b>{t('checkout.newCard')}</b>
+              <span className="muted-text">{t('checkout.creditOrDebit')}</span>
             </span>
           </button>
         </div>
@@ -378,10 +379,12 @@ export function Plus() {
 
   // The button under the plans.
   let button: { label: string; onClick: () => void; on: boolean } | null = null;
-  if (configError && !config) button = { label: 'Try again', onClick: load, on: true };
-  else if (!config) button = { label: 'Loading prices…', onClick: () => {}, on: false };
-  else if (member) button = plan === currentPlan ? null : { label: plan === 'yearly' ? 'Switch to yearly' : 'Switch to monthly', onClick: switchPlan, on: true };
-  else button = { label: trialOffer ? `Try for ${money(0, config.currency)}` : plan === 'yearly' ? `Subscribe for ${money(config.yearly_pence, config.currency)}/year` : `Subscribe for ${money(config.price_pence, config.currency)}/month`, onClick: subscribe, on: true };
+  if (configError && !config) button = { label: t('common.tryAgain'), onClick: load, on: true };
+  else if (!config) button = { label: t('d.plus.loadingPrices'), onClick: () => {}, on: false };
+  else if (member) button = plan === currentPlan ? null : { label: t(plan === 'yearly' ? 'plus.switchToYearly' : 'plus.switchToMonthly'), onClick: switchPlan, on: true };
+  else button = { label: trialOffer ? t('plus.tryFor', { price: money(0, config.currency) }) : plan === 'yearly' ? t('plus.subscribeYearly', { price: money(config.yearly_pence, config.currency) }) : t('plus.subscribeMonthly', { price: money(config.price_pence, config.currency) }), onClick: subscribe, on: true };
+  // The free-week headline, with "Community Plus" drawn in green wherever it sits in the sentence.
+  const [tryBefore, tryAfter] = tSplit('plus.trialHeadlineNamed', 'plus', { username: me.username, time: config?.trial_days === 7 || !config ? t('plus.oneWeek') : t('plus.days', { count: config.trial_days }) });
   // Plus given by an admin has no subscription to change, and a failed renewal is paid from the box on the left.
   const showPlans = !failed && (member || !isPlus);
 
@@ -393,19 +396,19 @@ export function Plus() {
             <span className="pro-plus-badge">
               <Icon name="crown" size={34} />
             </span>
-            <h1>{trialOffer ? <>{me.username}, try <span className="pro-ok-text">Community Plus</span> free for {config?.trial_days === 7 || !config ? 'one week' : `${config.trial_days} days`}</> : <span className="pro-ok-text">Community Plus</span>}</h1>
+            <h1>{trialOffer ? <>{tryBefore}<span className="pro-ok-text">Community Plus</span>{tryAfter}</> : <span className="pro-ok-text">Community Plus</span>}</h1>
             {isPlus ? (
               <span className="pro-plus-have">
-                <Icon name="check" size={15} stroke={2.6} /> {me.plus_until ? `You have Plus · until ${longDay(me.plus_until)}` : 'You have Plus'}
+                <Icon name="check" size={15} stroke={2.6} /> {me.plus_until ? t('plus.youHavePlusUntil', { day: longDay(me.plus_until) }) : t('plus.youHavePlus')}
               </span>
             ) : (
-              <p className="muted-text">More control over your stories, messages and profile, and new features first.</p>
+              <p className="muted-text">{t('d.plus.heroSub')}</p>
             )}
           </header>
 
           {hasSub && billing ? (
             <section className="pro-plus-sec">
-              <h2>Your subscription</h2>
+              <h2>{t('plus.yourSubscription')}</h2>
               <div className="pro-box">
                 <div className="pro-box-row">
                   <span className={'pro-round' + (failed ? '' : ' ok')}>
@@ -413,32 +416,32 @@ export function Plus() {
                   </span>
                   <div className="grow">
                     <b>
-                      {billing.plan === 'yearly' ? 'Yearly' : 'Monthly'}
+                      {t(billing.plan === 'yearly' ? 'plus.yearly' : 'plus.monthly')}
                       {config ? ` · ${priceLine(billing.plan)}` : ''}
                     </b>
                     <span className={'pro-sub-line' + (failed ? ' pro-bad-text' : '')}>{subscriptionLine(billing)}</span>
                   </div>
                 </div>
-                {needsCard || failed || billing.status === 'incomplete' ? payWith(needsCard ? 'Card for after your free week' : 'Pay with') : null}
+                {needsCard || failed || billing.status === 'incomplete' ? payWith(needsCard ? t('checkout.cardForAfter') : t('checkout.payWith')) : null}
                 {needsCard ? (
                   <button className="btn block" disabled={!!busy} onClick={fixPayment}>
-                    {busy === 'card' ? 'Opening…' : 'Add a card for after your free week'}
+                    {busy === 'card' ? t('d.plus.opening') : t('plus.addCard')}
                   </button>
                 ) : null}
                 {failed || billing.status === 'incomplete' ? (
                   <button className="btn block" disabled={!!busy} onClick={fixPayment}>
-                    {failed ? 'Pay now' : 'Finish paying'}
+                    {failed ? t('plus.payNow') : t('plus.finishPaying')}
                   </button>
                 ) : null}
                 <Link to="/dashboard/billing" className="pro-box-link">
                   <Icon name="card" size={20} />
-                  <span className="grow">Payment methods and history</span>
+                  <span className="grow">{t('d.plus.paymentMethodsHistory')}</span>
                   <Icon name="right" size={18} />
                 </Link>
                 {RENEWING.includes(billing.status) ? (
                   <button className={'pro-box-link' + (billing.cancel_at_period_end ? ' pro-ok-text' : ' pro-bad-text')} disabled={!!busy} onClick={changeRenewal}>
                     <Icon name={billing.cancel_at_period_end ? 'repeat' : 'close'} size={20} />
-                    <span className="grow">{busy === 'renewal' ? 'Saving…' : billing.cancel_at_period_end ? 'Resume subscription' : 'Cancel subscription'}</span>
+                    <span className="grow">{busy === 'renewal' ? t('d.plus.saving') : billing.cancel_at_period_end ? t('plus.resumeSubscription') : t('plus.cancelSubscription')}</span>
                   </button>
                 ) : null}
               </div>
@@ -447,43 +450,43 @@ export function Plus() {
 
           {isPlus ? (
             <section className="pro-plus-sec">
-              <h2>Your Plus settings</h2>
+              <h2>{t('plus.yourSettings')}</h2>
               <div className="pro-box">
                 {ticked ? (
                   <div className="pro-box-link static">
                     <Verified size={18} />
                     <span className="grow">
-                      Hide my tick
-                      <em>{tickHidden ? 'Your tick is hidden. You are still verified.' : 'Your account shows the blue tick.'}</em>
+                      {t('d.plus.hideMyTick')}
+                      <em>{tickHidden ? t('plus.tickHidden') : t('d.plus.tickShows')}</em>
                     </span>
-                    <Toggle on={tickHidden} onChange={hideTick} label="Hide my tick" />
+                    <Toggle on={tickHidden} onChange={hideTick} label={t('d.plus.hideMyTick')} />
                   </div>
                 ) : null}
                 <div className="pro-box-link static">
                   <Icon name="chatdots" size={20} />
                   <span className="grow">
-                    Read receipts
-                    <em>{receipts ? 'People see when you have read their messages.' : 'You read messages quietly.'}</em>
+                    {t('settings.readReceipts')}
+                    <em>{receipts ? t('d.plus.receiptsOn') : t('d.plus.receiptsOff')}</em>
                   </span>
-                  <Toggle on={receipts} onChange={setReadReceipts} label="Read receipts" />
+                  <Toggle on={receipts} onChange={setReadReceipts} label={t('settings.readReceipts')} />
                 </div>
                 <Link to={`/u/${me.username}/style`} className="pro-box-link">
                   <Icon name="sparkle" size={20} />
                   <span className="grow">
-                    Profile style
-                    <em>Ring colour and profile theme, from your profile</em>
+                    {t('settings.profileStyle')}
+                    <em>{t('d.plus.profileStyleSub')}</em>
                   </span>
                   <Icon name="right" size={18} />
                 </Link>
                 <Link to="/accounts/viewers" className="pro-box-link">
                   <Icon name="eye" size={20} />
-                  <span className="grow">Profile viewers</span>
+                  <span className="grow">{t('settings.profileViewers')}</span>
                   <Icon name="right" size={18} />
                 </Link>
                 <button className="pro-box-link" onClick={() => setFonts(true)}>
                   <Icon name="font" size={20} />
                   <span className="grow">
-                    App font
+                    {t('settings.appFont')}
                     <em>{appFontById(appFont).name}</em>
                   </span>
                   <Icon name="right" size={18} />
@@ -491,16 +494,16 @@ export function Plus() {
                 <Link to="/accounts/chat-wallpaper" className="pro-box-link">
                   <Icon name="wallpaper" size={20} />
                   <span className="grow">
-                    Chat wallpaper
-                    <em>{wallpaperById(chatWallpaper)?.name ?? 'None'}</em>
+                    {t('settings.chatWallpaper')}
+                    <em>{wallpaperById(chatWallpaper)?.name ?? t('create.none')}</em>
                   </span>
                   <Icon name="right" size={18} />
                 </Link>
                 <Link to="/accounts/story-alerts" className="pro-box-link">
                   <Icon name="bell" size={20} />
                   <span className="grow">
-                    Story alerts
-                    <em>Be told when people you choose watch your stories</em>
+                    {t('settings.storyAlerts')}
+                    <em>{t('d.plus.storyAlertsSub')}</em>
                   </span>
                   <Icon name="right" size={18} />
                 </Link>
@@ -510,36 +513,36 @@ export function Plus() {
 
           {!isPlus && ticked && tickHidden ? (
             <section className="pro-plus-sec">
-              <h2>Your tick</h2>
+              <h2>{t('plus.yourTick')}</h2>
               <div className="pro-box">
                 <div className="pro-box-link static">
                   <Verified size={18} />
-                  <span className="grow">Hide my tick</span>
-                  <Toggle on={tickHidden} onChange={hideTick} label="Hide my tick" />
+                  <span className="grow">{t('d.plus.hideMyTick')}</span>
+                  <Toggle on={tickHidden} onChange={hideTick} label={t('d.plus.hideMyTick')} />
                 </div>
               </div>
             </section>
           ) : null}
 
           <section className="pro-plus-sec">
-            <h2>What you get</h2>
+            <h2>{t('plus.whatYouGet')}</h2>
             <ul className="pro-benefits">
               {BENEFITS.map((b) => (
                 <li key={b.title}>
                   <Icon name={b.icon} size={26} stroke={1.6} />
-                  <b>{b.title}</b>
+                  <b>{t(b.title)}</b>
                 </li>
               ))}
             </ul>
           </section>
 
           <section className="pro-plus-sec">
-            <h2>Explore all benefits</h2>
+            <h2>{t('plus.exploreAll')}</h2>
             <ul className="pro-all">
               {ALL_BENEFITS.map((line) => (
                 <li key={line}>
                   <Icon name="check" size={18} stroke={1.8} />
-                  <span>{line}</span>
+                  <span>{t(line)}</span>
                 </li>
               ))}
             </ul>
@@ -548,7 +551,7 @@ export function Plus() {
           {ticked ? null : (
             <Link to="/verify" className="pro-tick-link">
               <Verified size={24} />
-              <b className="grow">{pending ? 'Your identity check is being reviewed' : 'Want the blue tick? Verify your identity'}</b>
+              <b className="grow">{pending ? t('plus.idBeingReviewed') : t('plus.wantTick')}</b>
               <Icon name="right" size={18} />
             </Link>
           )}
@@ -557,11 +560,11 @@ export function Plus() {
         <aside className="pro-plus-side">
           {showPlans ? (
             <div className="pro-plan-box">
-              <h2>{member ? 'Your plan' : 'Choose a plan'}</h2>
+              <h2>{member ? t('plus.yourPlan') : t('d.plus.choosePlan')}</h2>
               {config ? (
-                <div className="pro-plans" role="radiogroup" aria-label="Plan">
-                  <PlanCard title="Monthly" price={money(config.price_pence, config.currency)} sub={currentPlan === 'monthly' ? 'Your plan' : 'a month'} on={plan === 'monthly'} onClick={() => setPlan('monthly')} />
-                  <PlanCard title="Yearly" price={money(config.yearly_pence, config.currency)} sub={currentPlan === 'yearly' ? 'Your plan' : `${money(Math.round(config.yearly_pence / 12), config.currency)} a month`} pill={save >= 1 ? `Save ${save}%` : undefined} on={plan === 'yearly'} onClick={() => setPlan('yearly')} />
+                <div className="pro-plans" role="radiogroup" aria-label={t('d.plus.plan')}>
+                  <PlanCard title={t('plus.monthly')} price={money(config.price_pence, config.currency)} sub={currentPlan === 'monthly' ? t('plus.yourPlan') : t('plus.aMonth')} on={plan === 'monthly'} onClick={() => setPlan('monthly')} />
+                  <PlanCard title={t('plus.yearly')} price={money(config.yearly_pence, config.currency)} sub={currentPlan === 'yearly' ? t('plus.yourPlan') : t('plus.perMonth', { price: money(Math.round(config.yearly_pence / 12), config.currency) })} pill={save >= 1 ? t('plus.save', { percent: save }) : undefined} on={plan === 'yearly'} onClick={() => setPlan('yearly')} />
                 </div>
               ) : configError ? null : (
                 <Spinner size={24} />
@@ -569,30 +572,30 @@ export function Plus() {
               {/* The renewal terms of the plan chosen, right above the button that starts it. */}
               {config && !member ? <RenewalTerms pricePence={priceOf(plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} trialDays={trialOffer ? config.trial_days : 0} /> : null}
               {config && member && plan !== currentPlan ? <RenewalTerms pricePence={priceOf(plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} freeUntil={billing?.status === 'trialing' ? longDay(billing.current_period_end) : ''} /> : null}
-              {config && !member ? payWith(trialOffer ? 'Card for after your free week' : 'Pay with') : null}
+              {config && !member ? payWith(trialOffer ? t('checkout.cardForAfter') : t('checkout.payWith')) : null}
               {error ? <Notice kind="warn">{error}</Notice> : configError && !config ? <Notice kind="warn">{errText(configError)}</Notice> : null}
               {button ? (
                 <button className="btn block big" disabled={!button.on || !!busy} onClick={button.onClick}>
-                  {busy === 'pay' ? 'Processing…' : button.label}
+                  {busy === 'pay' ? t('d.plus.processing') : button.label}
                 </button>
               ) : (
-                <p className="muted-text small center">You're on this plan. Pick the other one to switch.</p>
+                <p className="muted-text small center">{t('d.plus.onThisPlan')}</p>
               )}
-              {config?.test_mode ? <p className="pro-terms center">Test mode — no real money moves.</p> : null}
+              {config?.test_mode ? <p className="pro-terms center">{t('d.plus.testMode')}</p> : null}
               <p className="pro-terms center">
-                <Icon name="lock" size={12} /> Payments are handled by Stripe. Cancel any time.
+                <Icon name="lock" size={12} /> {t('d.plus.stripeCancelAnyTime')}
               </p>
             </div>
           ) : isPlus && !member && !failed ? (
             <div className="pro-plan-box">
-              <h2>You have Plus</h2>
-              <p className="muted-text">{me.plus_until ? `Plus is on until ${longDay(me.plus_until)}. It was given to your account, so there is nothing to renew.` : 'Plus is on for your account.'}</p>
+              <h2>{t('plus.youHavePlus')}</h2>
+              <p className="muted-text">{me.plus_until ? t('d.plus.givenUntil', { day: longDay(me.plus_until) }) : t('d.plus.givenOn')}</p>
             </div>
           ) : null}
         </aside>
       </div>
       {fonts ? (
-        <Modal title="App font" onClose={() => setFonts(false)} wide>
+        <Modal title={t('settings.appFont')} onClose={() => setFonts(false)} wide>
           <div className="st-modal-body">
             <FontChooser />
           </div>

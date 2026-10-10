@@ -8,22 +8,33 @@ import { myPlusRequests, requestVerification, uploadVerificationPhoto, VERIFICAT
 import { supabase } from 'shared/supabase';
 import { errText } from 'shared/theme';
 import type { DocumentType, PlusRequest } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Failed, Icon, type IconName, Link, Spinner, Verified, toast, useLoad } from '../ui/kit';
 import { longDay, Notice, shortDay } from './pro-kit';
 
+// Labels are the keys of their words, shown with t().
 const DOCUMENTS: { value: DocumentType; label: string }[] = [
-  { value: 'passport', label: 'Passport' },
-  { value: 'driving_licence', label: 'Driving licence' },
-  { value: 'national_id', label: 'National ID card' },
-  { value: 'other', label: 'Other' },
+  { value: 'passport', label: 'd.plus.docPassport' },
+  { value: 'driving_licence', label: 'd.plus.docLicence' },
+  { value: 'national_id', label: 'd.plus.docNationalId' },
+  { value: 'other', label: 'd.plus.docOther' },
 ];
-const CATEGORIES = ['Church or ministry', 'Pastor or elder', 'Creator', 'Musician or choir', 'News or media', 'Organisation', 'Other'];
+/** The category is sent in English (our team reads it); the member sees it in their language. */
+const CATEGORIES: { value: string; label: string }[] = [
+  { value: 'Church or ministry', label: 'd.plus.catChurch' },
+  { value: 'Pastor or elder', label: 'd.plus.catPastor' },
+  { value: 'Creator', label: 'd.plus.catCreator' },
+  { value: 'Musician or choir', label: 'd.plus.catMusician' },
+  { value: 'News or media', label: 'd.plus.catNews' },
+  { value: 'Organisation', label: 'd.plus.catOrganisation' },
+  { value: 'Other', label: 'd.plus.catOther' },
+];
 
 type Path = 'notable' | 'plus';
 type Step = 'how' | 'identity' | 'notability' | 'review';
-const STEP_TITLE: Record<Step, string> = { how: 'Choose how', identity: "Confirm it's you", notability: 'Confirm notability', review: 'Review and send' };
+const STEP_TITLE: Record<Step, string> = { how: 'd.plus.stepHow', identity: 'auth.confirmItsYou', notability: 'd.plus.stepNotability', review: 'd.plus.stepReview' };
 const MAX_LINKS = 3;
 /** Enough to say who follows the account and why; a word or two can't be judged. */
 const MIN_AUDIENCE = 20;
@@ -33,9 +44,9 @@ const PLUS_FLAG = 'community.verifyWithPlus';
 type Photo = { uri: string; width: number; name: string };
 type Sending = '' | 'document' | 'selfie' | 'request';
 const SENDING_TEXT: Record<Exclude<Sending, ''>, string> = {
-  document: 'Uploading your document photo… (1 of 3)',
-  selfie: 'Uploading your selfie… (2 of 3)',
-  request: 'Sending your request… (3 of 3)',
+  document: 'd.plus.uploadingDoc',
+  selfie: 'd.plus.uploadingSelfie',
+  request: 'd.plus.sendingRequest',
 };
 
 /** A web address, with or without https:// in front. */
@@ -46,11 +57,11 @@ const withScheme = (s: string) => (/^https?:\/\//i.test(s.trim()) ? s.trim() : `
 /** A picked picture as a blob: address, with its width (big ones are shrunk before upload). */
 function readPhoto(file: File): Promise<Photo> {
   return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) return reject(new Error('Choose a photo (JPG or PNG).'));
+    if (!file.type.startsWith('image/')) return reject(new Error(t('d.plus.choosePhoto')));
     const uri = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => resolve({ uri, width: img.naturalWidth, name: file.name });
-    img.onerror = () => reject(new Error('That picture could not be opened. Choose another.'));
+    img.onerror = () => reject(new Error(t('d.plus.photoUnreadable')));
     img.src = uri;
   });
 }
@@ -91,7 +102,7 @@ export function Verify() {
       }
       setPath('plus');
       setStep('identity');
-      toast("Welcome to Plus. Now let's confirm it's you.");
+      toast(t('d.plus.welcomeVerify'));
     }
   }, [me.plus]);
 
@@ -105,28 +116,28 @@ export function Verify() {
 
   /** What still needs doing on a page before moving on, or '' when it is complete. */
   function problem(s: Step): string {
-    if (s === 'how') return path ? '' : 'Choose how you would like to be verified.';
+    if (s === 'how') return path ? '' : t('d.plus.needPath');
     if (s === 'identity') {
-      if (legalName.trim().length < 2) return 'Add your full name as it is written on your document.';
-      if (!docType) return 'Choose which kind of document it is.';
-      if (!doc) return 'Add a photo of your document.';
-      if (!selfie) return 'Add a selfie.';
+      if (legalName.trim().length < 2) return t('d.plus.needName');
+      if (!docType) return t('d.plus.needDocType');
+      if (!doc) return t('d.plus.needDocPhoto');
+      if (!selfie) return t('d.plus.needSelfie');
       return '';
     }
     if (s === 'notability') {
       if (path !== 'notable') return '';
-      if (!category) return 'Choose the category that fits you best.';
-      if (country.trim().length < 2) return 'Add the country or region you are based in.';
-      if (audience.trim().length < MIN_AUDIENCE) return 'Tell us a little more about who follows you and why: a sentence or two is enough.';
+      if (!category) return t('d.plus.needCategory');
+      if (country.trim().length < 2) return t('d.plus.needCountry');
+      if (audience.trim().length < MIN_AUDIENCE) return t('d.plus.needAudience');
       const bad = links.find((l) => l.trim() && !looksLikeLink(l));
-      if (bad) return `"${bad.trim()}" doesn't look like a web address. Check it, or leave the field empty.`;
+      if (bad) return t('d.plus.badLink', { link: bad.trim() });
       return '';
     }
     for (const earlier of steps.slice(0, -1)) {
       const p = problem(earlier);
       if (p) return p;
     }
-    if (path === 'plus' && !me.plus) return 'Community Plus is not active on your account. Get Plus first, or apply as a notable account instead.';
+    if (path === 'plus' && !me.plus) return t('d.plus.needPlus');
     return '';
   }
 
@@ -158,7 +169,7 @@ export function Verify() {
   async function submit() {
     if (busy.current) return;
     const gap = problem('review');
-    if (gap || !doc || !selfie || !docType || !path) return setFormError(gap || 'Something is missing. Go back and check each page.');
+    if (gap || !doc || !selfie || !docType || !path) return setFormError(gap || t('d.plus.somethingMissing'));
     busy.current = true;
     setFormError('');
     const uploaded: string[] = [];
@@ -193,7 +204,7 @@ export function Verify() {
     }
   }
 
-  const header = <h1 className="pro-title">Request verification</h1>;
+  const header = <h1 className="pro-title">{t('settings.requestVerification')}</h1>;
   const mine = (requests.data ?? []).filter((r) => r.kind === 'verify');
   const pending = mine.find((r) => r.status === 'pending');
 
@@ -202,10 +213,10 @@ export function Verify() {
     return (
       <div className="page pro-verify">
         {header}
-        <Done tick title="You're verified" body={me.verified_via === 'plus' ? 'Verified with Community Plus.' : 'Your account shows the blue tick.'}>
+        <Done tick title={t('d.plus.youreVerified')} body={me.verified_via === 'plus' ? t('d.plus.verifiedWithPlusDot') : t('d.plus.tickShows')}>
           {me.plus ? (
             <Link to="/plus" className="btn quiet">
-              Tick settings in Plus
+              {t('d.plus.tickSettings')}
             </Link>
           ) : null}
         </Done>
@@ -216,7 +227,7 @@ export function Verify() {
     return (
       <div className="page pro-verify">
         {header}
-        <Done icon="lock" title="Not available yet" body="The blue tick is for members aged 14 and over." />
+        <Done icon="lock" title={t('d.plus.notAvailableYet')} body={t('d.plus.tickAge')} />
       </div>
     );
   }
@@ -240,9 +251,9 @@ export function Verify() {
     return (
       <div className="page pro-verify">
         {header}
-        <Done icon={sent ? 'check' : 'clock'} title={sent ? 'Request sent' : 'Your request is being reviewed'} body={sent ? 'Our team will check your photos and let you know. They are deleted as soon as your request is decided.' : `Sent on ${longDay(pending!.created_at)}. We'll let you know when it has been decided.`}>
+        <Done icon={sent ? 'check' : 'clock'} title={sent ? t('ssPub.sent') : t('d.plus.beingReviewed')} body={sent ? t('d.plus.sentBody') : t('d.plus.pendingBody', { day: longDay(pending!.created_at) })}>
           <Link to="/" className="btn quiet">
-            Done
+            {t('checkout.done')}
           </Link>
         </Done>
         <Requests list={mine} />
@@ -260,13 +271,13 @@ export function Verify() {
           <span className="pro-verify-tick">
             <Verified size={44} />
           </span>
-          <h2>Get the blue tick</h2>
-          <p className="muted-text">The tick shows people your account is who it says it is. Every request includes a quick identity check.</p>
+          <h2>{t('d.plus.getTick')}</h2>
+          <p className="muted-text">{t('d.plus.getTickSub')}</p>
         </div>
-        {declined ? <Notice kind="warn">Your last request was not approved. Try again with clear, well-lit photos, and the name exactly as it is on your document.</Notice> : null}
+        {declined ? <Notice kind="warn">{t('d.plus.declined')}</Notice> : null}
         <div className="pro-paths">
-          <PathCard icon="star" tag="Free" title="Apply as a notable account" points={['A photo of your ID and a selfie', 'A few questions about who follows you and why']} action="Apply" chosen={path === 'notable'} onClick={() => { setPath('notable'); go('identity'); }} />
-          <PathCard icon="crown" tag={me.plus ? 'You have Plus' : 'With Community Plus'} title="Get verified with Community Plus" points={['A photo of your ID and a selfie', 'No questions about your audience']} action={me.plus ? 'Continue with Plus' : 'Get Plus to continue'} chosen={path === 'plus'} onClick={choosePlus} />
+          <PathCard icon="star" tag={t('d.plus.free')} title={t('d.plus.pathNotable')} points={[t('d.plus.pointId'), t('d.plus.pointQuestions')]} action={t('d.plus.apply')} chosen={path === 'notable'} onClick={() => { setPath('notable'); go('identity'); }} />
+          <PathCard icon="crown" tag={me.plus ? t('plus.youHavePlus') : t('d.plus.withPlus')} title={t('d.plus.pathPlus')} points={[t('d.plus.pointId'), t('d.plus.pointNoQuestions')]} action={me.plus ? t('d.plus.continueWithPlus') : t('d.plus.getPlusToContinue')} chosen={path === 'plus'} onClick={choosePlus} />
         </div>
         <Requests list={mine} />
       </>
@@ -274,58 +285,58 @@ export function Verify() {
   } else if (step === 'identity') {
     body = (
       <>
-        <Card title="Your name and document" done={legalName.trim().length >= 2 && !!docType}>
+        <Card title={t('d.plus.nameAndDoc')} done={legalName.trim().length >= 2 && !!docType}>
           <label className="form-row">
-            <span>Full legal name</span>
-            <input value={legalName} onChange={(e) => { setLegalName(e.target.value); setFormError(''); }} placeholder="As it is written on your document" maxLength={120} autoComplete="name" disabled={locked} />
+            <span>{t('d.plus.legalName')}</span>
+            <input value={legalName} onChange={(e) => { setLegalName(e.target.value); setFormError(''); }} placeholder={t('d.plus.legalNameHint')} maxLength={120} autoComplete="name" disabled={locked} />
           </label>
-          <span className="pro-field-label">Document type</span>
-          <div className="pro-chips" role="radiogroup" aria-label="Document type">
+          <span className="pro-field-label">{t('d.plus.docType')}</span>
+          <div className="pro-chips" role="radiogroup" aria-label={t('d.plus.docType')}>
             {DOCUMENTS.map((d) => (
               <button key={d.value} role="radio" aria-checked={docType === d.value} className={'pro-chip' + (docType === d.value ? ' on' : '')} disabled={locked} onClick={() => { setDocType(d.value); setFormError(''); }}>
-                {d.label}
+                {t(d.label)}
               </button>
             ))}
           </div>
         </Card>
         <div className="pro-photos">
-          <PhotoPick title="Photo of your document" hint="The whole document, flat and in focus, with nothing covered." photo={doc} label="Document photo" disabled={locked} onPick={(p) => { setDoc(p); setFormError(''); }} />
-          <PhotoPick title="A selfie" hint="Your face, clearly lit, looking at the camera." photo={selfie} label="Selfie" selfie disabled={locked} onPick={(p) => { setSelfie(p); setFormError(''); }} />
+          <PhotoPick title={t('d.plus.docPhotoTitle')} hint={t('d.plus.docPhotoHint')} photo={doc} label={t('d.plus.docPhoto')} alt={t('d.plus.yourDocPhoto')} disabled={locked} onPick={(p) => { setDoc(p); setFormError(''); }} />
+          <PhotoPick title={t('d.plus.aSelfie')} hint={t('d.plus.selfieHint')} photo={selfie} label={t('d.plus.selfie')} alt={t('d.plus.yourSelfie')} selfie disabled={locked} onPick={(p) => { setSelfie(p); setFormError(''); }} />
         </div>
       </>
     );
   } else if (step === 'notability') {
     body = (
       <>
-        <Card title="Category" done={!!category}>
-          <div className="pro-chips" role="radiogroup" aria-label="Category">
+        <Card title={t('d.plus.category')} done={!!category}>
+          <div className="pro-chips" role="radiogroup" aria-label={t('d.plus.category')}>
             {CATEGORIES.map((c) => (
-              <button key={c} role="radio" aria-checked={category === c} className={'pro-chip' + (category === c ? ' on' : '')} onClick={() => { setCategory(c); setFormError(''); }}>
-                {c}
+              <button key={c.value} role="radio" aria-checked={category === c.value} className={'pro-chip' + (category === c.value ? ' on' : '')} onClick={() => { setCategory(c.value); setFormError(''); }}>
+                {t(c.label)}
               </button>
             ))}
           </div>
         </Card>
-        <Card title="Country or region" done={country.trim().length >= 2}>
+        <Card title={t('d.plus.country')} done={country.trim().length >= 2}>
           <label className="form-row">
-            <input value={country} onChange={(e) => { setCountry(e.target.value); setFormError(''); }} placeholder="For example, Ghana" maxLength={60} aria-label="Country or region" autoComplete="country-name" />
+            <input value={country} onChange={(e) => { setCountry(e.target.value); setFormError(''); }} placeholder={t('d.plus.countryHint')} maxLength={60} aria-label={t('d.plus.country')} autoComplete="country-name" />
           </label>
         </Card>
-        <Card title="Audience" sub="Who follows you and why?" done={audience.trim().length >= MIN_AUDIENCE}>
+        <Card title={t('d.plus.audience')} sub={t('d.plus.audienceQ')} done={audience.trim().length >= MIN_AUDIENCE}>
           <label className="form-row">
-            <textarea rows={4} value={audience} onChange={(e) => { setAudience(e.target.value); setFormError(''); }} placeholder="For example: churches across West Africa follow our choir for new recordings and concert dates." maxLength={500} aria-label="Who follows you and why?" />
+            <textarea rows={4} value={audience} onChange={(e) => { setAudience(e.target.value); setFormError(''); }} placeholder={t('d.plus.audienceHint')} maxLength={500} aria-label={t('d.plus.audienceQ')} />
             <em className="pro-count">{audience.trim().length}/500</em>
           </label>
         </Card>
-        <Card title="Also known as (optional)">
+        <Card title={t('d.plus.knownAsOptional')}>
           <label className="form-row">
-            <input value={knownAs} onChange={(e) => setKnownAs(e.target.value)} placeholder="Other names, in any language" maxLength={200} aria-label="Also known as" />
+            <input value={knownAs} onChange={(e) => setKnownAs(e.target.value)} placeholder={t('d.plus.knownAsHint')} maxLength={200} aria-label={t('d.plus.knownAs')} />
           </label>
         </Card>
-        <Card title="Links (optional)" sub="News stories, your church or ministry's website, other profiles.">
+        <Card title={t('d.plus.linksOptional')} sub={t('d.plus.linksSub')}>
           {links.map((l, i) => (
             <label key={i} className="form-row">
-              <input value={l} onChange={(e) => { setLinks((cur) => cur.map((x, j) => (j === i ? e.target.value : x))); setFormError(''); }} placeholder={i === 0 ? 'https://' : `Another link (${i + 1} of ${MAX_LINKS})`} maxLength={300} aria-label={`Link ${i + 1}`} inputMode="url" />
+              <input value={l} onChange={(e) => { setLinks((cur) => cur.map((x, j) => (j === i ? e.target.value : x))); setFormError(''); }} placeholder={i === 0 ? 'https://' : t('d.plus.anotherLink', { n: i + 1, max: MAX_LINKS })} maxLength={300} aria-label={t('d.plus.linkN', { n: i + 1 })} inputMode="url" />
             </label>
           ))}
         </Card>
@@ -335,38 +346,38 @@ export function Verify() {
     const given = links.filter((l) => l.trim());
     body = (
       <>
-        <Card title="How" onEdit={locked ? undefined : () => go('how')}>
-          <Line label="Way to verify" value={path === 'plus' ? 'With Community Plus' : 'Notable account (free)'} />
+        <Card title={t('d.plus.how')} onEdit={locked ? undefined : () => go('how')}>
+          <Line label={t('d.plus.wayToVerify')} value={path === 'plus' ? t('d.plus.withPlus') : t('d.plus.notableFree')} />
         </Card>
-        <Card title="It's you" onEdit={locked ? undefined : () => go('identity')}>
-          <Line label="Full legal name" value={legalName.trim()} />
-          <Line label="Document type" value={DOCUMENTS.find((d) => d.value === docType)?.label ?? ''} />
+        <Card title={t('d.plus.itsYou')} onEdit={locked ? undefined : () => go('identity')}>
+          <Line label={t('d.plus.legalName')} value={legalName.trim()} />
+          <Line label={t('d.plus.docType')} value={t(DOCUMENTS.find((d) => d.value === docType)?.label ?? '')} />
           <div className="pro-review-photos">
             <figure>
-              <figcaption>Document</figcaption>
-              {doc ? <img src={doc.uri} alt="Your document photo" /> : null}
+              <figcaption>{t('d.plus.document')}</figcaption>
+              {doc ? <img src={doc.uri} alt={t('d.plus.yourDocPhoto')} /> : null}
             </figure>
             <figure>
-              <figcaption>Selfie</figcaption>
-              {selfie ? <img src={selfie.uri} alt="Your selfie" /> : null}
+              <figcaption>{t('d.plus.selfie')}</figcaption>
+              {selfie ? <img src={selfie.uri} alt={t('d.plus.yourSelfie')} /> : null}
             </figure>
           </div>
         </Card>
         {path === 'notable' ? (
-          <Card title="Notability" onEdit={locked ? undefined : () => go('notability')}>
-            <Line label="Category" value={category} />
-            <Line label="Country or region" value={country.trim()} />
-            <Line label="Who follows you and why" value={audience.trim()} />
-            {knownAs.trim() ? <Line label="Also known as" value={knownAs.trim()} /> : null}
-            <Line label="Links" value={given.length ? given.map(withScheme).join('\n') : 'None'} />
+          <Card title={t('d.plus.notability')} onEdit={locked ? undefined : () => go('notability')}>
+            <Line label={t('d.plus.category')} value={t(CATEGORIES.find((c) => c.value === category)?.label ?? category)} />
+            <Line label={t('d.plus.country')} value={country.trim()} />
+            <Line label={t('d.plus.audienceLabel')} value={audience.trim()} />
+            {knownAs.trim() ? <Line label={t('d.plus.knownAs')} value={knownAs.trim()} /> : null}
+            <Line label={t('d.plus.links')} value={given.length ? given.map(withScheme).join('\n') : t('create.none')} />
           </Card>
         ) : null}
-        <Card title="Anything else? (optional)">
+        <Card title={t('d.plus.anythingElse')}>
           <label className="form-row">
-            <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example, if your name has changed" maxLength={500} disabled={locked} aria-label="Anything our team should know" />
+            <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('d.plus.anythingElseHint')} maxLength={500} disabled={locked} aria-label={t('d.plus.anythingElseLabel')} />
           </label>
         </Card>
-        <p className="pro-terms">By sending, you agree that our team may look at these photos to check who you are. They are deleted as soon as your request is decided.</p>
+        <p className="pro-terms">{t('d.plus.consent')}</p>
       </>
     );
   }
@@ -374,12 +385,10 @@ export function Verify() {
   return (
     <div className="page pro-verify">
       {header}
-      <div className="pro-steps" role="progressbar" aria-label={`Step ${index + 1} of ${steps.length}: ${STEP_TITLE[step]}`} aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}>
+      <div className="pro-steps" role="progressbar" aria-label={t('d.plus.stepAria', { step: index + 1, total: steps.length, title: t(STEP_TITLE[step]) })} aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}>
         <div className="pro-steps-text">
-          <b>{STEP_TITLE[step]}</b>
-          <span className="muted-text">
-            Step {index + 1} of {steps.length}
-          </span>
+          <b>{t(STEP_TITLE[step])}</b>
+          <span className="muted-text">{t('d.plus.stepOf', { step: index + 1, total: steps.length })}</span>
         </div>
         <div className="pro-steps-bars">
           {steps.map((s, i) => (
@@ -397,20 +406,20 @@ export function Verify() {
           ) : null}
           {sending ? (
             <p className="pro-sending">
-              <Spinner size={16} /> {SENDING_TEXT[sending]}
+              <Spinner size={16} /> {t(SENDING_TEXT[sending])}
             </p>
           ) : null}
           <div className="pro-foot-btns">
             <button className="btn quiet big" disabled={locked} onClick={back}>
-              Back
+              {t('common.back')}
             </button>
             {step === 'review' ? (
               <button className="btn big" disabled={locked} onClick={submit}>
-                {locked ? 'Sending…' : 'Send request'}
+                {locked ? t('d.plus.sending') : t('ssPub.send')}
               </button>
             ) : (
               <button className="btn big" onClick={next}>
-                Next
+                {t('d.plus.next')}
               </button>
             )}
           </div>
@@ -430,11 +439,11 @@ function Card({ title, sub, done, onEdit, children }: { title: string; sub?: str
           {sub ? <p className="muted-text">{sub}</p> : null}
         </div>
         {onEdit ? (
-          <button className="link-btn" onClick={onEdit} aria-label={'Edit ' + title}>
-            Edit
+          <button className="link-btn" onClick={onEdit} aria-label={t('d.plus.editX', { title })}>
+            {t('liveSchedule.edit')}
           </button>
         ) : done ? (
-          <span className="pro-done" aria-label="Done">
+          <span className="pro-done" aria-label={t('checkout.done')}>
             <Icon name="check" size={14} stroke={3} />
           </span>
         ) : null}
@@ -480,8 +489,8 @@ function PathCard({ icon, tag, title, points, action, chosen, onClick }: { icon:
   );
 }
 
-/** Choosing a photo from the computer (or dropping one on the box), with a preview. */
-function PhotoPick({ title, hint, photo, label, selfie, disabled, onPick }: { title: string; hint: string; photo: Photo | null; label: string; selfie?: boolean; disabled?: boolean; onPick: (p: Photo) => void }) {
+/** Choosing a photo from the computer (or dropping one on the box), with a preview. `alt` describes the preview. */
+function PhotoPick({ title, hint, photo, label, alt, selfie, disabled, onPick }: { title: string; hint: string; photo: Photo | null; label: string; alt: string; selfie?: boolean; disabled?: boolean; onPick: (p: Photo) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const take = async (file?: File | null) => {
@@ -500,7 +509,7 @@ function PhotoPick({ title, hint, photo, label, selfie, disabled, onPick }: { ti
           <p className="muted-text">{hint}</p>
         </div>
         {photo ? (
-          <span className="pro-done" aria-label="Done">
+          <span className="pro-done" aria-label={t('checkout.done')}>
             <Icon name="check" size={14} stroke={3} />
           </span>
         ) : null}
@@ -522,18 +531,18 @@ function PhotoPick({ title, hint, photo, label, selfie, disabled, onPick }: { ti
         }}
       >
         {photo ? (
-          <img src={photo.uri} alt={'Your ' + label.toLowerCase()} />
+          <img src={photo.uri} alt={alt} />
         ) : (
           <>
             <Icon name={selfie ? 'user' : 'image'} size={30} stroke={1.5} />
-            <b>{selfie ? 'Add a selfie' : 'Add a photo'}</b>
-            <span>Click to choose, or drop a picture here</span>
+            <b>{selfie ? t('d.plus.addSelfie') : t('d.plus.addPhoto')}</b>
+            <span>{t('d.plus.dropHint')}</span>
           </>
         )}
       </button>
       {photo ? (
         <button className="link-btn" disabled={disabled} onClick={() => input.current?.click()}>
-          Choose another
+          {t('d.plus.chooseAnother')}
         </button>
       ) : null}
       <input
@@ -564,10 +573,11 @@ function Done({ icon, tick, title, body, children }: { icon?: IconName; tick?: b
   );
 }
 
+/** Each status's words (their key) and colour. */
 const REQUEST_STATUS: Record<PlusRequest['status'], { label: string; cls: string }> = {
-  pending: { label: 'Waiting for review', cls: '' },
-  approved: { label: 'Approved', cls: 'ok' },
-  declined: { label: 'Not approved', cls: 'bad' },
+  pending: { label: 'd.plus.waiting', cls: '' },
+  approved: { label: 'd.plus.approved', cls: 'ok' },
+  declined: { label: 'ssPub.rejected', cls: 'bad' },
 };
 
 /** Your identity checks so far, newest first. */
@@ -575,19 +585,16 @@ function Requests({ list }: { list: PlusRequest[] }) {
   if (!list.length) return null;
   return (
     <section className="pro-requests">
-      <h3>Your requests</h3>
+      <h3>{t('d.plus.yourRequests')}</h3>
       <ul>
         {list.map((r) => (
           <li key={r.id}>
             <Icon name="verified" size={20} />
             <div className="grow">
-              <b>{r.path === 'plus' ? 'Verified with Community Plus' : r.path === 'notable' ? 'Notable account' : 'Verification'}</b>
-              <span className="muted-text small">
-                Sent {shortDay(r.created_at)}
-                {r.decided_at ? ` · decided ${shortDay(r.decided_at)}` : ''}
-              </span>
+              <b>{r.path === 'plus' ? t('d.plus.verifiedWithPlus') : r.path === 'notable' ? t('d.plus.notableAccount') : t('d.plus.verification')}</b>
+              <span className="muted-text small">{r.decided_at ? t('d.plus.sentDecided', { day: shortDay(r.created_at), decided: shortDay(r.decided_at) }) : t('d.plus.sentOn', { day: shortDay(r.created_at) })}</span>
             </div>
-            <span className={'pro-tag ' + REQUEST_STATUS[r.status].cls}>{REQUEST_STATUS[r.status].label}</span>
+            <span className={'pro-tag ' + REQUEST_STATUS[r.status].cls}>{t(REQUEST_STATUS[r.status].label)}</span>
           </li>
         ))}
       </ul>
