@@ -54,9 +54,9 @@ export const ext: Ext = {
       { user_id: 'u_ruth', text: 'Garden club tomorrow', audience: 'mutuals', song_id: null, place: '', color: '', created_at: ago(30), expires_at: ago(6) },
     );
 
-    // Grace (the second sample account) has already asked Erha her 15 free questions today.
+    // Daniel (no Plus) has already asked Erha his 15 free questions today.
     const today = Date.now();
-    for (let i = 0; i < FREE_ERHA_A_DAY; i++) T('community_erha_messages').push({ user_id: 'u_grace', role: 'user', content: 'Sample question ' + (i + 1), created_at: new Date(today - (i + 1) * 1000).toISOString() });
+    for (let i = 0; i < FREE_ERHA_A_DAY; i++) T('community_erha_messages').push({ user_id: 'u_daniel', role: 'user', content: 'Sample question ' + (i + 1), created_at: new Date(today - (i + 1) * 1000).toISOString() });
   },
 
   functions: ({ T, me, now, insertRow, profile }) => ({

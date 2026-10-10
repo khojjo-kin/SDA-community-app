@@ -270,6 +270,7 @@ function defaults(table: string, row: Row): Row {
     out.opened_at ??= null;
     out.system ??= '';
   }
+  if (table === 'community_reports') out.status ??= 'open';
   if (table === 'community_notes') {
     out.expires_at ??= new Date(Date.now() + 86400e3).toISOString();
     for (const k of ['place', 'color']) out[k] ??= '';

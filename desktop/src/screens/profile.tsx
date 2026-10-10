@@ -33,20 +33,20 @@ let keepScroll: number | null = null;
 /** Why a member can report an account. The English goes to the server, so admins read every report alike. */
 const REPORT_REASONS = ['Spam', 'Pretending to be someone else', 'Harassment or hate', 'Copyright or trademark', 'Something else'];
 
-type Props = { username: string; tab: Tab; openPost: (id: string) => void; onCreate: (m: 'post' | 'story' | 'short') => void };
+type Props = { username: string; tab: Tab; openPost: (id: string) => void; onCreate: (m: 'post' | 'story' | 'short') => void; /** /u/<you>/style opens Profile style (linked from the Plus page). */ openStyle?: boolean };
 
 /** Each account gets a fresh page (menus, dialogs and Discover people start shut); its tabs share one. */
 export function ProfilePage(props: Props) {
   return <ProfileScreen key={props.username} {...props} />;
 }
 
-function ProfileScreen({ username, tab, openPost, onCreate }: Props) {
+function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) {
   const { me } = useMe();
   const auth = useAuth();
   const { data: person, error, loading, reload, set } = useLoad(() => profileByUsername(username), [username]);
   const [list, setList] = useState<'followers' | 'following' | null>(null);
   const [menu, setMenu] = useState<'gear' | 'more' | 'following' | 'report' | null>(null);
-  const [dialog, setDialog] = useState<'about' | 'style' | 'subscription' | null>(null);
+  const [dialog, setDialog] = useState<'about' | 'style' | 'subscription' | null>(openStyle ? 'style' : null);
   const [stories, setStories] = useState<StoryGroup[] | null>(null);
   // Whether all their stories have been watched, and whether any is for close friends (a blue ring).
   const [storyState, setStoryState] = useState({ seen: false, close: false });

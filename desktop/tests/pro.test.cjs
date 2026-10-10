@@ -190,7 +190,7 @@ async function confirmPayment(page, button) {
     check('the switch shows the tick is hidden', (await tick.getAttribute('aria-checked')) === 'true');
     await tick.click();
     check('and it shows again', await toast('Your tick shows again'));
-    check('Plus links to profile style and profile viewers', (await page.locator('.pro-box-link', { hasText: 'Profile style' }).getAttribute('href')) === '#/u/you?style=1' && (await page.locator('.pro-box-link', { hasText: 'Profile viewers' }).count()) === 1);
+    check('Plus links to profile style and profile viewers', (await page.locator('.pro-box-link', { hasText: 'Profile style' }).getAttribute('href')) === '#/u/you/style' && (await page.locator('.pro-box-link', { hasText: 'Profile viewers' }).count()) === 1);
 
     // Give £10 anonymously
     await goto('/fundraisers/fr1');
@@ -254,8 +254,8 @@ async function confirmPayment(page, button) {
     check('no script errors (demo account)', A.errors.length === 0, A.errors.join(' | '));
     await A.ctx.close();
 
-    /* ---------------- Ruth: no ads, no Plus, not verified ---------------- */
-    const B = await open(browser, { as: 'u_ruth' });
+    /* ---------------- Joseph: no ads, no Plus, not verified ---------------- */
+    const B = await open(browser, { as: 'u_joseph' });
     await B.goto('/dashboard/ads');
     await B.page.waitForSelector('.pro-newlook');
     await B.page.getByRole('button', { name: 'Got it' }).click();
@@ -292,7 +292,7 @@ async function confirmPayment(page, button) {
     await B.page.waitForSelector('.pro-paths');
     check('verification offers the free notable path and the Plus path', (await B.page.locator('.pro-path h3').allInnerTexts()).join() === 'Apply as a notable account,Get verified with Community Plus');
     await B.page.getByRole('button', { name: 'Apply', exact: true }).click();
-    await B.page.locator('.form-row', { hasText: 'Full legal name' }).locator('input').fill('Ruth Asante');
+    await B.page.locator('.form-row', { hasText: 'Full legal name' }).locator('input').fill('Joseph Kwarteng');
     await B.page.getByRole('radio', { name: 'Passport' }).click();
     await B.page.getByRole('button', { name: 'Next' }).click();
     check('the form asks for the document photo first', (await B.page.locator('.pro-verify-foot .form-error').innerText()) === 'Add a photo of your document.');
@@ -314,7 +314,7 @@ async function confirmPayment(page, button) {
     await B.goto('/verify');
     await B.page.waitForSelector('.pro-verify-done');
     check('coming back shows the request is being reviewed', (await B.page.locator('.pro-verify-done h2').innerText()) === 'Your request is being reviewed' && (await B.page.locator('.pro-requests .pro-tag').first().innerText()) === 'Waiting for review');
-    check('no script errors (Ruth)', B.errors.length === 0, B.errors.join(' | '));
+    check('no script errors (Joseph)', B.errors.length === 0, B.errors.join(' | '));
     await B.ctx.close();
 
     /* ---------------- White ---------------- */
@@ -347,7 +347,7 @@ async function confirmPayment(page, button) {
       await W.shot('pro-18-income-white');
       check('no script errors (White)', W.errors.length === 0, W.errors.join(' | '));
       await W.ctx.close();
-      const V = await open(browser, { as: 'u_ruth', theme: 'white' });
+      const V = await open(browser, { as: 'u_joseph', theme: 'white' });
       await V.goto('/verify');
       await V.page.waitForSelector('.pro-paths');
       await V.shot('pro-19-verify-white');

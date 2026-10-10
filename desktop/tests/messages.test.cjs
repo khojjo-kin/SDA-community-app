@@ -250,8 +250,8 @@ async function newPage(browser, errors, as) {
     await shot('messages-dock-chat-white');
     await page.evaluate(() => localStorage.setItem('community.appearance', 'dark'));
 
-    /* ---------- Erha's daily allowance (Grace, without Plus, has used hers) ---------- */
-    const grace = await newPage(browser, errors, 'u_grace');
+    /* ---------- Erha's daily allowance (Daniel, without Plus, has used his) ---------- */
+    const grace = await newPage(browser, errors, 'u_daniel');
     await grace.goto(BASE + '#/direct/erha');
     await grace.waitForSelector('.chat-head');
     await grace.getByLabel(/^Message erha/).fill('One more question');

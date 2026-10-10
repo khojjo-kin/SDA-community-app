@@ -39,11 +39,11 @@ const check = (name, ok, extra = '') => {
     /* ---------- loading shimmer ---------- */
     let page = await open(null, true);
     await page.goto(BASE);
-    await page.waitForSelector('.st-tray', { timeout: 15000 });
-    check('the story tray shimmers while it loads', (await page.locator('.st-tray .st-skeleton .st-shimmer').count()) >= 5);
+    await page.waitForSelector('.sv-tray', { timeout: 15000 });
+    check('the story tray shimmers while it loads', (await page.locator('.sv-tray .sv-skeleton .sv-shimmer').count()) >= 5);
     await page.evaluate(() => (location.hash = '/shorts'));
     await page.waitForSelector('.sh-skeleton', { timeout: 5000 }).catch(() => {});
-    check('Shorts show a skeleton while they load', (await page.locator('.sh-skeleton .st-shimmer').count()) >= 5);
+    check('Shorts show a skeleton while they load', (await page.locator('.sh-skeleton .sv-shimmer').count()) >= 5);
     await page.context().close();
 
     page = await open();
@@ -54,19 +54,19 @@ const check = (name, ok, extra = '') => {
     };
     await page.goto(BASE);
     await page.waitForSelector('.feed-post');
-    await page.waitForSelector('.st-tray .tray-item.is-live');
+    await page.waitForSelector('.sv-tray .tray-item.is-live');
     await wait(500);
 
     /* ---------- the tray ---------- */
-    const items = page.locator('.st-tray .tray-item');
+    const items = page.locator('.sv-tray .tray-item');
     const names = await items.evaluateAll((els) => els.map((e) => e.querySelector('.tray-name').textContent));
     check('someone live comes first, with the LIVE badge', (await items.first().getAttribute('class')).includes('is-live') && names[0] === 'samuel_boateng' && (await items.first().locator('.live-badge').innerText()) === 'LIVE', names.join());
     check('then Your story', names[1] === 'Your story');
     check('someone live shows once, as live', names.filter((n) => n === 'samuel_boateng').length === 1);
-    check('the circles are large, as on Instagram', (await items.nth(2).locator('.st-circle').evaluate((el) => el.getBoundingClientRect().width)) >= 84);
+    check('the circles are large, as on Instagram', (await items.nth(2).locator('.sv-circle').evaluate((el) => el.getBoundingClientRect().width)) >= 84);
     // Ring colours arrive a moment after the circles (they come with the owners' profiles).
-    await page.waitForFunction(() => [...document.querySelectorAll('.st-tray .st-circle')].some((el) => el.style.getPropertyValue('--st-ring')), null, { timeout: 5000 }).catch(() => {});
-    const ruthRing = await page.locator('.tray-item', { hasText: 'ruth_asante' }).locator('.st-circle').evaluate((el) => el.style.getPropertyValue('--st-ring'));
+    await page.waitForFunction(() => [...document.querySelectorAll('.sv-tray .sv-circle')].some((el) => el.style.getPropertyValue('--sv-ring')), null, { timeout: 5000 }).catch(() => {});
+    const ruthRing = await page.locator('.tray-item', { hasText: 'ruth_asante' }).locator('.sv-circle').evaluate((el) => el.style.getPropertyValue('--sv-ring'));
     check("a Plus member's ring is in the colour she chose", ruthRing.includes('#ff7a45'), ruthRing);
     check('a Plus member comes first among unwatched stories', names[2] === 'ruth_asante', names.join());
     check('everyone else has the green ring', (await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('.ring-new').count()) === 1);
@@ -76,24 +76,25 @@ const check = (name, ok, extra = '') => {
     check('in White the names are dark on white', (await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('.tray-name').evaluate((el) => getComputedStyle(el).color)) === 'rgb(15, 20, 25)');
     await shot(page, 'tray-white', { x: 72, y: 0, width: 1368, height: 300 });
     await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'));
-    check('the tray scrolls with an arrow when it overflows, or fits', (await page.locator('.st-arrow.right').count()) === 1 || (await page.locator('.st-tray').evaluate((el) => el.scrollWidth <= el.clientWidth)));
+    check('the tray scrolls with an arrow when it overflows, or fits', (await page.locator('.sv-arrow.right').count()) === 1 || (await page.locator('.sv-tray').evaluate((el) => el.scrollWidth <= el.clientWidth)));
 
     /* ---------- the viewer ---------- */
     // Joseph is in the middle of the order and has two stories (a photo, then a video).
     await page.locator('.tray-item', { hasText: 'joseph_k' }).locator('button').first().click();
-    await page.waitForSelector('.st-stage');
+    await page.waitForSelector('.sv-stage');
     await wait(600);
-    const stage = page.locator('.st-stage');
-    const who = () => stage.locator('.st-who-link b').innerText();
-    check('the viewer opens on Joseph with a bar per story', (await who()) === 'joseph_k' && (await stage.locator('.st-bars span').count()) === 2);
-    check('the Community wordmark is top left and Close top right', (await stage.locator('.st-brand .wordmark').innerText()) === 'Community' && (await stage.getByRole('button', { name: 'Close', exact: true }).count()) === 1);
-    const card = await stage.locator('.st-card').boundingBox();
+    const stage = page.locator('.sv-stage');
+    const who = () => stage.locator('.sv-who-link b').innerText();
+    check('the viewer opens on Joseph with a bar per story', (await who()) === 'joseph_k' && (await stage.locator('.sv-bars span').count()) === 2);
+    check('the Community wordmark is top left and Close top right', (await stage.locator('.sv-brand .wordmark').innerText()) === 'Community' && (await stage.getByRole('button', { name: 'Close', exact: true }).count()) === 1);
+    const card = await stage.locator('.sv-card').boundingBox();
     check('the story is a tall 9:16 card in the middle', Math.abs(card.width / card.height - 9 / 16) < 0.01 && card.height >= 820 && Math.abs(card.x + card.width / 2 - 720) < 4, JSON.stringify(card));
-    const peeks = await stage.locator('.st-peek:not(.empty)').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, w: r.width })));
+    const peeks = await stage.locator('.sv-peek:not(.empty)').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, w: r.width })));
     check('the people before and after show as smaller, dimmed cards on both sides', peeks.filter((p) => p.x < card.x).length === 2 && peeks.filter((p) => p.x > card.x + card.width).length === 2 && peeks.every((p) => p.w < card.width / 2), JSON.stringify(peeks));
-    check('the side cards show who and when', (await stage.locator('.st-peek-who b').allInnerTexts()).join() === 'you,ruth_asante,samuel_boateng,daniel_owusu' && (await stage.locator('.st-peek-who .avatar').count()) === 4);
+    // Ruth and Grace both have Plus (Grace from the profile area's sample data), so both come before Joseph.
+    check('the side cards show who and when', (await stage.locator('.sv-peek-who b').allInnerTexts()).join() === 'ruth_asante,grace_mensah,samuel_boateng,daniel_owusu' && (await stage.locator('.sv-peek-who .avatar').count()) === 4, (await stage.locator('.sv-peek-who b').allInnerTexts()).join());
     check('the reply bar asks to reply to Joseph, with heart and share', (await stage.getByLabel('Reply to joseph_k').count()) === 1 && (await stage.getByRole('button', { name: 'Send a heart' }).count()) === 1 && (await stage.getByRole('button', { name: 'Share' }).count()) === 1);
-    check('round previous and next buttons beside the card', (await stage.locator('.st-nav.left').count()) === 1 && (await stage.locator('.st-nav.right').count()) === 1);
+    check('round previous and next buttons beside the card', (await stage.locator('.sv-nav.left').count()) === 1 && (await stage.locator('.sv-nav.right').count()) === 1);
     await shot(page, 'viewer');
     await page.keyboard.press(' ');
     await wait(200);
@@ -106,22 +107,22 @@ const check = (name, ok, extra = '') => {
     check('a heart is sent to Joseph', (await page.locator('.toast', { hasText: 'Sent' }).count()) >= 1 && (await stage.getByRole('button', { name: 'Heart sent' }).count()) === 1);
     await page.keyboard.press('ArrowRight');
     await wait(300);
-    check('→ moves to his next story', (await who()) === 'joseph_k' && (await stage.locator('.st-bars span:first-child i').evaluate((el) => el.style.width)) === '100%');
+    check('→ moves to his next story', (await who()) === 'joseph_k' && (await stage.locator('.sv-bars span:first-child i').evaluate((el) => el.style.width)) === '100%');
     await page.keyboard.press('ArrowRight');
     await wait(300);
     check('→ again moves to the next person', (await who()) === 'samuel_boateng');
     await page.keyboard.press('ArrowLeft');
     await wait(300);
     check('← goes back', (await who()) === 'joseph_k');
-    await stage.locator('.st-nav.right').click();
+    await stage.locator('.sv-nav.right').click();
     await wait(300);
-    await stage.locator('.st-nav.right').click();
+    await stage.locator('.sv-nav.right').click();
     await wait(300);
     check('the round next button moves on', (await who()) === 'samuel_boateng');
-    await stage.locator('.st-nav.left').click();
+    await stage.locator('.sv-nav.left').click();
     await wait(300);
     check('the round previous button goes back', (await who()) === 'joseph_k');
-    await stage.locator('.st-peek:not(.empty)').last().click();
+    await stage.locator('.sv-peek:not(.empty)').last().click();
     await wait(400);
     check('clicking a side card opens that person', (await who()) === 'daniel_owusu');
     for (let i = 0; i < 4 && (await who()) !== 'joseph_k'; i++) {
@@ -129,34 +130,34 @@ const check = (name, ok, extra = '') => {
       await wait(250);
     }
     await stage.getByRole('button', { name: 'More options' }).click();
-    await page.waitForSelector('.st-menu');
-    const menu = await page.locator('.st-menu').innerText();
+    await page.waitForSelector('.sv-menu');
+    const menu = await page.locator('.sv-menu').innerText();
     check("someone else's story offers Report, Mute and About this account", ['Report', 'Mute', 'About this account'].every((x) => menu.includes(x)), menu);
     const alerts = page.getByRole('switch', { name: "Get notified about joseph_k's stories" });
     await alerts.waitFor({ timeout: 3000 }).catch(() => {});
     check('and story notifications for him (I follow him)', (await alerts.count()) === 1 && !(await alerts.isChecked()));
-    await page.locator('.st-menu .st-switch-row').click();
+    await page.locator('.sv-menu .sv-switch-row').click();
     await wait(600);
     check('turning them on says so', (await page.locator('.toast', { hasText: "You'll be told when joseph_k shares a story" }).count()) === 1);
-    await page.locator('.st-menu').getByRole('button', { name: 'Cancel' }).click();
+    await page.locator('.sv-menu').getByRole('button', { name: 'Cancel' }).click();
     await stage.getByRole('button', { name: 'More options' }).click();
-    await page.waitForSelector('.st-menu');
+    await page.waitForSelector('.sv-menu');
     await wait(600);
     check('and it stays on', await page.getByRole('switch', { name: "Get notified about joseph_k's stories" }).isChecked());
-    await page.locator('.st-menu').getByRole('button', { name: 'About this account' }).click();
-    await page.waitForSelector('.st-about-row');
-    check('About this account shows when he joined', (await page.locator('.st-about').innerText()).includes('Date joined'));
+    await page.locator('.sv-menu').getByRole('button', { name: 'About this account' }).click();
+    await page.waitForSelector('.sv-about-row');
+    check('About this account shows when he joined', (await page.locator('.sv-about').innerText()).includes('Date joined'));
     await page.keyboard.press('Escape');
     await wait(300);
-    check('a sheet closes with Esc and the story stays open', (await page.locator('.st-stage').count()) === 1);
+    check('a sheet closes with Esc and the story stays open', (await page.locator('.sv-stage').count()) === 1);
     await stage.getByRole('button', { name: 'More options' }).click();
-    await page.locator('.st-menu').getByRole('button', { name: 'Report' }).click();
-    await page.locator('.st-reasons button', { hasText: 'Spam' }).click();
+    await page.locator('.sv-menu').getByRole('button', { name: 'Report' }).click();
+    await page.locator('.sv-reasons button', { hasText: 'Spam' }).click();
     await wait(500);
     check('reporting a story thanks you', (await page.locator('.toast', { hasText: 'We will review this story' }).count()) === 1);
     await page.keyboard.press('Escape');
     await wait(800);
-    check('Esc closes the viewer', (await page.locator('.st-stage').count()) === 0);
+    check('Esc closes the viewer', (await page.locator('.sv-stage').count()) === 0);
     await wait(800);
     const joseph = page.locator('.tray-item', { hasText: 'joseph_k' });
     check("Joseph's ring is grey now that both his stories are watched", (await joseph.locator('.ring-seen').count()) === 1 && (await joseph.locator('.tray-name.seen').count()) === 1);
@@ -166,30 +167,30 @@ const check = (name, ok, extra = '') => {
 
     // Mute (kept on this computer)
     await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('button').first().click();
-    await page.waitForSelector('.st-stage');
+    await page.waitForSelector('.sv-stage');
     await stage.getByRole('button', { name: 'More options' }).click();
-    await page.locator('.st-menu').getByRole('button', { name: 'Mute', exact: true }).click();
+    await page.locator('.sv-menu').getByRole('button', { name: 'Mute', exact: true }).click();
     await page.keyboard.press('Escape');
     await wait(900);
     check('muting someone moves them to the end of the tray', (await items.last().innerText()).includes('grace_mensah') && (await items.last().getAttribute('class')).includes('is-muted'));
     await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('button').first().click();
-    await page.waitForSelector('.st-stage');
+    await page.waitForSelector('.sv-stage');
     await stage.getByRole('button', { name: 'More options' }).click();
-    await page.locator('.st-menu').getByRole('button', { name: 'Unmute' }).click();
+    await page.locator('.sv-menu').getByRole('button', { name: 'Unmute' }).click();
     await page.keyboard.press('Escape');
     await wait(600);
     check('and unmuting brings them back', !(await items.last().getAttribute('class')).includes('is-muted'));
     /* ---------- my own story ---------- */
     await page.locator('.tray-item.is-me button').first().click();
-    await page.waitForSelector('.st-stage');
+    await page.waitForSelector('.sv-stage');
     await wait(700);
-    check('my story shows who saw it instead of a reply bar', (await stage.locator('.seen-by').innerText()).includes('Seen by 4') && (await stage.locator('.st-reply').count()) === 0);
-    check('with the first viewers\' faces', (await stage.locator('.st-faces .avatar').count()) === 3);
+    check('my story shows who saw it instead of a reply bar', (await stage.locator('.seen-by').innerText()).includes('Seen by 4') && (await stage.locator('.sv-reply').count()) === 0);
+    check('with the first viewers\' faces', (await stage.locator('.sv-faces .avatar').count()) === 3);
     await stage.locator('.seen-by').click();
-    await page.waitForSelector('.st-viewer');
-    const rows = page.locator('.st-viewers .st-viewer');
+    await page.waitForSelector('.sv-viewer');
+    const rows = page.locator('.sv-viewers .sv-viewer');
     check('Viewers lists everyone who watched, last watched first', (await rows.count()) === 4 && (await rows.first().innerText()).includes('grace_mensah'));
-    check('as a Plus member I see rewatches and times', (await rows.first().innerText()).includes('Watched 3 times') && (await rows.first().locator('.st-when').count()) === 1);
+    check('as a Plus member I see rewatches and times', (await rows.first().innerText()).includes('Watched 3 times') && (await rows.first().locator('.sv-when').count()) === 1);
     check("story alerts: I'm told when Grace watches (the bell is on)", (await rows.first().getByRole('button', { name: 'Stop telling me when grace_mensah watches' }).getAttribute('aria-pressed')) === 'true');
     await rows.nth(1).getByRole('button', { name: /Tell me when/ }).click();
     await wait(500);
@@ -198,12 +199,12 @@ const check = (name, ok, extra = '') => {
     await page.keyboard.press('Escape');
     await wait(300);
     await stage.getByRole('button', { name: 'More options' }).click();
-    const mine = await page.locator('.st-menu').innerText();
+    const mine = await page.locator('.sv-menu').innerText();
     check('my story offers Delete, Add to highlight and Story settings', ['Delete', 'Add to highlight', 'Story settings'].every((x) => mine.includes(x)), mine);
-    await page.locator('.st-menu').getByRole('button', { name: 'Story settings' }).click();
-    await page.waitForSelector('.st-settings');
-    await page.waitForSelector('.st-settings .st-viewer', { timeout: 5000 }).catch(() => {});
-    const settings = await page.locator('.st-settings').innerText();
+    await page.locator('.sv-menu').getByRole('button', { name: 'Story settings' }).click();
+    await page.waitForSelector('.sv-settings');
+    await page.waitForSelector('.sv-settings .sv-viewer', { timeout: 5000 }).catch(() => {});
+    const settings = await page.locator('.sv-settings').innerText();
     check('Story settings: who can reply, close friends, archive and story alerts', ['Allow replies', 'Close friends', 'Story archive', 'Story alerts', 'grace_mensah'].every((x) => settings.includes(x)), settings);
     await page.keyboard.press('Escape');
     await wait(300);
@@ -214,8 +215,8 @@ const check = (name, ok, extra = '') => {
     await goto('/u/you');
     await page.waitForSelector('.highlights .highlight');
     await page.locator('.highlights .highlight').first().click();
-    await page.waitForSelector('.st-stage');
-    check('a highlight opens in the same viewer', (await stage.locator('.st-card').count()) === 1 && (await stage.locator('.seen-by').count()) === 0 && (await stage.locator('.st-reply').count()) === 0);
+    await page.waitForSelector('.sv-stage');
+    check('a highlight opens in the same viewer', (await stage.locator('.sv-card').count()) === 1 && (await stage.locator('.seen-by').count()) === 0 && (await stage.locator('.sv-reply').count()) === 0);
     await page.keyboard.press('Escape');
     await wait(400);
 

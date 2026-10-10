@@ -536,10 +536,10 @@ function Broadcast() {
       </div>
 
       {panel === 'audience' ? (
-        <Modal onClose={() => setPanel(null)} title="Who can watch" className="st-sheet">
+        <Modal onClose={() => setPanel(null)} title="Who can watch" className="sv-sheet">
           <div className="lv-options" role="radiogroup" aria-label="Who can watch">
             {AUDIENCES.map((a) => (
-              <label key={a.id} className="row full hover st-radio">
+              <label key={a.id} className="row full hover sv-radio">
                 <Icon name={a.icon} size={22} />
                 <span className="row-text">
                   <b>{a.label}</b>
@@ -562,10 +562,10 @@ function Broadcast() {
         </Modal>
       ) : null}
       {panel === 'fundraiser' ? (
-        <Modal onClose={() => setPanel(null)} title="Fundraiser" className="st-sheet">
+        <Modal onClose={() => setPanel(null)} title="Fundraiser" className="sv-sheet">
           <div className="lv-options" role="radiogroup" aria-label="Fundraiser">
             {fundraisers.map((f) => (
-              <label key={f.id} className="row full hover st-radio">
+              <label key={f.id} className="row full hover sv-radio">
                 <HeartCoin size={22} />
                 <span className="row-text">
                   <b>{f.title}</b>

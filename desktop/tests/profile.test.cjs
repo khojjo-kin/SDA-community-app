@@ -92,7 +92,8 @@ const check = (name, ok, extra = '') => {
     await wait(800);
     check('the Tagged tab has its own address', (await page.evaluate(() => location.hash)) === '#/u/you/tagged');
     await page.waitForSelector('.prof-grid .tile');
-    check('Tagged shows the posts I am tagged in', (await page.locator('.prof-grid .tile').count()) === 2);
+    // Two sample posts tag me, and the posts area's sample post with tags (pp_tags) a third.
+    check('Tagged shows the posts I am tagged in', (await page.locator('.prof-grid .tile').count()) === 3, await page.locator('.prof-grid .tile').count());
     await goto('/u/you/shorts');
     check('Shorts is the open tab at /shorts', (await page.locator('.prof-tab.on').getAttribute('aria-label')) === 'Shorts');
     check('my empty Shorts tab invites me to share one', (await page.locator('.empty h2').innerText()) === 'Share a Short');
@@ -322,7 +323,7 @@ const check = (name, ok, extra = '') => {
     check('changing tabs keeps the scroll position', Math.abs((await page.evaluate(() => window.scrollY)) - 400) < 40, await page.evaluate(() => window.scrollY));
     await goto('/u/grace_mensah/tagged');
     await page.waitForSelector('.prof-grid .tile');
-    check('her Tagged tab shows posts she is tagged in', (await page.locator('.prof-grid .tile').count()) === 1);
+    check('her Tagged tab shows posts she is tagged in', (await page.locator('.prof-grid .tile').count()) === 2, await page.locator('.prof-grid .tile').count());
     await goto('/u/grace_mensah/shorts');
     check('an empty Shorts tab on someone else', (await page.locator('.empty h2').innerText()) === 'No Shorts yet');
     await goto('/u/samuel_boateng/shorts');

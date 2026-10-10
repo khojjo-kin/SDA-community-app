@@ -387,7 +387,7 @@ export function Plus() {
                   </span>
                   <Toggle on={receipts} onChange={setReadReceipts} label="Read receipts" />
                 </div>
-                <Link to={`/u/${me.username}?style=1`} className="pro-box-link">
+                <Link to={`/u/${me.username}/style`} className="pro-box-link">
                   <Icon name="sparkle" size={20} />
                   <span className="grow">
                     Profile style

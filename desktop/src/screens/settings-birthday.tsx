@@ -2,7 +2,6 @@
 // boxes, the under-14 rules, the "sorry" card for under 13, and the one-time question for members
 // who joined before birthdays were asked for.
 import React, { useEffect, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { ageFrom, fetchBirthDate, getProfile, MINOR_AGE, setBirthDate } from 'shared/api';
 import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13 } from 'shared/age';
 import { retryConsentRecord } from 'shared/consent';
@@ -186,12 +185,6 @@ export async function leaveAfterAgeCheck(deleteSignIn: boolean) {
 const answered = new Set<string>();
 const consentChecked = new Set<string>();
 
-/** The signed-in account while the app itself (not the log-in page or onboarding) is on screen. */
-function signedInId(): string | null {
-  if (!document.querySelector('.shell')) return null;
-  if (__DEMO__) return ((globalThis as any).__fakeMe as string) || 'demo_me';
-  return window.Clerk?.user?.id ?? null;
-}
 
 /**
  * "Add your birthday": for a member whose profile says the app still needs it (needs_birth_date).
@@ -269,16 +262,10 @@ export function BirthdayQuestion({ me, onDone }: { me: string; onDone: () => voi
   );
 }
 
-/** Watches who is signed in and asks for their birthday once if the app still needs it. */
-function BirthdayWatch() {
-  const [id, setId] = useState<string | null>(null);
+/** Asks the signed-in member for their birthday once if the app still needs it (rendered by the shell). */
+export function BirthdayWatch({ me }: { me: string }) {
+  const id = me;
   const [asking, setAsking] = useState<string | null>(null);
-  useEffect(() => {
-    const look = () => setId(signedInId());
-    look();
-    const t = setInterval(look, 1200);
-    return () => clearInterval(t);
-  }, []);
   useEffect(() => {
     if (!id) return setAsking(null);
     // Consent given at onboarding that didn't reach the database then is recorded now (as on the iPhone).
@@ -312,9 +299,3 @@ function BirthdayWatch() {
   );
 }
 
-// The question sits over the whole app, whatever page is open, so it has a root of its own beside
-// the app's (main.tsx belongs to the app frame).
-const host = document.createElement('div');
-host.id = 'birthday-question';
-document.body.appendChild(host);
-createRoot(host).render(<BirthdayWatch />);

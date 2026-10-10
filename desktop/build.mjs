@@ -47,6 +47,8 @@ const define = {
   'process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY': JSON.stringify(env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || ''),
   'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'),
   __DEMO__: JSON.stringify(demo),
+  // The shared iPhone code reads React Native's __DEV__ (for example in errText).
+  __DEV__: 'false',
   __VERSION__: JSON.stringify(pkg.version),
 };
 

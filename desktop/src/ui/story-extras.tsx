@@ -47,7 +47,7 @@ export function useLooks(ids: string[]): Map<string, Look> {
 export function ringStyle(look: Look | undefined): React.CSSProperties | undefined {
   if (!look?.plus || !look.ring) return undefined;
   const c = ringColors(look.ring);
-  return { ['--st-ring' as any]: `linear-gradient(45deg, ${c.join(', ')})` };
+  return { ['--sv-ring' as any]: `linear-gradient(45deg, ${c.join(', ')})` };
 }
 
 /* ---------- muted stories (kept on this computer) ---------- */
@@ -110,7 +110,7 @@ export function viewTime(iso: string): string {
 /** A switch row: the words on the left, the switch on the right. */
 function SwitchRow({ label, on, onChange, sub }: { label: string; on: boolean; onChange: (on: boolean) => void; sub?: string }) {
   return (
-    <label className="pop-toggle st-switch-row">
+    <label className="pop-toggle sv-switch-row">
       <span className="row-text">
         <b>{label}</b>
         {sub ? <span>{sub}</span> : null}
@@ -169,8 +169,8 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
 
   const seenBy = Math.max(story.view_count ?? 0, viewers?.length ?? 0);
   return (
-    <Modal title="Viewers" onClose={onClose} className="st-sheet">
-      <div className="list-pad st-viewers">
+    <Modal title="Viewers" onClose={onClose} className="sv-sheet">
+      <div className="list-pad sv-viewers">
         {viewers === null ? <Spinner /> : null}
         {viewers && !viewers.length ? (
           <div className="empty small">
@@ -178,9 +178,9 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
             <p>No views yet</p>
           </div>
         ) : null}
-        {viewers && viewers.length ? <p className="st-seen-count">{seenBy === 1 ? 'Seen by 1 person' : `Seen by ${fmt(seenBy)} people`}</p> : null}
+        {viewers && viewers.length ? <p className="sv-seen-count">{seenBy === 1 ? 'Seen by 1 person' : `Seen by ${fmt(seenBy)} people`}</p> : null}
         {viewers && viewers.length && !plus ? (
-          <button className="st-plus-note" onClick={() => { onClose(); nav('/plus'); }}>
+          <button className="sv-plus-note" onClick={() => { onClose(); nav('/plus'); }}>
             <Icon name="crown" size={18} color="var(--accent2)" />
             <span>See rewatches and times with Plus</span>
             <Icon name="right" size={14} color="var(--fg2)" stroke={2} />
@@ -192,7 +192,7 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
           const on = !!watching?.has(p.id);
           const times = plus && v.view_count > 1 ? `Watched ${fmt(v.view_count)} times` : '';
           return (
-            <div key={v.viewer_id} className="row st-viewer">
+            <div key={v.viewer_id} className="row sv-viewer">
               <button className="row-main" onClick={() => { onClose(); nav('/u/' + p.username); }}>
                 <Avatar src={p.avatar_url} name={p.username} size={44} />
                 <span className="row-text">
@@ -201,9 +201,9 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
                     {p.verified ? <Verified size={12} /> : null}
                   </b>
                   <span>{p.full_name}</span>
-                  {times ? <em className="st-times">{times}</em> : null}
+                  {times ? <em className="sv-times">{times}</em> : null}
                 </span>
-                {plus ? <span className="st-when">{viewTime(v.last_viewed_at)}</span> : null}
+                {plus ? <span className="sv-when">{viewTime(v.last_viewed_at)}</span> : null}
               </button>
               {plus ? (
                 <button className="icon-btn" aria-pressed={on} aria-label={on ? `Stop telling me when ${p.username} watches` : `Tell me when ${p.username} watches`} onClick={() => toggleWatch(p)}>
@@ -256,7 +256,7 @@ export function StoryMenu({ story, highlight, onClose, onDelete, onAddToHighligh
     </button>
   );
   return (
-    <Modal onClose={onClose} className="choices st-menu">
+    <Modal onClose={onClose} className="choices sv-menu">
       {mine ? (
         <>
           {highlight ? null : item('Delete', onDelete, 'danger bold')}
@@ -281,8 +281,8 @@ export function StoryMenu({ story, highlight, onClose, onDelete, onAddToHighligh
 export function ReportSheet({ story, onClose }: { story: Story; onClose: () => void }) {
   const { me } = useMe();
   return (
-    <Modal onClose={onClose} title="Why are you reporting this story?" className="st-sheet">
-      <div className="st-reasons">
+    <Modal onClose={onClose} title="Why are you reporting this story?" className="sv-sheet">
+      <div className="sv-reasons">
         {REPORT_REASONS.map((r) => (
           <button
             key={r}
@@ -321,11 +321,11 @@ export function AboutAccount({ userId, onClose }: { userId: string; onClose: () 
   const verifiedHow = p?.verified_via === 'notable' ? 'Verified (notable account)' : p?.verified_via === 'plus' ? 'Verified with Plus' : 'Verified';
   const verifiedWhy = p?.verified_via === 'notable' ? 'Confirmed as a notable account by the Community team.' : p?.verified_via === 'plus' ? 'Identity confirmed as part of Community Plus.' : 'Confirmed by the Community team.';
   return (
-    <Modal onClose={onClose} title="About this account" className="st-sheet">
+    <Modal onClose={onClose} title="About this account" className="sv-sheet">
       {p === undefined ? <Spinner /> : null}
       {p ? (
-        <div className="st-about">
-          <div className="st-about-head">
+        <div className="sv-about">
+          <div className="sv-about-head">
             <Avatar src={p.avatar_url} name={p.username} size={76} />
             <b>
               {p.username}
@@ -345,8 +345,8 @@ export function AboutAccount({ userId, onClose }: { userId: string; onClose: () 
 
 function AboutRow({ icon, title, value }: { icon: 'calendar' | 'location' | 'verified' | 'clock'; title: string; value: string }) {
   return (
-    <div className="row st-about-row">
-      <span className="st-about-icon">{icon === 'verified' ? <Verified size={18} /> : <Icon name={icon} size={20} />}</span>
+    <div className="row sv-about-row">
+      <span className="sv-about-icon">{icon === 'verified' ? <Verified size={18} /> : <Icon name={icon} size={20} />}</span>
       <span className="row-text wrap">
         <b>{title}</b>
         <span>{value}</span>
@@ -379,18 +379,18 @@ export function HighlightPicker({ item, onClose }: { item: StoryItem; onClose: (
     }
   };
   return (
-    <Modal onClose={onClose} title="Add to highlight" className="st-sheet">
-      <div className="st-hl-grid">
+    <Modal onClose={onClose} title="Add to highlight" className="sv-sheet">
+      <div className="sv-hl-grid">
         {list === null ? <Spinner /> : null}
         {(list ?? []).map((h) => (
-          <button key={h.id} className="st-hl" onClick={() => keep(h)} disabled={busy}>
+          <button key={h.id} className="sv-hl" onClick={() => keep(h)} disabled={busy}>
             <span className="hl-ring">{h.cover_url ? <img src={h.cover_url} alt="" /> : <span className="hl-blank" />}</span>
             <span>{h.title}</span>
           </button>
         ))}
       </div>
       <form
-        className="st-hl-new"
+        className="sv-hl-new"
         onSubmit={(e) => {
           e.preventDefault();
           if (title.trim()) keep({ title: title.trim() });
@@ -438,14 +438,14 @@ export function StorySettings({ onClose, onLeave }: { onClose: () => void; onLea
     nav(to);
   };
   return (
-    <Modal onClose={onClose} title="Story settings" className="st-sheet">
-      <div className="st-settings">
+    <Modal onClose={onClose} title="Story settings" className="sv-sheet">
+      <div className="sv-settings">
         <h3>Allow replies</h3>
         <div role="radiogroup" aria-label="Allow replies">
           {REPLY_CHOICES.map((c) => (
-            <label key={c.id} className="row full hover st-radio">
+            <label key={c.id} className="row full hover sv-radio">
               <span className="grow">{c.label}</span>
-              <input type="radio" name="st-replies" className="round-check" checked={replies === c.id} onChange={() => choose(c.id)} />
+              <input type="radio" name="sv-replies" className="round-check" checked={replies === c.id} onChange={() => choose(c.id)} />
             </label>
           ))}
         </div>
@@ -462,11 +462,11 @@ export function StorySettings({ onClose, onLeave }: { onClose: () => void; onLea
         {me.plus ? (
           <>
             <h3>Story alerts</h3>
-            <p className="st-settings-note">People whose views of your stories you're told about. They aren't told. Add people from the bell in a story's viewers.</p>
+            <p className="sv-settings-note">People whose views of your stories you're told about. They aren't told. Add people from the bell in a story's viewers.</p>
             {alerts === null ? <Spinner size={20} /> : null}
-            {alerts && !alerts.length ? <p className="st-settings-note">No one yet.</p> : null}
+            {alerts && !alerts.length ? <p className="sv-settings-note">No one yet.</p> : null}
             {(alerts ?? []).map((p) => (
-              <div key={p.id} className="row st-viewer">
+              <div key={p.id} className="row sv-viewer">
                 <Avatar src={p.avatar_url} name={p.username} size={36} />
                 <span className="row-text">
                   <b>{p.username}</b>

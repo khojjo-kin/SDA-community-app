@@ -118,11 +118,11 @@ export function ScheduleDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal onClose={onClose} title={view === 'form' ? (row ? 'Edit live' : 'Schedule a live') : 'Upcoming lives'} className="st-sheet lv-schedule">
+    <Modal onClose={onClose} title={view === 'form' ? (row ? 'Edit live' : 'Schedule a live') : 'Upcoming lives'} className="sv-sheet lv-schedule">
       {view === 'list' ? (
         <div className="lv-sched-list">
           {list === null ? <Spinner /> : null}
-          {list && !list.length ? <p className="st-settings-note lv-sched-empty">No lives planned.</p> : null}
+          {list && !list.length ? <p className="sv-settings-note lv-sched-empty">No lives planned.</p> : null}
           {(list ?? []).map((r) => (
             <div key={r.id} className="row lv-sched-row">
               <button className="row-main" onClick={() => startForm(r)} aria-label={`Edit ${r.title || 'Live'}, ${whenLabel(r.starts_at)}`}>
@@ -182,8 +182,8 @@ export function ScheduleDialog({ onClose }: { onClose: () => void }) {
               </select>
             </label>
           </div>
-          {!times.length ? <p className="st-settings-note">No times left that day. Pick another day.</p> : null}
-          <p className="st-settings-note">People who follow you see it on your profile and can ask to be reminded.</p>
+          {!times.length ? <p className="sv-settings-note">No times left that day. Pick another day.</p> : null}
+          <p className="sv-settings-note">People who follow you see it on your profile and can ask to be reminded.</p>
           <div className="lv-sched-actions">
             {list?.length ? (
               <button type="button" className="btn quiet" onClick={() => setView('list')}>

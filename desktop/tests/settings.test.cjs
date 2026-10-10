@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8804/';
-const WIRE = process.argv[3] || BASE.replace(/:(\d+)\/?$/, (_m, p) => ':' + (Number(p) + 10) + '/');
+const WIRE = process.env.WIRE_URL || process.argv[3] || BASE.replace(/:(\d+)\/?$/, (_m, p) => ':' + (Number(p) + 10) + '/');
 const SHOTS = process.argv[4] || '';
 const MEDIA = path.join(__dirname, '../src/fake/media');
 let failed = 0;
@@ -255,8 +255,8 @@ async function newPage(browser, base, errors) {
     check('Settings → About shows the same', /Version \d/.test(await page.locator('.st-about').innerText()));
     await shot('legal-dark');
 
-    // Profile viewers is a Plus perk: Grace doesn't have Plus.
-    await page.evaluate(() => sessionStorage.setItem('community.demoAs', 'u_grace'));
+    // Profile viewers is a Plus perk: Daniel doesn't have Plus.
+    await page.evaluate(() => sessionStorage.setItem('community.demoAs', 'u_daniel'));
     await page.reload();
     await page.waitForSelector('.rail');
     await goto('/accounts/viewers');

@@ -224,23 +224,23 @@ function ShortSkeleton() {
     <div className="reel sh-item sh-skeleton" aria-hidden="true">
       <div className="sh-row">
         <div className="sh-video">
-          <div className="sh-frame st-shimmer" />
+          <div className="sh-frame sv-shimmer" />
           <div className="sh-info">
             <div className="sh-who">
-              <span className="st-shimmer sh-sk-dot" />
-              <span className="st-shimmer sh-sk-line" style={{ width: 150 }} />
+              <span className="sv-shimmer sh-sk-dot" />
+              <span className="sv-shimmer sh-sk-line" style={{ width: 150 }} />
             </div>
-            <span className="st-shimmer sh-sk-line" style={{ width: 260 }} />
-            <span className="st-shimmer sh-sk-line" style={{ width: 200 }} />
+            <span className="sv-shimmer sh-sk-line" style={{ width: 260 }} />
+            <span className="sv-shimmer sh-sk-line" style={{ width: 200 }} />
           </div>
         </div>
         <div className="sh-actions">
           {[0, 1, 2, 3, 4].map((i) => (
-            <span key={i} className="st-shimmer sh-sk-dot" />
+            <span key={i} className="sv-shimmer sh-sk-dot" />
           ))}
         </div>
       </div>
-      <span className="st-sr" role="status">
+      <span className="sv-sr" role="status">
         Loading Shorts
       </span>
     </div>
@@ -521,10 +521,10 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
 function TranslatePicker({ current, source, onPick, onClose }: { current: string; source: string; onPick: (code: string) => void; onClose: () => void }) {
   const chosen = current || source;
   return (
-    <Modal onClose={onClose} title="Translate captions" className="st-sheet">
+    <Modal onClose={onClose} title="Translate captions" className="sv-sheet">
       <div className="list-pad sh-langs" role="radiogroup" aria-label="Caption language">
         {LANGUAGES.map((l) => (
-          <label key={l.code} className="row full hover st-radio">
+          <label key={l.code} className="row full hover sv-radio">
             <span className="row-text">
               <b>{l.native}</b>
               <span>{l.code === source ? 'Original' : l.name}</span>

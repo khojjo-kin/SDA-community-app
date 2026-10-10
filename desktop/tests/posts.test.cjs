@@ -302,7 +302,8 @@ function sampleVideo() {
     await page.getByRole('button', { name: 'Advanced settings' }).click();
     const advanced = await page.locator('.pp-sec.open .pp-switch-row').allInnerTexts();
     check('advanced settings: hide likes, commenting, profile only (Plus), sensitive', ['Hide like count', 'Turn off commenting', 'Only post to profile', 'Mark as sensitive'].every((x) => advanced.some((a) => a.includes(x))), advanced.join(' / '));
-    check('there is no audience choice for someone without a subscription', (await page.locator('.pp-audience').count()) === 0);
+    // The demo's own account offers a creator subscription (£2.99), so it may choose who sees a post.
+    check('a creator with a subscription can choose the audience, Everyone by default', (await page.locator('.pp-audience').count()) === 1);
     await shot('posts-11-composer-dark');
     await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
     await page.waitForSelector('.profile-head', { timeout: 15000 });

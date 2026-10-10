@@ -24,6 +24,7 @@ import { Verify } from './screens/verify';
 import { FundraiserPage } from './screens/fundraiser';
 import { Legal } from './screens/legal';
 import { GoLive } from './screens/golive';
+import { BirthdayWatch } from './screens/settings-birthday';
 import { Admin } from './screens/admin';
 import { Bible, Pod, SabbathSchool } from './screens/church';
 import { LiveViewer } from './screens/live';
@@ -161,7 +162,7 @@ function Shell() {
       screen = <Messages path={route} openPost={openPost} />;
       break;
     case 'u':
-      screen = <ProfilePage username={seg[1] ?? me.username} tab={(['reels', 'shorts', 'saved', 'reposts', 'tagged'].includes(seg[2]) ? (seg[2] === 'shorts' ? 'reels' : seg[2]) : 'posts') as any} openPost={openPost} onCreate={onCreate as any} />;
+      screen = <ProfilePage username={seg[1] ?? me.username} tab={(['reels', 'shorts', 'saved', 'reposts', 'tagged'].includes(seg[2]) ? (seg[2] === 'shorts' ? 'reels' : seg[2]) : 'posts') as any} openStyle={seg[2] === 'style'} openPost={openPost} onCreate={onCreate as any} />;
       break;
     case 'p':
       screen = <PostView id={seg[1]} asPage onClose={() => nav('/')} />;
@@ -231,7 +232,8 @@ function Shell() {
       </main>
       <MessagesDock />
       {post ? <PostView id={post} onClose={() => setPost(null)} /> : null}
-      {create ? <CreateDialog start={create === 'short' ? 'post' : create} onClose={() => setCreate(null)} /> : null}
+      {create ? <CreateDialog start={create} onClose={() => setCreate(null)} /> : null}
+      <BirthdayWatch me={me.id} />
       <PayLayer />
     </div>
   );
