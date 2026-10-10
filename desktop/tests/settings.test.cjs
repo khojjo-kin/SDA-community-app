@@ -1,4 +1,5 @@
-// Settings, Your activity, Help, the legal pages and the age checks.
+// Settings (with the app font, chat wallpaper, Shorts, story alerts and the friends' map), Your
+// activity, Help, the legal pages and the age checks.
 // Usage: node tests/settings.test.cjs http://127.0.0.1:8804/ [wiring build, default port + 10] [screenshot dir]
 // The demo build covers everything except setting up a new account, which needs the wiring build
 // (stand-in Clerk sign-in); that part is skipped if the wiring build isn't being served.
@@ -119,6 +120,105 @@ async function newPage(browser, base, errors) {
     await goto('/accounts/appearance');
     await page.getByRole('radio', { name: 'Dark' }).check();
     check('and back to Dark', (await page.evaluate(() => document.documentElement.dataset.theme)) === 'dark');
+
+    // App font (a Plus perk; the demo account has Plus): the whole app changes at once and stays after a reload.
+    const appFont = () => page.evaluate(() => ({ attr: document.documentElement.dataset.appFont ?? '', body: getComputedStyle(document.body).fontFamily, nav: getComputedStyle(document.querySelector('.st-nav-item')).fontFamily }));
+    check('Appearance lists the four fonts with their samples', (await page.locator('.st-font').count()) === 4 && (await page.locator('.st-font[data-font=lora]').innerText()).includes('A calm serif, like a hymnal.'));
+    check('each font is drawn in itself', (await page.locator('.st-font[data-font=poppins] .st-row-text').evaluate((el) => getComputedStyle(el).fontFamily)).startsWith('Poppins'));
+    check('the standard font is chosen to begin with', (await page.getByRole('radio', { name: /^Standard\./ }).isChecked()) && (await appFont()).attr === '');
+    await page.getByRole('radio', { name: /^Lora\./ }).check();
+    check('choosing a font says so', await toastSays('Font changed'));
+    let f = await appFont();
+    check('the whole app is set in it at once', f.attr === 'lora' && f.body.startsWith('Lora') && f.nav.startsWith('Lora'), JSON.stringify(f));
+    check('its Google Fonts stylesheet is added', (await page.locator('link[data-app-font=lora]').getAttribute('href')).includes('family=Lora'));
+    await shot('settings-font-dark');
+    await page.reload();
+    await page.waitForSelector('.st-font');
+    await wait(400);
+    f = await appFont();
+    check('the font stays after a reload', f.attr === 'lora' && f.body.startsWith('Lora') && (await page.getByRole('radio', { name: /^Lora\./ }).isChecked()), JSON.stringify(f));
+    await page.getByRole('radio', { name: /^Standard\./ }).check();
+    await wait(200);
+    f = await appFont();
+    check('Standard puts the app back in the computer\'s font', f.attr === '' && !f.body.includes('Lora'), JSON.stringify(f));
+
+    // Chat wallpaper: its row opens the picker the chats use.
+    await page.locator('.st-row', { hasText: 'Chat wallpaper' }).click();
+    await wait();
+    check('the chat wallpaper row opens the picker', (await page.evaluate(() => location.hash)) === '#/accounts/chat-wallpaper' && (await title()) === 'Chat wallpaper' && (await page.locator('.st-wallpaper').count()) === 1);
+    check('Appearance stays highlighted in the column', (await page.locator('.st-nav-item.on').innerText()).includes('Appearance'));
+
+    // Shorts: sound, captions and their language, kept on this computer.
+    const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem('community.prefs') || '{}'));
+    await goto('/accounts/content');
+    await page.locator('.st-row', { hasText: 'Shorts settings' }).click();
+    await wait();
+    check('Content preferences links to the Shorts settings', (await title()) === 'Shorts');
+    await page.getByRole('switch', { name: 'Start Shorts with the sound off' }).click();
+    await page.getByRole('switch', { name: 'Show captions' }).click();
+    await page.locator('[data-testid=caption-language]').click();
+    check('caption languages: the app language and 19 others', (await page.locator('.st-caption-langs .st-row').count()) === 20 && (await page.getByRole('radio', { name: 'App language' }).isChecked()));
+    await page.getByRole('radio', { name: 'Français' }).click();
+    await wait(300);
+    let p = await prefs();
+    check('Shorts settings are saved', p.reelsMuted === true && p.captions === false && p.captionLang === 'fr', JSON.stringify(p));
+    await page.reload();
+    await page.waitForSelector('.st-title');
+    await wait(400);
+    check('and stay after a reload', (await page.getByRole('switch', { name: 'Start Shorts with the sound off' }).getAttribute('aria-checked')) === 'true' && (await page.getByRole('switch', { name: 'Show captions' }).getAttribute('aria-checked')) === 'false' && (await page.locator('[data-testid=caption-language] .st-row-value').innerText()) === 'Français');
+    await page.getByRole('switch', { name: 'Show captions' }).click();
+    await page.locator('[data-testid=caption-language]').click();
+    await page.getByRole('radio', { name: 'App language' }).click();
+    await wait(300);
+    p = await prefs();
+    check('captions back on, in the app language', p.captions === true && p.captionLang === '', JSON.stringify(p));
+    await shot('settings-shorts-dark');
+
+    // Story alerts (Plus): add someone you follow and remove them again.
+    await goto('/accounts/story');
+    await page.locator('.st-row', { hasText: 'Story alerts' }).click();
+    await page.waitForSelector('.st-watch .st-person');
+    check('Story alerts opens from Story, live and location', (await title()) === 'Story alerts' && (await page.locator('.st-nav-item.on').innerText()).includes('Story, live and location'));
+    check('it lists who you are told about', (await page.locator('.st-watch').innerText()).includes('grace_mensah'));
+    await page.getByRole('button', { name: 'Add people' }).click();
+    await page.waitForSelector('.st-watch-pick .st-person');
+    check('Add people lists the people you follow, Grace ticked', await page.locator('.st-watch-pick').getByRole('checkbox', { name: 'Remove grace_mensah' }).isChecked());
+    const pick = page.locator('.st-watch-pick input[aria-label^="Add "]').first();
+    const who = (await pick.getAttribute('aria-label')).slice(4);
+    await pick.click();
+    await wait(300);
+    check('ticking someone adds them at once', await page.locator('.st-watch-pick').getByRole('checkbox', { name: 'Remove ' + who }).isChecked());
+    await page.getByRole('button', { name: 'Done' }).click();
+    check('they are on the list', (await page.locator('.st-watch .st-person').count()) === 2 && (await page.locator('.st-watch').innerText()).includes(who));
+    await shot('settings-story-alerts-dark');
+    await goto('/accounts/edit');
+    await goto('/accounts/story-alerts');
+    await page.waitForSelector('.st-watch .st-person');
+    check('the addition is saved', (await page.locator('.st-watch .st-person').count()) === 2);
+    await page.getByRole('button', { name: 'Remove ' + who }).click();
+    await wait(300);
+    check('Remove takes them off', (await page.locator('.st-watch .st-person').count()) === 1);
+    await goto('/accounts/edit');
+    await goto('/accounts/story-alerts');
+    await page.waitForSelector('.st-watch .st-person');
+    check('and that is saved too', (await page.locator('.st-watch .st-person').count()) === 1 && !(await page.locator('.st-watch').innerText()).includes(who));
+
+    // Location: the friends' map, where sharing starts.
+    await goto('/accounts/story');
+    check('Story, live and location offers to share your location on the map', (await page.locator('a.st-row', { hasText: 'Share my live location' }).getAttribute('href')) === '#/map');
+    await page.locator('a.st-row', { hasText: 'Share my live location' }).click();
+    await wait();
+    check("it opens the friends' map", (await page.evaluate(() => location.hash)) === '#/map');
+
+    // The search finds the new pages.
+    await goto('/accounts/edit');
+    await page.getByLabel('Search settings').fill('caption');
+    check('search finds Shorts by captions', (await page.locator('.st-nav-item').allInnerTexts()).some((t) => t.trim() === 'Shorts'));
+    await page.getByLabel('Search settings').fill('font');
+    check('search finds Appearance by font', (await page.locator('.st-nav-item').allInnerTexts()).some((t) => t.trim() === 'Appearance'));
+    await page.getByLabel('Search settings').fill('alerts');
+    check('search finds Story alerts', (await page.locator('.st-nav-item').allInnerTexts()).some((t) => t.trim() === 'Story alerts'));
+    await page.getByLabel('Clear search').click();
 
     // Language
     await goto('/accounts/language');
@@ -255,6 +355,12 @@ async function newPage(browser, base, errors) {
     check('Settings → About shows the same', /Version \d/.test(await page.locator('.st-about').innerText()));
     await shot('legal-dark');
 
+    // A font chosen on this computer by the demo account (which has Plus)…
+    await goto('/accounts/appearance');
+    await page.getByRole('radio', { name: /^Nunito\./ }).check();
+    await wait(300);
+    check('(Nunito chosen as the demo account)', (await page.evaluate(() => document.documentElement.dataset.appFont)) === 'nunito');
+
     // Profile viewers is a Plus perk: Daniel doesn't have Plus.
     await page.evaluate(() => sessionStorage.setItem('community.demoAs', 'u_daniel'));
     await page.reload();
@@ -262,6 +368,17 @@ async function newPage(browser, base, errors) {
     await goto('/accounts/viewers');
     await page.waitForSelector('.st-upsell');
     check('without Plus, profile viewers offers Community Plus', (await page.locator('.st-upsell a').getAttribute('href')) === '#/plus');
+
+    // …isn't used for Daniel, and the font chooser offers him Plus instead.
+    await wait(600);
+    const danielFont = await page.evaluate(() => ({ attr: document.documentElement.dataset.appFont ?? '', body: getComputedStyle(document.body).fontFamily }));
+    check('without Plus the app keeps its standard font', danielFont.attr === '' && !danielFont.body.includes('Nunito'), JSON.stringify(danielFont));
+    await goto('/accounts/appearance');
+    check('without Plus, the font chooser offers Community Plus', (await page.locator('.st-upsell', { hasText: 'App fonts are part of Community Plus' }).locator('a').getAttribute('href')) === '#/plus');
+    check('its fonts are a preview that cannot be chosen', (await page.locator('.st-font').count()) === 4 && (await page.getByRole('radio', { name: /^Lora\./ }).isDisabled()) && !(await page.getByRole('radio', { name: /^Nunito\./ }).isChecked()));
+    await shot('settings-font-upsell-dark');
+    await goto('/accounts/story-alerts');
+    check('without Plus, story alerts offers Community Plus', (await page.locator('.st-upsell').innerText()).includes('Story alerts are part of Community Plus'));
 
     // Ruth has no birthday on file: she is asked once, and it can only be closed by answering.
     await page.evaluate(() => sessionStorage.setItem('community.demoAs', 'u_ruth'));

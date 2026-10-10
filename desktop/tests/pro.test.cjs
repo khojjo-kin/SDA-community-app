@@ -1,5 +1,6 @@
-// The Professional dashboard (Insights and Ad tools), ads paid by card, billing, Plus with its free
-// week, the tick application, and fundraisers: on the demo build, the way a person would use them.
+// The Professional dashboard (Insights, Ad tools and Your tools: Inspiration and Best practices), ads
+// paid by card, billing, Plus with its free week, paying for Plus with a saved card, the app font from
+// the Plus page, the tick application, and fundraisers: on the demo build, the way a person would use them.
 // Usage: node tests/pro.test.cjs http://127.0.0.1:8805/ [screenshot dir]
 const { chromium } = require('playwright');
 const path = require('path');
@@ -62,7 +63,7 @@ async function confirmPayment(page, button) {
     await goto('/dashboard');
     await page.waitForSelector('.pro-tile');
     check('the dashboard is titled Professional dashboard', (await page.locator('.pro-title').innerText()) === 'Professional dashboard');
-    check('pill tabs: Insights, Ad tools and Fundraisers', (await page.locator('.pro-tabs .pro-pill').allInnerTexts()).map((t) => t.trim()).join() === 'Insights,Ad tools,Fundraisers');
+    check('pill tabs: Insights, Ad tools, Fundraisers and Your tools', (await page.locator('.pro-tabs .pro-pill').allInnerTexts()).map((t) => t.trim()).join() === 'Insights,Ad tools,Fundraisers,Your tools');
     check('Insights shows six tiles', (await page.locator('.pro-tile').count()) === 6);
     const labels = (await page.locator('.pro-tile-label').allInnerTexts()).join('|');
     check('the tiles are views, reach, followers, content, likes and comments', ['Views', 'Accounts reached', 'Followers gained', 'Content shared', 'Likes', 'Comments'].every((x) => labels.includes(x)), labels);
@@ -87,6 +88,10 @@ async function confirmPayment(page, button) {
     await page.waitForTimeout(700);
     check('Content opens its own page', (await page.evaluate(() => location.hash)) === '#/dashboard/content' && (await page.locator('.pro-ins-head h2').innerText()) === 'Content');
     check('Content lists posts with their views', (await page.locator('.pro-table tbody tr').count()) >= 1);
+    await page.locator('.pro-table tbody tr').first().click();
+    check('a post in the list opens in the post dialog, on the dashboard', await page.locator('.post-dialog').waitFor({ timeout: 4000 }).then(() => true, () => false) && (await page.evaluate(() => location.hash)) === '#/dashboard/content');
+    await page.keyboard.press('Escape');
+    await page.locator('.post-dialog').waitFor({ state: 'detached', timeout: 4000 }).catch(() => {});
     await page.locator('.pro-tabs .pro-pill', { hasText: 'Insights' }).click();
     await page.getByRole('menuitemradio', { name: 'Audience' }).click();
     await page.waitForTimeout(700);
@@ -97,6 +102,56 @@ async function confirmPayment(page, button) {
     const income = await page.locator('.pro-tiles').innerText();
     check('Income shows subscribers, monthly income, fundraisers and Plus', income.includes('Subscribers') && income.includes('£5.98') && income.includes('Raised by your fundraisers') && income.includes('Active'), income.replace(/\n/g, ' '));
 
+    // Your tools: Inspiration and Best practices (the iPhone dashboard's tools)
+    await page.locator('.pro-tabs .pro-pill', { hasText: 'Your tools' }).click();
+    const tools = await page.locator('.pro-menu [role=menuitemradio]').allInnerTexts();
+    check('Your tools opens a menu of Inspiration, Best practices and saved replies', tools.length === 3 && tools[0].startsWith('Inspiration') && tools[1].startsWith('Best practices') && tools[2].startsWith('Saved replies and questions'), tools.join('|'));
+    await page.getByRole('menuitemradio', { name: /^Inspiration/ }).click();
+    await page.waitForSelector('.pro-insp-grid .tile');
+    check('Inspiration opens its own page', (await page.evaluate(() => location.hash)) === '#/dashboard/inspiration' && (await page.locator('.pro-ins-head h2').innerText()) === 'Inspiration');
+    const insp = await page.locator('.pro-insp-grid .tile').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check("Inspiration lists other people's posts, not mine", insp.length >= 3 && insp.every((l) => !/ by you(,|$)/.test(l)), insp.join('|'));
+    const photo = page.locator('.pro-insp-grid .tile[aria-label^="Post by"]').first();
+    const author = (await photo.getAttribute('aria-label')).replace('Post by ', '').split(',')[0];
+    await photo.click();
+    await page.locator('.post-dialog').waitFor({ timeout: 4000 }).catch(() => {});
+    check('a post opens in the post dialog', (await page.locator('.post-dialog').count()) === 1 && (await page.locator('.post-dialog').innerText()).includes(author));
+    await A.shot('pro-21-inspiration-post-dark');
+    await page.keyboard.press('Escape');
+    await page.locator('.post-dialog').waitFor({ state: 'detached', timeout: 4000 }).catch(() => {});
+    await A.shot('pro-22-inspiration-dark');
+    const short = page.locator('.pro-insp-grid .tile[aria-label^="Short by"]').first();
+    if (await short.count()) {
+      const shortId = await short.getAttribute('data-post');
+      await short.click();
+      await page.waitForTimeout(600);
+      check('a Short opens in the Shorts player', (await page.evaluate(() => location.hash)) === '#/shorts/' + shortId);
+    }
+    await goto('/dashboard/best-practices');
+    check('Best practices shows the tips', (await page.locator('.pro-bp-card').count()) === 8 && (await page.locator('.pro-tabs .pro-pill.on').innerText()).includes('Your tools'));
+    await A.shot('pro-23-best-practices-dark');
+    await page.locator('.pro-bp-go', { hasText: 'Close friends' }).click();
+    await page.waitForTimeout(500);
+    check('a tip opens its tool: Close friends', (await page.evaluate(() => location.hash)) === '#/accounts/close-friends');
+    await goto('/dashboard/best-practices');
+    await page.locator('.pro-bp-go', { hasText: 'Saved replies' }).click();
+    await page.waitForTimeout(500);
+    check('Saved replies opens Creator tools and controls', (await page.evaluate(() => location.hash)) === '#/accounts/creator');
+    await goto('/dashboard/best-practices');
+    await page.evaluate(() => {
+      window.__creates = [];
+      window.addEventListener('community:create', (e) => window.__creates.push(e.detail.mode));
+    });
+    await page.locator('.pro-bp-go', { hasText: 'Add to your story' }).click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await page.locator('.pro-bp-go', { hasText: 'New Short' }).click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    check('Add to your story and New Short open Create', (await page.evaluate(() => window.__creates.join())) === 'story,short');
+
     // Ad tools
     await page.locator('.pro-tabs .pro-pill', { hasText: 'Ad tools' }).click();
     await page.waitForTimeout(800);
@@ -106,7 +161,7 @@ async function confirmPayment(page, button) {
     await page.getByRole('button', { name: 'Got it' }).click();
     await page.locator('.pro-tabs .pro-pill', { hasText: 'Insights' }).hover();
     await page.waitForTimeout(300);
-    check('hovering Insights explains it', (await page.locator('.pro-tip').evaluate((el) => getComputedStyle(el).opacity)) === '1' && (await page.locator('.pro-tip').innerText()) === 'See how your content is performing.');
+    check('hovering Insights explains it', (await page.locator('.pro-drop', { hasText: 'Insights' }).locator('.pro-tip').evaluate((el) => getComputedStyle(el).opacity)) === '1' && (await page.locator('.pro-drop', { hasText: 'Insights' }).locator('.pro-tip').innerText()) === 'See how your content is performing.');
     await page.reload();
     await page.waitForSelector('.pro-ads-table');
     await page.waitForTimeout(500);
@@ -191,6 +246,25 @@ async function confirmPayment(page, button) {
     await tick.click();
     check('and it shows again', await toast('Your tick shows again'));
     check('Plus links to profile style and profile viewers', (await page.locator('.pro-box-link', { hasText: 'Profile style' }).getAttribute('href')) === '#/u/you/style' && (await page.locator('.pro-box-link', { hasText: 'Profile viewers' }).count()) === 1);
+    check('Plus no longer sends fonts and wallpapers to the iPhone', !(await page.locator('.pro-plus-main').innerText()).includes('Community app on iPhone'));
+    check('Plus links to the chat wallpaper and story alerts', (await page.locator('.pro-box-link', { hasText: 'Chat wallpaper' }).getAttribute('href')) === '#/accounts/chat-wallpaper' && (await page.locator('.pro-box-link', { hasText: 'Story alerts' }).getAttribute('href')) === '#/accounts/story-alerts');
+    // The app font, chosen on the Plus page.
+    await page.locator('.pro-box-link', { hasText: 'App font' }).click();
+    await page.waitForSelector('.modal .st-font');
+    check('App font opens the chooser with its four fonts', (await page.locator('.modal .st-font').count()) === 4);
+    await page.getByRole('radio', { name: /^Poppins\./ }).check();
+    await page.waitForTimeout(300);
+    const poppins = await page.evaluate(() => ({ attr: document.documentElement.dataset.appFont, body: getComputedStyle(document.body).fontFamily }));
+    check('choosing Poppins sets the whole app in it at once', poppins.attr === 'poppins' && poppins.body.startsWith('Poppins'), JSON.stringify(poppins));
+    await A.shot('pro-24-plus-font-dark');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    check('the App font line names the font', (await page.locator('.pro-box-link', { hasText: 'App font' }).innerText()).includes('Poppins'));
+    await page.locator('.pro-box-link', { hasText: 'App font' }).click();
+    await page.getByRole('radio', { name: /^Standard\./ }).check();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    check('and back to the standard font', (await page.evaluate(() => document.documentElement.dataset.appFont ?? '')) === '');
 
     // Give £10 anonymously
     await goto('/fundraisers/fr1');
@@ -317,6 +391,29 @@ async function confirmPayment(page, button) {
     check('no script errors (Joseph)', B.errors.length === 0, B.errors.join(' | '));
     await B.ctx.close();
 
+    /* ---------------- Daniel: no Plus, a card saved from before ---------------- */
+    const C = await open(browser, { as: 'u_daniel' });
+    await C.goto('/plus');
+    await C.page.waitForSelector('.pro-paywith');
+    const visa = C.page.getByRole('radio', { name: 'Visa •••• 1881' });
+    check('Plus offers to pay with the saved card, chosen to begin with', (await visa.getAttribute('aria-checked')) === 'true' && (await C.page.locator('.pro-paywith h3').innerText()) === 'Pay with');
+    await C.page.getByRole('radio', { name: 'New card' }).click();
+    check('a new card can be chosen instead', (await C.page.getByRole('radio', { name: 'New card' }).getAttribute('aria-checked')) === 'true' && (await visa.getAttribute('aria-checked')) === 'false');
+    await visa.click();
+    await C.shot('pro-25-plus-saved-card-dark');
+    await C.page.getByRole('button', { name: 'Subscribe for £4.99/month' }).click();
+    check('paying with the saved card needs no card form', await C.toast('Welcome to Plus'));
+    check('the card form never opened', (await C.page.locator('.pay-sheet').count()) === 0);
+    await C.page.waitForSelector('.pro-plus-have');
+    const daniel = await C.page.locator('.pro-box-row').innerText();
+    check('Plus is on, monthly, renewing', daniel.includes('Monthly') && daniel.includes('Renews on'), daniel.replace(/\n/g, ' '));
+    await C.goto('/dashboard/billing');
+    await C.page.waitForSelector('.pro-billing .pro-table tbody tr');
+    const paid = await C.page.locator('.pro-billing .pro-table tbody tr').first().innerText();
+    check('the payment is in the history, made with the saved card', paid.includes('£4.99') && paid.includes('1881'), paid.replace(/\s+/g, ' '));
+    check('no script errors (Daniel)', C.errors.length === 0, C.errors.join(' | '));
+    await C.ctx.close();
+
     /* ---------------- White ---------------- */
     if (SHOTS) {
       const W = await open(browser, { theme: 'white' });
@@ -345,6 +442,18 @@ async function confirmPayment(page, button) {
       await W.goto('/dashboard/income');
       await W.page.waitForSelector('.pro-tile');
       await W.shot('pro-18-income-white');
+      await W.goto('/dashboard/inspiration');
+      await W.page.waitForSelector('.pro-insp-grid .tile');
+      await W.page.waitForTimeout(400);
+      await W.shot('pro-26-inspiration-white');
+      await W.goto('/dashboard/best-practices');
+      await W.page.waitForSelector('.pro-bp-card');
+      await W.shot('pro-27-best-practices-white');
+      await W.goto('/plus');
+      await W.page.locator('.pro-box-link', { hasText: 'App font' }).click();
+      await W.page.waitForSelector('.modal .st-font');
+      await W.shot('pro-28-plus-font-white');
+      await W.page.keyboard.press('Escape');
       check('no script errors (White)', W.errors.length === 0, W.errors.join(' | '));
       await W.ctx.close();
       const V = await open(browser, { as: 'u_joseph', theme: 'white' });

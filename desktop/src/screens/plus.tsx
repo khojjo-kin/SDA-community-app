@@ -1,15 +1,21 @@
 // Community Plus, as on the iPhone: what it includes, the monthly and yearly plans (with a free first
-// week for new members), the renewal terms beside the button, and for members their subscription and
-// Plus settings. The blue tick is not part of Plus: it only comes from an identity check (/verify).
+// week for new members), the renewal terms beside the button, paying with a saved card or a new one
+// (the iPhone's checkout.tsx), and for members their subscription and Plus settings, including the
+// app font and chat wallpaper. The blue tick is not part of Plus: it only comes from an identity
+// check (/verify).
 import React, { useCallback, useEffect, useState } from 'react';
-import { cancelSubscription, myPlusRequests, resumeSubscription, setTickHidden, startSubscription, syncSubscription, updateProfile } from 'shared/api';
+import { cancelSubscription, fetchSavedCards, myPlusRequests, resumeSubscription, setTickHidden, startSubscription, syncSubscription, updateProfile } from 'shared/api';
+import { usePrefs } from 'shared/prefs';
 import { errText } from 'shared/theme';
-import type { BillingStatus, PaymentsConfig } from 'shared/types';
+import type { BillingStatus, PaymentsConfig, SavedCard } from 'shared/types';
+import { wallpaperById } from 'shared/wallpapers';
+import { appFontById, noteFontMember } from '../lib/font';
 import { useMe } from '../lib/me';
 import { money, paymentsConfig } from '../lib/pay';
 import { nav, useRoute } from '../lib/router';
-import { Icon, type IconName, Link, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
-import { longDay, Notice, pay, renewalText, RenewalTerms, Toggle } from './pro-kit';
+import { Icon, type IconName, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { CardChip, cardTitle, expiryLabel, isExpired, longDay, Notice, pay, payWithSavedCard, renewalText, RenewalTerms, Toggle } from './pro-kit';
+import { FontChooser } from './settings-media';
 
 type Plan = 'monthly' | 'yearly';
 
@@ -72,6 +78,9 @@ function savePercent(monthly: number, yearly: number): number {
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** The "New card" choice beside the saved cards. */
+const NEW = 'new';
+
 export function Plus() {
   const { me, refresh } = useMe();
   const route = useRoute();
@@ -89,6 +98,13 @@ export function Plus() {
   useEffect(() => setTickHiddenNow(!!me.tick_hidden), [me.tick_hidden]);
   const [receipts, setReceipts] = useState(me.read_receipts);
   useEffect(() => setReceipts(me.read_receipts), [me.read_receipts]);
+  // Cards saved on the member's Stripe customer, and the way to pay chosen (a card's id, or NEW).
+  const [cards, setCards] = useState<SavedCard[]>([]);
+  const [method, setMethod] = useState(NEW);
+  const [fonts, setFonts] = useState(false);
+  const { appFont, chatWallpaper } = usePrefs();
+  // Buying Plus (or it ending) changes the app's font at once.
+  useEffect(() => noteFontMember(me.id, !!me.plus), [me.id, me.plus]);
 
   const load = useCallback(() => {
     setConfigError(null);
@@ -96,6 +112,16 @@ export function Plus() {
       (c) => {
         setConfig(c);
         setBilling(c);
+        if (!c.ready) return;
+        // As the iPhone's checkout: the default card (or the first one that hasn't expired) is chosen.
+        fetchSavedCards().then(
+          (list) => {
+            const usable = list.filter((x) => !isExpired(x.exp_month, x.exp_year));
+            setCards(list);
+            setMethod((usable.find((x) => x.is_default) ?? usable[0])?.id ?? NEW);
+          },
+          () => setCards([]),
+        );
       },
       (e) => setConfigError(e),
     );
@@ -123,6 +149,8 @@ export function Plus() {
   const ticked = !!me.verified || tickHidden;
   const pending = (requests.data ?? []).find((r) => r.kind === 'verify' && r.status === 'pending');
   const save = config ? savePercent(config.price_pence, config.yearly_pence) : 0;
+  /** The saved card chosen to pay with, or null for a new card typed into the card form. */
+  const savedCard = cards.some((c) => c.id === method) ? method : null;
 
   /** Plus is switched on by the server once Stripe agrees; give it a few seconds. */
   async function finish() {
@@ -143,7 +171,7 @@ export function Plus() {
     setBusy('pay');
     setError('');
     try {
-      const r = await startSubscription(null, plan);
+      const r = await startSubscription(savedCard, plan);
       const currency = (r.currency ?? config.currency).toUpperCase();
       if (!r.already) {
         if (!r.client_secret) throw new Error('The payment could not be started. Try again.');
@@ -155,6 +183,14 @@ export function Plus() {
         }
         const trial = r.intent === 'setup';
         const amount = r.amount ?? priceOf(plan);
+        if (savedCard) {
+          // The saved card pays (or is kept for after the free week) without the card form.
+          await payWithSavedCard(r.client_secret, savedCard, trial ? 'setup' : 'payment');
+          await finish();
+          toast(trial ? 'Your free week has started' : 'Welcome to Plus');
+          if (then.startsWith('/')) nav(then);
+          return;
+        }
         const ok = await pay({
           title: `Community Plus · ${plan === 'yearly' ? 'Yearly' : 'Monthly'}`,
           detail: trial ? `Free for ${r.trial_days ?? config.trial_days} days, then ${priceLine(plan)}. Nothing is charged today. Renews automatically until cancelled.` : renewalText(amount, currency, plan === 'yearly' ? 'year' : 'month'),
@@ -219,11 +255,18 @@ export function Plus() {
     const p: Plan = billing.plan ?? 'monthly';
     setBusy('card');
     try {
-      const r = await startSubscription(null, p);
+      // A saved card chosen here is put on the subscription (in the free week) or pays the renewal.
+      const r = await startSubscription(savedCard, p);
       if (!r.already) {
         if (!r.client_secret) throw new Error('The payment could not be started. Try again.');
         const setup = r.intent === 'setup';
         const amount = r.amount ?? priceOf(p);
+        if (savedCard) {
+          await payWithSavedCard(r.client_secret, savedCard, setup ? 'setup' : 'payment');
+          await finish();
+          toast(setup ? 'Your card is saved' : 'Welcome back to Plus');
+          return;
+        }
         const ok = await pay({
           title: setup ? 'Card for after your free week' : 'Community Plus',
           detail: setup ? `Free until ${longDay(billing.current_period_end)}, then ${priceLine(p)}. Nothing is charged today.` : renewalText(amount, r.currency ?? config.currency, p === 'yearly' ? 'year' : 'month'),
@@ -238,6 +281,7 @@ export function Plus() {
         toast(setup ? 'Your card is saved' : 'Welcome back to Plus');
       } else {
         await finish();
+        if (savedCard) toast(needsCard ? 'Your card is saved' : 'Welcome back to Plus');
       }
     } catch (e) {
       toastError(e);
@@ -297,6 +341,41 @@ export function Plus() {
     }
   }
 
+  /** How to pay: the saved cards (an expired one can't be chosen) or a new card, as on the iPhone's checkout. */
+  const payWith = (heading: string) =>
+    cards.length ? (
+      <div className="pro-paywith">
+        <h3>{heading}</h3>
+        <div className="pro-paywith-list" role="radiogroup" aria-label={heading}>
+          {cards.map((c) => {
+            const expired = isExpired(c.exp_month, c.exp_year);
+            const exp = expiryLabel(c.exp_month, c.exp_year);
+            return (
+              <button key={c.id} type="button" role="radio" aria-checked={method === c.id} aria-label={cardTitle(c)} disabled={expired || !!busy} className={'pro-paywith-card' + (method === c.id ? ' on' : '')} onClick={() => setMethod(c.id)}>
+                <span className={'pro-paywith-dot' + (method === c.id ? ' on' : '')} />
+                <CardChip brand={c.brand} />
+                <span className="grow">
+                  <b>{cardTitle(c)}</b>
+                  <span className={expired ? 'pro-bad-text' : 'muted-text'}>{expired ? `Expired ${exp}` : `Expires ${exp}`}</span>
+                </span>
+                {c.is_default ? <span className="pro-tag">Default</span> : null}
+              </button>
+            );
+          })}
+          <button type="button" role="radio" aria-checked={method === NEW} aria-label="New card" disabled={!!busy} className={'pro-paywith-card' + (method === NEW ? ' on' : '')} onClick={() => setMethod(NEW)}>
+            <span className={'pro-paywith-dot' + (method === NEW ? ' on' : '')} />
+            <span className="pro-paywith-new">
+              <Icon name="plus" size={16} stroke={2.2} />
+            </span>
+            <span className="grow">
+              <b>New card</b>
+              <span className="muted-text">Credit or debit card</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    ) : null;
+
   // The button under the plans.
   let button: { label: string; onClick: () => void; on: boolean } | null = null;
   if (configError && !config) button = { label: 'Try again', onClick: load, on: true };
@@ -340,6 +419,7 @@ export function Plus() {
                     <span className={'pro-sub-line' + (failed ? ' pro-bad-text' : '')}>{subscriptionLine(billing)}</span>
                   </div>
                 </div>
+                {needsCard || failed || billing.status === 'incomplete' ? payWith(needsCard ? 'Card for after your free week' : 'Pay with') : null}
                 {needsCard ? (
                   <button className="btn block" disabled={!!busy} onClick={fixPayment}>
                     {busy === 'card' ? 'Opening…' : 'Add a card for after your free week'}
@@ -400,13 +480,30 @@ export function Plus() {
                   <span className="grow">Profile viewers</span>
                   <Icon name="right" size={18} />
                 </Link>
-                <div className="pro-box-link static">
+                <button className="pro-box-link" onClick={() => setFonts(true)}>
                   <Icon name="font" size={20} />
                   <span className="grow">
-                    App fonts and chat wallpapers
-                    <em>Choose them in the Community app on iPhone</em>
+                    App font
+                    <em>{appFontById(appFont).name}</em>
                   </span>
-                </div>
+                  <Icon name="right" size={18} />
+                </button>
+                <Link to="/accounts/chat-wallpaper" className="pro-box-link">
+                  <Icon name="wallpaper" size={20} />
+                  <span className="grow">
+                    Chat wallpaper
+                    <em>{wallpaperById(chatWallpaper)?.name ?? 'None'}</em>
+                  </span>
+                  <Icon name="right" size={18} />
+                </Link>
+                <Link to="/accounts/story-alerts" className="pro-box-link">
+                  <Icon name="bell" size={20} />
+                  <span className="grow">
+                    Story alerts
+                    <em>Be told when people you choose watch your stories</em>
+                  </span>
+                  <Icon name="right" size={18} />
+                </Link>
               </div>
             </section>
           ) : null}
@@ -472,6 +569,7 @@ export function Plus() {
               {/* The renewal terms of the plan chosen, right above the button that starts it. */}
               {config && !member ? <RenewalTerms pricePence={priceOf(plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} trialDays={trialOffer ? config.trial_days : 0} /> : null}
               {config && member && plan !== currentPlan ? <RenewalTerms pricePence={priceOf(plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} freeUntil={billing?.status === 'trialing' ? longDay(billing.current_period_end) : ''} /> : null}
+              {config && !member ? payWith(trialOffer ? 'Card for after your free week' : 'Pay with') : null}
               {error ? <Notice kind="warn">{error}</Notice> : configError && !config ? <Notice kind="warn">{errText(configError)}</Notice> : null}
               {button ? (
                 <button className="btn block big" disabled={!button.on || !!busy} onClick={button.onClick}>
@@ -493,6 +591,13 @@ export function Plus() {
           ) : null}
         </aside>
       </div>
+      {fonts ? (
+        <Modal title="App font" onClose={() => setFonts(false)} wide>
+          <div className="st-modal-body">
+            <FontChooser />
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

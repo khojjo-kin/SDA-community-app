@@ -1,5 +1,6 @@
 // Settings pages about what you see and how the app looks: Content preferences, Like and share
-// counts, Chat streaks, Appearance, Archiving, Language and Accessibility.
+// counts, Chat streaks, Appearance (with the app font and chat wallpaper), Archiving, Language and
+// Accessibility.
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { updateProfile } from 'shared/api';
 import { LANGUAGES, languageName } from 'shared/i18n';
@@ -7,6 +8,7 @@ import { loadPrefs, setPrefs, usePrefs } from 'shared/prefs';
 import { setAppearance, useAppearance } from '../lib/appearance';
 import { useMe } from '../lib/me';
 import { Icon, Modal, toastError } from '../ui/kit';
+import { FontChooser, WallpaperRow } from './settings-media';
 import { Block, Card, LinkRow, Notice, Page, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
 
 // The small choices kept on this computer, read once when the app starts (as the iPhone does).
@@ -126,6 +128,11 @@ export function ContentPrefs() {
           <RadioRow name="sensitive" title="Less" checked={restricted || filter === 'less'} disabled={restricted} onChange={() => chooseFilter('less')} />
         </Card>
       </Block>
+      <Block title="Shorts">
+        <Card>
+          <LinkRow icon="reels" title="Shorts settings" sub="Sound, captions and the language captions are shown in." to="/accounts/shorts" />
+        </Card>
+      </Block>
       {adding ? (
         <Modal title={adding === 'more' ? 'See more of' : 'See less of'} onClose={() => { setAdding(null); setCustom(''); }} wide>
           <div className="st-modal-body">
@@ -199,6 +206,14 @@ export function Appearance() {
         <RadioRow name="appearance" icon="moon" title="Dark" checked={look === 'dark'} onChange={() => setAppearance('dark')} />
         <RadioRow name="appearance" icon="sun" title="White" checked={look === 'white'} onChange={() => setAppearance('white')} />
       </Card>
+      <Block title="App font" note="The face the whole app is set in. Photos, videos and the Community wordmark keep their own.">
+        <FontChooser />
+      </Block>
+      <Block title="Chats">
+        <Card>
+          <WallpaperRow />
+        </Card>
+      </Block>
     </Page>
   );
 }

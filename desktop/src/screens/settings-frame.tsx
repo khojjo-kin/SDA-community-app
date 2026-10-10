@@ -11,7 +11,8 @@ import { Icon, Link, ask } from '../ui/kit';
 import { AboutPage, AccountsCentre, AccountStatus, FamilyCentre } from './settings-account';
 import { AdsPayments, CreatorSubscriptions } from './settings-money';
 import { Accessibility, Appearance, Archiving, ChatStreaks, ContentPrefs, Language, LikeCounts } from './settings-prefs';
-import { AccountPrivacy, ActivityStatus, Blocked, CloseFriends, MessagesReplies, Notifications, StoryLiveLocation } from './settings-privacy';
+import { AccountPrivacy, ActivityStatus, Blocked, CloseFriends, MessagesReplies, Notifications, StoryAlerts, StoryLiveLocation } from './settings-privacy';
+import { ChatWallpaper, ShortsSettings } from './settings-media';
 import { CreatorTools, EditProfile, ProfileViewers, Professional } from './settings-profile';
 import { SIcon, type SIconName } from './settings-ui';
 
@@ -29,6 +30,8 @@ type Entry = {
   external?: boolean;
   /** Only for some accounts. */
   when?: (me: Profile) => boolean;
+  /** A page opened from another one (and found by search), not listed in the column: its line stays highlighted. */
+  parent?: string;
 };
 
 const GROUPS: { label: string; entries: Entry[] }[] = [
@@ -61,7 +64,8 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
       { id: 'privacy', label: 'Account privacy', icon: 'lock', words: 'private public followers requests', page: AccountPrivacy },
       { id: 'close-friends', label: 'Close friends', icon: 'star', words: 'stories list', page: CloseFriends },
       { id: 'blocked', label: 'Blocked', icon: 'block', words: 'block unblock accounts', page: Blocked },
-      { id: 'story', label: 'Story, live and location', icon: 'story', words: 'stories archive live broadcast location map share', page: StoryLiveLocation },
+      { id: 'story', label: 'Story, live and location', icon: 'story', words: 'stories archive live broadcast location map share friends where alerts', page: StoryLiveLocation },
+      { id: 'story-alerts', label: 'Story alerts', icon: 'bell', words: 'stories alerts notify told watched viewers views plus', page: StoryAlerts, parent: 'story' },
       { id: 'activity-status', label: 'Activity status', icon: 'pulse', words: 'active now online last seen green dot presence', page: ActivityStatus },
     ],
   },
@@ -73,6 +77,7 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
     label: 'What you see',
     entries: [
       { id: 'content', label: 'Content preferences', icon: 'sliders', words: 'feed for you explore shorts interests topics more less sensitive recommendations', page: ContentPrefs },
+      { id: 'shorts', label: 'Shorts', icon: 'reels', words: 'shorts videos sound mute muted captions subtitles caption language translate', page: ShortsSettings },
       { id: 'counts', label: 'Like and share counts', icon: 'counts', words: 'view counts likes hide numbers profile display', page: LikeCounts },
       { id: 'streaks', label: 'Chat streaks', icon: 'flame', words: 'streak fire days messages in a row', page: ChatStreaks },
     ],
@@ -80,7 +85,8 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
   {
     label: 'Your app and media',
     entries: [
-      { id: 'appearance', label: 'Appearance', icon: 'moon', words: 'theme dark white light mode colour color look', page: Appearance },
+      { id: 'appearance', label: 'Appearance', icon: 'moon', words: 'theme dark white light mode colour color look app font typeface text nunito lora poppins plus', page: Appearance },
+      { id: 'chat-wallpaper', label: 'Chat wallpaper', icon: 'wallpaper', words: 'chats messages background wallpaper theme plus', page: ChatWallpaper, parent: 'appearance' },
       { id: 'archive', label: 'Archiving', icon: 'archive', words: 'stories archive saved your activity history', page: Archiving },
       { id: 'language', label: 'Language', icon: 'globe', words: 'translate english french spanish twi', page: Language },
       { id: 'accessibility', label: 'Accessibility', icon: 'access', words: 'reduce motion animation keyboard shortcuts zoom text size', page: Accessibility },
@@ -102,15 +108,17 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
 ];
 
 /** Older addresses, and the iPhone's names for the same pages. */
-const ALIASES: Record<string, string> = { replies: 'creator', 'saved-replies': 'creator', faq: 'creator', 'login-activity': 'account', 'account-type': 'professional', 'story-settings': 'story', 'view-counts': 'counts', theme: 'appearance', 'clips-settings': 'content', 'creator-subscriptions': 'subscriptions', 'profile-viewers': 'viewers', 'under-14': 'family' };
+const ALIASES: Record<string, string> = { replies: 'creator', 'saved-replies': 'creator', faq: 'creator', 'login-activity': 'account', 'account-type': 'professional', 'story-settings': 'story', 'view-counts': 'counts', theme: 'appearance', 'plus-font': 'appearance', 'app-font': 'appearance', 'clips-settings': 'content', 'reel-settings': 'shorts', 'live-location': 'story', 'creator-subscriptions': 'subscriptions', 'profile-viewers': 'viewers', 'under-14': 'family' };
 
 export function Settings({ path }: { path: string }) {
   const { me } = useMe();
   const auth = useAuth();
   const [q, setQ] = useState('');
   const [switching, setSwitching] = useState(false);
-  const groups = GROUPS.map((g) => ({ ...g, entries: g.entries.filter((e) => !e.when || e.when(me)) })).filter((g) => g.entries.length);
-  const all = groups.flatMap((g) => g.entries);
+  const usable = GROUPS.map((g) => ({ ...g, entries: g.entries.filter((e) => !e.when || e.when(me)) }));
+  // Every page, for its address and the search; the column itself leaves out pages opened from another.
+  const all = usable.flatMap((g) => g.entries);
+  const groups = usable.map((g) => ({ ...g, entries: g.entries.filter((e) => !e.parent) })).filter((g) => g.entries.length);
   const asked = parts(path)[1] ?? 'edit';
   const current = all.find((e) => e.page && e.id === (ALIASES[asked] ?? asked)) ?? all.find((e) => e.id === 'edit')!;
   const Page = current.page!;
@@ -118,7 +126,7 @@ export function Settings({ path }: { path: string }) {
   const found = needle ? all.filter((e) => `${e.label} ${e.sub ?? ''} ${e.words ?? ''}`.toLowerCase().includes(needle)) : [];
 
   const item = (e: Entry) => (
-    <Link key={e.id} to={e.to ?? '/accounts/' + e.id} className={'st-nav-item' + (e.id === current.id ? ' on' : '')}>
+    <Link key={e.id} to={e.to ?? '/accounts/' + e.id} className={'st-nav-item' + (e.id === (current.parent ?? current.id) ? ' on' : '')}>
       <SIcon name={e.icon} />
       <span className="st-nav-text">
         <span>{e.label}</span>
