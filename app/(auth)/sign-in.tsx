@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
@@ -9,6 +9,7 @@ import { C, errText } from '../../src/lib/theme';
 
 export default function SignIn() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -19,6 +20,8 @@ export default function SignIn() {
   async function finish(res: any) {
     if (res.status === 'complete') {
       await setActive!({ session: res.createdSessionId });
+      // When adding a second account the sign-in pages stay reachable while signed in, so go home by hand.
+      router.replace('/');
       return;
     }
     if (res.status === 'needs_second_factor') {

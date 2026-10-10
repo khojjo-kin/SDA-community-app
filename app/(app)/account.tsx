@@ -3,7 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'r
 import { useAuth, useSession as useClerkSession, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { Button, Divider, Field, Row, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
-import { deleteAccount } from '../../src/lib/api';
+import { deactivateAccount } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
@@ -26,6 +26,26 @@ function ask(title: string, message: string, secure: boolean): Promise<string | 
   );
 }
 
+/** A small inline form: one field, a line of help, Cancel and a main button. */
+function Inline({ label, value, onChangeText, help, action, onAction, onCancel, busy, error, ...field }: { label: string; value: string; onChangeText: (t: string) => void; help?: string; action: string; onAction: () => void; onCancel: () => void; busy: boolean; error?: string } & Pick<React.ComponentProps<typeof Field>, 'keyboardType' | 'autoCapitalize' | 'textContentType' | 'placeholder' | 'autoCorrect'>) {
+  return (
+    <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 10 }}>
+      <Field label={label} value={value} onChangeText={onChangeText} error={error} onSubmitEditing={onAction} returnKeyType="go" {...field} />
+      {help ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19 }}>{help}</Text> : null}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Button label="Cancel" kind="ghost" style={{ flex: 1 }} onPress={onCancel} />
+        <Button label={action} style={{ flex: 1 }} busy={busy} disabled={!value.trim()} onPress={onAction} />
+      </View>
+    </View>
+  );
+}
+
+type Stage = 'idle' | 'enter' | 'code';
+// Clerk's resource types, taken from the hook so no extra package has to be resolvable.
+type ClerkUser = NonNullable<ReturnType<typeof useUser>['user']>;
+type EmailAddressResource = ClerkUser['emailAddresses'][number];
+type PhoneNumberResource = ClerkUser['phoneNumbers'][number];
+
 export default function Account() {
   const { signOut } = useAuth();
   const { user } = useUser();
@@ -33,12 +53,27 @@ export default function Account() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const [changing, setChanging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const [pw, setPw] = useState(false);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+
+  const [emailStage, setEmailStage] = useState<Stage>('idle');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [pendingEmail, setPendingEmail] = useState<EmailAddressResource | null>(null);
+
+  const [phoneStage, setPhoneStage] = useState<Stage>('idle');
+  const [newPhone, setNewPhone] = useState('');
+  const [phoneCode, setPhoneCode] = useState('');
+  const [pendingPhone, setPendingPhone] = useState<PhoneNumberResource | null>(null);
+
   const [deleting, setDeleting] = useState(false);
+
+  const email = user?.primaryEmailAddress?.emailAddress ?? '';
+  const phone = user?.primaryPhoneNumber ?? user?.phoneNumbers?.[0] ?? null;
 
   /** Proves it is still you, with your password or a code sent to your email. False means you cancelled. */
   async function confirmIdentity(knownPassword?: string): Promise<boolean> {
@@ -52,33 +87,37 @@ export default function Account() {
       await session.attemptFirstFactorVerification({ strategy: 'password', password });
       return true;
     }
-    const email = factors.find((f) => f.strategy === 'email_code');
-    if (!email || email.strategy !== 'email_code') throw new Error('Log out, log back in, and try again.');
-    await session.prepareFirstFactorVerification({ strategy: 'email_code', emailAddressId: email.emailAddressId });
-    const code = await ask("Confirm it's you", `Enter the code we sent to ${email.safeIdentifier}.`, false);
+    const mail = factors.find((f) => f.strategy === 'email_code');
+    if (!mail || mail.strategy !== 'email_code') throw new Error('Log out, log back in, and try again.');
+    await session.prepareFirstFactorVerification({ strategy: 'email_code', emailAddressId: mail.emailAddressId });
+    const code = await ask("Confirm it's you", `Enter the code we sent to ${mail.safeIdentifier}.`, false);
     if (!code) return false;
     await session.attemptFirstFactorVerification({ strategy: 'email_code', code: code.trim() });
     return true;
   }
 
-  async function savePassword() {
-    if (busy || !user) return;
-    if (next.length < 8) return setErr('Use a new password with at least 8 characters.');
+  /** Runs a sensitive change, proving identity first if Clerk asks for it. Returns false if cancelled. */
+  async function fresh<T>(work: () => Promise<T>): Promise<T | false> {
+    try {
+      return await work();
+    } catch (e) {
+      if (!needsFresh(e)) throw e;
+      if (!(await confirmIdentity())) return false;
+      return await work();
+    }
+  }
+
+  function reset() {
+    setErr('');
+    setBusy(false);
+  }
+
+  async function run(work: () => Promise<void>) {
+    if (busy) return;
     setBusy(true);
     setErr('');
     try {
-      const change = () => user.updatePassword({ currentPassword: current, newPassword: next, signOutOfOtherSessions: true });
-      try {
-        await change();
-      } catch (e) {
-        if (!needsFresh(e)) throw e;
-        if (!(await confirmIdentity(current))) return;
-        await change();
-      }
-      setChanging(false);
-      setCurrent('');
-      setNext('');
-      toast('Password changed');
+      await work();
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -86,47 +125,135 @@ export default function Account() {
     }
   }
 
-  async function reallyDelete() {
-    if (!user || deleting) return;
-    if (user.deleteSelfEnabled === false) {
-      Alert.alert('Deleting is turned off', 'Accounts cannot be deleted from the app at the moment.');
-      return;
-    }
-    setDeleting(true);
-    try {
-      // The sign-in can only be removed right after you have proved who you are.
-      // Do that first, before anything is deleted, so the two halves cannot come apart.
-      const minutes = session?.factorVerificationAge?.[0];
-      if (minutes == null || minutes < 0 || minutes >= 8) {
-        if (!(await confirmIdentity())) {
-          setDeleting(false);
-          return;
-        }
-      }
-      await deleteAccount(me);
-      try {
-        try {
-          await user.delete();
-        } catch (e) {
-          if (!needsFresh(e) || !(await confirmIdentity())) throw e;
-          await user.delete();
-        }
-      } catch {
-        // The profile and everything shared are already gone. Only the sign-in itself is left.
-        Alert.alert('Almost done', 'Your profile and everything you shared were deleted, but your sign-in could not be removed just now. Log in again and choose Delete account once more to finish.');
-      }
-      await signOut();
-    } catch (e) {
-      toast(errText(e));
-      setDeleting(false);
-    }
+  /* ---- password ---- */
+
+  function savePassword() {
+    if (!user) return;
+    if (next.length < 8) return setErr('Use a new password with at least 8 characters.');
+    run(async () => {
+      const done = await fresh(() => user.updatePassword({ currentPassword: current, newPassword: next, signOutOfOtherSessions: true }));
+      if (done === false) return;
+      setPw(false);
+      setCurrent('');
+      setNext('');
+      toast('Password changed');
+    });
   }
 
-  function removeAccount() {
-    Alert.alert('Delete your account?', 'This permanently deletes your profile, posts, stories, highlights, comments and messages. You cannot undo it.', [
+  /* ---- email ---- */
+
+  function sendEmailCode() {
+    if (!user) return;
+    const address = newEmail.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(address)) return setErr('Enter a valid email address.');
+    run(async () => {
+      const created = await fresh(() => user.createEmailAddress({ email: address }));
+      if (created === false) return;
+      await created.prepareVerification({ strategy: 'email_code' });
+      setPendingEmail(created);
+      setEmailStage('code');
+    });
+  }
+
+  function verifyEmail() {
+    if (!user || !pendingEmail) return;
+    run(async () => {
+      const verified = await pendingEmail.attemptVerification({ code: emailCode.trim() });
+      if (verified.verification.status !== 'verified') throw new Error('That code did not match. Try again.');
+      const old = user.primaryEmailAddress;
+      const done = await fresh(() => user.update({ primaryEmailAddressId: verified.id }));
+      if (done === false) return;
+      if (old && old.id !== verified.id) await old.destroy().catch(() => {});
+      await user.reload();
+      setEmailStage('idle');
+      setNewEmail('');
+      setEmailCode('');
+      setPendingEmail(null);
+      toast('Email changed');
+    });
+  }
+
+  async function cancelEmail() {
+    if (pendingEmail && pendingEmail.verification.status !== 'verified') await pendingEmail.destroy().catch(() => {});
+    setPendingEmail(null);
+    setEmailStage('idle');
+    setNewEmail('');
+    setEmailCode('');
+    reset();
+  }
+
+  /* ---- phone ---- */
+
+  function sendPhoneCode() {
+    if (!user) return;
+    const number = newPhone.replace(/[\s()-]/g, '');
+    if (!/^\+?\d{7,15}$/.test(number)) return setErr('Enter the number with its country code, like +44 7700 900123.');
+    run(async () => {
+      const created = await fresh(() => user.createPhoneNumber({ phoneNumber: number.startsWith('+') ? number : `+${number}` }));
+      if (created === false) return;
+      await created.prepareVerification();
+      setPendingPhone(created);
+      setPhoneStage('code');
+    });
+  }
+
+  function verifyPhone() {
+    if (!user || !pendingPhone) return;
+    run(async () => {
+      const verified = await pendingPhone.attemptVerification({ code: phoneCode.trim() });
+      if (verified.verification.status !== 'verified') throw new Error('That code did not match. Try again.');
+      await fresh(() => user.update({ primaryPhoneNumberId: verified.id }));
+      await user.reload();
+      setPhoneStage('idle');
+      setNewPhone('');
+      setPhoneCode('');
+      setPendingPhone(null);
+      toast('Phone number added');
+    });
+  }
+
+  async function cancelPhone() {
+    if (pendingPhone && pendingPhone.verification.status !== 'verified') await pendingPhone.destroy().catch(() => {});
+    setPendingPhone(null);
+    setPhoneStage('idle');
+    setNewPhone('');
+    setPhoneCode('');
+    reset();
+  }
+
+  function removePhone() {
+    if (!phone || !user) return;
+    Alert.alert('Remove this phone number?', phone.phoneNumber, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete account', style: 'destructive', onPress: reallyDelete },
+      { text: 'Remove', style: 'destructive', onPress: () => { run(async () => { const done = await fresh(() => phone.destroy()); if (done === false) return; await user.reload(); toast('Phone number removed'); }); } },
     ]);
+  }
+
+  /* ---- deleting ---- */
+
+  function removeAccount() {
+    Alert.alert(
+      'Delete your account?',
+      'Your account will be hidden straight away, and after 30 days it will be deleted for good — your profile, posts, stories, highlights, comments, messages and followers, all of it.\n\nIf you change your mind, log in before then and tap Restore.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            if (deleting) return;
+            setDeleting(true);
+            try {
+              await deactivateAccount(me);
+              await signOut(session ? { sessionId: session.id } : undefined);
+            } catch (e) {
+              toast(errText(e));
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -136,28 +263,47 @@ export default function Account() {
         <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <SectionLabel>Personal details</SectionLabel>
           <Row icon="user" title={profile?.full_name ?? ''} sub={`@${profile?.username ?? ''}`} onPress={() => router.push('/edit-profile')} />
-          <Row icon="mail" title="Email" sub={user?.primaryEmailAddress?.emailAddress ?? 'No email on this account'} />
+
+          {emailStage === 'idle' ? (
+            <Row icon="mail" title="Email" sub={email || 'No email on this account'} value="Change" onPress={() => { reset(); setEmailStage('enter'); }} />
+          ) : emailStage === 'enter' ? (
+            <Inline label="New email" value={newEmail} onChangeText={setNewEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" help="We'll send a code to the new address to make sure it's yours." action="Send code" onAction={sendEmailCode} onCancel={cancelEmail} busy={busy} error={err} />
+          ) : (
+            <Inline label="Code" value={emailCode} onChangeText={setEmailCode} placeholder="123456" keyboardType="number-pad" textContentType="oneTimeCode" help={`Enter the code we sent to ${newEmail.trim()}.`} action="Verify" onAction={verifyEmail} onCancel={cancelEmail} busy={busy} error={err} />
+          )}
+
+          {phoneStage === 'idle' ? (
+            <Row icon="phone" title="Phone" sub={phone ? phone.phoneNumber : 'Add a phone number'} value={phone ? 'Remove' : 'Add'} onPress={() => { reset(); if (phone) removePhone(); else setPhoneStage('enter'); }} />
+          ) : phoneStage === 'enter' ? (
+            <Inline label="Phone number" value={newPhone} onChangeText={setNewPhone} placeholder="+44 7700 900123" keyboardType="phone-pad" textContentType="telephoneNumber" help="Include your country code. We'll text you a code to confirm it." action="Send code" onAction={sendPhoneCode} onCancel={cancelPhone} busy={busy} error={err} />
+          ) : (
+            <Inline label="Code" value={phoneCode} onChangeText={setPhoneCode} placeholder="123456" keyboardType="number-pad" textContentType="oneTimeCode" help={`Enter the code we texted to ${newPhone.trim()}.`} action="Verify" onAction={verifyPhone} onCancel={cancelPhone} busy={busy} error={err} />
+          )}
+          <Divider />
+
+          <SectionLabel>Accounts</SectionLabel>
+          <Row icon="swap" title="Add or switch account" sub="Use more than one account and move between them" onPress={() => router.push('/accounts' as any)} />
           <Divider />
 
           <SectionLabel>Password and security</SectionLabel>
-          {changing ? (
+          {pw ? (
             <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 6 }}>
               <Field label="Current password" value={current} onChangeText={setCurrent} secureTextEntry textContentType="password" autoCapitalize="none" />
               <Field label="New password" value={next} onChangeText={setNext} secureTextEntry textContentType="newPassword" autoCapitalize="none" error={err} onSubmitEditing={savePassword} returnKeyType="go" />
               <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19 }}>Changing your password logs you out on your other devices.</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Button label="Cancel" kind="ghost" style={{ flex: 1 }} onPress={() => { setChanging(false); setErr(''); setCurrent(''); setNext(''); }} />
+                <Button label="Cancel" kind="ghost" style={{ flex: 1 }} onPress={() => { setPw(false); setErr(''); setCurrent(''); setNext(''); }} />
                 <Button label="Save password" style={{ flex: 1 }} busy={busy} disabled={!current || !next} onPress={savePassword} />
               </View>
             </View>
           ) : (
-            <Row icon="key" title="Change password" onPress={() => setChanging(true)} />
+            <Row icon="key" title="Change password" onPress={() => { reset(); setPw(true); }} />
           )}
           <Divider />
 
           <SectionLabel>Delete account</SectionLabel>
           <View style={{ paddingHorizontal: 16, gap: 12 }}>
-            <Text style={{ color: C.fg2, lineHeight: 20 }}>Deleting your account removes your profile and everything you have shared. This cannot be undone.</Text>
+            <Text style={{ color: C.fg2, lineHeight: 20 }}>Deleting hides your account straight away. After 30 days it is gone for good, with everything you shared. Log in before then to restore it.</Text>
             <Button label="Delete account" kind="danger" onPress={removeAccount} busy={deleting} />
           </View>
         </ScrollView>

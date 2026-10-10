@@ -100,6 +100,8 @@ export type Profile = {
   plus_until: string | null;
   suspended: boolean;
   admin_role: 'owner' | 'admin' | null;
+  /** Set when the account was deactivated: hidden now, deleted for good 30 days later unless restored. */
+  deleted_at: string | null;
 };
 
 export type Church = {

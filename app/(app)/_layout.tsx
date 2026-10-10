@@ -1,15 +1,43 @@
-import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Stack } from 'expo-router';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
+import { purgeDate, restoreAccount } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
-import { C } from '../../src/lib/theme';
+import { C, errText } from '../../src/lib/theme';
+
+/** Shown instead of the app while the account is deactivated: restore it, or leave it to be deleted. */
+function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; deletedAt: string; onRestored: () => Promise<void>; onLogOut: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const gone = purgeDate(deletedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  async function restore() {
+    setBusy(true);
+    try {
+      await restoreAccount(me);
+      await onRestored();
+    } catch (e) {
+      Alert.alert('Could not restore', errText(e));
+      setBusy(false);
+    }
+  }
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
+      <Mark size={64} />
+      <Text style={{ color: C.fg, fontSize: 21, fontWeight: '800', textAlign: 'center' }}>Your account is deactivated</Text>
+      <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
+        Nobody can see your profile, posts or messages. On {gone} everything will be deleted for good. Restore it now to pick up exactly where you left off.
+      </Text>
+      <Button label="Restore my account" busy={busy} onPress={restore} style={{ alignSelf: 'stretch', marginTop: 6 }} />
+      <Button label="Log out" kind="ghost" onPress={onLogOut} style={{ alignSelf: 'stretch' }} />
+    </View>
+  );
+}
 
 export default function AppLayout() {
   const { isSignedIn, signOut } = useAuth();
-  const { loading, profile, error, refresh } = useSession();
+  const { me, loading, profile, error, refresh } = useSession();
 
   if (!isSignedIn) return <Redirect href="/sign-in" />;
 
@@ -36,6 +64,7 @@ export default function AppLayout() {
   }
 
   if (!profile) return <Redirect href="/onboarding" />;
+  if (profile.deleted_at) return <Deactivated me={me} deletedAt={profile.deleted_at} onRestored={refresh} onLogOut={() => signOut()} />;
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>

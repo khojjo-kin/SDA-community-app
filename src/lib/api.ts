@@ -116,6 +116,26 @@ export async function report(me: string, target: { postId?: string; userId?: str
 }
 
 /** Removes the profile row; every table that references it cascades. */
+/**
+ * Deactivates the account: hidden from everyone at once and unable to post, with everything kept
+ * for 30 days. Signing in again before then restores it; after that the nightly purge removes it.
+ */
+export async function deactivateAccount(me: string) {
+  ok(await supabase.from('community_profiles').update({ deleted_at: new Date().toISOString() }).eq('id', me));
+}
+
+export async function restoreAccount(me: string) {
+  ok(await supabase.from('community_profiles').update({ deleted_at: null }).eq('id', me));
+  announce('profile');
+}
+
+/** When a deactivated account will be gone for good. */
+export function purgeDate(deletedAt: string): Date {
+  const d = new Date(deletedAt);
+  d.setDate(d.getDate() + 30);
+  return d;
+}
+
 export async function deleteAccount(me: string) {
   // Uploaded photos, videos and voice messages live in a public bucket, so remove them first.
   for (let round = 0; round < 50; round++) {

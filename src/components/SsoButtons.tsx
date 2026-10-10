@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useSSO } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
@@ -20,6 +21,7 @@ type Strategy = 'oauth_apple' | 'oauth_google';
  */
 export function SsoButtons({ onError }: { onError: (message: string) => void }) {
   const { startSSOFlow } = useSSO();
+  const router = useRouter();
   const [busy, setBusy] = useState<Strategy | null>(null);
 
   // Lets the browser sheet open faster on Android; a no-op on iOS.
@@ -37,6 +39,8 @@ export function SsoButtons({ onError }: { onError: (message: string) => void }) 
       const { createdSessionId, setActive, signUp } = await startSSOFlow({ strategy, redirectUrl: AuthSession.makeRedirectUri({ scheme: 'community' }) });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        // Adding a second account keeps these pages reachable while signed in, so go home by hand.
+        router.replace('/');
         return;
       }
       const missing = (signUp as any)?.missingFields as string[] | undefined;

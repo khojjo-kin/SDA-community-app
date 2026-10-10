@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { AuthShell } from '../../src/components/AuthShell';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
@@ -9,6 +9,7 @@ import { C, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -26,6 +27,7 @@ export default function SignUp() {
       const res = await signUp!.create({ emailAddress: email.trim(), password });
       if (res.status === 'complete') {
         await setActive!({ session: res.createdSessionId });
+        router.replace('/');
         return;
       }
       await signUp!.prepareEmailAddressVerification({ strategy: 'email_code' });
@@ -46,6 +48,7 @@ export default function SignUp() {
       const res = await signUp!.attemptEmailAddressVerification({ code: code.trim() });
       if (res.status === 'complete') {
         await setActive!({ session: res.createdSessionId });
+        router.replace('/');
       } else {
         const missing = ((res as any).missingFields ?? []).join(', ');
         setErr(missing ? `Sign-up also needs: ${missing}. Ask the app owner to turn those requirements off in Clerk.` : 'That code did not finish sign-up. Request a new code and try again.');

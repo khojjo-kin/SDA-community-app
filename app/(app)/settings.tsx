@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth, useSession as useClerkSession } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, useToast } from '../../src/components/ui';
@@ -16,6 +16,7 @@ const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Of
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
   const { signOut } = useAuth();
+  const { session } = useClerkSession();
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -98,7 +99,8 @@ export default function Settings() {
   function logOut() {
     Alert.alert('Log out of Community?', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => { signOut().catch((e: unknown) => toast(errText(e))); } },
+      // Only this account: any other account signed in on this phone stays, and Clerk switches to it.
+      { text: 'Log out', style: 'destructive', onPress: () => { signOut(session ? { sessionId: session.id } : undefined).catch((e: unknown) => toast(errText(e))); } },
     ]);
   }
 
