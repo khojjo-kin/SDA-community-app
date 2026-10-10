@@ -5,6 +5,7 @@
 // unchanged. Nothing is saved: a reload starts over. The people and pictures are invented samples.
 import { seed, DEMO_ME, ERHA } from './seed';
 import { adminRpc, adminSeed, extraTransactions } from './admin';
+import { EXTENSIONS } from './ext';
 
 type Row = Record<string, any>;
 type Filter = (row: Row) => boolean;
@@ -52,6 +53,21 @@ function profileCard(p: Row): Row {
     is_live: T('community_lives').some((l) => l.user_id === p.id && !l.ended_at),
     requested: T('community_follow_requests').some((r) => r.requester_id === me() && r.target_id === p.id),
     requests_me: T('community_follow_requests').some((r) => r.requester_id === p.id && r.target_id === me()),
+    // Version 11 to 20 of the database.
+    streaks_enabled: p.streaks_enabled ?? true, ring_color: p.ring_color ?? '', profile_theme: p.profile_theme ?? '',
+    restricted: p.id === me() ? !!p.restricted : null, needs_birth_date: p.id === me() ? false : null,
+    fundraiser_id: T('community_fundraisers').find((f) => f.user_id === p.id && f.status === 'active')?.id ?? null,
+    show_activity: p.show_activity ?? true,
+    active_at: p.active_at ?? (T('community_sessions').filter((x) => x.user_id === p.id).map((x) => x.last_seen).sort().pop() ?? null),
+    tick_hidden: p.id === me() ? !!p.tick_hidden : null, verified_via: p.verified ? (p.verified_via ?? 'admin') : '',
+    hide_connections: !!p.hide_connections, country: p.country ?? '',
+    sub_price_pence: p.sub_price_pence ?? null,
+    subscribed: T('community_creator_subs').some((x) => x.creator_id === p.id && x.subscriber_id === me() && x.status === 'active'),
+    subscriber_count: p.id === me() ? count('community_creator_subs', (x) => x.creator_id === p.id && x.status === 'active') : null,
+    subscriber_posts: count('community_posts', (x) => x.user_id === p.id && x.audience === 'subscribers'),
+    interests_more: p.id === me() ? p.interests_more ?? [] : null, interests_less: p.id === me() ? p.interests_less ?? [] : null,
+    sensitive_filter: p.sensitive_filter ?? 'standard',
+    alerts_on: T('community_follow_alerts').some((a) => a.user_id === me() && a.target_id === p.id && (a.posts || a.stories || a.clips || a.live)),
   };
 }
 
@@ -71,6 +87,11 @@ function postCard(p: Row): Row {
     reposted: T('community_reposts').some((l) => l.post_id === p.id && l.user_id === me()),
     following_author: follows(me(), p.user_id),
     view_count: (p.view_base ?? 0) + views,
+    sensitive: !!p.sensitive, audience: p.audience ?? 'everyone', captions: p.captions ?? null, captions_lang: p.captions_lang ?? '', captions_status: p.captions_status ?? '',
+    tagged_ids: p.tagged_ids ?? [], ai_label: !!p.ai_label, profile_only: !!p.profile_only, hide_likes: !!p.hide_likes, comments_off: !!p.comments_off,
+    prompt: p.prompt ?? '', poll: p.poll ?? null,
+    poll_counts: p.poll ? p.poll.options.map((_: string, i: number) => (p.poll_base?.[i] ?? 0) + count('community_poll_votes', (v) => v.post_id === p.id && v.option === i)) : null,
+    my_vote: p.poll ? T('community_poll_votes').find((v) => v.post_id === p.id && v.user_id === me())?.option ?? null : null,
   };
 }
 
@@ -95,6 +116,7 @@ const VIEWS: Record<string, () => Row[]> = {
         in_tray: s.user_id === me() || follows(me(), s.user_id),
         view_count: count('community_story_views', (v) => v.story_id === s.id),
         follows_viewer: follows(s.user_id, me()),
+        author_plus: !!a.plus_until && new Date(a.plus_until).getTime() > Date.now(), verified: !!a.verified,
       };
     }),
   community_thread_cards: () =>
@@ -113,6 +135,7 @@ const VIEWS: Record<string, () => Row[]> = {
           last_message_at: last?.created_at ?? t.created_at,
           unread_count: msgs.filter((m) => m.sender_id !== me() && m.created_at > read).length,
           has_messages: msgs.length > 0, muted: !!settings?.muted, hidden_before: settings?.hidden_before ?? null,
+          streak: t.streak ?? 0, active_at: profileCard(a).active_at, other_plus: !!a.plus_until && new Date(a.plus_until).getTime() > Date.now(),
         };
       }),
   community_notification_cards: () =>
@@ -131,7 +154,7 @@ const VIEWS: Record<string, () => Row[]> = {
   community_live_cards: () =>
     T('community_lives').map((l) => {
       const a = profile(l.user_id);
-      return { viewers: 0, ended_at: null, ...l, username: a.username, full_name: a.full_name, avatar_url: a.avatar_url, verified: !!a.verified, following: follows(me(), l.user_id) };
+      return { viewers: 0, ended_at: null, audience: 'followers', fundraiser_id: null, ...l, username: a.username, full_name: a.full_name, avatar_url: a.avatar_url, verified: !!a.verified, following: follows(me(), l.user_id) };
     }),
   community_profile_viewer_cards: () =>
     T('community_profile_views').map((v) => {
@@ -162,6 +185,23 @@ const VIEWS: Record<string, () => Row[]> = {
     T('community_transactions').map((x) => {
       const a = x.user_id ? profile(x.user_id) : null;
       return { provider: 'manual', status: 'succeeded', method: '', stripe_invoice_id: null, ...x, username: a?.username ?? null, full_name: a?.full_name ?? null, avatar_url: a?.avatar_url ?? null, created_by_username: x.created_by ? profile(x.created_by).username : null };
+    }),
+  community_note_cards: () =>
+    T('community_notes')
+      .filter((n) => new Date(n.expires_at).getTime() > Date.now() && (n.user_id === me() || (follows(me(), n.user_id) && follows(n.user_id, me()))))
+      .map((n) => {
+        const a = profile(n.user_id);
+        const song = n.song_id ? T('community_pod_items').find((x) => x.id === n.song_id) : null;
+        return {
+          audience: 'mutuals', place: '', color: '', song_id: null, ...n, username: a.username, full_name: a.full_name, avatar_url: a.avatar_url, verified: !!a.verified, mine: n.user_id === me(),
+          song_title: song?.title ?? null, song_artist: song?.artist ?? null, song_url: song?.audio_url ?? null, song_cover: song?.cover_url ?? null,
+        };
+      }),
+  community_fundraiser_cards: () =>
+    T('community_fundraisers').map((f) => {
+      const a = profile(f.user_id);
+      const ds = T('community_donations').filter((d) => d.fundraiser_id === f.id && d.status === 'succeeded');
+      return { ...f, username: a.username, full_name: a.full_name, avatar_url: a.avatar_url, verified: !!a.verified, raised_pence: ds.reduce((x, d) => x + d.amount_pence, 0), donor_count: new Set(ds.map((d) => d.donor_id ?? d.id)).size, accepting: f.status === 'active' };
     }),
   community_group_cards: () =>
     T('community_groups').map((g) => {
@@ -216,7 +256,7 @@ function replyTo(text: string): string {
 
 function defaults(table: string, row: Row): Row {
   const out: Row = { ...row };
-  if (!('id' in out) && !/_(likes|saves|reposts|follows|views|reads|settings|close_friends|blocks|follow_requests|group_members|comment_likes)$/.test(table)) out.id = newId();
+  if (!('id' in out) && !/_(likes|saves|reposts|follows|views|reads|settings|close_friends|blocks|follow_requests|group_members|comment_likes|notes|poll_votes|follow_alerts|story_watch|live_reminders|suggestion_dismissals|private_details)$/.test(table)) out.id = newId();
   if (!('created_at' in out)) out.created_at = now();
   if (table === 'community_stories') {
     out.expires_at ??= new Date(Date.now() + 86400e3).toISOString();
@@ -226,6 +266,14 @@ function defaults(table: string, row: Row): Row {
     for (const k of ['media_url', 'audio_url', 'call_url', 'call_kind', 'text']) out[k] ??= '';
     out.audio_seconds ??= 0;
     out.post_id ??= null;
+    out.view_once ??= false;
+    out.opened_at ??= null;
+    out.system ??= '';
+  }
+  if (table === 'community_notes') {
+    out.expires_at ??= new Date(Date.now() + 86400e3).toISOString();
+    for (const k of ['place', 'color']) out[k] ??= '';
+    out.song_id ??= null;
   }
   if (table === 'community_calls') {
     out.status ??= 'ringing';
@@ -249,6 +297,8 @@ function insertRow(table: string, row: Row): Row {
 /* ------------------------------------------------------------------ filters, including PostgREST's or=(...) syntax */
 
 function cmp(op: string, a: any, b: any): boolean {
+  // A column the sample row doesn't have reads as null, and false for a boolean filter.
+  if (a === undefined && (op === 'eq' || op === 'is') && b === false) return true;
   switch (op) {
     case 'eq': return String(a) === String(b);
     case 'neq': return String(a) !== String(b);
@@ -469,10 +519,73 @@ const RPC: Record<string, (args: any) => any> = {
 
 Object.assign(RPC, adminRpc({ T, profile, insertRow, me }));
 
+// Functions added in database versions 11 to 20.
+Object.assign(RPC, {
+  community_touch: () => null,
+  community_record_consent: () => null,
+  community_story_rewatch: () => null,
+  community_set_tick_hidden: ({ hidden }: { hidden: boolean }) => {
+    const p = T('community_profiles').find((x) => x.id === me());
+    if (p) p.tick_hidden = !!hidden;
+    return null;
+  },
+  community_open_view_once: ({ message }: { message: string }) => {
+    const m = T('community_messages').find((x) => x.id === message);
+    if (!m || !m.view_once || m.opened_at || m.sender_id === me()) return null;
+    const url = m.media_url;
+    m.opened_at = now();
+    m.media_url = '';
+    return url;
+  },
+  community_admin_end_ad: ({ p_post }: { p_post: string }) => {
+    for (const x of T('community_promotions')) if (x.post_id === p_post && x.status === 'active') { x.status = 'ended'; x.ends_at = now(); }
+    const post = T('community_posts').find((x) => x.id === p_post);
+    if (post) post.boosted_until = null;
+    return null;
+  },
+  community_fundraiser_supporters: ({ fid, p_limit = 30 }: { fid: string; p_limit?: number }) =>
+    T('community_donations')
+      .filter((d) => d.fundraiser_id === fid && d.status === 'succeeded')
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .slice(0, p_limit)
+      .map((d) => {
+        const a = d.anonymous || !d.donor_id ? null : profile(d.donor_id);
+        return { id: d.id, amount_pence: d.amount_pence, currency: d.currency, message: d.message, created_at: d.created_at, username: a?.username ?? null, full_name: a?.full_name ?? 'Anonymous', avatar_url: a?.avatar_url ?? null };
+      }),
+  community_suggested_people: ({ p_limit = 30 }: { p_limit?: number }) =>
+    T('community_profiles')
+      .filter((p) => p.id !== me() && !follows(me(), p.id) && !p.suspended && !p.deleted_at && !T('community_suggestion_dismissals').some((d) => d.user_id === me() && d.target_id === p.id))
+      .map((p) => {
+        const mutuals = T('community_follows').filter((f) => f.following_id === p.id && follows(me(), f.follower_id)).map((f) => profile(f.follower_id));
+        return { id: p.id, username: p.username, full_name: p.full_name, avatar_url: p.avatar_url, verified: !!p.verified, mutual_count: mutuals.length, mutual_avatars: mutuals.slice(0, 2).map((m) => m.avatar_url), mutual_names: mutuals.slice(0, 2).map((m) => m.username), follows_me: follows(p.id, me()) };
+      })
+      .sort((a, b) => Number(b.follows_me) - Number(a.follows_me) || b.mutual_count - a.mutual_count)
+      .slice(0, p_limit),
+  community_create_group: ({ p_kind, p_name, p_handle, p_description, p_privacy, p_cover_url, p_church_id }: Row) => {
+    const g = insertRow('community_groups', { kind: p_kind, name: p_name, handle: p_handle, description: p_description ?? '', privacy: p_privacy ?? 'public', cover_url: p_cover_url ?? '', church_id: p_church_id ?? null, created_by: me() });
+    insertRow('community_group_members', { group_id: g.id, user_id: me(), role: 'owner', status: 'member' });
+    return g.id;
+  },
+});
+
+// Each area's own sample rows, views and functions (src/fake/ext).
+const extCtx = { db, T, me, now, newId, profile, profileCard, postCard, follows, count, insertRow };
+for (const e of EXTENSIONS) {
+  e.seed?.(extCtx);
+  if (e.views) Object.assign(VIEWS, e.views(extCtx));
+  if (e.rpc) Object.assign(RPC, e.rpc(extCtx));
+}
+
 const broadcasts: { channel: string; event: string; fn: (m: any) => void }[] = [];
 
+const openChannels: Channel[] = [];
+
 class Channel {
-  constructor(public name: string) {}
+  topic: string;
+  constructor(public name: string) {
+    this.topic = 'realtime:' + name;
+    openChannels.push(this);
+  }
   on(type: string, opts: any, fn: (p: any) => void) {
     if (type === 'broadcast') {
       broadcasts.push({ channel: this.name, event: opts?.event, fn });
@@ -546,8 +659,11 @@ export function createClient(url: string, key: string, opts?: any) {
       },
     },
     channel: (name: string) => new Channel(name),
+    getChannels: () => [...openChannels],
     realtime: { setAuth: async () => {} },
     removeChannel(ch: any) {
+      const at = openChannels.indexOf(ch);
+      if (at >= 0) openChannels.splice(at, 1);
       const fns: any[] = ch?._fns ?? [];
       for (let i = listeners.length - 1; i >= 0; i--) if (fns.includes(listeners[i].fn)) listeners.splice(i, 1);
       return Promise.resolve('ok');
