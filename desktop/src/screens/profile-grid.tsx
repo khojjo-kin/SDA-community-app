@@ -1,7 +1,9 @@
 // The tabs under a profile (icons only, the open one underlined, as on Instagram's 2026 desktop
 // profile) and what each shows: Posts as a grid of portrait 3:4 tiles, Shorts as tall tiles with view
-// counts, Saved (your own only), Reposts and Tagged.
-import React, { useEffect } from 'react';
+// counts, Saved (your own only), Reposts and Tagged. A post opens the post dialog, which steps through
+// the tab's posts; a Short opens the Shorts player at it, with the tab's other Shorts round it. Your
+// own empty Posts and Shorts tabs write their invitation out letter by letter and open Create.
+import React, { useEffect, useState } from 'react';
 import { fetchReposts, fetchSaved, fetchUserPosts } from 'shared/api';
 import { listen, putPosts } from 'shared/store';
 import { supabase } from 'shared/supabase';
@@ -11,7 +13,9 @@ import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Empty, Failed, Icon, type IconName, Spinner, useLoad } from '../ui/kit';
 import { Tile } from '../ui/post';
+import { type GridSource, LIST_SOURCE, gridIds, openShortsFrom } from '../ui/post-data';
 import '../styles/profile.css';
+import '../styles/posts.css';
 
 export type ProfileTab = 'posts' | 'reels' | 'saved' | 'reposts' | 'tagged';
 
@@ -70,13 +74,13 @@ export function ProfileTabs({ person, tab, mine }: { person: Profile; tab: Profi
   );
 }
 
-/** A Short in its tab: tall, with how many times it has been watched. */
-function ShortTile({ post, onOpen }: { post: Post; onOpen: (id: string) => void }) {
+/** A Short in its tab: tall, with how many times it has been watched. Opens the Shorts player at it. */
+function ShortTile({ post, onOpen }: { post: Post; onOpen: (post: Post) => void }) {
   const m = post.media[0];
   const cover = m?.type === 'video' ? m.poster || '' : m?.url;
   useEffect(() => putPosts([post]), [post.id]);
   return (
-    <button className="tile prof-short" onClick={() => onOpen(post.id)} aria-label={'Short by ' + post.username + (post.view_count != null ? ', ' + fmt(post.view_count) + ' views' : '')}>
+    <button className="tile prof-short" data-post={post.id} onClick={() => onOpen(post)} aria-label={'Short by ' + post.username + (post.view_count != null ? ', ' + fmt(post.view_count) + ' views' : '')}>
       {cover ? <img src={cover} alt="" loading="lazy" /> : m?.type === 'video' ? <video src={m.url} muted preload="metadata" /> : null}
       {post.view_count != null ? (
         <span className="prof-short-views">
@@ -114,7 +118,134 @@ function SubscriberCard({ person, onSubscribe }: { person: Profile; onSubscribe:
   );
 }
 
-export function ProfileGrid({ person, tab, mine, openPost, onCreate, onSubscribe }: { person: Profile; tab: ProfileTab; mine: boolean; openPost: (id: string) => void; onCreate: (m: 'post' | 'story' | 'short') => void; onSubscribe: () => void }) {
+/* ---------- words that write themselves ---------- */
+
+/*
+ * As the iPhone's WritingText (src/components/WritingText.tsx): letter by letter in the app's green,
+ * with a soft cursor blinking just after the last letter, then they rest; after a pause they write once
+ * more, then stay. The whole line is laid out from the start (the letters still to come are clear), so
+ * nothing moves as they appear. With "reduce motion" on, the words are simply there.
+ */
+const LETTER_MS = 52;
+const SPACE_MS = 95;
+const STOP_MS = 240;
+const START_MS = 380;
+const BLINK_FOR_MS = 2600;
+const AGAIN_AFTER_MS = 7000;
+const BLINK_STEPS = [1, 0.75, 0.4, 0.12, 0, 0, 0.12, 0.4, 0.75, 1, 1, 1];
+const BLINK_STEP_MS = 85;
+
+function delayAfter(ch: string): number {
+  if (ch === ' ') return SPACE_MS;
+  if (/[.,!?;:…]/.test(ch)) return STOP_MS;
+  // A little unevenness reads as writing rather than a machine.
+  return LETTER_MS + Math.round((Math.random() - 0.5) * 24);
+}
+
+/** True while the computer asks for less motion (System Settings → Accessibility → Display → Reduce motion). */
+function useReducedMotion(): boolean {
+  const query = '(prefers-reduced-motion: reduce)';
+  const [reduce, setReduce] = useState(() => {
+    try {
+      return matchMedia(query).matches;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    let m: MediaQueryList;
+    try {
+      m = matchMedia(query);
+    } catch {
+      return;
+    }
+    const on = () => setReduce(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return reduce;
+}
+
+export function WritingText({ text, again = true }: { text: string; again?: boolean }) {
+  const reduce = useReducedMotion();
+  // Letters as people see them (Array.from), so an accented letter or an emoji is one step.
+  const letters = Array.from(text);
+  const [shown, setShown] = useState(reduce ? letters.length : 0);
+  // The cursor's opacity; 0 hides it, and it keeps its place in the line either way.
+  const [cursor, setCursor] = useState(0);
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (fn: () => void, ms: number) => void timers.push(setTimeout(fn, ms));
+    if (reduce) {
+      setShown(letters.length);
+      setCursor(0);
+      return;
+    }
+    let round = 0;
+    const blink = (until: number, then: () => void) => {
+      let step = 0;
+      const tick = () => {
+        const v = BLINK_STEPS[step % BLINK_STEPS.length];
+        // Time's up: stop where it has faded right out, so it never just vanishes.
+        if (Date.now() >= until && v === 0) {
+          setCursor(0);
+          then();
+          return;
+        }
+        setCursor(v);
+        step++;
+        later(tick, BLINK_STEP_MS);
+      };
+      tick();
+    };
+    const write = (i: number) => {
+      setShown(i);
+      setCursor(1);
+      if (i >= letters.length) {
+        blink(Date.now() + BLINK_FOR_MS, () => {
+          round++;
+          if (again && round < 2) later(() => write(0), AGAIN_AFTER_MS);
+        });
+        return;
+      }
+      later(() => write(i + 1), delayAfter(letters[i]));
+    };
+    setShown(0);
+    setCursor(0);
+    later(() => write(0), START_MS);
+    return () => timers.forEach(clearTimeout);
+    // `letters` follows `text`.
+  }, [text, reduce, again]);
+  return (
+    <span className="pp-writing" data-shown={shown} data-total={letters.length}>
+      <span className="pp-sr">{text}</span>
+      <span aria-hidden="true">
+        <span className="pp-written">{letters.slice(0, shown).join('')}</span>
+        <span className="pp-cursor" style={{ opacity: cursor }} />
+        <span className="pp-unwritten">{letters.slice(shown).join('')}</span>
+      </span>
+    </span>
+  );
+}
+
+/** "Share your first photo or Short": on your own empty tab, the words write themselves; a click opens Create. */
+function ShareFirst({ icon, title, body, onClick }: { icon: IconName; title: string; body: string; onClick: () => void }) {
+  return (
+    <div className="empty pp-first-wrap">
+      <button type="button" className="pp-first" onClick={onClick} aria-label={title}>
+        <span className="empty-ring">
+          <Icon name={icon} size={34} stroke={1.5} />
+        </span>
+        <span className="pp-first-title">
+          <WritingText text={title} />
+        </span>
+        <span className="pp-first-body">{body}</span>
+      </button>
+    </div>
+  );
+}
+
+export function ProfileGrid({ person, tab, mine, openPost, onCreate, onSubscribe }: { person: Profile; tab: ProfileTab; mine: boolean; openPost: (id: string, list?: string[]) => void; onCreate: (m: 'post' | 'story' | 'short') => void; onSubscribe: () => void }) {
   const { me } = useMe();
   const { data, error, loading, reload } = useLoad<Post[]>(async () => {
     if (tab === 'saved') return mine ? fetchSaved(me.id) : [];
@@ -143,31 +274,29 @@ export function ProfileGrid({ person, tab, mine, openPost, onCreate, onSubscribe
       case 'tagged':
         return <Empty icon="tagged" title={mine ? 'Photos of you' : 'No photos yet'} body={mine ? "When people tag you in photos, they'll appear here." : `When people tag ${name} in photos, they'll appear here.`} />;
       case 'reels':
-        return (
-          <Empty icon="reels" title={mine ? 'Share a Short' : 'No Shorts yet'} body={mine ? 'Videos you post appear here.' : `Videos from ${name} will show up here.`}>
-            {mine ? (
-              <button className="link-btn" onClick={() => onCreate('short')}>
-                Create your first Short
-              </button>
-            ) : null}
-          </Empty>
+        return mine ? (
+          <ShareFirst icon="reels" title="Share your first Short" body="Videos you post appear here. Click to make one." onClick={() => onCreate('short')} />
+        ) : (
+          <Empty icon="reels" title="No Shorts yet" body={`Videos from ${name} will show up here.`} />
         );
       default:
-        return (
-          <Empty icon="camera" title={mine ? 'Share photos' : 'No posts yet'} body={mine ? 'When you share photos, they will appear on your profile.' : `When ${name} posts, it will show up here.`}>
-            {mine ? (
-              <button className="link-btn" onClick={() => onCreate('post')}>
-                Share your first photo
-              </button>
-            ) : null}
-          </Empty>
+        return mine ? (
+          <ShareFirst icon="camera" title="Share your first photo or Short" body="Click to add a post to your profile." onClick={() => onCreate('post')} />
+        ) : (
+          <Empty icon="camera" title="No posts yet" body={`When ${name} posts, it will show up here.`} />
         );
     }
   }
+  // The post dialog steps through what this tab shows; a Short opens the Shorts player, and more of
+  // the same come from this profile (Posts and Shorts) or nowhere (Saved, Reposts, Tagged: fixed lists).
+  const source: GridSource = tab === 'posts' || tab === 'reels' ? { from: 'user', userId: person.id } : LIST_SOURCE;
+  const ids = gridIds(posts, me);
+  const open = (id: string) => openPost(id, ids);
+  const openShort = (p: Post) => openShortsFrom(p, posts, source, me);
   return (
     <>
       <div className={'grid prof-grid' + (tab === 'reels' ? ' shorts' : '')} role="tabpanel">
-        {posts.map((p) => (tab === 'reels' ? <ShortTile key={p.id} post={p} onOpen={openPost} /> : <Tile key={p.id} post={p} onOpen={openPost} />))}
+        {posts.map((p) => (tab === 'reels' ? <ShortTile key={p.id} post={p} onOpen={openShort} /> : <Tile key={p.id} post={p} onOpen={open} grid={posts} source={source} />))}
       </div>
       {locked ? <div className="prof-grid-end">{locked}</div> : null}
     </>

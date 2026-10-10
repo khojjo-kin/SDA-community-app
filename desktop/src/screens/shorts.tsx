@@ -2,21 +2,38 @@
 // actions sit beside the video, the name and caption to its left, the sound switch in its corner and
 // round up and down buttons at the far right; the page snaps from one Short to the next (also with
 // the ↑ and ↓ keys). Timed captions, their on/off switch and translation work as in the iPhone app
-// (src/components/Reel.tsx).
+// (src/components/Reel.tsx), and follow the member's Shorts settings (start muted, captions on or
+// off, their language), shared with Settings through the app's prefs. The feed keeps to the
+// member's topics and sensitive filter.
+//
+// At /shorts/<id> (a Short's tile in a grid, or a link) the player starts at that Short, as the
+// iPhone's app/(app)/shorts.tsx: with the grid's other Shorts round it and more from the same place
+// after them, or, opened from a link, followed by the usual Shorts feed.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { fetchReels, recordView, setFollow, translateCaptions } from 'shared/api';
-import { putPosts } from 'shared/store';
+import { fetchPost, fetchReels, recordView, setFollow, translateCaptions } from 'shared/api';
+import { loadPrefs, setPrefs, usePrefs } from 'shared/prefs';
+import { getPostNow, putPosts } from 'shared/store';
 import { fmt } from 'shared/theme';
 import type { CaptionLine, Post } from 'shared/types';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import '../styles/stories.css';
+import '../styles/posts.css';
 import { Avatar, Empty, Failed, Icon, Link, Modal, Verified, toast, toastError } from '../ui/kit';
 import { PostMenu, ShareDialog, useFlags } from '../ui/post';
+import { AiInfo } from '../ui/post-extras';
+import { type GridSource, fetchMoreLike, isShort, recallShorts, tasteKey, tasteOf, tuneFeed } from '../ui/post-data';
 import { useFillHeight } from './live-parts';
+
+// The member's choices kept on this computer (sound, captions and their language), read once at start.
+loadPrefs();
 
 /** How many Shorts the server sends at a time (see fetchReels). */
 const PAGE = 10;
+/** When the member's choices leave a whole page out, look this many pages further before giving up. */
+const EXTRA_PAGES = 3;
+/** Where more Shorts come from after the ones the player opened with: a grid's place, or the Shorts feed. */
+type ShortsSource = GridSource | { from: 'feed' };
 
 /** The languages captions can be translated into (the app's languages, src/lib/i18n.ts). */
 const LANGUAGES: { code: string; name: string; native: string }[] = [
@@ -42,23 +59,6 @@ const LANGUAGES: { code: string; name: string; native: string }[] = [
   { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
 ];
 
-/* Small choices kept on this computer: sound, captions, and the captions' language ('' = as made). */
-function readPref<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem('community.shorts.' + key);
-    return raw === null ? fallback : (JSON.parse(raw) as T);
-  } catch {
-    return fallback;
-  }
-}
-function savePref(key: string, value: unknown) {
-  try {
-    localStorage.setItem('community.shorts.' + key, JSON.stringify(value));
-  } catch {
-    // not kept
-  }
-}
-
 /*
  * Translated captions, kept while the app is open: each Short is translated into each language at
  * most once. Only answers are kept, so one that failed is asked for again next time (as on the iPhone).
@@ -82,66 +82,170 @@ function askTranslation(postId: string, lang: string): Promise<CaptionLine[] | n
 }
 const baseLang = (code: string) => code.trim().toLowerCase().split(/[-_]/)[0];
 
-type Settings = { muted: boolean; setMuted: (m: boolean) => void; cc: boolean; setCc: (on: boolean) => void; lang: string; setLang: (l: string) => void };
+/** The app's language: the one chosen in Settings, or this computer's ('' in prefs follows the computer). */
+function appLanguage(chosen: string): string {
+  if (chosen) return baseLang(chosen);
+  const aliases: Record<string, string> = { ak: 'tw', twi: 'tw', fil: 'tl', in: 'id' };
+  const base = baseLang((typeof navigator !== 'undefined' && navigator.language) || 'en');
+  const code = aliases[base] ?? base;
+  return LANGUAGES.some((l) => l.code === code) ? code : 'en';
+}
 
-export function Shorts({ openPost }: { openPost: (id: string) => void }) {
+/**
+ * The Shorts settings, from the app's prefs as on the iPhone: start muted (reelsMuted), captions on
+ * (captions) and their language (captionLang, '' = the app's language). The sound button and CC
+ * change them for every Short, and Settings shows the same choices. `forceMute` is for the browser's
+ * doing, not the member's: it won't start a video with sound before the first click, so that one
+ * starts silently without changing the saved choice.
+ */
+type Settings = {
+  muted: boolean;
+  setMuted: (m: boolean) => void;
+  forceMute: () => void;
+  cc: boolean;
+  setCc: (on: boolean) => void;
+  /** The language captions show in. */
+  target: string;
+  /** True when the member picked that language, rather than it following the app's. */
+  chosen: boolean;
+  setTarget: (code: string) => void;
+};
+
+function useShortsSettings(): Settings {
+  const prefs = usePrefs();
+  const [forced, setForced] = useState(false);
+  const app = appLanguage(prefs.language);
+  return {
+    muted: prefs.reelsMuted || forced,
+    setMuted: (m) => {
+      setForced(false);
+      setPrefs({ reelsMuted: m });
+    },
+    forceMute: () => setForced(true),
+    cc: prefs.captions,
+    setCc: (on) => setPrefs({ captions: on }),
+    target: baseLang(prefs.captionLang) || app,
+    chosen: !!prefs.captionLang,
+    // The app's own language is saved as '' so captions follow it if it changes later.
+    setTarget: (code) => setPrefs({ captionLang: code === app ? '' : code }),
+  };
+}
+
+export function Shorts({ openPost, startId }: { openPost: (id: string) => void; startId?: string }) {
+  const { me } = useMe();
   const [ids, setIds] = useState<string[] | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [missing, setMissing] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [muted, setMutedState] = useState(() => readPref('muted', false));
-  const [cc, setCcState] = useState(() => readPref('captions', true));
-  const [lang, setLangState] = useState(() => readPref('captionLang', ''));
+  // Where the player opens: the Short asked for (at /shorts/<id>), once the list has it.
+  const [startAt, setStartAt] = useState<number | null>(null);
+  const settings = useShortsSettings();
   const list = useRef<HTMLDivElement>(null);
   const cursor = useRef<string | undefined>(undefined);
   const done = useRef(false);
   const loadingMore = useRef(false);
+  // Where more come from once the first ones run out; the Shorts feed unless a grid says otherwise.
+  const source = useRef<ShortsSource>({ from: 'feed' });
+  const request = useRef(0);
+  // What the member wants more and less of (Content preferences): the feed is ranked by it.
+  const taste = tasteOf(me);
+  const key = tasteKey(taste);
+  const tasteRef = useRef(taste);
+  tasteRef.current = taste;
 
-  const settings: Settings = {
-    muted,
-    setMuted: (m) => {
-      setMutedState(m);
-      savePref('muted', m);
-    },
-    cc,
-    setCc: (on) => {
-      setCcState(on);
-      savePref('captions', on);
-    },
-    lang,
-    setLang: (l) => {
-      setLangState(l);
-      savePref('captionLang', l);
-    },
-  };
+  /** Adds Shorts at the end, leaving out any already there. */
+  const append = (page: Post[]) => setIds((cur) => (!cur ? page.map((p) => p.id) : [...cur, ...page.map((p) => p.id).filter((id) => !cur.includes(id))]));
 
-  const load = useCallback(async (reset: boolean) => {
-    if (reset) {
-      cursor.current = undefined;
-      done.current = false;
-      setError(null);
-    }
-    if (done.current || loadingMore.current) return;
-    loadingMore.current = true;
-    try {
-      const page = await fetchReels(false, cursor.current);
+  /** The next Shorts from the current source, tuned to the member's choices. */
+  const more = useCallback(async (): Promise<Post[]> => {
+    const from = source.current;
+    let shown: Post[] = [];
+    // Keep going while the member's choices (or a group's photos) leave a whole page out.
+    for (let i = 0; i <= EXTRA_PAGES && !done.current && !shown.length; i++) {
+      const page = from.from === 'feed' ? await fetchReels(false, cursor.current) : cursor.current ? await fetchMoreLike(from, cursor.current, true) : [];
       putPosts(page);
       // Paging follows what the server sent: a short page is the end.
-      if (page.length < PAGE) done.current = true;
+      if (!page.length || (from.from === 'feed' && page.length < PAGE)) done.current = true;
       if (page.length) cursor.current = page[page.length - 1].created_at;
-      setIds((cur) => (reset || !cur ? page.map((p) => p.id) : [...cur, ...page.map((p) => p.id).filter((id) => !cur.includes(id))]));
-    } catch (e) {
-      if (reset) setError(e);
-      else toastError(e);
-    } finally {
-      loadingMore.current = false;
+      const shorts = page.filter(isShort);
+      // The feed is ranked by the member's topics; Shorts from Explore keep to the sensitive filter.
+      shown = from.from === 'feed' ? tuneFeed(shorts, me.id, tasteRef.current, true) : from.from === 'explore' ? tuneFeed(shorts, me.id, tasteRef.current, false) : shorts;
     }
-  }, []);
+    return shown;
+  }, [me.id]);
+
+  const load = useCallback(
+    async (reset: boolean) => {
+      if (reset) {
+        request.current++;
+        cursor.current = undefined;
+        done.current = false;
+        loadingMore.current = false;
+        source.current = { from: 'feed' };
+        setError(null);
+        setMissing(false);
+      }
+      if (done.current || loadingMore.current) return;
+      const mine = request.current;
+      loadingMore.current = true;
+      try {
+        if (reset && startId) {
+          // Opened at one Short: the grid it came from, or (from a link) the Short and then the feed.
+          const opened = recallShorts(startId);
+          if (opened) {
+            source.current = opened.source;
+            done.current = opened.source.from === 'list';
+            cursor.current = getPostNow(opened.ids[opened.ids.length - 1])?.created_at;
+            setIds(opened.ids);
+            setStartAt(Math.max(0, opened.ids.indexOf(startId)));
+            return;
+          }
+          const post = getPostNow(startId) ?? (await fetchPost(startId));
+          if (mine !== request.current) return;
+          if (!post) {
+            setMissing(true);
+            setIds([]);
+            return;
+          }
+          setIds([post.id]);
+          setStartAt(0);
+          append(await more());
+          return;
+        }
+        const page = await more();
+        if (mine !== request.current) return;
+        if (reset) setIds(page.map((p) => p.id));
+        else append(page);
+      } catch (e) {
+        if (reset) setError(e);
+        else toastError(e);
+      } finally {
+        if (mine === request.current) loadingMore.current = false;
+      }
+    },
+    // `key` is here so new choices in Content preferences load the feed again with them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [startId, more, key],
+  );
   useEffect(() => {
+    setIds(null);
+    setStartAt(null);
+    setCurrent(0);
     load(true);
   }, [load]);
 
   // Each Short fills the window below whatever sits above the list (the demo line, an announcement).
   const height = useFillHeight(list);
+
+  // Opened at a Short further down the list: go straight to it, without scrolling past the others.
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!el || startAt === null || !ids?.length) return;
+    const item = el.querySelector<HTMLElement>(`.sh-item[data-index="${startAt}"]`);
+    if (item) el.scrollTop = item.offsetTop;
+    setCurrent(startAt);
+    setStartAt(null);
+  }, [startAt, ids, height]);
 
   // The Short most in view is the one playing.
   useEffect(() => {
@@ -198,8 +302,20 @@ export function Shorts({ openPost }: { openPost: (id: string) => void }) {
     <div className="reels sh-list" ref={list} tabIndex={-1} style={style} aria-label="Shorts">
       {error ? <Failed error={error} retry={() => load(true)} /> : null}
       {!ids && !error ? <ShortSkeleton /> : null}
-      {ids && !ids.length ? (
+      {missing ? (
+        <Empty icon="reels" title="This Short isn't available" body="It may have been deleted.">
+          <button className="btn" onClick={() => nav('/shorts')}>
+            Watch Shorts
+          </button>
+        </Empty>
+      ) : ids && !ids.length ? (
         <Empty icon="reels" title="No Shorts yet" body="Share a short video and it will show up here for everyone to watch." />
+      ) : null}
+      {startId ? (
+        // Opened from a grid or a link: back to where it was opened from.
+        <button className="sh-round pp-shorts-back" style={{ top: (height ? Math.max(0, innerHeight - height) : 0) + 20 }} aria-label="Back" title="Back" onClick={() => (history.length > 1 ? history.back() : nav('/shorts'))}>
+          <Icon name="back" size={22} stroke={2.2} />
+        </button>
       ) : null}
       {(ids ?? []).map((id, i) => (
         <Short key={id} id={id} index={i} active={i === current} near={Math.abs(i - current) <= 1} settings={settings} openPost={openPost} />
@@ -264,7 +380,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
   const [lines, setLines] = useState<CaptionLine[] | null>(null);
   const [followed, setFollowed] = useState(false);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { muted, setMuted, cc, setCc, lang, setLang } = settings;
+  const { muted, setMuted, forceMute, cc, setCc, target, setTarget, chosen } = settings;
 
   // Plays only while it is the Short in view; scrolled away, it starts from the beginning next time.
   useEffect(() => {
@@ -272,9 +388,10 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
     if (!v) return;
     if (active && !paused) {
       v.play().catch((e) => {
-        // The browser won't start a video with sound before the first click: start it silently.
+        // The browser won't start a video with sound before the first click: start it silently
+        // (for now only: the member's saved sound choice stays as it is).
         if (e?.name === 'NotAllowedError' && !v.muted) {
-          setMuted(true);
+          forceMute();
           v.muted = true;
           v.play().catch(() => setPaused(true));
         }
@@ -298,7 +415,8 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
   /* ----- captions ----- */
   const hasCaptions = post?.captions_status === 'ready' && !!post.captions?.length;
   const source = post?.captions_lang ? baseLang(post.captions_lang) : '';
-  const wanted = cc && hasCaptions && lang && baseLang(lang) !== source ? baseLang(lang) : '';
+  // Translated only when the captions' language is known and isn't the one wanted (as on the iPhone).
+  const wanted = cc && hasCaptions && source && target !== source ? target : '';
   useEffect(() => {
     if (!post || !hasCaptions || !cc) return setLines(null);
     if (!wanted) return setLines(post.captions);
@@ -310,7 +428,8 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
     askTranslation(post.id, wanted).then((got) => {
       if (!live) return;
       if (got) setLines(got);
-      else toast(`Captions in ${LANGUAGES.find((l) => l.code === wanted)?.name ?? 'that language'} aren't available for this Short`);
+      // Said only for a language the member picked; captions simply stay as made otherwise.
+      else if (chosen) toast(`Captions in ${LANGUAGES.find((l) => l.code === wanted)?.name ?? 'that language'} aren't available for this Short`);
     });
     return () => {
       live = false;
@@ -382,7 +501,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
                 className="sh-translated"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setLang('');
+                  setTarget(source);
                 }}
               >
                 Translated · Show original
@@ -453,6 +572,13 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
                 … more
               </button>
             ) : null}
+            {/* As the iPhone's Reel: the AI label, and how many have watched it (unless the author hides it). */}
+            {post.ai_label || post.view_count ? (
+              <div className="pp-short-meta">
+                {post.ai_label ? <AiInfo /> : null}
+                {post.view_count ? <span>{fmt(post.view_count)} {post.view_count === 1 ? 'view' : 'views'}</span> : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="reel-actions sh-actions">
@@ -466,6 +592,10 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
               <span>{fmt(post.comment_count)}</span>
             </button>
           )}
+          <button aria-label={post.reposted ? 'Undo repost' : 'Repost'} aria-pressed={post.reposted} onClick={() => toggle('reposted')}>
+            <Icon name="repost" size={26} color={post.reposted ? '#1fbf5a' : 'currentColor'} />
+            <span>{fmt(post.repost_count)}</span>
+          </button>
           <button aria-label="Share" onClick={() => setShare(true)}>
             <Icon name="send" size={26} />
           </button>
@@ -508,7 +638,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
           onPick={(code) => {
             setPicking(false);
             if (!cc) setCc(true);
-            setLang(code === source ? '' : code);
+            setTarget(code);
           }}
           onClose={() => setPicking(false)}
         />

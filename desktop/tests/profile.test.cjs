@@ -96,7 +96,7 @@ const check = (name, ok, extra = '') => {
     check('Tagged shows the posts I am tagged in', (await page.locator('.prof-grid .tile').count()) === 3, await page.locator('.prof-grid .tile').count());
     await goto('/u/you/shorts');
     check('Shorts is the open tab at /shorts', (await page.locator('.prof-tab.on').getAttribute('aria-label')) === 'Shorts');
-    check('my empty Shorts tab invites me to share one', (await page.locator('.empty h2').innerText()) === 'Share a Short');
+    check('my empty Shorts tab invites me to share one', (await page.locator('.pp-first').getAttribute('aria-label')) === 'Share your first Short');
     await goto('/u/you/reposts');
     check('an empty Reposts tab says so', (await page.locator('.empty h2').innerText()) === 'No reposts yet');
     await goto('/u/you/saved');

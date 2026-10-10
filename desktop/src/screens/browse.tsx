@@ -1,4 +1,6 @@
-// Home (stories, feed, suggestions) and Explore (search and the mosaic grid).
+// Home (stories, feed, suggestions) and Explore (search and the mosaic grid). For you keeps to the
+// member's topics and sensitive filter (Settings → Content preferences), Explore to the sensitive
+// filter, as on the iPhone.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { type FeedKind, dismissSuggestion, fetchExplore, fetchFeed, fetchLives, fetchStoryTray, fetchSuggestedPeople, searchProfiles, setFollow } from 'shared/api';
 import { listen, putPosts } from 'shared/store';
@@ -9,8 +11,14 @@ import { nav } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Link, Spinner, Verified, toastError } from '../ui/kit';
 import { AccountSwitcher } from '../ui/accounts';
 import { FeedPost, Tile } from '../ui/post';
+import { type GridSource, gridIds, tasteKey, tasteOf, tuneFeed } from '../ui/post-data';
 import type { CreateMode } from '../ui/sidebar';
 import { StoryTray, StoryViewer } from '../ui/stories';
+
+/** Posts the server sends to Home at a time (see fetchFeed). */
+const FEED_PAGE = 12;
+/** When the member's choices leave a whole page out, look this many pages further before giving up. */
+const EXTRA_PAGES = 2;
 
 /* ---------- home ---------- */
 
@@ -33,18 +41,43 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
   const [viewing, setViewing] = useState<number | null>(null);
   const last = useRef<string | undefined>(undefined);
   const sentinel = useRef<HTMLDivElement>(null);
+  // What the member wants more and less of: For you is ranked by it; Following is left as it is.
+  const taste = tasteOf(me);
+  const key = tasteKey(taste);
+  const tasteRef = useRef(taste);
+  tasteRef.current = taste;
+
+  /**
+   * The next page from the server after `before`, tuned for For you. Paging follows what the server
+   * sent, so a page the member's choices empty isn't taken for the end: a few more are looked at.
+   */
+  const page = useCallback(
+    async (before: string | undefined): Promise<{ posts: Post[]; last: string | undefined; more: boolean }> => {
+      let cursor = before;
+      for (let i = 0; ; i++) {
+        const got = await fetchFeed(me.id, cursor, kind);
+        cursor = got[got.length - 1]?.created_at ?? cursor;
+        const more = got.length >= FEED_PAGE;
+        const posts = kind === 'foryou' ? tuneFeed(got, me.id, tasteRef.current, true) : got;
+        if (posts.length || !more || i >= EXTRA_PAGES) return { posts, last: cursor, more };
+      }
+    },
+    [me.id, kind],
+  );
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const page = await fetchFeed(me.id, undefined, kind);
-      last.current = page[page.length - 1]?.created_at;
-      setIds(page.map((p) => p.id));
-      setMore(page.length >= 12);
+      const got = await page(undefined);
+      last.current = got.last;
+      setIds(got.posts.map((p) => p.id));
+      setMore(got.more);
     } catch (e) {
       setError(e);
     }
-  }, [me.id, kind]);
+    // `key` is here so new choices in Content preferences load the feed again with them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, key]);
   const loadTray = useCallback(() => {
     fetchStoryTray(me.id).then(setTray, () => {});
     fetchLives().then((l) => setLives(l.filter((x) => !x.ended_at)), () => {});
@@ -72,10 +105,10 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
       if (!e.isIntersecting || !more || loadingMore || !last.current) return;
       setLoadingMore(true);
       try {
-        const page = await fetchFeed(me.id, last.current, kind);
-        last.current = page[page.length - 1]?.created_at ?? last.current;
-        setIds((cur) => [...(cur ?? []), ...page.map((p) => p.id).filter((id) => !(cur ?? []).includes(id))]);
-        setMore(page.length >= 12);
+        const got = await page(last.current);
+        last.current = got.last;
+        setIds((cur) => [...(cur ?? []), ...got.posts.map((p) => p.id).filter((id) => !(cur ?? []).includes(id))]);
+        setMore(got.more);
       } catch (err) {
         toastError(err);
       } finally {
@@ -249,14 +282,63 @@ export function Suggestion({ p, big, onDismiss }: { p: SuggestedPerson; big?: bo
 
 /* ---------- explore ---------- */
 
-export function Explore({ openPost }: { openPost: (id: string) => void }) {
+/** Posts Explore asks the server for at a time (see fetchExplore). */
+const EXPLORE_PAGE = 30;
+/** A Short opened from Explore carries on with more Shorts from everyone. */
+const EXPLORE: GridSource = { from: 'explore' };
+
+/**
+ * Explore: everyone's photos and Shorts in Instagram's mosaic, more as you scroll. A photo opens the
+ * post dialog, which steps through the mosaic; a Short opens the Shorts player at it. Sensitive posts
+ * stay out when the member asked for less of them.
+ */
+export function Explore({ openPost }: { openPost: (id: string, list?: string[]) => void }) {
+  const { me } = useMe();
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const cursor = useRef<string | undefined>(undefined);
+  const done = useRef(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const taste = tasteOf(me);
+  const key = tasteKey(taste);
+  const tasteRef = useRef(taste);
+  tasteRef.current = taste;
   const load = () => {
     setError(null);
-    fetchExplore().then(setPosts, setError);
+    done.current = false;
+    fetchExplore(undefined, EXPLORE_PAGE).then((page) => {
+      // Paging follows what the server sent; the member's choices only change what is shown.
+      cursor.current = page[page.length - 1]?.created_at;
+      done.current = page.length < EXPLORE_PAGE;
+      setPosts(tuneFeed(page, me.id, tasteRef.current, false));
+    }, setError);
   };
-  useEffect(load, []);
+  useEffect(load, [key]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !posts) return;
+    const io = new IntersectionObserver(async ([e]) => {
+      if (!e.isIntersecting || done.current || loadingMore || !cursor.current) return;
+      setLoadingMore(true);
+      try {
+        const page = await fetchExplore(cursor.current, EXPLORE_PAGE);
+        cursor.current = page[page.length - 1]?.created_at ?? cursor.current;
+        done.current = page.length < EXPLORE_PAGE;
+        const shown = tuneFeed(page, me.id, tasteRef.current, false);
+        setPosts((cur) => [...(cur ?? []), ...shown.filter((p) => !(cur ?? []).some((c) => c.id === p.id))]);
+      } catch (err) {
+        toastError(err);
+      } finally {
+        setLoadingMore(false);
+      }
+    }, { rootMargin: '800px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [posts, loadingMore]);
+  const all = posts ?? [];
+  const ids = gridIds(all, me);
+  const open = (id: string) => openPost(id, ids);
   return (
     <div className="page explore">
       <SearchBox />
@@ -264,14 +346,16 @@ export function Explore({ openPost }: { openPost: (id: string) => void }) {
       {!posts && !error ? <Spinner /> : null}
       {posts && !posts.length ? <Empty icon="compass" title="Nothing to explore yet" body="Photos and Shorts from everyone on Community will show up here." /> : null}
       <div className="mosaic">
-        {(posts ?? []).map((p, i) => {
+        {all.map((p, i) => {
           // In each block of five, one tall tile, alternating right and left.
           const block = Math.floor(i / 5);
           const pos = i % 5;
           const tall = (block % 2 === 0 && pos === 2) || (block % 2 === 1 && pos === 0);
-          return <Tile key={p.id} post={p} onOpen={openPost} tall={tall} />;
+          return <Tile key={p.id} post={p} onOpen={open} tall={tall} grid={all} source={EXPLORE} />;
         })}
       </div>
+      <div ref={sentinel} />
+      {loadingMore ? <Spinner /> : null}
     </div>
   );
 }

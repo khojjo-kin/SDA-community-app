@@ -1,20 +1,27 @@
 // Posts: the feed card, the photo and video carousel, the action row, the share dialog, the
-// three-dots menu, the large post view with comments (Instagram's post dialog), and the grid tile.
-// Instagram's 2026 desktop layout, with what Community posts can carry (database v20): polls,
-// prompts, the AI label, tagged people, posts for subscribers, sensitive posts and hidden like counts.
+// three-dots menu, the large post view with comments (Instagram's post dialog, with round arrows to
+// step through the grid it was opened from), and the grid tile (a Short's tile opens the Shorts
+// player). Instagram's 2026 desktop layout, with what Community posts can carry (database v20):
+// polls, prompts, the AI label, tagged people, posts for subscribers, sensitive posts, hidden like
+// counts and a song from Pod.
 import React, { useEffect, useRef, useState } from 'react';
-import { addComment, deleteComment, fetchComments, fetchPost, peopleToMessage, recordView, setCommentLike, setFlag, setFollow, sharePost } from 'shared/api';
+import { addComment, deleteComment, fetchComments, fetchPodItem, fetchPost, peopleToMessage, recordView, searchProfiles, setCommentLike, setFlag, setFollow, sharePost } from 'shared/api';
 import { getPostNow, putPosts, usePost } from 'shared/store';
 import { ago, count, fmt } from 'shared/theme';
-import type { Comment, Media, Post, Profile } from 'shared/types';
+import type { Comment, Media, PodItem, Post, Profile } from 'shared/types';
 import '../styles/posts.css';
+import { openCreate } from '../lib/create';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Empty, Icon, Link, Modal, Spinner, Verified, toast, toastError } from './kit';
-import { altOf, ringOf, useCanSee, useStoryGroup } from './post-data';
+import { type GridSource, altOf, copyText, isShort, openShortsFrom, postLink, ringOf, useCanSee, useStoryGroup } from './post-data';
 import { AiInfo, EmojiButton, EyeOffIcon, LockedMedia, PollCard, PromptBanner, TagsButton, Veil, insertAt, useVeil } from './post-extras';
 import { PostMenu } from './post-menu';
+import { usePlayer } from './player';
 import { StoryViewer } from './stories';
+
+/** What every comment box says before anything is typed (the iPhone's "Comment…"). */
+export const COMMENT_PLACEHOLDER = 'Comment…';
 
 export { PostMenu };
 
@@ -194,10 +201,17 @@ export function LikeLine({ post }: { post: Post }) {
 
 /* ---------- share ---------- */
 
+/**
+ * Share: send the post to people in a message, or (with nobody chosen) copy its link, add it to your
+ * story or repost it, as the iPhone's share sheet (app/(app)/share/[id].tsx) offers. Typing searches
+ * everyone on Community, not only the people you message.
+ */
 export function ShareDialog({ postId, onClose }: { postId: string; onClose: () => void }) {
   const { me } = useMe();
+  const post = usePost(postId);
   const [people, setPeople] = useState<Profile[] | null>(null);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [found, setFound] = useState<Profile[] | null>(null);
+  const [picked, setPicked] = useState<Profile[]>([]);
   const [q, setQ] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -207,16 +221,45 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
       setPeople([]);
     });
   }, []);
-  const shown = (people ?? []).filter((p) => !q || p.username.includes(q.toLowerCase()) || p.full_name.toLowerCase().includes(q.toLowerCase()));
+  useEffect(() => {
+    const needle = q.trim();
+    if (!needle) return setFound(null);
+    let live = true;
+    const t = setTimeout(() => {
+      searchProfiles(needle).then(
+        (r) => live && setFound(r.filter((p) => p.id !== me.id && !p.is_blocked)),
+        () => live && setFound([]),
+      );
+    }, 220);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+  const needle = q.trim().toLowerCase();
+  // Your own people first while typing, then anyone else the search finds.
+  const mine = (people ?? []).filter((p) => !needle || p.username.includes(needle) || p.full_name.toLowerCase().includes(needle));
+  const shown = needle ? [...mine, ...(found ?? []).filter((p) => !mine.some((m) => m.id === p.id))] : mine;
+  const on = (p: Profile) => picked.some((x) => x.id === p.id);
+  const flip = (p: Profile, next: boolean) => setPicked((cur) => (next ? [...cur.filter((x) => x.id !== p.id), p] : cur.filter((x) => x.id !== p.id)));
+  // A post kept for subscribers stays off your story, which everyone who sees your stories can watch.
+  const canStory = !!post && post.audience !== 'subscribers';
+  const run = (fn: () => Promise<unknown> | void) => async () => {
+    try {
+      await fn();
+    } catch (e) {
+      toastError(e);
+    }
+  };
   return (
-    <Modal onClose={onClose} title="Share" className="share">
+    <Modal onClose={onClose} title="Share" className="share pp-share">
       <div className="share-search">
         <span>To:</span>
         <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
       </div>
       <div className="share-list">
-        {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text pad">No account found.</p> : null}
+        {people === null || (needle && found === null && !mine.length) ? <Spinner /> : null}
+        {people && !shown.length && (!needle || found !== null) ? <p className="muted-text pad">No account found.</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -224,31 +267,81 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
               <b>{p.full_name || p.username}</b>
               <span>{p.username}</span>
             </span>
-            <input type="checkbox" className="round-check" checked={picked.includes(p.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, p.id] : picked.filter((x) => x !== p.id))} />
+            <input type="checkbox" className="round-check" checked={on(p)} onChange={(e) => flip(p, e.target.checked)} />
           </label>
         ))}
       </div>
-      {picked.length ? <input className="share-note" placeholder="Write a message…" value={note} onChange={(e) => setNote(e.target.value)} /> : null}
-      <div className="modal-foot">
-        <button
-          className="btn block"
-          disabled={!picked.length || busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await sharePost(me.id, postId, picked, note);
-              toast(picked.length === 1 ? 'Sent' : `Sent to ${picked.length} people`);
+      {picked.length ? (
+        <>
+          <input className="share-note" placeholder="Write a message…" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label="Message" />
+          <div className="modal-foot">
+            <button
+              className="btn block"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await sharePost(me.id, postId, picked.map((p) => p.id), note);
+                  toast(picked.length === 1 ? 'Sent' : `Sent to ${picked.length} people`);
+                  onClose();
+                } catch (e) {
+                  toastError(e);
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Sending…' : picked.length > 1 ? 'Send separately' : 'Send'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="pp-share-actions">
+          <ShareAction
+            label="Copy link"
+            icon="link"
+            onClick={run(async () => {
+              await copyText(postLink(postId));
+              toast('Link copied');
               onClose();
-            } catch (e) {
-              toastError(e);
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? 'Sending…' : 'Send'}
-        </button>
-      </div>
+            })}
+          />
+          {canStory ? (
+            <ShareAction
+              label="Add to story"
+              icon="story"
+              onClick={() => {
+                onClose();
+                // The story editor (Stories) opens with this post on the story.
+                openCreate({ mode: 'story', sharePostId: postId });
+              }}
+            />
+          ) : null}
+          {post ? (
+            <ShareAction
+              label={post.reposted ? 'Remove repost' : 'Repost'}
+              icon="repost"
+              onClick={run(async () => {
+                await setFlag(me.id, post, 'reposted', !post.reposted);
+                toast(post.reposted ? 'Repost removed' : 'Reposted to your profile');
+                onClose();
+              })}
+            />
+          ) : null}
+        </div>
+      )}
     </Modal>
+  );
+}
+
+/** One of the round buttons along the bottom of Share. */
+function ShareAction({ label, icon, onClick }: { label: string; icon: 'link' | 'story' | 'repost'; onClick: () => void }) {
+  return (
+    <button type="button" className="pp-share-act" onClick={onClick}>
+      <span className="pp-share-ring">
+        <Icon name={icon} size={22} />
+      </span>
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -272,6 +365,44 @@ export function RichText({ text }: { text: string }) {
         ),
       )}
     </>
+  );
+}
+
+/* ---------- the song ---------- */
+
+/** "Title · Artist", as the iPhone writes a post's song. */
+export const songOf = (p: Pick<Post, 'audio_title' | 'audio_artist'>) => (p.audio_title ? (p.audio_artist ? `${p.audio_title} · ${p.audio_artist}` : p.audio_title) : '');
+
+/**
+ * A post's song (picked from Pod in Create). Clicking it plays it in the app's player, the bar along
+ * the bottom of the window, and clicking again pauses it. The Pod item is looked up for its cover;
+ * if Pod can't be reached, the post's own copy of the song plays.
+ */
+export function SongButton({ post }: { post: Post }) {
+  const player = usePlayer();
+  const [busy, setBusy] = useState(false);
+  const song = songOf(post);
+  const on = !!post.audio_id && player.item?.id === post.audio_id;
+  const playing = on && player.playing;
+  const play = async () => {
+    if (on) return player.toggle();
+    if (!post.audio_id) return;
+    setBusy(true);
+    const item: PodItem | null =
+      (await fetchPodItem(post.audio_id).catch(() => null)) ??
+      (post.audio_url
+        ? { id: post.audio_id, user_id: '', kind: 'song', title: post.audio_title ?? '', artist: post.audio_artist ?? '', description: '', cover_url: '', audio_url: post.audio_url, duration_seconds: 0, plays: 0, created_at: '', username: '', full_name: '', avatar_url: '', saved: false }
+        : null);
+    setBusy(false);
+    if (item?.audio_url) player.play(item);
+    else toast("This song isn't on Pod any more.");
+  };
+  return (
+    <button type="button" className={'pp-song' + (playing ? ' on' : '')} onClick={play} disabled={busy} aria-pressed={playing} aria-label={(playing ? 'Pause ' : 'Play ') + song} title={playing ? 'Pause' : 'Play'}>
+      <Icon name="music" size={12} stroke={2.2} />
+      <span className="pp-song-name">{song}</span>
+      <Icon name={playing ? 'pause' : 'play'} size={13} stroke={0} />
+    </button>
   );
 }
 
@@ -308,7 +439,8 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
     );
   }
   if (!post.boosted && post.location) bits.push(<span className="pp-place">{post.location}</span>);
-  else if (!post.boosted && post.audio_title) bits.push(<span>♪ {post.audio_title}</span>);
+  // The song from Pod that goes with it, as Instagram writes it under the name: click to play it.
+  if (post.audio_id && post.audio_title) bits.push(<SongButton post={post} />);
   if (post.audience === 'subscribers') {
     bits.push(
       <span className="pp-badge" title="Only people who subscribe can see it">
@@ -470,7 +602,7 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
                 }
               }}
             >
-              <input ref={input} placeholder={answering ? 'Write your answer…' : 'Add a comment…'} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
+              <input ref={input} placeholder={answering ? 'Write your answer…' : COMMENT_PLACEHOLDER} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
               {text.trim() ? <button className="link-btn">Post</button> : null}
               <EmojiButton size={14} onPick={(e) => insertAt(input.current, text, e, setText)} />
             </form>
@@ -486,7 +618,72 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
 
 /* ---------- the post dialog ---------- */
 
-export function PostView({ id, onClose, asPage }: { id: string; onClose: () => void; asPage?: boolean }) {
+/** Whether a key press is someone typing: an arrow in a box with words in it moves the cursor instead. */
+function typing(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  if (!t) return false;
+  if (t.isContentEditable) return true;
+  return (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !!(t as HTMLInputElement).value;
+}
+
+/**
+ * The post dialog (or, with `asPage`, the post on its own page at /p/<id>). Opened from a grid, it
+ * has `list`, the grid's posts in order, and round arrows beside its left and right edges (and the
+ * ← and → keys) move to the previous and next one, as on Instagram; there is no arrow at the ends.
+ */
+export function PostView({ id, onClose, asPage, list, onOpen }: { id: string; onClose: () => void; asPage?: boolean; list?: string[]; onOpen?: (id: string) => void }) {
+  const at = list && onOpen ? list.indexOf(id) : -1;
+  const prev = at > 0 ? list![at - 1] : null;
+  const next = at >= 0 && at < list!.length - 1 ? list![at + 1] : null;
+  const anchor = useRef<HTMLDivElement>(null);
+  const step = useRef<(to: string | null) => void>(() => {});
+  step.current = (to) => to && onOpen?.(to);
+  const near = useRef({ prev, next });
+  near.current = { prev, next };
+
+  useEffect(() => {
+    if (asPage) return;
+    const key = (e: KeyboardEvent) => {
+      if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // Only while this dialog is the one on top (not under its menu, Share, a confirmation or a story
+      // opened from the author's ring), with no little box open beside a button.
+      const mine = anchor.current?.closest('.scrim');
+      const dialogs = document.querySelectorAll('[aria-modal="true"]');
+      const top = dialogs[dialogs.length - 1];
+      if (!mine || !top || !mine.contains(top) || document.querySelector('.pp-pop') || typing(e)) return;
+      const to = e.key === 'ArrowLeft' ? near.current.prev : near.current.next;
+      if (!to) return;
+      e.preventDefault();
+      step.current(to);
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [asPage]);
+
+  // Keyed by the post, so stepping to another one starts afresh (its comments, an empty comment box).
+  const body = <PostBody key={id} id={id} onClose={onClose} />;
+  if (asPage) return <div className="post-page">{body}</div>;
+  return (
+    <Modal onClose={onClose} bare className="post-dialog">
+      {body}
+      <div className="pp-steps" ref={anchor}>
+        {prev ? (
+          <button type="button" className="pp-step left" aria-label="Previous post" title="Previous" onClick={() => step.current(prev)}>
+            <Icon name="back" size={16} color="#262626" stroke={2.6} />
+          </button>
+        ) : null}
+        {next ? (
+          <button type="button" className="pp-step right" aria-label="Next post" title="Next" onClick={() => step.current(next)}>
+            <Icon name="right" size={16} color="#262626" stroke={2.6} />
+          </button>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
+/** One post in the dialog: its photos on the left; the author, comments, actions and comment box on the right. */
+function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
   const { me } = useMe();
   const { post, toggle } = useFlags(id);
   const [comments, setComments] = useState<Comment[] | null>(null);
@@ -508,14 +705,12 @@ export function PostView({ id, onClose, asPage }: { id: string; onClose: () => v
     }
   }, [id]);
   const hidden = !!post && post.sensitive && post.user_id !== me.id && !!me.restricted;
+  // Opening a post counts as seeing it, as the iPhone counts a post in view (once per person).
+  useEffect(() => {
+    if (post && !hidden) recordView(me.id, post);
+  }, [post?.id, hidden]);
   if (!post || hidden) {
-    const missing = <div className="post-dialog-loading">{comments === null && !hidden ? <Spinner /> : <Empty icon="image" title="This post isn't available" body="It may have been deleted." />}</div>;
-    if (asPage) return <div className="post-page">{missing}</div>;
-    return (
-      <Modal onClose={onClose} bare className="post-dialog">
-        {missing}
-      </Modal>
-    );
+    return <div className="post-dialog-loading">{comments === null && !hidden ? <Spinner /> : <Empty icon="image" title="This post isn't available" body="It may have been deleted." />}</div>;
   }
   const media = post.media;
   const ratio = aspectOf(media[0]);
@@ -526,8 +721,8 @@ export function PostView({ id, onClose, asPage }: { id: string; onClose: () => v
     setAnswering(true);
     input.current?.focus();
   };
-  const body = (
-    <div className="post-dialog-body" style={{ ['--media-ratio' as any]: String(ratio) }}>
+  return (
+    <div className="post-dialog-body" data-post={post.id} style={{ ['--media-ratio' as any]: String(ratio) }}>
       <div className="post-dialog-media">
         <PostMedia post={post} fit="contain" ratio={ratio} locked={locked} pending={canSee === null} veiled={veiled} onReveal={reveal} onLike={() => !post.liked && toggle('liked', true)} />
       </div>
@@ -618,7 +813,7 @@ export function PostView({ id, onClose, asPage }: { id: string; onClose: () => v
                 }}
               >
                 <EmojiButton size={24} onPick={(e) => insertAt(input.current, text, e, setText)} />
-                <input ref={input} placeholder={answering ? 'Write your answer…' : 'Add a comment…'} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
+                <input ref={input} placeholder={answering ? 'Write your answer…' : COMMENT_PLACEHOLDER} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
                 <button className="link-btn" disabled={!text.trim()}>
                   Post
                 </button>
@@ -630,12 +825,6 @@ export function PostView({ id, onClose, asPage }: { id: string; onClose: () => v
       {menu ? <PostMenu post={post} onClose={() => setMenu(false)} onDeleted={onClose} /> : null}
       {share ? <ShareDialog postId={post.id} onClose={() => setShare(false)} /> : null}
     </div>
-  );
-  if (asPage) return <div className="post-page">{body}</div>;
-  return (
-    <Modal onClose={onClose} bare className="post-dialog">
-      {body}
-    </Modal>
   );
 }
 
@@ -682,20 +871,23 @@ function CommentRow({ c, canDelete, onReply, onDelete }: { c: Comment; canDelete
 /**
  * A square on Explore and profiles: a Shorts or several-photos badge, a lock on posts for subscribers,
  * the counts on hover (no like count when the author hides it), and a blur over sensitive posts.
+ * A photo post opens the post dialog (onOpen); a Short opens the Shorts player at that Short, with
+ * `grid`'s other Shorts round it and more from `source` after them.
  */
-export function Tile({ post, onOpen, tall }: { post: Post; onOpen: (id: string) => void; tall?: boolean }) {
+export function Tile({ post, onOpen, tall, grid, source }: { post: Post; onOpen: (id: string) => void; tall?: boolean; grid?: Post[]; source?: GridSource }) {
   const { me } = useMe();
   const canSee = useCanSee(post, me.id);
   useEffect(() => putPosts([post]), [post.id]);
   const mine = post.user_id === me.id;
   if (post.sensitive && !mine && me.restricted) return null;
+  const open = () => (isShort(post) ? openShortsFrom(post, grid ?? [post], source, me) : onOpen(post.id));
   const m = post.media[0];
   const cover = m?.type === 'video' ? m.poster || '' : m?.url;
   const locked = canSee === false;
   const veiled = post.sensitive && !mine;
   const subs = post.audience === 'subscribers';
   return (
-    <button data-post={post.id} className={'tile' + (tall ? ' tall' : '') + (locked ? ' pp-tile-locked' : '') + (veiled ? ' pp-tile-veiled' : '')} onClick={() => onOpen(post.id)} aria-label={(post.kind === 'reel' ? 'Short by ' : 'Post by ') + post.username + (locked ? ', for subscribers' : '')}>
+    <button data-post={post.id} className={'tile' + (tall ? ' tall' : '') + (locked ? ' pp-tile-locked' : '') + (veiled ? ' pp-tile-veiled' : '')} onClick={open} aria-label={(post.kind === 'reel' ? 'Short by ' : 'Post by ') + post.username + (locked ? ', for subscribers' : '')}>
       {cover ? <img src={cover} alt={altOf(m)} loading="lazy" /> : m?.type === 'video' ? <video src={m.url} muted preload="metadata" /> : null}
       {post.kind === 'reel' ? (
         <span className="tile-badge" title="Short">
