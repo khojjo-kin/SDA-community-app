@@ -1,61 +1,199 @@
-// A profile, laid out like Instagram on the web: picture, name and buttons, counts, bio,
-// highlights, then the Posts, Reels, Saved and Reposts tabs.
+// A profile, laid out like Instagram's 2026 desktop profile: the large picture (story ring, LIVE, the
+// Note bubble) beside the username, name, counts, category and bio; wide buttons under them; Discover
+// people; highlights; then icon tabs (Posts, Shorts, Saved, Reposts, Tagged) over a grid of portrait
+// tiles. With Community's own extras from the iPhone app: creator subscriptions, the bell, About this
+// account, the fundraiser card, lives planned ahead and Plus profile styles.
 import React, { useEffect, useState } from 'react';
-import { fetchHighlight, fetchHighlights, fetchLives, fetchReposts, fetchSaved, fetchUserPosts, fetchUserStories, listPeople, recordProfileView, report, requestFollow, removeFollowRequest, setBlock, setCloseFriend, setFollow } from 'shared/api';
+import { acceptFollowRequest, allStoriesSeen, fetchLives, fetchUserStories, listPeople, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow } from 'shared/api';
 import { listen } from 'shared/store';
 import { fmt } from 'shared/theme';
-import type { Highlight, Post, Profile, StoryGroup } from 'shared/types';
+import type { Profile, StoryGroup } from 'shared/types';
+import { useAuth } from '../lib/auth';
 import { profileByUsername } from '../lib/extra';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Avatar, ChoiceMenu, Empty, Failed, Icon, type IconName, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
-import { Tile } from '../ui/post';
+import { Avatar, ChoiceMenu, Empty, Failed, Icon, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { DiscoverPeople } from '../ui/profile-discover';
+import { Highlights } from '../ui/profile-highlights';
+import { AboutAccount, AlertsBell, BioText, FundraiserCard, type PictureRing, ProfilePicture, UpcomingLives } from '../ui/profile-parts';
+import { ProfileStyleDialog, useProfileLook } from '../ui/profile-style';
+import { SubscribeDialog, subscribeTo } from '../ui/profile-subscribe';
 import { StoryViewer } from '../ui/stories';
+import { ProfileGrid, type ProfileTab, ProfileTabs } from './profile-grid';
+import '../styles/profile.css';
 
-type Tab = 'posts' | 'reels' | 'saved' | 'reposts';
+type Tab = ProfileTab;
 
-export function ProfilePage({ username, tab, openPost, onCreate }: { username: string; tab: Tab; openPost: (id: string) => void; onCreate: (m: 'post' | 'story') => void }) {
+// Whether Discover people is open on your own profile. A plain variable, as on the iPhone: it lasts
+// while the app is open, not after a restart.
+let ownDiscoverOpen = true;
+// Where the page was scrolled when a tab was picked, so the grid changes without jumping to the top.
+let keepScroll: number | null = null;
+
+/** Why a member can report an account. The English goes to the server, so admins read every report alike. */
+const REPORT_REASONS = ['Spam', 'Pretending to be someone else', 'Harassment or hate', 'Copyright or trademark', 'Something else'];
+
+type Props = { username: string; tab: Tab; openPost: (id: string) => void; onCreate: (m: 'post' | 'story' | 'short') => void };
+
+/** Each account gets a fresh page (menus, dialogs and Discover people start shut); its tabs share one. */
+export function ProfilePage(props: Props) {
+  return <ProfileScreen key={props.username} {...props} />;
+}
+
+function ProfileScreen({ username, tab, openPost, onCreate }: Props) {
   const { me } = useMe();
+  const auth = useAuth();
   const { data: person, error, loading, reload, set } = useLoad(() => profileByUsername(username), [username]);
   const [list, setList] = useState<'followers' | 'following' | null>(null);
-  const [menu, setMenu] = useState<'more' | 'following' | null>(null);
-  const [reporting, setReporting] = useState(false);
+  const [menu, setMenu] = useState<'gear' | 'more' | 'following' | 'report' | null>(null);
+  const [dialog, setDialog] = useState<'about' | 'style' | 'subscription' | null>(null);
   const [stories, setStories] = useState<StoryGroup[] | null>(null);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [hl, setHl] = useState<StoryGroup[] | null>(null);
+  // Whether all their stories have been watched, and whether any is for close friends (a blue ring).
+  const [storyState, setStoryState] = useState({ seen: false, close: false });
+  const [othersDiscover, setOthersDiscover] = useState(false);
+  const [ownDiscover, setOwnDiscover] = useState(ownDiscoverOpen);
+  const [subscribing, setSubscribing] = useState(false);
+  const look = useProfileLook(person?.profile_theme);
 
   useEffect(() => listen('profile', reload), []);
   useEffect(() => {
     if (!person) return;
     recordProfileView(me.id, person.id);
-    fetchHighlights(person.id).then(setHighlights, () => setHighlights([]));
   }, [person?.id]);
+
+  // Whether every story of theirs has been watched: the ring turns grey once it has.
+  const hasStory = !!person?.has_story;
+  useEffect(() => {
+    if (!person || !hasStory) return;
+    const check = () =>
+      fetchUserStories(person.id, me.id).then(
+        (groups) => setStoryState({ seen: allStoriesSeen(groups.flatMap((g) => g.stories), me.id), close: groups.some((g) => g.close) }),
+        () => {},
+      );
+    check();
+    return listen('stories', check);
+  }, [person?.id, hasStory]);
+
+  // Picking a tab keeps the page where it was.
+  useEffect(() => {
+    if (keepScroll === null) return;
+    const y = keepScroll;
+    keepScroll = null;
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [tab]);
 
   if (loading && !person) return <Spinner />;
   if (error) return <Failed error={error} retry={reload} />;
   if (!person) return <Empty icon="user" title="Sorry, this page isn't available." body="The link you followed may be broken, or the account may have been removed." />;
 
   const mine = person.id === me.id;
-  const hidden = person.is_private && !person.is_following && !mine;
-  const canSeeLists = !hidden;
+  // A private account I don't follow: the counts show, the photos don't. Under-14 accounts are always
+  // private (the database keeps them so), so the same lock applies to them.
+  const locked = !mine && person.is_private && !person.is_following;
+  const blocked = !mine && person.is_blocked;
+  const listsHidden = !mine && person.hide_connections;
+  const showBell = !mine && person.is_following && !blocked;
+  // Members under 14 only write to people they follow (the database refuses the rest).
+  const canMessage = mine || !me.restricted || person.is_following;
+  const showTick = person.verified && !(mine && person.tick_hidden);
+  const discover = mine ? ownDiscover : othersDiscover && !blocked;
 
-  const follow = async (next: boolean) => {
+  /* ---------- actions ---------- */
+
+  const follow = async () => {
+    if (person.is_private) return request();
     const before = person;
-    set({ ...person, is_following: next, followers_count: person.followers_count + (next ? 1 : -1) });
+    set({ ...person, is_following: true, followers_count: person.followers_count + 1 });
+    // Like Instagram: following someone opens similar people to follow.
+    setOthersDiscover(true);
     try {
-      await setFollow(me.id, person.id, next);
+      await setFollow(me.id, person.id, true);
+    } catch (e) {
+      set(before);
+      toastError(e);
+    }
+  };
+  const unfollow = async () => {
+    if (person.is_private && !(await ask(`Unfollow ${person.username}?`, "If you change your mind, you'll have to request to follow them again.", 'Unfollow'))) return;
+    const before = person;
+    set({ ...person, is_following: false, alerts_on: false, followers_count: Math.max(0, person.followers_count - 1) });
+    try {
+      await setFollow(me.id, person.id, false);
     } catch (e) {
       set(before);
       toastError(e);
     }
   };
   const request = async () => {
+    set({ ...person, requested: true });
     try {
-      if (person.requested) await removeFollowRequest(me.id, person.id);
-      else await requestFollow(me.id, person.id);
-      set({ ...person, requested: !person.requested });
+      await requestFollow(me.id, person.id);
+      toast(`Requested to follow ${person.username}`);
+    } catch (e) {
+      set({ ...person, requested: false });
+      toastError(e);
+    }
+  };
+  const withdraw = async () => {
+    if (!(await ask('Withdraw your request?', `${person.username} will no longer see that you asked to follow them.`, 'Withdraw'))) return;
+    set({ ...person, requested: false });
+    try {
+      await removeFollowRequest(me.id, person.id);
+    } catch (e) {
+      set({ ...person, requested: true });
+      toastError(e);
+    }
+  };
+  const answer = async (accept: boolean) => {
+    set({ ...person, requests_me: false, follows_me: accept || person.follows_me });
+    try {
+      if (accept) await acceptFollowRequest(person.id);
+      else await removeFollowRequest(person.id, me.id);
+      toast(accept ? `${person.username} now follows you` : 'Request removed');
     } catch (e) {
       toastError(e);
+      reload();
+    }
+  };
+  const closeFriend = async () => {
+    const next = !person.is_close_friend;
+    try {
+      await setCloseFriend(me.id, person.id, next);
+      set({ ...person, is_close_friend: next });
+      toast(next ? 'Added to close friends' : 'Removed from close friends');
+    } catch (e) {
+      toastError(e);
+    }
+  };
+  const block = async () => {
+    const next = !person.is_blocked;
+    if (next && !(await ask(`Block ${person.username}?`, 'You will stop seeing their posts, stories and comments. They are not told.', 'Block'))) return;
+    try {
+      await setBlock(me.id, person.id, next);
+      toast(next ? `Blocked ${person.username}` : `Unblocked ${person.username}`);
+      reload();
+    } catch (e) {
+      toastError(e);
+    }
+  };
+  const copyLink = async () => {
+    const link = location.origin + location.pathname + '#/u/' + person.username;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast('Profile link copied');
+    } catch {
+      toast("The link couldn't be copied");
+    }
+  };
+  const subscribe = async () => {
+    if (subscribing) return;
+    setSubscribing(true);
+    try {
+      if (await subscribeTo(person)) reload();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setSubscribing(false);
     }
   };
   const openStory = async () => {
@@ -70,170 +208,268 @@ export function ProfilePage({ username, tab, openPost, onCreate }: { username: s
     try {
       const live = (await fetchLives()).find((l) => l.user_id === person.id && !l.ended_at);
       if (live) nav('/live/' + live.id);
-      else openStory();
+      else if (person.has_story) openStory();
     } catch (e) {
       toastError(e);
     }
   };
-  const openHighlight = async (h: Highlight) => {
-    try {
-      const got = await fetchHighlight(h.id);
-      if (!got || !got.items.length) return toast('This highlight is empty.');
-      setHl([
-        {
-          user_id: person.id, username: person.username, avatar_url: person.avatar_url, seen: true, close: false,
-          stories: got.items.map((it) => ({ id: it.id, user_id: person.id, item: it.item, created_at: it.created_at, expires_at: it.created_at, username: person.username, full_name: person.full_name, avatar_url: person.avatar_url, seen: true, in_tray: false, view_count: 0, audience: 'everyone', story_replies: 'off', follows_viewer: false })),
-        },
-      ]);
-    } catch (e) {
-      toastError(e);
-    }
+  const toggleDiscover = () => {
+    if (mine) {
+      ownDiscoverOpen = !ownDiscover;
+      setOwnDiscover(ownDiscoverOpen);
+    } else setOthersDiscover(!othersDiscover);
   };
 
-  const tabs: { id: Tab; label: string; icon: IconName }[] = [
-    { id: 'posts', label: 'Posts', icon: 'grid' },
-    { id: 'reels', label: 'Reels', icon: 'reels' },
-    ...(mine ? [{ id: 'saved' as Tab, label: 'Saved', icon: 'bookmark' as IconName }] : []),
-    { id: 'reposts', label: 'Reposts', icon: 'repost' },
-  ];
+  /* ---------- the picture ---------- */
 
+  let ring: PictureRing = null;
+  if (person.is_live && !blocked) ring = 'live';
+  else if (person.has_story && !locked && !blocked) ring = storyState.seen ? 'seen' : storyState.close ? 'close' : 'story';
+  const pictureAction = ring === 'live' ? openLive : ring ? openStory : mine ? () => nav('/accounts/edit') : undefined;
+  const pictureLabel = ring === 'live' ? 'Watch live' : ring ? 'View story' : mine ? 'Change profile photo' : 'Profile photo';
+
+  /* ---------- buttons ---------- */
+
+  const discoverBtn = (
+    <button className={'prof-btn square' + (discover ? ' lit' : '')} aria-label={discover ? 'Hide Discover people' : 'Discover people'} aria-pressed={discover} onClick={toggleDiscover} title="Discover people">
+      <Icon name="request" size={20} />
+    </button>
+  );
+  let actions: React.ReactNode;
+  if (mine) {
+    actions = (
+      <>
+        <button className={'prof-btn wide' + (look.theme.id ? ' primary' : '')} onClick={() => nav('/accounts/edit')}>
+          Edit profile
+        </button>
+        <button className="prof-btn wide" onClick={() => nav('/archive')}>
+          View archive
+        </button>
+        {discoverBtn}
+      </>
+    );
+  } else if (blocked) {
+    actions = (
+      <button className="prof-btn wide" onClick={block}>
+        Unblock
+      </button>
+    );
+  } else {
+    actions = (
+      <>
+        {person.is_following ? (
+          <button className="prof-btn wide" onClick={() => setMenu('following')} aria-haspopup="dialog">
+            Following <Icon name="down" size={14} stroke={2.4} />
+          </button>
+        ) : person.requested ? (
+          <button className="prof-btn wide" onClick={withdraw}>
+            Requested
+          </button>
+        ) : (
+          <button className="prof-btn wide primary" onClick={follow}>
+            {person.follows_me ? 'Follow back' : 'Follow'}
+          </button>
+        )}
+        {canMessage ? (
+          <button className="prof-btn wide" onClick={() => nav('/direct/u/' + person.username)}>
+            Message
+          </button>
+        ) : null}
+        {person.sub_price_pence || person.subscribed ? (
+          person.subscribed ? (
+            <button className="prof-btn wide" onClick={() => setDialog('subscription')} aria-haspopup="dialog">
+              Subscribed <Icon name="down" size={14} stroke={2.4} />
+            </button>
+          ) : (
+            <button className="prof-btn wide accent-text" onClick={subscribe} disabled={subscribing}>
+              {subscribing ? 'Subscribing…' : 'Subscribe'}
+            </button>
+          )
+        ) : null}
+        {showBell ? <AlertsBell person={person} onChange={(on) => set({ ...person, alerts_on: on })} /> : null}
+        {discoverBtn}
+      </>
+    );
+  }
+
+  const theme = look.theme;
   return (
-    <div className="page profile">
-      <header className="profile-head">
-        <div className="profile-pic">
-          <Avatar src={person.avatar_url} name={person.username} size={150} ring={person.is_live ? 'live' : person.has_story && !hidden ? (person.is_close_friend ? 'close' : 'new') : null} onClick={person.is_live && !mine ? openLive : person.has_story && !hidden ? openStory : mine ? () => nav('/accounts/edit') : undefined} label={person.is_live ? 'Watch live' : person.has_story ? 'View story' : 'Profile picture'} />
-          {person.is_live ? <span className="live-badge big">LIVE</span> : null}
-        </div>
-        <section className="profile-info">
-          <div className="profile-top">
-            <h1>
-              {person.username}
-              {person.verified ? <Verified size={18} /> : null}
-            </h1>
-            {mine ? (
-              <>
-                <button className="btn quiet" onClick={() => nav('/accounts/edit')}>
-                  Edit profile
-                </button>
-                <button className="btn quiet" onClick={() => nav('/archive')}>
-                  View archive
-                </button>
-                {person.account_type === 'creator' ? (
-                  <button className="btn quiet" onClick={() => nav('/dashboard')}>
-                    Dashboard
-                  </button>
+    <div className={'prof' + (look.banded ? ' banded' : '') + (theme.id ? ' themed' : '')} style={look.vars}>
+      <header className={'profile-head profile-top prof-head' + (look.banded ? ' prof-band' : '')}>
+        <div className="prof-head-in">
+          <div className="prof-head-row">
+            <ProfilePicture person={person} mine={mine} ring={ring} onClick={pictureAction} label={pictureLabel} />
+            <section className="profile-info prof-info">
+              <div className="prof-name-row">
+                <h1>
+                  {person.username}
+                  {showTick ? <Verified size={18} /> : null}
+                </h1>
+                {person.is_private ? (
+                  <span className="prof-lock" title={mine && me.restricted ? 'Private account (under 14)' : 'Private account'} aria-label="Private account" role="img">
+                    <Icon name="lock" size={16} stroke={2} />
+                  </span>
                 ) : null}
-                <button className="icon-btn" aria-label="Settings" onClick={() => nav('/accounts/edit')}>
-                  <Icon name="settings" size={24} />
+                <button className="icon-btn prof-gear" aria-label={mine ? 'Options' : 'More options'} onClick={() => setMenu(mine ? 'gear' : 'more')}>
+                  <Icon name={mine ? 'settings' : 'more'} size={24} />
                 </button>
-              </>
-            ) : (
-              <>
-                {person.is_following ? (
-                  <button className="btn quiet" onClick={() => setMenu('following')}>
-                    Following <Icon name="down" size={14} />
-                  </button>
-                ) : person.is_private ? (
-                  <button className={'btn' + (person.requested ? ' quiet' : '')} onClick={request}>
-                    {person.requested ? 'Requested' : 'Follow'}
-                  </button>
-                ) : (
-                  <button className="btn" onClick={() => follow(true)}>
-                    {person.follows_me ? 'Follow back' : 'Follow'}
-                  </button>
-                )}
-                <button className="btn quiet" onClick={() => nav('/direct/u/' + person.username)}>
-                  Message
-                </button>
-                <button className="icon-btn" aria-label="Options" onClick={() => setMenu('more')}>
-                  <Icon name="more" size={24} />
-                </button>
-              </>
-            )}
+              </div>
+              {person.full_name || person.pronouns ? (
+                <div className="prof-fullname">
+                  {person.full_name}
+                  {person.pronouns ? <span className="prof-muted"> {person.pronouns}</span> : null}
+                </div>
+              ) : null}
+              <ul className="profile-stats prof-stats">
+                <li>
+                  <b>{fmt(person.posts_count)}</b> {person.posts_count === 1 ? 'post' : 'posts'}
+                </li>
+                <li>
+                  {locked || listsHidden || blocked ? (
+                    <span>
+                      <b>{fmt(person.followers_count)}</b> {person.followers_count === 1 ? 'follower' : 'followers'}
+                    </span>
+                  ) : (
+                    <button onClick={() => setList('followers')}>
+                      <b>{fmt(person.followers_count)}</b> {person.followers_count === 1 ? 'follower' : 'followers'}
+                    </button>
+                  )}
+                </li>
+                <li>
+                  {locked || listsHidden || blocked ? (
+                    <span>
+                      <b>{fmt(person.following_count)}</b> following
+                    </span>
+                  ) : (
+                    <button onClick={() => setList('following')}>
+                      <b>{fmt(person.following_count)}</b> following
+                    </button>
+                  )}
+                </li>
+              </ul>
+              {person.plus || person.admin_role === 'admin' || (person.account_type === 'creator' && person.category) ? (
+                <div className="prof-category">
+                  {person.account_type === 'creator' && person.category ? <span>{person.category}</span> : null}
+                  {person.plus ? (
+                    <button className="prof-pill plus" onClick={() => (mine ? nav('/plus') : undefined)} disabled={!mine} title="Community Plus member">
+                      <Icon name="crown" size={12} stroke={2.2} /> Plus
+                    </button>
+                  ) : null}
+                  {/* The owner runs the app quietly: only appointed admins show a badge. */}
+                  {person.admin_role === 'admin' ? (
+                    <span className="prof-pill admin">
+                      <Icon name="shield" size={12} stroke={2.2} /> Admin
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="profile-bio prof-bio">
+                {person.bio ? (
+                  <p>
+                    <BioText text={person.bio} />
+                  </p>
+                ) : null}
+                {person.website ? (
+                  <a className="prof-website" href={/^https?:\/\//.test(person.website) ? person.website : 'https://' + person.website} target="_blank" rel="noreferrer">
+                    <Icon name="link" size={14} stroke={2} /> {person.website.replace(/^https?:\/\//, '')}
+                  </a>
+                ) : null}
+                {person.church_name ? (
+                  <Link to={person.church_id ? '/churches/' + person.church_id : '/churches'} className="prof-church">
+                    <Icon name="church" size={14} stroke={2} /> {person.church_name}
+                  </Link>
+                ) : null}
+                {!mine && person.follows_me ? <span className="prof-muted small">Follows you</span> : null}
+                {mine && me.restricted ? <span className="prof-muted small">Accounts of members under 14 stay private.</span> : null}
+              </div>
+              {/* Who looked at your profile is a Plus perk: everyone else sees nothing here at all. */}
+              {mine && person.plus ? (
+                <Link to="/accounts/viewers" className="prof-views">
+                  <Icon name="eye" size={15} stroke={2} /> {fmt(person.views_week)} profile {person.views_week === 1 ? 'view' : 'views'} this week · <b>See who</b>
+                </Link>
+              ) : null}
+            </section>
           </div>
-          <ul className="profile-stats">
-            <li>
-              <b>{fmt(person.posts_count)}</b> {person.posts_count === 1 ? 'post' : 'posts'}
-            </li>
-            <li>
-              <button disabled={!canSeeLists} onClick={() => setList('followers')}>
-                <b>{fmt(person.followers_count)}</b> {person.followers_count === 1 ? 'follower' : 'followers'}
-              </button>
-            </li>
-            <li>
-              <button disabled={!canSeeLists} onClick={() => setList('following')}>
-                <b>{fmt(person.following_count)}</b> following
-              </button>
-            </li>
-          </ul>
-          <div className="profile-bio">
-            {person.full_name ? <b>{person.full_name}</b> : null}
-            {person.pronouns ? <span className="muted-text"> {person.pronouns}</span> : null}
-            {person.category && person.account_type === 'creator' ? <div className="muted-text">{person.category}</div> : null}
-            {person.church_name ? <div className="muted-text">⛪ {person.church_name}</div> : null}
-            {person.bio ? <p>{person.bio}</p> : null}
-            {person.website ? (
-              <a className="profile-link" href={/^https?:\/\//.test(person.website) ? person.website : 'https://' + person.website} target="_blank" rel="noreferrer">
-                <Icon name="link" size={14} /> {person.website.replace(/^https?:\/\//, '')}
-              </a>
-            ) : null}
-            {person.follows_me && !mine ? <div className="muted-text small">Follows you</div> : null}
-          </div>
-        </section>
-      </header>
 
-      {(highlights.length || mine) && !hidden ? (
-        <div className="highlights">
-          {highlights.map((h) => (
-            <button key={h.id} className="highlight" onClick={() => openHighlight(h)}>
-              <span className="hl-ring">{h.cover_url ? <img src={h.cover_url} alt="" /> : <span className="hl-blank" />}</span>
-              <span>{h.title}</span>
-            </button>
-          ))}
-          {mine ? (
-            <button className="highlight" onClick={() => onCreate('story')}>
-              <span className="hl-ring new">
-                <Icon name="plus" size={40} stroke={1} />
+          {!mine && !blocked && person.requests_me ? (
+            <div className="prof-request">
+              <span className="grow">
+                <b>{person.username}</b> wants to follow you
               </span>
-              <span>New</span>
-            </button>
+              <button className="prof-btn small primary" onClick={() => answer(true)}>
+                Confirm
+              </button>
+              <button className="prof-btn small" onClick={() => answer(false)}>
+                Delete
+              </button>
+            </div>
+          ) : null}
+
+          <div className="profile-actions prof-actions">{actions}</div>
+
+          {!blocked && !locked ? (
+            <div className="prof-cards">
+              {person.fundraiser_id ? <FundraiserCard id={person.fundraiser_id} /> : null}
+              <UpcomingLives userId={person.id} mine={mine} />
+            </div>
           ) : null}
         </div>
-      ) : null}
+      </header>
 
-      {hidden ? (
-        <div className="private-note">
-          <Icon name="lock" size={44} stroke={1.3} />
+      {discover ? <DiscoverPeople excludeId={mine ? undefined : person.id} onHide={toggleDiscover} /> : null}
+
+      {blocked ? (
+        <div className="prof-private">
+          <span className="prof-private-ring">
+            <Icon name="block" size={34} stroke={1.5} />
+          </span>
+          <h2>You blocked this account</h2>
+          <p>Unblock them to see their posts.</p>
+        </div>
+      ) : locked ? (
+        <div className="prof-private">
+          <span className="prof-private-ring">
+            <Icon name="lock" size={34} stroke={1.5} />
+          </span>
           <h2>This account is private</h2>
           <p>Follow to see their photos and videos.</p>
+          {person.requested ? (
+            <button className="prof-btn small" onClick={withdraw}>
+              Requested
+            </button>
+          ) : (
+            <button className="prof-btn small primary" onClick={follow}>
+              Follow
+            </button>
+          )}
         </div>
       ) : (
         <>
-          <nav className="profile-tabs" role="tablist">
-            {tabs.map((t) => (
-              <Link key={t.id} to={'/u/' + person.username + (t.id === 'posts' ? '' : '/' + t.id)} className={'ptab' + (tab === t.id ? ' on' : '')}>
-                <Icon name={t.icon} size={12} stroke={2.2} /> {t.label.toUpperCase()}
-              </Link>
-            ))}
-          </nav>
-          <ProfileGrid person={person} tab={tab} mine={mine} openPost={openPost} onCreate={onCreate} />
+          <Highlights person={person} mine={mine} />
+          <div
+            onClickCapture={(e) => {
+              if ((e.target as HTMLElement).closest('.prof-tab')) keepScroll = window.scrollY;
+            }}
+          >
+            <ProfileTabs person={person} tab={tab === 'saved' && !mine ? 'posts' : tab} mine={mine} />
+          </div>
+          <ProfileGrid person={person} tab={tab === 'saved' && !mine ? 'posts' : tab} mine={mine} openPost={openPost} onCreate={onCreate} onSubscribe={subscribe} />
         </>
       )}
 
       {list ? <PeopleList person={person} which={list} onClose={() => setList(null)} /> : null}
-      {menu === 'following' ? (
+      {menu === 'gear' ? (
         <ChoiceMenu
           onClose={() => setMenu(null)}
           items={[
-            {
-              label: person.is_close_friend ? 'Remove from close friends' : 'Add to close friends',
-              onClick: () =>
-                setCloseFriend(me.id, person.id, !person.is_close_friend).then(() => {
-                  set({ ...person, is_close_friend: !person.is_close_friend });
-                  toast(person.is_close_friend ? 'Removed from close friends' : 'Added to close friends');
-                }, toastError),
-            },
-            { label: 'Unfollow', danger: true, bold: true, onClick: () => follow(false) },
+            { label: 'Settings and privacy', onClick: () => nav('/accounts/edit') },
+            { label: 'Profile style', onClick: () => setDialog('style') },
+            { label: 'Archive', onClick: () => nav('/archive') },
+            { label: 'Your activity', onClick: () => nav('/activity') },
+            ...(person.account_type === 'creator' ? [{ label: 'Professional dashboard', onClick: () => nav('/dashboard') }] : []),
+            { label: 'About this account', onClick: () => setDialog('about') },
+            { label: 'Copy profile link', onClick: copyLink },
+            { label: 'Log out', onClick: () => auth.signOut() },
           ]}
         />
       ) : null}
@@ -241,75 +477,77 @@ export function ProfilePage({ username, tab, openPost, onCreate }: { username: s
         <ChoiceMenu
           onClose={() => setMenu(null)}
           items={[
-            {
-              label: person.is_blocked ? 'Unblock' : 'Block',
-              danger: true,
-              bold: true,
-              onClick: async () => {
-                const next = !person.is_blocked;
-                if (next && !(await ask('Block ' + person.username + '?', "They won't be able to find your profile, posts or stories, or message you. They won't be told you blocked them.", 'Block'))) return;
-                try {
-                  await setBlock(me.id, person.id, next);
-                  toast(next ? person.username + ' blocked' : person.username + ' unblocked');
-                  reload();
-                } catch (e) {
-                  toastError(e);
-                }
-              },
-            },
-            { label: 'Report', danger: true, bold: true, onClick: () => setReporting(true) },
-            { label: 'Send message', onClick: () => nav('/direct/u/' + person.username) },
+            { label: person.is_blocked ? 'Unblock' : 'Block', danger: true, bold: true, onClick: block },
+            { label: 'Report', danger: true, bold: true, onClick: () => setMenu('report') },
+            ...(person.is_blocked ? [] : [{ label: person.is_close_friend ? 'Remove from close friends' : 'Add to close friends', onClick: closeFriend }]),
+            { label: 'About this account', onClick: () => setDialog('about') },
+            { label: 'Copy profile link', onClick: copyLink },
           ]}
         />
       ) : null}
-      {reporting ? (
-        <ChoiceMenu
-          onClose={() => setReporting(false)}
-          items={["It's posting content that shouldn't be on Community", "It's pretending to be someone else", 'It may be under the age of 13'].map((r) => ({
-            label: r,
-            onClick: () => report(me.id, { userId: person.id }, r).then(() => toast('Thanks for letting us know. An admin will review it.'), toastError),
-          }))}
-        />
+      {menu === 'report' ? (
+        <Modal title="Report" onClose={() => setMenu(null)} className="choices prof-report">
+          <p className="prof-report-why">Why are you reporting this account?</p>
+          {REPORT_REASONS.map((r) => (
+            <button
+              key={r}
+              onClick={() => {
+                setMenu(null);
+                report(me.id, { userId: person.id }, r).then(() => toast('Thanks. We will review this account.'), toastError);
+              }}
+            >
+              {r}
+            </button>
+          ))}
+          <button onClick={() => setMenu(null)}>Cancel</button>
+        </Modal>
       ) : null}
+      {menu === 'following' ? (
+        <Modal onClose={() => setMenu(null)} className="prof-fmenu">
+          <div className="prof-fmenu-head">
+            <Avatar src={person.avatar_url} name={person.username} size={56} />
+            <b>{person.username}</b>
+          </div>
+          <button
+            onClick={() => {
+              setMenu(null);
+              closeFriend();
+            }}
+          >
+            <span className="grow">{person.is_close_friend ? 'Remove from close friends' : 'Add to close friends'}</span>
+            <Icon name="star" size={20} fill={person.is_close_friend ? 'currentColor' : undefined} />
+          </button>
+          {person.sub_price_pence || person.subscribed ? (
+            <button
+              onClick={() => {
+                setMenu(null);
+                setDialog('subscription');
+              }}
+            >
+              <span className="grow">{person.subscribed ? 'Your subscription' : 'Subscribe'}</span>
+              <Icon name="crown" size={20} />
+            </button>
+          ) : null}
+          <button
+            className="danger"
+            onClick={() => {
+              setMenu(null);
+              unfollow();
+            }}
+          >
+            <span className="grow">Unfollow</span>
+          </button>
+        </Modal>
+      ) : null}
+      {dialog === 'about' ? <AboutAccount person={person} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'style' ? <ProfileStyleDialog onClose={() => setDialog(null)} /> : null}
+      {dialog === 'subscription' ? <SubscribeDialog creator={person} onClose={() => setDialog(null)} onChanged={reload} /> : null}
       {stories ? <StoryViewer groups={stories} start={0} onClose={() => setStories(null)} /> : null}
-      {hl ? <StoryViewer groups={hl} start={0} onClose={() => setHl(null)} /> : null}
     </div>
   );
 }
 
-function ProfileGrid({ person, tab, mine, openPost, onCreate }: { person: Profile; tab: Tab; mine: boolean; openPost: (id: string) => void; onCreate: (m: 'post' | 'story') => void }) {
-  const { me } = useMe();
-  const { data, error, loading, reload } = useLoad<Post[]>(async () => {
-    if (tab === 'saved') return fetchSaved(me.id);
-    if (tab === 'reposts') return fetchReposts(person.id);
-    const all = await fetchUserPosts(person.id);
-    return tab === 'reels' ? all.filter((p) => p.kind === 'reel') : all;
-  }, [person.id, tab]);
-  useEffect(() => listen('profile', reload), [person.id, tab]);
-  if (loading && !data) return <Spinner />;
-  if (error) return <Failed error={error} retry={reload} />;
-  if (!data?.length) {
-    if (tab === 'saved') return <Empty icon="bookmark" title="Save" body="Save photos and videos that you want to see again. No one is notified, and only you can see what you've saved." />;
-    if (tab === 'reposts') return <Empty icon="repost" title="No reposts yet" body={mine ? 'Posts you repost appear here.' : 'Posts ' + person.username + ' reposts appear here.'} />;
-    if (tab === 'reels') return <Empty icon="reels" title={mine ? 'Share a reel' : 'No reels yet'} body={mine ? 'Videos you share appear here.' : undefined} />;
-    return (
-      <Empty icon="camera" title={mine ? 'Share photos' : 'No posts yet'} body={mine ? 'When you share photos, they will appear on your profile.' : undefined}>
-        {mine ? (
-          <button className="link-btn" onClick={() => onCreate('post')}>
-            Share your first photo
-          </button>
-        ) : null}
-      </Empty>
-    );
-  }
-  return (
-    <div className={'grid' + (tab === 'reels' ? ' reels-grid' : '')}>
-      {data.map((p) => (
-        <Tile key={p.id} post={p} onOpen={openPost} />
-      ))}
-    </div>
-  );
-}
+/* ---------- followers and following ---------- */
 
 function PeopleList({ person, which, onClose }: { person: Profile; which: 'followers' | 'following'; onClose: () => void }) {
   const { me } = useMe();
