@@ -24,6 +24,8 @@
 .prof-ring.live::before { background: var(--like); }
 .prof-live.live-badge { bottom: -2px; }
 .prof-note { position: absolute; top: -12px; left: -8px; z-index: 2; }
+/* The bubble sits on the picture's top-left edge, as on Instagram (notes.tsx centres it otherwise). */
+.prof-note .nt-anchor { position: absolute; top: 0; left: 0; width: max-content; }
 
 .prof .prof-info { flex: 1; min-width: 0; display: block; padding-top: 22px; }
 .prof-name-row { display: flex; align-items: center; gap: 8px; min-height: 36px; }

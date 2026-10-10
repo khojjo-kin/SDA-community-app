@@ -107,7 +107,7 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
         </a>
         <div className="rail-middle">
           {item('home', 'Home', { to: '/', filled: true })}
-          {item('reels', 'Shorts', { to: '/shorts', active: (at('/shorts') || at('/reels')) && panel === null, filled: true })}
+          {item('reels', 'Shorts', { to: '/shorts', active: (at('/shorts') || at('/reels')) && panel === null })}
           {item('send', 'Messages', { to: '/direct', badge: unreadChats })}
           {item('search', 'Search', { to: '/explore' })}
           {item('heart', 'Notifications', { onClick: () => setPanel(panel === 'notifications' ? null : 'notifications'), active: panel === 'notifications', dot: unreadNotices > 0 })}

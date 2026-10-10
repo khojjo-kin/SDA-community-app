@@ -1,12 +1,16 @@
 # Community for Mac (and the web)
 
-The desktop version of Community, laid out like Instagram on a computer: the left sidebar, a
-centred feed with stories and suggestions, the post dialog with comments, Explore, Reels,
-Messages, Notifications, Create, profiles and settings. It uses the same accounts and data as the
-iPhone app:
+The desktop version of Community, laid out like Instagram's 2026 desktop website: a slim icon rail
+on the left that opens out when you point at it, a centred feed with stories and suggestions, the
+post dialog with comments, Explore, Shorts, Messages (a full inbox plus a small floating one),
+Notifications, Create, profiles, the professional dashboard and settings. It has two appearances,
+Dark and White (More → Switch appearance, or Settings → Appearance). It uses the same accounts and
+data as the iPhone app:
 
 - **Sign-in:** the same Clerk application (`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in the repository's `.env`)
-- **Data:** the same Supabase project, tables, storage bucket and access rules
+- **Data:** the same Supabase project, tables, storage bucket and access rules (database v1 to v20)
+- **Payments:** the same Stripe account, through the iPhone app's payment functions; on the computer
+  the card form is Stripe's own Payment Element
 - **Code:** the iPhone app's data layer is shared, not copied: `src/lib/api.ts`, `store.ts`,
   `types.ts`, `theme.ts` and `supabase.ts` in the repository root are built straight into the
   desktop app, along with `calls.tsx` and `rtc.ts`, `bible.ts` and `sabbath-school.ts`. The few
@@ -18,32 +22,42 @@ The two apps never share a layout. The iPhone app keeps its own screens in `app/
 and builds from the `community-app` branch with its own TestFlight workflow; the desktop app lives
 only in `desktop/`, on the `desktop` branch, with its own workflow. The desktop app has no phone
 layout at all: the window can't be made narrower than 1000 points, and small windows keep the
-sidebar instead of switching to a bottom bar. The only change outside `desktop/` is one line in the
+rail instead of switching to a bottom bar. The only change outside `desktop/` is one line in the
 root `tsconfig.json` that keeps the iPhone type check out of this folder.
 
 ## What it does
 
 | Area | Details |
 | --- | --- |
-| Home | Story row with people who are live, Following, For you and Subscribers feeds with endless scroll, Boosted label, suggestions |
-| Posts | Photo carousels and videos, double-click to like, like, comment, repost, share to people, save, report, delete |
-| Post view | Instagram's dialog: media on the left, comments on the right, comment likes and replies |
-| Create | Pick, crop, the iPhone app's filters and adjustments (brightness, contrast, warmth and more), caption, location, alt text |
-| Stories | Full-screen viewer with progress bars, keyboard arrows, replies, seen-by list, delete; photo and video stories from Create, everyone or close friends; archive and highlights |
-| Explore and Reels | Mosaic grid; full-height reels with sound toggle |
-| Messages | Conversation list and chat side by side, live updates, typing indicator, photos (pick or paste), hearts, shared posts, voice messages, Seen, mute, delete, saved replies, FAQs; Erha answers in her chat |
-| Calls | Voice and video calls inside the app, using the iPhone app's protocol, so a Mac can call an iPhone and the other way round; ringing, mute, camera, hang-up, call log in the chat |
-| Live | Watch someone's live broadcast, with chat and hearts |
-| Notifications | Panel with likes, comments, reposts, follows, follow back, follow requests |
-| Search | Panel with recent searches |
-| Profile | Picture with story ring, Follow / Following / Requested, Message, close friends, block, report, highlights, Posts / Reels / Saved / Reposts |
-| Settings | Edit profile and photo, professional account, saved replies, privacy, close friends, blocked accounts, profile viewers, email and password (Clerk), log out, deactivate |
-| Creators | Dashboard with views and followers, Plus, verification requests, Help tickets |
+| Frame | Icon rail (Home, Shorts, Messages, Search, Notifications, Create, Dashboard, Profile, More, Church apps) that widens on hover; Create opens Post, Story, Short, Live video or Ad; More has Settings, Your activity, Saved, Archive, Switch appearance, Report a problem, Help, Admin console, Switch accounts and Log out; ⌘K searches |
+| Home | Stories row with people who are live, For you and Following, endless scroll, Sponsored label on promoted posts; the side column with your account and Switch, Suggested for you (with why) and the legal links |
+| Posts | Photo carousels and videos, double-click to like, like, comment, repost, share to people, save, report, delete; polls, prompts, tagged people, AI label, audience (everyone, close friends, subscribers), hide like counts, turn off commenting, mark as sensitive, edit, promote with a card payment |
+| Post view | Media on the left, comments on the right, comment likes and replies |
+| Create | Pick, crop, the iPhone app's filters and adjustments, caption, location, alt text, tags, poll or prompt, AI label, audience |
+| Stories | Full-screen viewer with progress bars, keyboard arrows, side cards, replies, seen-by list (with rewatches for Plus), mute, delete; photo and video stories, everyone or close friends; archive and highlights |
+| Shorts | Full-height Shorts with sound, likes, comments, share and save; post a Short from Create |
+| Live | Go live from the computer (camera preview, title, Followers / Close friends / Practice, a fundraiser to collect for, schedule a live) and watch others, with chat, hearts and the viewer count; iPhone and desktop viewers watch alike |
+| Explore | Search box with recent searches and people, the four-column grid, Suggested people |
+| Messages | Inbox and chat side by side plus the floating Messages button with a small inbox; notes above the inbox, live updates, typing, presence (Active now), streaks, view-once photos, photos (pick or paste), hearts, shared posts, playing voice messages, Seen, mute, delete, saved replies, FAQs; Erha answers in her chat |
+| Calls | Voice and video calls inside the app, using the iPhone app's protocol, so a Mac can call an iPhone and the other way round |
+| Notifications | Panel with filters (all, people you follow, comments, follows, likes), likes, comments, reposts, follows, follow back, follow requests |
+| Profile | Picture with story ring and note, verified tick, Plus badge, Follow / Following / Requested, Message, Subscribe, close friends, block, report, highlights, Posts / Shorts / Tagged / Saved / Reposts, profile style, profile viewers |
+| Professional dashboard | Insights (views, reach, followers, top content), ads (promote a post, results, end), creator subscriptions and payouts, fundraisers, Plus, identity verification |
+| Fundraisers | Fundraiser page, give with a card, supporters |
+| Accounts | Up to five accounts signed in at once; Switch accounts from Home or More |
+| Settings | Instagram's grouped list with search: Accounts Centre, Edit profile, Notifications, Professional account, Creator tools, Creator subscriptions, Profile viewers, Ads and payments, Account privacy, Close friends, Blocked, Story/live/location, Activity status, Messages and story replies, Content preferences, Like and share counts, Chat streaks, Appearance, Archiving, Language, Accessibility, Under-14 accounts, Help, Privacy Centre, Account status, About |
+| Legal | Terms, Privacy, Community guidelines, Child safety and the rest, from the same files as the iPhone app and the website |
+| Safety | The age check and consent on first sign-in, and the under-14 rules |
 | Church | Bible with translations, Sabbath School lessons, Pod (podcasts with a player that keeps playing while you browse), Hymnal with favourites and text size, Churches, Communities and pages |
 | Admin console | A full CRM for owners and admins (see below) |
 
-Still iPhone-only: going live yourself, recording voice messages, the story editor's stickers and
-drawing, payments, switching accounts, and chat wallpapers and fonts.
+Still iPhone-only: recording voice messages (they play on the computer), the story editor's
+stickers and drawing, chat wallpapers and fonts, and showing the app in another language (the
+desktop saves your language choice but stays in English). Message requests aren't offered yet
+because the shared data layer has no call for them.
+
+The legal pages are copied from `legal/` in the repository root. After changing a document there,
+run `cd desktop && node scripts/legal.mjs` and commit the generated `src/screens/legal-docs.gen.ts`.
 
 ## The admin console
 
@@ -105,4 +119,5 @@ node build.mjs --demo && node build.mjs --wire
 node tests/ui.test.cjs http://127.0.0.1:8790/       # every screen, on sample data
 node tests/wiring.test.cjs http://127.0.0.1:8791/   # Clerk sign-in and the Supabase client, with stand-ins
 node tests/calls.test.cjs http://127.0.0.1:8790/    # a real call between two windows, with test cameras
+sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/   # every suite: frame, posts, stories, profile, messages, settings, pro and the three above
 ```
