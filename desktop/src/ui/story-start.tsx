@@ -4,6 +4,7 @@
 // shows them in the iPhone's layouts (src/components/StoryCanvas.tsx: two stacked; one over two; two
 // over two).
 import React, { useRef, useState } from 'react';
+import { t, tn } from '../lib/i18n';
 import '../styles/stories.css';
 import { Icon, type IconName } from './kit';
 import type { Source } from './story-parts';
@@ -53,25 +54,25 @@ function Mode({ icon, glyph, title, sub, colors, onClick }: { icon?: IconName; g
 export function StartCard({ onFiles, onText, onCollage }: { onFiles: (files: File[]) => void; onText: () => void; onCollage: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   return (
-    <div className="stc-card stc-start" role="dialog" aria-label="Add to your story">
+    <div className="stc-card stc-start" role="dialog" aria-label={t('profile.addToStory')}>
       <div className="stc-card-head">
-        <h2>Add to your story</h2>
+        <h2>{t('profile.addToStory')}</h2>
       </div>
       <Drop className="stc-drop" onFiles={onFiles}>
         <span className="stc-drop-art" aria-hidden="true">
           <Icon name="image" size={46} stroke={1.3} />
           <Icon name="video" size={40} stroke={1.3} />
         </span>
-        <h3>Drag photos and videos here</h3>
-        <p>Choose up to 10 at once. Each one becomes its own story.</p>
+        <h3>{t('d.stories.dragHere')}</h3>
+        <p>{t('d.stories.chooseUpTo')}</p>
         <button className="btn" onClick={() => input.current?.click()}>
-          Select from computer
+          {t('d.stories.selectFromComputer')}
         </button>
         <input ref={input} type="file" accept="image/*,video/*" multiple hidden data-testid="story-files" onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
       </Drop>
       <div className="stc-modes">
-        <Mode glyph="Aa" title="Text" sub="Words on a coloured background" colors={['#4a5df6', '#b13df0']} onClick={onText} />
-        <Mode icon="collage" title="Collage" sub="2 to 4 photos arranged in one story" colors={['#0fb58a', '#0a6cf0']} onClick={onCollage} />
+        <Mode glyph="Aa" title={t('d.stories.text')} sub={t('d.stories.textSub')} colors={['#4a5df6', '#b13df0']} onClick={onText} />
+        <Mode icon="collage" title={t('d.stories.collage')} sub={t('d.stories.collageSub')} colors={['#0fb58a', '#0a6cf0']} onClick={onCollage} />
       </div>
     </div>
   );
@@ -84,9 +85,9 @@ function CollagePreview({ photos, onAdd }: { photos: Source[]; onAdd: () => void
     <div className={'stc-collage-frame collage n' + slots}>
       {Array.from({ length: slots }, (_, i) =>
         photos[i] ? (
-          <img key={photos[i].url} src={photos[i].url} alt={`Photo ${i + 1}`} />
+          <img key={photos[i].url} src={photos[i].url} alt={t('d.stories.photoN', { n: i + 1 })} />
         ) : (
-          <button key={'empty' + i} className="stc-slot" aria-label="Add a photo" onClick={onAdd}>
+          <button key={'empty' + i} className="stc-slot" aria-label={t('d.stories.addPhoto')} onClick={onAdd}>
             <Icon name="plus" size={26} color="#fff" />
           </button>
         ),
@@ -100,26 +101,26 @@ export function CollageCard({ photos, onFiles, onRemove, onBack, onNext }: { pho
   const input = useRef<HTMLInputElement>(null);
   const pick = () => input.current?.click();
   return (
-    <div className="stc-card stc-collage" role="dialog" aria-label="Collage">
+    <div className="stc-card stc-collage" role="dialog" aria-label={t('d.stories.collage')}>
       <div className="stc-card-head with-actions">
-        <button className="icon-btn" aria-label="Back" onClick={onBack}>
+        <button className="icon-btn" aria-label={t('common.back')} onClick={onBack}>
           <Icon name="back" size={22} />
         </button>
-        <h2>Collage</h2>
+        <h2>{t('d.stories.collage')}</h2>
         <button className="link-btn" disabled={photos.length < 2} onClick={onNext}>
-          Next
+          {t('d.stories.next')}
         </button>
       </div>
       <Drop className="stc-collage-body" onFiles={onFiles}>
         <CollagePreview photos={photos} onAdd={pick} />
         <div className="stc-collage-side">
-          <p className="stc-collage-help">Choose 2 to 4 photos. They are arranged into one story.</p>
+          <p className="stc-collage-help">{t('d.stories.collageHelp')}</p>
           <div className="stc-collage-list">
             {photos.map((p, i) => (
               <div key={p.url} className="stc-collage-item">
                 <img src={p.url} alt="" />
-                <span>Photo {i + 1}</span>
-                <button className="icon-btn" aria-label={`Remove photo ${i + 1}`} onClick={() => onRemove(i)}>
+                <span>{t('d.stories.photoN', { n: i + 1 })}</span>
+                <button className="icon-btn" aria-label={t('d.stories.removePhotoN', { n: i + 1 })} onClick={() => onRemove(i)}>
                   <Icon name="close" size={16} />
                 </button>
               </div>
@@ -127,12 +128,12 @@ export function CollageCard({ photos, onFiles, onRemove, onBack, onNext }: { pho
           </div>
           {photos.length < 4 ? (
             <button className="btn quiet" onClick={pick}>
-              <Icon name="plus" size={16} /> {photos.length ? 'Add another photo' : 'Choose photos'}
+              <Icon name="plus" size={16} /> {photos.length ? t('d.stories.addAnotherPhoto') : t('d.stories.choosePhotos')}
             </button>
           ) : (
-            <p className="stc-note">A collage holds up to 4 photos.</p>
+            <p className="stc-note">{t('d.stories.collageMax')}</p>
           )}
-          <p className="stc-note">{photos.length < 2 ? `Choose ${2 - photos.length} more to continue.` : `${photos.length} photos · ready`}</p>
+          <p className="stc-note">{photos.length < 2 ? tn('d.stories.chooseMore', 2 - photos.length) : t('d.stories.photosReady', { count: photos.length })}</p>
           <input ref={input} type="file" accept="image/*" multiple hidden data-testid="collage-files" onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
         </div>
       </Drop>

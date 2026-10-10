@@ -5,8 +5,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addToHighlight, coverOf, createHighlight, fetchFollowAlerts, fetchHighlights, fetchStoryViewersDetailed, fetchStoryWatchList, getProfile, peopleToMessage, profilesInOrder, report, sendToPeople, setFollowAlerts, setStoryWatch, updateProfile } from 'shared/api';
 import { ringColors } from 'shared/styling';
-import { agoLong, dayLabel, fmt, monthName } from 'shared/theme';
+import { ago, dayLabel, fmt, monthName } from 'shared/theme';
 import type { FollowAlerts, Highlight, Profile, Story, StoryItem, StoryReplies, StoryViewer as Viewer } from 'shared/types';
+import { dateLocale, languageCode, t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, Verified, toast, toastError } from './kit';
@@ -88,7 +89,15 @@ export function useMutedStories(): string[] {
 
 /* ---------- small helpers ---------- */
 
-export const REPORT_REASONS = ['Spam', 'Harassment or hate', 'Nudity or something unsuitable', 'Pretending to be someone else', 'Copyright or trademark', 'Something else'];
+/** Why a story is reported. The English goes to the admins; the key is what the member reads. */
+export const REPORT_REASONS: { reason: string; key: string }[] = [
+  { reason: 'Spam', key: 'report.spam' },
+  { reason: 'Harassment or hate', key: 'report.harassment' },
+  { reason: 'Nudity or something unsuitable', key: 'd.stories.reasonUnsuitable' },
+  { reason: 'Pretending to be someone else', key: 'profile.reportPretending' },
+  { reason: 'Copyright or trademark', key: 'report.copyright' },
+  { reason: 'Something else', key: 'report.other' },
+];
 
 /** The words written on a story, for text stories that have no picture. */
 export function storyWords(item: StoryItem): string {
@@ -96,15 +105,40 @@ export function storyWords(item: StoryItem): string {
   return words.join('\n') || item.caption?.trim() || '';
 }
 
+/** "9 Oct" in English, as the app has always written it; the language's own short date otherwise. */
+export function shortDay(d: Date): string {
+  return languageCode() === 'en' ? dayLabel(d) : d.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
+}
+
+/** "October 2026" in English; the language's own month and year otherwise. */
+function monthYear(d: Date): string {
+  return languageCode() === 'en' ? `${monthName(d)} ${d.getFullYear()}` : d.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
+}
+
+/** "2:41 pm" in English; the language's own clock otherwise. */
+function clockTime(d: Date): string {
+  if (languageCode() !== 'en') return d.toLocaleTimeString(dateLocale(), { hour: 'numeric', minute: '2-digit' });
+  const h = d.getHours();
+  return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+
 /** "2:41 pm", "Yesterday, 2:41 pm" or "9 Oct, 2:41 pm": when someone last watched. */
 export function viewTime(iso: string): string {
   const d = new Date(iso);
-  const h = d.getHours();
-  const time = `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+  const time = clockTime(d);
   const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((startOf(new Date()) - startOf(d)) / 86400e3);
   if (days <= 0) return time;
-  return days === 1 ? `Yesterday, ${time}` : `${dayLabel(d)}, ${time}`;
+  return days === 1 ? t('d.stories.yesterdayAt', { time }) : t('d.stories.dayAt', { day: shortDay(d), time });
+}
+
+/** "Active 2 hours ago": the shared agoLong's steps (minutes, hours, days, weeks), in the app's language. */
+function activeAgo(iso: string): string {
+  const a = ago(iso);
+  if (a === 'now') return t('d.stories.activeJustNow');
+  const n = parseInt(a, 10);
+  const key = ({ m: 'd.stories.activeMinutes', h: 'd.stories.activeHours', d: 'd.stories.activeDays', w: 'd.stories.activeWeeks' } as Record<string, string>)[a.slice(-1)];
+  return tn(key, n);
 }
 
 /** A switch row: the words on the left, the switch on the right. */
@@ -154,7 +188,7 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
     setWatching((cur) => flip(cur, on));
     try {
       await setStoryWatch(me.id, p.id, on);
-      toast(on ? `We'll tell you when ${p.username} watches your stories` : `Story alerts off for ${p.username}`);
+      toast(t(on ? 'd.stories.alertOn' : 'd.stories.alertOff', { username: p.username }));
     } catch (e) {
       setWatching((cur) => flip(cur, !on));
       toastError(e);
@@ -169,20 +203,20 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
 
   const seenBy = Math.max(story.view_count ?? 0, viewers?.length ?? 0);
   return (
-    <Modal title="Viewers" onClose={onClose} className="sv-sheet">
+    <Modal title={t('d.stories.viewers')} onClose={onClose} className="sv-sheet">
       <div className="list-pad sv-viewers">
         {viewers === null ? <Spinner /> : null}
         {viewers && !viewers.length ? (
           <div className="empty small">
             <Icon name="eye" size={30} />
-            <p>No views yet</p>
+            <p>{t('d.stories.noViews')}</p>
           </div>
         ) : null}
-        {viewers && viewers.length ? <p className="sv-seen-count">{seenBy === 1 ? 'Seen by 1 person' : `Seen by ${fmt(seenBy)} people`}</p> : null}
+        {viewers && viewers.length ? <p className="sv-seen-count">{tn('d.stories.seenByPeople', seenBy, { count: fmt(seenBy) })}</p> : null}
         {viewers && viewers.length && !plus ? (
           <button className="sv-plus-note" onClick={() => { onClose(); nav('/plus'); }}>
             <Icon name="crown" size={18} color="var(--accent2)" />
-            <span>See rewatches and times with Plus</span>
+            <span>{t('d.stories.plusRewatches')}</span>
             <Icon name="right" size={14} color="var(--fg2)" stroke={2} />
           </button>
         ) : null}
@@ -190,7 +224,7 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
           const p = v.profile;
           if (!p) return null;
           const on = !!watching?.has(p.id);
-          const times = plus && v.view_count > 1 ? `Watched ${fmt(v.view_count)} times` : '';
+          const times = plus && v.view_count > 1 ? t('d.stories.watchedTimes', { count: fmt(v.view_count) }) : '';
           return (
             <div key={v.viewer_id} className="row sv-viewer">
               <button className="row-main" onClick={() => { onClose(); nav('/u/' + p.username); }}>
@@ -206,7 +240,7 @@ export function ViewersSheet({ story, onClose }: { story: Story; onClose: () => 
                 {plus ? <span className="sv-when">{viewTime(v.last_viewed_at)}</span> : null}
               </button>
               {plus ? (
-                <button className="icon-btn" aria-pressed={on} aria-label={on ? `Stop telling me when ${p.username} watches` : `Tell me when ${p.username} watches`} onClick={() => toggleWatch(p)}>
+                <button className="icon-btn" aria-pressed={on} aria-label={t(on ? 'd.stories.stopTelling' : 'd.stories.tellMe', { username: p.username })} onClick={() => toggleWatch(p)}>
                   <Icon name="bell" size={20} color={on ? 'var(--accent2)' : 'var(--fg2)'} fill={on ? 'var(--accent2)' : 'none'} />
                 </button>
               ) : null}
@@ -243,7 +277,7 @@ export function StoryMenu({ story, highlight, onClose, onDelete, onAddToHighligh
     setAlerts(next);
     try {
       await setFollowAlerts(me.id, story.user_id, next);
-      toast(on ? `You'll be told when ${story.username} shares a story` : `Story notifications off for ${story.username}`);
+      toast(t(on ? 'd.stories.notifyOn' : 'd.stories.notifyOff', { username: story.username }));
     } catch (e) {
       setAlerts(before);
       toastError(e);
@@ -259,19 +293,19 @@ export function StoryMenu({ story, highlight, onClose, onDelete, onAddToHighligh
     <Modal onClose={onClose} className="choices sv-menu">
       {mine ? (
         <>
-          {highlight ? null : item('Delete', onDelete, 'danger bold')}
-          {highlight ? null : item('Add to highlight', onAddToHighlight)}
-          {item('Story settings', onSettings)}
+          {highlight ? null : item(t('common.delete'), onDelete, 'danger bold')}
+          {highlight ? null : item(t('d.stories.addToHighlight'), onAddToHighlight)}
+          {item(t('d.stories.settings'), onSettings)}
         </>
       ) : (
         <>
-          {item('Report', onReport, 'danger bold')}
-          {highlight ? null : item(muted ? 'Unmute' : 'Mute', () => onMuted(!muted))}
-          {!highlight && following && alerts ? <SwitchRow label={`Get notified about ${story.username}'s stories`} on={alerts.stories} onChange={setNotify} /> : null}
-          {item('About this account', onAbout)}
+          {item(t('profile.report'), onReport, 'danger bold')}
+          {highlight ? null : item(muted ? t('d.stories.unmuteStories') : t('d.stories.muteStories'), () => onMuted(!muted))}
+          {!highlight && following && alerts ? <SwitchRow label={t('d.stories.notifyAbout', { username: story.username })} on={alerts.stories} onChange={setNotify} /> : null}
+          {item(t('profile.about'), onAbout)}
         </>
       )}
-      <button onClick={onClose}>Cancel</button>
+      <button onClick={onClose}>{t('common.cancel')}</button>
     </Modal>
   );
 }
@@ -281,9 +315,9 @@ export function StoryMenu({ story, highlight, onClose, onDelete, onAddToHighligh
 export function ReportSheet({ story, onClose }: { story: Story; onClose: () => void }) {
   const { me } = useMe();
   return (
-    <Modal onClose={onClose} title="Why are you reporting this story?" className="sv-sheet">
+    <Modal onClose={onClose} title={t('d.stories.reportWhy')} className="sv-sheet">
       <div className="sv-reasons">
-        {REPORT_REASONS.map((r) => (
+        {REPORT_REASONS.map(({ reason: r, key }) => (
           <button
             key={r}
             className="row full hover"
@@ -291,14 +325,14 @@ export function ReportSheet({ story, onClose }: { story: Story; onClose: () => v
               onClose();
               try {
                 await report(me.id, { userId: story.user_id }, `${r} (on a story)`);
-                toast('Thanks. We will review this story.');
+                toast(t('d.stories.reportThanks'));
               } catch (e) {
                 toastError(e);
               }
             }}
           >
             <Icon name="flag" size={18} />
-            <span className="grow">{r}</span>
+            <span className="grow">{t(key)}</span>
             <Icon name="right" size={14} color="var(--fg3)" stroke={2} />
           </button>
         ))}
@@ -318,10 +352,10 @@ export function AboutAccount({ userId, onClose }: { userId: string; onClose: () 
     });
   }, [userId]);
   const joined = p ? new Date(p.created_at) : null;
-  const verifiedHow = p?.verified_via === 'notable' ? 'Verified (notable account)' : p?.verified_via === 'plus' ? 'Verified with Plus' : 'Verified';
-  const verifiedWhy = p?.verified_via === 'notable' ? 'Confirmed as a notable account by the Community team.' : p?.verified_via === 'plus' ? 'Identity confirmed as part of Community Plus.' : 'Confirmed by the Community team.';
+  const verifiedHow = p?.verified_via === 'notable' ? t('profile.verifiedNotable') : p?.verified_via === 'plus' ? t('profile.verifiedPlus') : t('common.verified');
+  const verifiedWhy = p?.verified_via === 'notable' ? t('profile.verifiedWhyNotable') : p?.verified_via === 'plus' ? t('profile.verifiedWhyPlus') : t('profile.verifiedWhy');
   return (
-    <Modal onClose={onClose} title="About this account" className="sv-sheet">
+    <Modal onClose={onClose} title={t('profile.about')} className="sv-sheet">
       {p === undefined ? <Spinner /> : null}
       {p ? (
         <div className="sv-about">
@@ -331,12 +365,12 @@ export function AboutAccount({ userId, onClose }: { userId: string; onClose: () 
               {p.username}
               {p.verified ? <Verified size={14} /> : null}
             </b>
-            <p>A few details about this account, so you know who you're connecting with on Community.</p>
+            <p>{t('profile.aboutIntro')}</p>
           </div>
-          {joined && !Number.isNaN(joined.getTime()) ? <AboutRow icon="calendar" title="Date joined" value={`${monthName(joined)} ${joined.getFullYear()}`} /> : null}
-          {p.country ? <AboutRow icon="location" title="Account based in" value={p.country} /> : null}
+          {joined && !Number.isNaN(joined.getTime()) ? <AboutRow icon="calendar" title={t('profile.dateJoined')} value={monthYear(joined)} /> : null}
+          {p.country ? <AboutRow icon="location" title={t('profile.basedIn')} value={p.country} /> : null}
           {p.verified ? <AboutRow icon="verified" title={verifiedHow} value={verifiedWhy} /> : null}
-          {p.active_at ? <AboutRow icon="clock" title="Active status" value={'Active ' + agoLong(p.active_at).toLowerCase()} /> : null}
+          {p.active_at ? <AboutRow icon="clock" title={t('profile.activeStatus')} value={activeAgo(p.active_at)} /> : null}
         </div>
       ) : null}
     </Modal>
@@ -371,7 +405,7 @@ export function HighlightPicker({ item, onClose }: { item: StoryItem; onClose: (
     try {
       if (h.id) await addToHighlight(me.id, h.id, item);
       else await createHighlight(me.id, h.title, [item]);
-      toast(`Added to ${h.title}`);
+      toast(t('d.stories.addedTo', { title: h.title }));
       onClose();
     } catch (e) {
       toastError(e);
@@ -379,7 +413,7 @@ export function HighlightPicker({ item, onClose }: { item: StoryItem; onClose: (
     }
   };
   return (
-    <Modal onClose={onClose} title="Add to highlight" className="sv-sheet">
+    <Modal onClose={onClose} title={t('d.stories.addToHighlight')} className="sv-sheet">
       <div className="sv-hl-grid">
         {list === null ? <Spinner /> : null}
         {(list ?? []).map((h) => (
@@ -396,9 +430,9 @@ export function HighlightPicker({ item, onClose }: { item: StoryItem; onClose: (
           if (title.trim()) keep({ title: title.trim() });
         }}
       >
-        <input value={title} maxLength={30} placeholder="New highlight name" aria-label="New highlight name" onChange={(e) => setTitle(e.target.value)} />
+        <input value={title} maxLength={30} placeholder={t('d.stories.newHighlightName')} aria-label={t('d.stories.newHighlightName')} onChange={(e) => setTitle(e.target.value)} />
         <button className="btn small" disabled={!title.trim() || busy}>
-          Add
+          {t('feed.add')}
         </button>
       </form>
     </Modal>
@@ -407,10 +441,11 @@ export function HighlightPicker({ item, onClose }: { item: StoryItem; onClose: (
 
 /* ---------- Story settings ---------- */
 
+// The labels are keys: t(label) where they are drawn.
 const REPLY_CHOICES: { id: StoryReplies; label: string }[] = [
-  { id: 'everyone', label: 'Everyone' },
-  { id: 'following', label: 'People you follow' },
-  { id: 'off', label: 'Off' },
+  { id: 'everyone', label: 'settings.repliesEveryone' },
+  { id: 'following', label: 'settings.repliesFollowing' },
+  { id: 'off', label: 'settings.repliesOff' },
 ];
 
 /** Who can reply to your stories, close friends, the archive and (Plus) story alerts. */
@@ -438,33 +473,33 @@ export function StorySettings({ onClose, onLeave }: { onClose: () => void; onLea
     nav(to);
   };
   return (
-    <Modal onClose={onClose} title="Story settings" className="sv-sheet">
+    <Modal onClose={onClose} title={t('d.stories.settings')} className="sv-sheet">
       <div className="sv-settings">
-        <h3>Allow replies</h3>
-        <div role="radiogroup" aria-label="Allow replies">
+        <h3>{t('d.stories.allowReplies')}</h3>
+        <div role="radiogroup" aria-label={t('d.stories.allowReplies')}>
           {REPLY_CHOICES.map((c) => (
             <label key={c.id} className="row full hover sv-radio">
-              <span className="grow">{c.label}</span>
+              <span className="grow">{t(c.label)}</span>
               <input type="radio" name="sv-replies" className="round-check" checked={replies === c.id} onChange={() => choose(c.id)} />
             </label>
           ))}
         </div>
         <button className="row full hover" onClick={() => go('/accounts/close-friends')}>
           <Icon name="star" size={20} />
-          <span className="grow">Close friends</span>
+          <span className="grow">{t('settings.closeFriends')}</span>
           <Icon name="right" size={14} color="var(--fg3)" stroke={2} />
         </button>
         <button className="row full hover" onClick={() => go('/archive')}>
           <Icon name="archive" size={20} />
-          <span className="grow">Story archive</span>
+          <span className="grow">{t('d.stories.archive')}</span>
           <Icon name="right" size={14} color="var(--fg3)" stroke={2} />
         </button>
         {me.plus ? (
           <>
-            <h3>Story alerts</h3>
-            <p className="sv-settings-note">People whose views of your stories you're told about. They aren't told. Add people from the bell in a story's viewers.</p>
+            <h3>{t('settings.storyAlerts')}</h3>
+            <p className="sv-settings-note">{t('d.stories.alertsNote')}</p>
             {alerts === null ? <Spinner size={20} /> : null}
-            {alerts && !alerts.length ? <p className="sv-settings-note">No one yet.</p> : null}
+            {alerts && !alerts.length ? <p className="sv-settings-note">{t('d.stories.noOneYet')}</p> : null}
             {(alerts ?? []).map((p) => (
               <div key={p.id} className="row sv-viewer">
                 <Avatar src={p.avatar_url} name={p.username} size={36} />
@@ -484,7 +519,7 @@ export function StorySettings({ onClose, onLeave }: { onClose: () => void; onLea
                     }
                   }}
                 >
-                  Remove
+                  {t('live.remove')}
                 </button>
               </div>
             ))}
@@ -515,11 +550,11 @@ export function SendStory({ story, onClose }: { story: Story; onClose: () => voi
   const send = async () => {
     const cover = coverOf(story.item);
     const text = note.trim() || (cover ? '' : storyWords(story.item));
-    if (!cover && !text) return toast('Add a message to send with this story.');
+    if (!cover && !text) return toast(t('d.stories.addMessage'));
     setBusy(true);
     try {
       await sendToPeople(me.id, picked, { media: cover ? [cover] : [], text });
-      toast(picked.length === 1 ? 'Sent' : `Sent to ${picked.length} people`);
+      toast(picked.length === 1 ? t('d.stories.sent') : t('d.stories.sentToPeople', { count: picked.length }));
       onClose();
     } catch (e) {
       toastError(e);
@@ -527,14 +562,14 @@ export function SendStory({ story, onClose }: { story: Story; onClose: () => voi
     }
   };
   return (
-    <Modal onClose={onClose} title="Send to" className="share">
+    <Modal onClose={onClose} title={t('d.stories.sendTo')} className="share">
       <div className="share-search">
-        <span>To:</span>
-        <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <span>{t('d.stories.to')}</span>
+        <input autoFocus placeholder={t('d.stories.searchHint')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text pad">No account found.</p> : null}
+        {people && !shown.length ? <p className="muted-text pad">{t('d.stories.noAccount')}</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -546,10 +581,10 @@ export function SendStory({ story, onClose }: { story: Story; onClose: () => voi
           </label>
         ))}
       </div>
-      {picked.length ? <input className="share-note" placeholder="Write a message…" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label="Write a message" /> : null}
+      {picked.length ? <input className="share-note" placeholder={t('d.stories.writeMessageHint')} value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label={t('d.stories.writeMessage')} /> : null}
       <div className="modal-foot">
         <button className="btn block" disabled={!picked.length || busy} onClick={send}>
-          {busy ? 'Sending…' : picked.length > 1 ? `Send (${picked.length})` : 'Send'}
+          {busy ? t('d.stories.sending') : picked.length > 1 ? t('d.stories.sendCount', { count: picked.length }) : t('common.send')}
         </button>
       </div>
     </Modal>

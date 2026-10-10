@@ -5,14 +5,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchHighlights, listCloseFriends, listPeople, peopleToMessage, searchProfiles, setCloseFriend, updateProfile } from 'shared/api';
 import type { Audience, Highlight, Profile, StoryReplies } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import '../styles/stories.css';
 import { Avatar, Icon, Modal, Spinner, toast, toastError } from './kit';
 
 export type HighlightChoice = { id?: string; title: string };
 
-const REPLY_LABEL: Record<StoryReplies, string> = { everyone: 'Everyone', following: 'People you follow', off: 'Off' };
-export const CLOSE_FRIENDS_HIGHLIGHT = 'Highlights are for everyone, so close friends stories stay out of them.';
+// Keys, drawn with t(): who may reply, and why a close friends story can't go in a highlight.
+const REPLY_LABEL: Record<StoryReplies, string> = { everyone: 'settings.repliesEveryone', following: 'settings.repliesFollowing', off: 'settings.repliesOff' };
+export const CLOSE_FRIENDS_HIGHLIGHT = 'd.stories.closeFriendsHighlight';
 
 function ShareRow({ icon, title, sub, onSub, right, onClick, label }: { icon: React.ReactNode; title: string; sub?: string; onSub?: () => void; right: React.ReactNode; onClick: () => void; label?: string }) {
   return (
@@ -58,20 +60,20 @@ export function SharePanel({
   const replies = me.story_replies ?? 'everyone';
   const closeOnly = audience === 'close_friends';
   return (
-    <div className="stc-panel stc-share" role="region" aria-label="Share">
+    <div className="stc-panel stc-share" role="region" aria-label={t('common.share')}>
       <div className="stc-panel-head">
-        <button className="icon-btn" aria-label="Back to editing" onClick={onBack} disabled={busy}>
+        <button className="icon-btn" aria-label={t('create.backToEditing')} onClick={onBack} disabled={busy}>
           <Icon name="back" size={20} />
         </button>
-        <h3>Share</h3>
+        <h3>{t('common.share')}</h3>
         <span />
       </div>
-      <div className="stc-share-rows" role="radiogroup" aria-label="Who sees it">
+      <div className="stc-share-rows" role="radiogroup" aria-label={t('d.stories.whoSeesIt')}>
         <ShareRow
           icon={<Avatar src={me.avatar_url} name={me.username} size={44} />}
-          title="Your story"
-          label="Your story"
-          sub={`Replies: ${REPLY_LABEL[replies]}`}
+          title={t('d.stories.yourStory')}
+          label={t('d.stories.yourStory')}
+          sub={t('d.stories.repliesValue', { choice: t(REPLY_LABEL[replies]) })}
           onSub={() => setSheet('replies')}
           onClick={() => setAudience('everyone')}
           right={<Radio on={audience === 'everyone'} />}
@@ -82,29 +84,29 @@ export function SharePanel({
               <Icon name="star" size={20} color="#fff" fill="#fff" stroke={0} />
             </span>
           }
-          title="Close friends"
-          label="Close friends"
-          sub={friends ? (friends === 1 ? '1 person' : `${friends} people`) : 'Add people'}
+          title={t('settings.closeFriends')}
+          label={t('settings.closeFriends')}
+          sub={friends ? tn('d.stories.people', friends) : t('d.stories.addPeople')}
           onSub={onFriends}
           onClick={() => (friends === 0 ? onFriends() : setAudience('close_friends'))}
           right={<Radio on={audience === 'close_friends'} />}
         />
       </div>
       <div className="stc-share-rows">
-        <ShareRow icon={<Circle name="send" />} title="Message" label="Message" sub={recipients.length ? recipients.map((p) => p.username).join(', ') : 'Send it to people too'} onClick={() => setSheet('people')} right={<Icon name="right" size={16} color="var(--fg2)" stroke={2} />} />
+        <ShareRow icon={<Circle name="send" />} title={t('profile.message')} label={t('profile.message')} sub={recipients.length ? recipients.map((p) => p.username).join(', ') : t('d.stories.sendToo')} onClick={() => setSheet('people')} right={<Icon name="right" size={16} color="var(--fg2)" stroke={2} />} />
         <ShareRow
           icon={<Circle name="highlight" />}
-          title="Add to highlight"
-          label="Add to highlight"
-          sub={closeOnly ? 'Not for close friends stories' : highlight ? highlight.title : 'Keep it on your profile'}
-          onClick={() => (closeOnly ? toast(CLOSE_FRIENDS_HIGHLIGHT) : setSheet('highlight'))}
+          title={t('d.stories.addToHighlight')}
+          label={t('d.stories.addToHighlight')}
+          sub={closeOnly ? t('d.stories.notForCloseFriends') : highlight ? highlight.title : t('d.stories.keepOnProfile')}
+          onClick={() => (closeOnly ? toast(t(CLOSE_FRIENDS_HIGHLIGHT)) : setSheet('highlight'))}
           right={<Icon name="right" size={16} color="var(--fg2)" stroke={2} />}
         />
-        {closeOnly ? <p className="stc-note pad">{CLOSE_FRIENDS_HIGHLIGHT}</p> : null}
+        {closeOnly ? <p className="stc-note pad">{t(CLOSE_FRIENDS_HIGHLIGHT)}</p> : null}
       </div>
       <div className="stc-share-foot">
         <button className="btn block big" disabled={busy} onClick={onShare}>
-          {closeOnly ? 'Share with close friends' : 'Share'}
+          {closeOnly ? t('noteNew.shareWithClose') : t('common.share')}
         </button>
       </div>
 
@@ -132,11 +134,11 @@ export function SharePanel({
 /** Who can reply to your stories (Story settings has the same choice). */
 function RepliesSheet({ value, onPick, onClose }: { value: StoryReplies; onPick: (r: StoryReplies) => void; onClose: () => void }) {
   return (
-    <Modal onClose={onClose} title="Who can reply to your stories" className="sv-sheet">
-      <div className="sv-settings" role="radiogroup" aria-label="Who can reply">
+    <Modal onClose={onClose} title={t('d.stories.whoCanReply')} className="sv-sheet">
+      <div className="sv-settings" role="radiogroup" aria-label={t('d.stories.whoCanReplyShort')}>
         {(Object.keys(REPLY_LABEL) as StoryReplies[]).map((r) => (
           <label key={r} className="row full hover sv-radio">
-            <span className="grow">{REPLY_LABEL[r]}</span>
+            <span className="grow">{t(REPLY_LABEL[r])}</span>
             <input type="radio" name="stc-replies" className="round-check" checked={value === r} onChange={() => onPick(r)} />
           </label>
         ))}
@@ -167,14 +169,14 @@ function PeopleSheet({ picked: start, onDone }: { picked: Profile[]; onDone: (p:
   const people = found ?? base;
   const toggle = (p: Profile, on: boolean) => setPicked((cur) => (on ? (cur.length >= 10 ? cur : [...cur, p]) : cur.filter((x) => x.id !== p.id)));
   return (
-    <Modal onClose={() => onDone(picked)} title="Send to" className="share stc-people-sheet">
+    <Modal onClose={() => onDone(picked)} title={t('d.stories.sendTo')} className="share stc-people-sheet">
       <div className="share-search">
-        <span>To:</span>
-        <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <span>{t('d.stories.to')}</span>
+        <input autoFocus placeholder={t('d.stories.searchHint')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !people.length ? <p className="muted-text pad">{q.trim() ? 'No one found. Try another name.' : 'Follow people or start a chat, and they will appear here.'}</p> : null}
+        {people && !people.length ? <p className="muted-text pad">{q.trim() ? t('d.stories.noOneFoundTry') : t('d.stories.followOrChat')}</p> : null}
         {(people ?? []).map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -188,7 +190,7 @@ function PeopleSheet({ picked: start, onDone }: { picked: Profile[]; onDone: (p:
       </div>
       <div className="modal-foot">
         <button className="btn block" onClick={() => onDone(picked)}>
-          {picked.length ? `Done (${picked.length})` : 'Done'}
+          {picked.length ? t('d.stories.doneCount', { count: picked.length }) : t('createFlow.done')}
         </button>
       </div>
     </Modal>
@@ -204,7 +206,7 @@ function HighlightSheet({ value, onPick, onClose }: { value: HighlightChoice | n
     fetchHighlights(me.id).then(setList, () => setList([]));
   }, []);
   return (
-    <Modal onClose={onClose} title="Add to highlight" className="sv-sheet">
+    <Modal onClose={onClose} title={t('d.stories.addToHighlight')} className="sv-sheet">
       <div className="sv-hl-grid">
         {list === null ? <Spinner /> : null}
         {(list ?? []).map((h) => (
@@ -221,14 +223,14 @@ function HighlightSheet({ value, onPick, onClose }: { value: HighlightChoice | n
           if (title.trim()) onPick({ title: title.trim() });
         }}
       >
-        <input value={title} maxLength={30} placeholder="New highlight name" aria-label="New highlight name" onChange={(e) => setTitle(e.target.value)} />
+        <input value={title} maxLength={30} placeholder={t('d.stories.newHighlightName')} aria-label={t('d.stories.newHighlightName')} onChange={(e) => setTitle(e.target.value)} />
         <button className="btn small" disabled={!title.trim()}>
-          Create
+          {t('common.create')}
         </button>
       </form>
       {value ? (
         <button className="stc-hl-none" onClick={() => onPick(null)}>
-          Don't add it to a highlight
+          {t('d.stories.noHighlight')}
         </button>
       ) : null}
     </Modal>
@@ -277,15 +279,15 @@ export function CloseFriendsSheet({ onClose }: { onClose: (count: number) => voi
     }
   };
   return (
-    <Modal onClose={() => onClose(on.size)} title="Close friends" className="share stc-friends-sheet">
-      <p className="stc-sheet-note">Only your close friends see the stories you share with them. They aren't told when you add or remove them.</p>
+    <Modal onClose={() => onClose(on.size)} title={t('settings.closeFriends')} className="share stc-friends-sheet">
+      <p className="stc-sheet-note">{t('d.stories.closeFriendsNote')}</p>
       <div className="share-search">
         <Icon name="search" size={16} color="var(--fg2)" />
-        <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people you follow" />
+        <input placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.stories.searchFollowing')} />
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text pad">{q.trim() ? 'No one found.' : 'Follow people to add them to your close friends.'}</p> : null}
+        {people && !shown.length ? <p className="muted-text pad">{q.trim() ? t('d.stories.noOneFound') : t('d.stories.followToAdd')}</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -293,13 +295,13 @@ export function CloseFriendsSheet({ onClose }: { onClose: (count: number) => voi
               <b>{p.username}</b>
               <span>{p.full_name}</span>
             </span>
-            <input type="checkbox" className="round-check close" aria-label={(on.has(p.id) ? 'Remove ' : 'Add ') + p.username} checked={on.has(p.id)} onChange={(e) => flip(p, e.target.checked)} />
+            <input type="checkbox" className="round-check close" aria-label={t(on.has(p.id) ? 'createFlow.untag' : 'd.stories.addUser', { username: p.username })} checked={on.has(p.id)} onChange={(e) => flip(p, e.target.checked)} />
           </label>
         ))}
       </div>
       <div className="modal-foot">
         <button className="btn block" onClick={() => onClose(on.size)}>
-          {on.size === 1 ? 'Done · 1 person' : `Done · ${on.size} people`}
+          {tn('d.stories.donePeople', on.size)}
         </button>
       </div>
     </Modal>

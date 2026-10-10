@@ -513,3 +513,11 @@
 .sar-actions { display: flex; gap: 8px; }
 .sar-action { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; padding: 8px 0; border-radius: 10px; color: #fff; font-size: 12.5px; font-weight: 600; }
 .sar-action:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* ---------- longer words in other languages ---------- */
+/* The line under a share option wraps onto a second line instead of being cut off, and the row grows
+   to fit; on one line it sits exactly where it always has (12px above the bottom of the row). The
+   quick-share pills under the story take up to two lines the same way. */
+.stc-share-row { display: grid; }
+.stc-share-sub { position: static; grid-row: 2; justify-self: start; margin: -30px 0 12px 76px; white-space: normal; overflow-wrap: anywhere; text-align: start; }
+.stc-pill > span:last-child { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
