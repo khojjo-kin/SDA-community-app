@@ -68,6 +68,36 @@ export async function fetchChapter(book: string, chapter: number, translation: T
   return out;
 }
 
+/** Chapters already kept on the phone, by "book chapter"; nothing is fetched. For verse snippets in lists. */
+export async function cachedChapters(refs: { book: string; chapter: number }[], translation: TranslationId): Promise<Record<string, Chapter>> {
+  const out: Record<string, Chapter> = {};
+  try {
+    const keys = [...new Set(refs.map((r) => `community.bible.${translation}.${r.book}.${r.chapter}`))];
+    const rows = await Promise.all(keys.map((k) => AsyncStorage.getItem(k).catch(() => null)));
+    for (const raw of rows) {
+      if (!raw) continue;
+      const c: Chapter = JSON.parse(raw);
+      out[`${c.book} ${c.chapter}`] = c;
+    }
+  } catch {
+    // Snippets are a nicety; the list works without them.
+  }
+  return out;
+}
+
+/** "John 3:16", "John 3:16–18", "John 3:16–18, 20" for verses of one chapter. */
+export function verseRef(book: string, chapter: number, verses: number[]): string {
+  const sorted = [...new Set(verses)].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    parts.push(j > i ? `${sorted[i]}–${sorted[j]}` : String(sorted[i]));
+    i = j;
+  }
+  return `${book} ${chapter}${parts.length ? `:${parts.join(', ')}` : ''}`;
+}
+
 /** "john 3", "1 sam 2", "psalm 23" and similar, to a book and chapter. */
 export function parseReference(q: string): { book: string; chapter: number } | null {
   const m = q.trim().toLowerCase().match(/^((?:[1-3]\s*)?[a-z][a-z .]*?)\s*(\d+)?\s*(?::\d+(?:-\d+)?)?$/);

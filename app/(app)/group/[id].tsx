@@ -222,7 +222,7 @@ export default function GroupPage() {
   return (
     <Screen>
       <ScreenHeader title={page ? 'Page' : 'Community'} right={manager ? <RoundButton name="more" label="More options" onPress={() => setSheet('more')} /> : undefined} />
-      <PostGrid posts={visible ? posts ?? [] : []} header={head} empty={empty} onEnd={more} refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
+      <PostGrid posts={visible ? posts ?? [] : []} source={{ from: 'group', groupId: id }} subtitle={group.name} header={head} empty={empty} onEnd={more} refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
 
       <Sheet visible={sheet === 'more'} onClose={() => setSheet(null)}>
         <SheetRow first icon="draw" label={page ? 'Edit page' : 'Edit community'} sub="Name, description, cover and church" onPress={after(openEdit)} />

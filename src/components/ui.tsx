@@ -67,7 +67,8 @@ export function Button({ label, onPress, kind = 'primary', small, busy, disabled
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       style={({ pressed }) => [{ height: small ? 32 : 46, paddingHorizontal: small ? 14 : 18, borderRadius: small ? 10 : 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : pressed ? 0.75 : 1 }, style]}>
-      {busy ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
+      {/* One line always: a longer word (or language) shrinks a little rather than spilling out of the button. */}
+      {busy ? <ActivityIndicator color={fg} /> : <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: fg, fontWeight: '600', fontSize: small ? 13.5 : 15.5, fontFamily: font }}>{label}</Text>}
     </Pressable>
   );
 }
@@ -194,7 +195,7 @@ export function Row({ icon, title, sub, value, onPress, right, color, chevron = 
         <Text style={{ color: color ?? C.fg, fontSize: 17.5, fontWeight: bold ? '700' : '400', fontFamily: bold ? fontBold : font }}>{title}</Text>
         {sub ? <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
       </View>
-      {value ? <Text style={{ color: C.fg2, fontSize: 16.5, fontFamily: font }}>{value}</Text> : null}
+      {value ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 16.5, fontFamily: font, flexShrink: 1, maxWidth: '50%' }}>{value}</Text> : null}
       {right}
       {onPress && chevron ? <Icon name="right" size={18} color={C.fg2} weight={2} /> : null}
     </>

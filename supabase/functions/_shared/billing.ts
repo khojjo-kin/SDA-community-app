@@ -57,8 +57,42 @@ function form(params: Record<string, unknown>, prefix = '', out = new URLSearchP
   return out;
 }
 
+/*
+ * The Stripe keys come from Supabase's secret store (STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY) when
+ * set there, otherwise from the app's private settings table (community_secrets: stripe_secret_key,
+ * stripe_publishable_key), which only the server can read. The table is read at most every 5 minutes.
+ */
+let stored: { at: number; keys: Promise<Record<string, string>> } | null = null;
+function storedKeys(): Promise<Record<string, string>> {
+  if (!stored || Date.now() - stored.at > 300e3) {
+    const keys = (async () => {
+      try {
+        const url = Deno.env.get('SUPABASE_URL');
+        const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (!url || !service) return {};
+        const res = await fetch(`${url}/rest/v1/community_secrets?select=key,value&key=in.(stripe_secret_key,stripe_publishable_key)`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
+        if (!res.ok) return {};
+        const rows = (await res.json()) as { key: string; value: string }[];
+        return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      } catch {
+        return {};
+      }
+    })();
+    stored = { at: Date.now(), keys };
+  }
+  return stored.keys;
+}
+
+export async function stripeSecretKey(): Promise<string> {
+  return Deno.env.get('STRIPE_SECRET_KEY') || (await storedKeys()).stripe_secret_key || '';
+}
+
+export async function stripePublishableKey(): Promise<string> {
+  return Deno.env.get('STRIPE_PUBLISHABLE_KEY') || (await storedKeys()).stripe_publishable_key || '';
+}
+
 export async function stripe<T = any>(method: 'GET' | 'POST' | 'DELETE', path: string, params: Record<string, unknown> = {}, idempotencyKey?: string): Promise<T> {
-  const key = Deno.env.get('STRIPE_SECRET_KEY');
+  const key = await stripeSecretKey();
   if (!key) throw new StripeError('Card payments are not switched on yet. An admin needs to add the Stripe keys.', 503);
   const body = form(params);
   const url = `https://api.stripe.com/v1/${path}${method === 'GET' && body.toString() ? `?${body}` : ''}`;

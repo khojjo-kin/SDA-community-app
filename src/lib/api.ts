@@ -6,8 +6,10 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
 import { FriendlyError } from './theme';
+import { t } from './i18n';
 import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, LiveComment, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 import type { LiveAudience, LiveSchedule, PostPoll } from './types';
+import type { BibleMark, BibleMarkColor, Publisher, SabbathPost, SabbathPostKind } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -441,8 +443,12 @@ export async function fetchReels(onlyFollowing: boolean, before?: string): Promi
   return keep(ok(await q));
 }
 
-export async function fetchUserPosts(userId: string): Promise<Post[]> {
-  return keep(ok(await supabase.from('community_post_cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(90)));
+/** Someone's posts, newest first. With `before`, the next page after that time (opened from their grid); `shortsOnly` keeps to Shorts. */
+export async function fetchUserPosts(userId: string, before?: string, shortsOnly?: boolean): Promise<Post[]> {
+  let q = supabase.from('community_post_cards').select('*').eq('user_id', userId);
+  if (shortsOnly) q = q.eq('kind', 'reel');
+  if (before) q = q.lt('created_at', before);
+  return keep(ok(await q.order('created_at', { ascending: false }).limit(before ? 18 : 90)));
 }
 
 export async function fetchPost(id: string): Promise<Post | null> {
@@ -1937,4 +1943,99 @@ export async function moveSharedLocation(me: string, loc: { lat: number; lng: nu
 /** Friends sharing where they are (updated in the last day), and me if I'm sharing. */
 export async function fetchFriendLocations(): Promise<FriendLocation[]> {
   return ok(await supabase.from('community_friend_locations').select('*').order('updated_at', { ascending: false }).limit(300)) ?? [];
+}
+
+/* ---------- v21: Sabbath School publishers ---------- */
+
+/** Studies, lesson helps, announcements and resources from the publishers: pinned first, then newest. */
+export async function fetchSabbathPosts(offset = 0, limit = 20): Promise<SabbathPost[]> {
+  return ok(await withTimeout(supabase.from('community_sabbath_post_cards').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }).range(offset, offset + limit - 1))) ?? [];
+}
+
+export async function fetchSabbathPost(id: string): Promise<SabbathPost | null> {
+  return ok(await withTimeout(supabase.from('community_sabbath_post_cards').select('*').eq('id', id).maybeSingle()));
+}
+
+export type SabbathPostInput = { kind: SabbathPostKind; title: string; body: string; lesson_ref: string; media: Media[]; link: string };
+
+export async function createSabbathPost(me: string, input: SabbathPostInput): Promise<string> {
+  const row: { id: string } = ok(await supabase.from('community_sabbath_posts').insert({ ...input, author_id: me }).select('id').single());
+  return row.id;
+}
+
+/** `pinned` is for admins; the server keeps it as it was for anyone else. */
+export async function updateSabbathPost(id: string, patch: Partial<SabbathPostInput> & { pinned?: boolean }) {
+  const rows: { id: string }[] = ok(await supabase.from('community_sabbath_posts').update(patch).eq('id', id).select('id'));
+  // Nothing changed: the post is gone, or publishing was turned off while it was being edited.
+  if (!rows.length) throw new FriendlyError(t('ssPub.onlyPublishers'));
+}
+
+export async function deleteSabbathPost(id: string) {
+  ok(await supabase.from('community_sabbath_posts').delete().eq('id', id));
+}
+
+/** My request to publish, or null if I've never asked. */
+export async function fetchMyPublisher(me: string): Promise<Publisher | null> {
+  return ok(await withTimeout(supabase.from('community_publishers').select('*').eq('user_id', me).maybeSingle()));
+}
+
+/** Asks to publish. `again` after a refusal sets the request back to pending with the new note. */
+export async function requestPublisher(me: string, note: string, again = false) {
+  const text = note.trim().slice(0, 1000);
+  if (again) ok(await supabase.from('community_publishers').update({ status: 'pending', note: text }).eq('user_id', me));
+  else ok(await supabase.from('community_publishers').insert({ user_id: me, note: text }));
+}
+
+/** Admins: requests waiting and approved publishers, oldest first, with who they are. */
+export async function fetchPublishers(): Promise<Publisher[]> {
+  const rows: Publisher[] = ok(await supabase.from('community_publishers').select('*').in('status', ['pending', 'approved']).order('created_at', { ascending: true }).limit(500)) ?? [];
+  const people = await profilesInOrder(rows.map((r) => r.user_id));
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.user_id) ?? null }));
+}
+
+export async function countPendingPublishers(): Promise<number> {
+  const { count: n, error } = await supabase.from('community_publishers').select('user_id', { count: 'exact', head: true }).eq('status', 'pending');
+  if (error) throw error;
+  return n ?? 0;
+}
+
+/** Admins: approve, decline or revoke. The server records who decided and when. */
+export async function decidePublisher(userId: string, status: 'approved' | 'rejected' | 'revoked') {
+  ok(await supabase.from('community_publishers').update({ status }).eq('user_id', userId));
+}
+
+/* ---------- v21: Bible highlights and notes ---------- */
+
+const MARKS = 'community_bible_marks';
+
+/** My highlights and notes, newest first; with `at`, only that chapter's. */
+export async function fetchBibleMarks(me: string, at?: { book: string; chapter: number }): Promise<BibleMark[]> {
+  let q = supabase.from(MARKS).select('*').eq('user_id', me);
+  if (at) q = q.eq('book', at.book).eq('chapter', at.chapter);
+  return ok(await withTimeout(q.order('updated_at', { ascending: false }).limit(at ? 200 : 1000))) ?? [];
+}
+
+/** Colours verses, or with '' takes their colour off. Notes stay; a verse left with neither is removed. */
+export async function setBibleColor(me: string, translation: string, book: string, chapter: number, verses: number[], color: BibleMarkColor) {
+  if (!verses.length) return;
+  const updated_at = new Date().toISOString();
+  if (color) {
+    // Only the columns sent are updated on a verse already marked, so its note is kept.
+    ok(await supabase.from(MARKS).upsert(verses.map((verse) => ({ user_id: me, translation, book, chapter, verse, color, updated_at })), { onConflict: 'user_id,book,chapter,verse' }));
+    return;
+  }
+  ok(await supabase.from(MARKS).delete().eq('user_id', me).eq('book', book).eq('chapter', chapter).in('verse', verses).eq('note', ''));
+  ok(await supabase.from(MARKS).update({ color: '', updated_at }).eq('user_id', me).eq('book', book).eq('chapter', chapter).in('verse', verses));
+}
+
+/** Writes my note on a verse. An empty note takes it off (and removes the mark if it has no colour). */
+export async function setBibleNote(me: string, translation: string, book: string, chapter: number, verse: number, note: string) {
+  const text = note.trim().slice(0, 2000);
+  const updated_at = new Date().toISOString();
+  if (text) {
+    ok(await supabase.from(MARKS).upsert({ user_id: me, translation, book, chapter, verse, note: text, updated_at }, { onConflict: 'user_id,book,chapter,verse' }));
+    return;
+  }
+  ok(await supabase.from(MARKS).delete().eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse).eq('color', ''));
+  ok(await supabase.from(MARKS).update({ note: '', updated_at }).eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse));
 }

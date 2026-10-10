@@ -31,15 +31,16 @@ export default function Saved() {
     }, [load]),
   );
 
+  const title = liked ? 'Your likes' : reposts ? 'Your reposts' : 'Saved';
   return (
     <Screen>
-      <Header title={liked ? 'Your likes' : reposts ? 'Your reposts' : 'Saved'} center />
+      <Header title={title} center />
       {posts === null ? (
         <Loading />
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : (
-        <PostGrid posts={posts} empty={liked ? <Empty icon="heart" title="No likes yet" /> : reposts ? <Empty icon="repost" title="No reposts yet" /> : <Empty icon="bookmark" title="Nothing saved yet" />} />
+        <PostGrid posts={posts} subtitle={title} empty={liked ? <Empty icon="heart" title="No likes yet" /> : reposts ? <Empty icon="repost" title="No reposts yet" /> : <Empty icon="bookmark" title="Nothing saved yet" />} />
       )}
     </Screen>
   );

@@ -28,8 +28,9 @@ export const PersonRow = React.memo(function PersonRow({ person, onPress, right,
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}>
-      <Pressable onPress={onPress ?? (() => router.push(`/user/${person.id}`))} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }} accessibilityRole="button" accessibilityLabel={`${person.full_name}, ${person.username}`}>
-        <Avatar uri={person.avatar_url} name={person.full_name} size={50} ring={person.has_story ? 'new' : null} />
+      <Pressable onPress={onPress ?? (() => router.push(`/user/${person.id}`))} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, opacity: pressed ? 0.7 : 1 })} accessibilityRole="button" accessibilityLabel={`${person.full_name}, ${person.username}`}>
+        {/* A story ring is drawn inside the same 50 points, so names line up whether or not someone has one. */}
+        <Avatar uri={person.avatar_url} name={person.full_name} size={person.has_story ? 40 : 50} ring={person.has_story ? 'new' : null} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{person.username}</Text>

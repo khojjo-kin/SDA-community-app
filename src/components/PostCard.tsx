@@ -191,7 +191,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   return (
     <View style={{ paddingBottom: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 12, paddingRight: 4, paddingVertical: 8 }}>
-        <Pressable onPress={() => router.push(`/user/${post.user_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${post.username}'s profile`}>
+        <Pressable onPress={() => router.push(`/user/${post.user_id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, opacity: pressed ? 0.7 : 1 })} accessibilityRole="button" accessibilityLabel={`Open ${post.username}'s profile`}>
           <Avatar uri={post.avatar_url} name={post.full_name} size={34} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

@@ -18,12 +18,13 @@
 //   payouts        the member's own Stripe account for receiving donations: status, onboarding, dashboard
 //   creator_*      subscribing to a creator (paid to their own Stripe account, less the app's share)
 //
-// Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and
-// optionally STRIPE_APPLE_MERCHANT_ID. The webhook for renewals registers itself with Stripe the
-// first time `config` runs, and keeps its signing secret in community_secrets.
+// Keys: STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY (Supabase secrets, or the private
+// community_secrets table; see _shared/billing.ts), and optionally STRIPE_APPLE_MERCHANT_ID. The
+// webhook for renewals registers itself with Stripe the first time `config` runs, and keeps its
+// signing secret in community_secrets.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { AD_DAY_PENCE, applyCreatorSub, applySubscription, CREATOR_FEE_PERCENT, CURRENCY, isCreatorSub, json, PRICE_LOOKUP, PRICE_PENCE, settlePaymentIntent, STRIPE_VERSION, StripeError, stripe, subjectOf, TRIAL_DAYS, WEBHOOK_EVENTS, YEARLY_LOOKUP, YEARLY_PENCE } from '../_shared/billing.ts';
+import { AD_DAY_PENCE, applyCreatorSub, applySubscription, CREATOR_FEE_PERCENT, CURRENCY, isCreatorSub, json, PRICE_LOOKUP, PRICE_PENCE, settlePaymentIntent, STRIPE_VERSION, StripeError, stripe, stripePublishableKey, stripeSecretKey, subjectOf, TRIAL_DAYS, WEBHOOK_EVENTS, YEARLY_LOOKUP, YEARLY_PENCE } from '../_shared/billing.ts';
 
 /* ---------- members and customers ---------- */
 
@@ -61,6 +62,13 @@ async function priceId(plan: Plan = 'monthly'): Promise<string> {
   const found = await stripe('GET', 'prices', { lookup_keys: [lookup], active: true, limit: 1 });
   const existing = found?.data?.[0];
   if (existing && existing.unit_amount === amount && existing.currency === CURRENCY && (!PLUS_PRODUCT || existing.product === PLUS_PRODUCT)) return existing.id;
+  // A matching price already made on the product in the Stripe dashboard is used as it is.
+  if (PLUS_PRODUCT) {
+    const interval = plan === 'yearly' ? 'year' : 'month';
+    const onProduct = await stripe('GET', 'prices', { product: PLUS_PRODUCT, active: true, limit: 100 });
+    const match = ((onProduct?.data ?? []) as any[]).find((p) => p.unit_amount === amount && p.currency === CURRENCY && p.recurring?.interval === interval && (p.recurring?.interval_count ?? 1) === 1);
+    if (match) return match.id;
+  }
   const price = await stripe('POST', 'prices', {
     currency: CURRENCY,
     unit_amount: amount,
@@ -486,8 +494,8 @@ Deno.serve(async (req: Request) => {
   try {
     switch (body?.action) {
       case 'config': {
-        const publishable = Deno.env.get('STRIPE_PUBLISHABLE_KEY') ?? '';
-        const ready = !!publishable && !!Deno.env.get('STRIPE_SECRET_KEY');
+        const publishable = await stripePublishableKey();
+        const ready = !!publishable && !!(await stripeSecretKey());
         if (ready) await ensureWebhook(db).catch((e) => console.error('webhook setup', e?.message ?? e));
         return json({
           ready,

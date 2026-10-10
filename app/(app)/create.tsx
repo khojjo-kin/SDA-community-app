@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardOpen } from '../../src/components/AssistiveButton';
 import { Icon } from '../../src/components/Icon';
 import { MediaPicker, PickMode, PickedItem } from '../../src/components/MediaPicker';
 import type { CreateMode } from '../../src/components/ModeSwitcher';
@@ -35,6 +36,8 @@ export default function Create() {
   const toast = useToast();
   const t = useT();
   const insets = useSafeAreaInsets();
+  // With the keyboard up, Share sits on it: no home-indicator gap underneath.
+  const keyboard = useKeyboardOpen();
   const { width } = useWindowDimensions();
   const [mode, setMode] = useState<PickMode>(params.mode === 'shorts' || params.mode === 'reel' ? 'shorts' : 'post');
   const [step, setStep] = useState<Step>('pick');
@@ -341,7 +344,7 @@ export default function Create() {
             </ScrollView>
 
             {/* Share stays at the bottom, above the keyboard when it is up. */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: insets.bottom + 10, backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: (keyboard ? 0 : insets.bottom) + 10, backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }}>
               {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginBottom: 8 }} accessibilityLiveRegion="polite">{busy}</Text> : null}
               {err ? <Text style={{ color: C.like, textAlign: 'center', marginBottom: 8, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
               <Pressable onPress={share} disabled={locked} accessibilityRole="button" accessibilityLabel={t('common.share')} accessibilityState={{ disabled: locked, busy: locked }} style={({ pressed }) => ({ height: 50, borderRadius: 25, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: locked ? 0.6 : pressed ? 0.8 : 1 })}>

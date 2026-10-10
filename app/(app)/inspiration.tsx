@@ -1,11 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { PostGrid } from '../../src/components/Grid';
 import { Empty, ErrorNote, Loading, Screen, ScreenHeader } from '../../src/components/ui';
 import { fetchTopPosts } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
-import { C, errText } from '../../src/lib/theme';
+import { errText } from '../../src/lib/theme';
 import type { Post } from '../../src/lib/types';
 
 /** What other people's most liked posts look like right now. */
@@ -45,7 +44,6 @@ export default function Inspiration() {
           posts={posts}
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(); }}
-          header={posts.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>The most liked posts and shorts from other people on Community in the last 30 days.</Text> : null}
           empty={<Empty icon="bulb" title="Nothing to show yet" />}
         />
       )}

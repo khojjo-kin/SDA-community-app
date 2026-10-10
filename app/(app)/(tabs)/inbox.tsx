@@ -274,6 +274,7 @@ export default function Inbox() {
         contentContainerStyle={{ paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setNotesKey((k) => k + 1); load(); }} tintColor={C.fg2} />}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       />
     </Screen>
   );

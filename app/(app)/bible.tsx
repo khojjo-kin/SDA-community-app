@@ -262,6 +262,11 @@ export default function Bible() {
                 <Icon name="right" size={18} color={C.fg2} weight={2} />
               </Pressable>
             ) : null}
+            <Pressable onPress={() => router.push('/bible-marks' as any)} accessibilityRole="button" style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, height: 52, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
+              <Icon name="compose" size={22} color={C.accent2} />
+              <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600', flex: 1 }}>{t('bibleMarks.title')}</Text>
+              <Icon name="right" size={18} color={C.fg2} weight={2} />
+            </Pressable>
             <SectionLabel>Old Testament</SectionLabel>
             {list('old')}
             <SectionLabel>New Testament</SectionLabel>
@@ -274,6 +279,7 @@ export default function Bible() {
       {/* The page's menu: for now, the verse of the day, so a hidden card can be brought back. */}
       <Sheet visible={menu} onClose={() => setMenu(false)} title={t('churchApps.bible')}>
         <Row icon="sparkle" title={t('bible.verseOfDay')} right={<Toggle value={dailyVerse} onChange={(next) => setPrefs({ dailyVerse: next })} label={t('bible.verseOfDay')} />} />
+        <Row icon="compose" title={t('bibleMarks.title')} onPress={() => { setMenu(false); router.push('/bible-marks' as any); }} />
       </Sheet>
     </Screen>
   );

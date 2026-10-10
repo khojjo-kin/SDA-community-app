@@ -37,7 +37,7 @@ const SLOP = 6;
 // Full-screen photo and video, calls, the camera and editors. Paths are as usePathname gives them (no groups).
 const MEDIA_PREFIXES = ['/story/', '/story-archive/', '/highlight/', '/watch/', '/call/', '/live/'];
 // The Clips tab ('/reels') is full-screen video too, and the button would sit over its like and share buttons.
-const MEDIA_SCREENS = ['/reels', '/go-live', '/story-editor', '/create', '/add-story', '/camera-settings', '/sign-in', '/sign-up', '/forgot', '/onboarding', '/birth-date'];
+const MEDIA_SCREENS = ['/reels', '/shorts', '/go-live', '/story-editor', '/create', '/add-story', '/camera-settings', '/sign-in', '/sign-up', '/forgot', '/onboarding', '/birth-date'];
 
 /** True on screens where nothing should float over the content or pop up over it. */
 export function isMediaRoute(path: string): boolean {

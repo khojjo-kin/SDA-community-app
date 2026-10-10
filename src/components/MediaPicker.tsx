@@ -456,7 +456,10 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
   return (
     <View style={{ flex: 1, backgroundColor: '#000', paddingTop: insets.top }}>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-        <RoundButton name="close" label="Close" onPress={onClose} size={40} iconSize={22} bg={DARK.round} color={DARK.fg} />
+        {/* As wide as Next on the right, so the title sits in the middle. */}
+        <View style={{ width: 56 }}>
+          <RoundButton name="close" label="Close" onPress={onClose} size={40} iconSize={22} bg={DARK.round} color={DARK.fg} />
+        </View>
         <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{shorts ? t('create.newClip') : t('create.newPost')}</Text>
         <Pressable onPress={next} disabled={!!busy || !chosen.length} hitSlop={8} accessibilityRole="button" accessibilityLabel="Next" accessibilityState={{ disabled: !!busy || !chosen.length }} style={({ pressed }) => ({ width: 56, alignItems: 'flex-end', opacity: !chosen.length ? 0.4 : pressed ? 0.6 : 1 })}>
           <Text style={{ color: DARK.accent2, fontWeight: '700', fontSize: 16.5 }}>Next</Text>

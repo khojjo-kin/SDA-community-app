@@ -130,6 +130,7 @@ export default function AppLayout() {
         <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="story/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
         <Stack.Screen name="watch/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
+        <Stack.Screen name="shorts" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="comments/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="share/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="send-to" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { type GridSource, isShort, rememberGrid } from '../lib/grid-open';
 import { C, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { Icon } from './Icon';
@@ -12,13 +13,42 @@ export function thumbOf(post: Post): string | undefined {
   return m.type === 'video' ? m.poster : m.url;
 }
 
+const LIST: GridSource = { from: 'list' };
+
+/**
+ * What a tap on a cell does: a Short opens the Shorts player at that Short, with the grid's other
+ * Shorts to swipe through; anything else opens a feed of the grid's posts starting at the one tapped.
+ * The callback never changes, so memoised cells don't draw again when the grid's list does.
+ */
+export function useOpenFromGrid(posts: Post[], source: GridSource = LIST, subtitle?: string) {
+  const router = useRouter();
+  const latest = useRef({ posts, source, subtitle });
+  latest.current = { posts, source, subtitle };
+  return useCallback(
+    (post: Post) => {
+      const { posts: all, source: from, subtitle: sub } = latest.current;
+      const short = isShort(post);
+      const ids = (short ? all.filter(isShort) : all).map((p) => p.id);
+      if (!ids.includes(post.id)) ids.unshift(post.id);
+      const key = rememberGrid({ ids, source: from, subtitle: sub });
+      const user = from.from === 'user' ? `&user=${encodeURIComponent(from.userId)}` : '';
+      router.push(`/${short ? 'shorts' : 'posts'}?start=${encodeURIComponent(post.id)}&grid=${key}${user}`);
+    },
+    [router],
+  );
+}
+
 /** Memoised: a grid draws its cells again whenever the screen around it does, and a cell only changes with its post. */
-export const GridCell = React.memo(function GridCell({ post, size }: { post: Post; size: number }) {
+export const GridCell = React.memo(function GridCell({ post, size, onOpen }: { post: Post; size: number; onOpen?: (post: Post) => void }) {
   const router = useRouter();
   const uri = thumbOf(post);
   const video = post.media[0]?.type === 'video';
   return (
-    <Pressable onPress={() => router.push(video ? `/watch/${post.id}` : `/post/${post.id}`)} accessibilityRole="button" accessibilityLabel={`Post by ${post.username}`} style={{ width: size, height: Math.round(size * 1.33), backgroundColor: C.bg2 }}>
+    <Pressable
+      onPress={() => (onOpen ? onOpen(post) : router.push(isShort(post) ? `/watch/${post.id}` : `/post/${post.id}`))}
+      accessibilityRole="button"
+      accessibilityLabel={`Post by ${post.username}`}
+      style={({ pressed }) => ({ width: size, height: Math.round(size * 1.33), backgroundColor: C.bg2, opacity: pressed ? 0.82 : 1 })}>
       {uri ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={120} cachePolicy="memory-disk" recyclingKey={post.id} /> : null}
       {video ? (
         <View style={{ position: 'absolute', right: 6, top: 6 }}>
@@ -44,11 +74,12 @@ const GRID_GAP = 2;
 const GridGap = () => <View style={{ height: GRID_GAP }} />;
 const keyOfPost = (p: Post) => p.id;
 
-export function PostGrid({ posts, header, empty, refreshing, onRefresh, onEnd }: { posts: Post[]; header?: React.ReactElement | null; empty?: React.ReactElement | null; refreshing?: boolean; onRefresh?: () => void; onEnd?: () => void }) {
+export function PostGrid({ posts, header, empty, refreshing, onRefresh, onEnd, source, subtitle }: { posts: Post[]; header?: React.ReactElement | null; empty?: React.ReactElement | null; refreshing?: boolean; onRefresh?: () => void; onEnd?: () => void; source?: GridSource; subtitle?: string }) {
   const { width } = useWindowDimensions();
   const gap = GRID_GAP;
   const size = Math.floor((width - gap * 2) / 3);
-  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} />, [size]);
+  const open = useOpenFromGrid(posts, source, subtitle);
+  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} onOpen={open} />, [size, open]);
   return (
     <FlatList
       data={posts}

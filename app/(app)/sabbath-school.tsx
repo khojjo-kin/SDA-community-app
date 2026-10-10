@@ -6,6 +6,7 @@ import { Icon } from '../../src/components/Icon';
 import { QuarterRow } from '../../src/components/sabbath/discover';
 import { lessonLine, PillTabs, Skeleton, tileColour, WEEKDAY } from '../../src/components/sabbath/kit';
 import { ItemRow, LessonTile, QuarterHero } from '../../src/components/sabbath/plans';
+import { PublishersSection } from '../../src/components/sabbath/publishers';
 import { Greeting, MemoryHero, TodayCard } from '../../src/components/sabbath/today';
 import { Empty, ErrorNote, IconButton, RoundButton, Screen, SectionLabel, Sheet, useToast } from '../../src/components/ui';
 import { useAppFont } from '../../src/lib/fonts';
@@ -87,6 +88,8 @@ export default function SabbathSchool() {
   const [tab, setTab] = useState<Tab>('quarter');
   const [sheet, setSheet] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Bumped on pull to refresh, so the publishers' posts are fetched again too.
+  const [pulled, setPulled] = useState(0);
   /** Only the latest load may land: a refresh and a quarter change can overlap. */
   const ticket = useRef(0);
   const catalogue = useRef<Quarterly[] | null>(null);
@@ -346,6 +349,7 @@ export default function SabbathSchool() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
+              setPulled((n) => n + 1);
               load(true);
             }}
             tintColor={C.fg2}
@@ -363,6 +367,8 @@ export default function SabbathSchool() {
         ) : (
           <>
             {renderToday()}
+
+            {browse ? null : <PublishersSection refresh={pulled} />}
 
             <View style={{ paddingTop: 26, paddingBottom: 16 }}>
               <PillTabs<Tab>

@@ -260,14 +260,14 @@ export const Reel = React.memo(function Reel({ id, active, height, width, bottom
         ) : null}
         <View style={{ marginLeft: 14, marginRight: 76 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <Pressable onPress={() => router.push(`/user/${post.user_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${post.username}'s profile`}>
+            <Pressable onPress={() => router.push(`/user/${post.user_id}`)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1, opacity: pressed ? 0.7 : 1 })} accessibilityRole="button" accessibilityLabel={`Open ${post.username}'s profile`}>
               <Avatar uri={post.avatar_url} name={post.full_name} size={36} />
               <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '700', flexShrink: 1 }}>{post.username}</Text>
               {post.verified ? <VerifiedTick size={14} /> : null}
             </Pressable>
             {!mine && !post.following_author ? (
-              <Pressable onPress={() => safe(() => setFollow(me, post.user_id, true))} accessibilityRole="button" style={{ height: 30, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)', justifyContent: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13.5 }}>Follow</Text>
+              <Pressable onPress={() => safe(() => setFollow(me, post.user_id, true))} accessibilityRole="button" style={({ pressed }) => ({ height: 30, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '600', fontSize: 13.5 }}>Follow</Text>
               </Pressable>
             ) : null}
           </View>

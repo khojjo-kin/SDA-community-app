@@ -12,6 +12,7 @@ export const ADMIN_SECTIONS: { key: AdminSection; label: string; icon: IconName;
   { key: 'members', label: 'Members', icon: 'people', href: '/admin-members' },
   { key: 'reports', label: 'Reports', icon: 'flag', href: '/admin-reports' },
   { key: 'requests', label: 'Requests', icon: 'verified', href: '/admin-requests' },
+  { key: 'publishers', label: 'Publishers', icon: 'lesson', href: '/admin-publishers' },
   { key: 'ads', label: 'Ads and fundraisers', icon: 'megaphone', href: '/admin-ads' },
   { key: 'words', label: 'Offensive words', icon: 'gavel', href: '/admin-words' },
   { key: 'admins', label: 'Admins', icon: 'shield', href: '/admin-admins' },
@@ -25,7 +26,7 @@ export const ADMIN_SECTIONS: { key: AdminSection; label: string; icon: IconName;
   { key: 'groups', label: 'Groups', icon: 'users', href: '/groups' },
 ];
 
-export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'ads' | 'words' | 'admins' | 'transactions' | 'activity' | 'support' | 'feedback' | 'pod' | 'hymns' | 'churches' | 'groups';
+export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'publishers' | 'ads' | 'words' | 'admins' | 'transactions' | 'activity' | 'support' | 'feedback' | 'pod' | 'hymns' | 'churches' | 'groups';
 
 /** From this width up (an iPad on its side, or a Mac window) the console shows its sidebar. */
 export const WIDE_WIDTH = 860;

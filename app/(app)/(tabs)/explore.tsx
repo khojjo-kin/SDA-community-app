@@ -7,6 +7,7 @@ import { PersonRow } from '../../../src/components/PersonRow';
 import { GridSkeleton, RowsSkeleton, SlowLine } from '../../../src/components/Skeleton';
 import { Avatar, Empty, ErrorNote, RoundButton, Screen } from '../../../src/components/ui';
 import { fetchExplore, fetchLives, searchProfiles } from '../../../src/lib/api';
+import type { GridSource } from '../../../src/lib/grid-open';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { C, errText } from '../../../src/lib/theme';
@@ -15,6 +16,8 @@ import { tasteKey, tasteOf, tuneFeed } from '../clips-settings';
 
 /** How many posts the grid asks for at a time. */
 const PAGE = 30;
+/** A post opened from the grid carries on with more from Explore (src/lib/grid-open.ts). */
+const EXPLORE: GridSource = { from: 'explore' };
 
 /** Who is broadcasting right now: a row of faces, each with a red LIVE pill. Draws nothing when nobody is. */
 function LiveStrip({ lives }: { lives: LiveCard[] }) {
@@ -155,6 +158,7 @@ export default function Explore() {
           ListHeaderComponent={<SectionTitle>{q.trim() ? 'Results' : 'Suggested'}</SectionTitle>}
           ListEmptyComponent={people === null ? <RowsSkeleton count={6} avatar={50} padY={8} trailing="button" /> : <Empty title="No one found" body={q.trim() ? 'Check the spelling, or try part of a username.' : 'When more people join, you can find them here.'} />}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: 110 }}
         />
       ) : status === 'loading' ? (
@@ -168,6 +172,7 @@ export default function Explore() {
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(true); }}
           onEnd={() => { if (cursor.current) load(false); }}
+          source={EXPLORE}
           empty={<Empty icon="search" title="Nothing to explore yet" />}
         />
       )}
