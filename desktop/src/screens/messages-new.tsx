@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { ERHA_ID, getProfile, openThread, peopleToMessage, searchProfiles, sendToPeople } from 'shared/api';
 import type { Profile } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, Verified, toast, toastError } from '../ui/kit';
@@ -24,7 +25,7 @@ export function ForwardPhotos({ media, onClose, onSent }: { media: string[]; onC
 
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(
+    const timer = setTimeout(
       () => {
         (searching ? searchProfiles(q) : peopleToMessage(me.id)).then(
           (list) => alive && setPeople(list.filter((p) => p.id !== me.id && p.id !== ERHA_ID && !p.is_blocked && !p.deleted_at)),
@@ -35,7 +36,7 @@ export function ForwardPhotos({ media, onClose, onSent }: { media: string[]; onC
     );
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [q]);
 
@@ -45,7 +46,7 @@ export function ForwardPhotos({ media, onClose, onSent }: { media: string[]; onC
     setBusy(true);
     try {
       await sendToPeople(me.id, picked, { media, text: note });
-      toast(picked.length > 1 ? `Sent to ${picked.length} people` : 'Sent');
+      toast(picked.length > 1 ? t('d.messages.sentTo', { count: picked.length }) : t('d.messages.sent'));
       onSent?.();
       onClose();
     } catch (e) {
@@ -55,20 +56,20 @@ export function ForwardPhotos({ media, onClose, onSent }: { media: string[]; onC
   };
 
   return (
-    <Modal title="Forward" onClose={onClose} className="share mx-new mx-fwd">
-      <div className="mx-fwd-photos" aria-label="Photos to forward">
+    <Modal title={t('d.messages.forward')} onClose={onClose} className="share mx-new mx-fwd">
+      <div className="mx-fwd-photos" aria-label={t('d.messages.photosToForward')}>
         {media.map((u, i) => (
-          <img key={i + u} src={u} alt={`Photo ${i + 1} of ${media.length}`} />
+          <img key={i + u} src={u} alt={t('d.messages.photoOf', { n: i + 1, total: media.length })} />
         ))}
       </div>
       <div className="share-search">
-        <span>To:</span>
-        <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <span>{t('d.messages.to')}</span>
+        <input autoFocus placeholder={t('d.messages.searchDots')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       </div>
       <div className="share-list">
-        {!searching ? <h4 className="mx-new-h">Suggested</h4> : null}
+        {!searching ? <h4 className="mx-new-h">{t('d.messages.suggested')}</h4> : null}
         {people === null ? <Spinner /> : null}
-        {people && !people.length ? <p className="muted-text pad">{searching ? 'No one found. Try another name.' : 'Follow people or search for someone by name.'}</p> : null}
+        {people && !people.length ? <p className="muted-text pad">{searching ? t('d.messages.noOneFound') : t('d.messages.followToStart')}</p> : null}
         {(people ?? []).map((p) => (
           <label key={p.id} className="row mx-pick">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -79,14 +80,14 @@ export function ForwardPhotos({ media, onClose, onSent }: { media: string[]; onC
               </b>
               <span>{p.username}</span>
             </span>
-            <input type="checkbox" className="round-check" checked={picked.includes(p.id)} onChange={() => toggle(p.id)} aria-label={'Choose ' + (p.full_name || p.username)} />
+            <input type="checkbox" className="round-check" checked={picked.includes(p.id)} onChange={() => toggle(p.id)} aria-label={t('d.messages.choose', { name: p.full_name || p.username })} />
           </label>
         ))}
       </div>
       <div className="modal-foot mx-fwd-foot">
-        {picked.length ? <input className="mx-fwd-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write a message…" maxLength={300} aria-label="Message" /> : null}
+        {picked.length ? <input className="mx-fwd-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('d.messages.writeMessage')} maxLength={300} aria-label={t('profile.message')} /> : null}
         <button className="btn block big" disabled={!picked.length || busy} onClick={send}>
-          {picked.length > 1 ? 'Send separately' : 'Send'}
+          {picked.length > 1 ? t('d.messages.sendSeparately') : t('common.send')}
         </button>
       </div>
     </Modal>
@@ -103,7 +104,7 @@ export function NewMessage({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(
+    const timer = setTimeout(
       async () => {
         try {
           const list = searching ? await searchProfiles(q) : await peopleToMessage(me.id);
@@ -124,7 +125,7 @@ export function NewMessage({ onClose }: { onClose: () => void }) {
     );
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [q]);
 
@@ -141,32 +142,32 @@ export function NewMessage({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="New message" onClose={onClose} className="share mx-new">
+    <Modal title={t('inbox.newMessage')} onClose={onClose} className="share mx-new">
       <div className="share-search">
-        <span>To:</span>
+        <span>{t('d.messages.to')}</span>
         {picked ? (
           <span className="chip">
             {picked.username}
-            <button aria-label={'Remove ' + picked.username} onClick={() => setPicked(null)}>
+            <button aria-label={t('createFlow.untag', { username: picked.username })} onClick={() => setPicked(null)}>
               <Icon name="close" size={10} stroke={3} />
             </button>
           </span>
         ) : null}
         <input
           autoFocus
-          placeholder="Search…"
+          placeholder={t('d.messages.searchDots')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && picked) start();
           }}
-          aria-label="Search people"
+          aria-label={t('createFlow.searchPeople')}
         />
       </div>
       <div className="share-list">
-        {!searching ? <h4 className="mx-new-h">Suggested</h4> : null}
+        {!searching ? <h4 className="mx-new-h">{t('d.messages.suggested')}</h4> : null}
         {people === null ? <Spinner /> : null}
-        {people && !people.length ? <p className="muted-text pad">No account found.</p> : null}
+        {people && !people.length ? <p className="muted-text pad">{t('d.messages.noAccountFound')}</p> : null}
         {(people ?? []).map((p) => (
           <label key={p.id} className="row mx-pick">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -175,15 +176,15 @@ export function NewMessage({ onClose }: { onClose: () => void }) {
                 {p.full_name || p.username}
                 {p.verified ? <Verified size={12} /> : null}
               </b>
-              <span>{p.id === ERHA_ID ? 'Your church assistant' : p.username}</span>
+              <span>{p.id === ERHA_ID ? t('d.messages.yourAssistant') : p.username}</span>
             </span>
-            <input type="radio" name="to" className="round-check" checked={picked?.id === p.id} onChange={() => setPicked(p)} onDoubleClick={() => start(p)} aria-label={'Choose ' + (p.full_name || p.username)} />
+            <input type="radio" name="to" className="round-check" checked={picked?.id === p.id} onChange={() => setPicked(p)} onDoubleClick={() => start(p)} aria-label={t('d.messages.choose', { name: p.full_name || p.username })} />
           </label>
         ))}
       </div>
       <div className="modal-foot">
         <button className="btn block big" disabled={!picked || busy} onClick={() => start()}>
-          Chat
+          {t('d.messages.chat')}
         </button>
       </div>
     </Modal>

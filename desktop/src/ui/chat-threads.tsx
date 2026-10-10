@@ -1,11 +1,12 @@
 // The list of chats, shared by the full inbox (/direct) and the small inbox in the corner: loading
 // it (kept live over Realtime, as on the iPhone), presence, and one row of the list.
 import React, { useCallback, useEffect, useState } from 'react';
-import { activeLabel, fetchThreads, isOnline, touchPresence } from 'shared/api';
+import { fetchThreads, isOnline, touchPresence } from 'shared/api';
 import { listen } from 'shared/store';
 import { supabase } from 'shared/supabase';
-import { ago } from 'shared/theme';
 import type { Thread } from 'shared/types';
+import { t } from '../lib/i18n';
+import { activeWords, shortAgo } from './chat-bits';
 import { Avatar, Icon, Verified } from './kit';
 import '../styles/messages.css';
 
@@ -60,7 +61,7 @@ export function ActiveFace({ src, name, size, online }: { src?: string | null; n
   return (
     <span className="mx-face" style={{ width: size, height: size }}>
       <Avatar src={src} name={name} size={size} />
-      {online ? <i className="mx-online" role="img" style={{ width: Math.max(10, size * 0.24), height: Math.max(10, size * 0.24) }} aria-label="Active now" /> : null}
+      {online ? <i className="mx-online" role="img" style={{ width: Math.max(10, size * 0.24), height: Math.max(10, size * 0.24) }} aria-label={t('common.activeNow')} /> : null}
     </span>
   );
 }
@@ -68,7 +69,7 @@ export function ActiveFace({ src, name, size, online }: { src?: string | null; n
 /** 🔥 and the number of days in a row you have both written; hovering says what it means. */
 export function StreakBadge({ days }: { days: number }) {
   return (
-    <span className="mx-streak" title={`${days}-day streak: you've both written every day`} aria-label={`${days}-day streak`}>
+    <span className="mx-streak" title={t('inbox.streakToast', { days })} aria-label={t('inbox.streak', { days })}>
       <span aria-hidden="true">🔥</span>
       {days}
     </span>
@@ -80,26 +81,26 @@ export function StreakBadge({ days }: { days: number }) {
  * with a blue dot while unread, and the muted mark. As on the iPhone, a chat you've read shows when
  * the person was last active instead of the time.
  */
-export function ThreadRow({ t, className, active, onOpen, href, size = 56 }: { t: Thread; className: string; active?: boolean; onOpen: () => void; href?: string; size?: number }) {
-  const unread = t.unread_count > 0 && !t.muted;
-  const presence = t.unread_count ? '' : activeLabel(t.active_at);
-  const preview = t.unread_count > 1 && !t.muted ? `${t.unread_count} new messages` : t.last_message || 'Say hello';
+export function ThreadRow({ t: th, className, active, onOpen, href, size = 56 }: { t: Thread; className: string; active?: boolean; onOpen: () => void; href?: string; size?: number }) {
+  const unread = th.unread_count > 0 && !th.muted;
+  const presence = th.unread_count ? '' : activeWords(th.active_at);
+  const preview = th.unread_count > 1 && !th.muted ? t('inbox.newMessages', { count: th.unread_count }) : th.last_message || t('d.messages.sayHello');
   const body = (
     <>
-      <ActiveFace src={t.avatar_url} name={t.username} size={size} online={isOnline(t.active_at)} />
+      <ActiveFace src={th.avatar_url} name={th.username} size={size} online={isOnline(th.active_at)} />
       <span className="row-text">
         <b>
-          <span className="mx-name">{t.full_name || t.username}</span>
-          {t.verified ? <Verified size={12} /> : null}
-          {(t.streak ?? 0) >= STREAK_FROM ? <StreakBadge days={t.streak} /> : null}
+          <span className="mx-name">{th.full_name || th.username}</span>
+          {th.verified ? <Verified size={12} /> : null}
+          {(th.streak ?? 0) >= STREAK_FROM ? <StreakBadge days={th.streak} /> : null}
         </b>
         <span className="mx-preview">
           <span className="mx-last">{preview}</span>
-          <span className="mx-when"> · {presence || ago(t.last_message_at)}</span>
+          <span className="mx-when"> · {presence || shortAgo(th.last_message_at)}</span>
         </span>
       </span>
-      {t.muted ? <Icon name="mute" size={14} className="mx-muted" /> : null}
-      {unread ? <span className="mx-dot" aria-label="Unread" /> : null}
+      {th.muted ? <Icon name="mute" size={14} className="mx-muted" /> : null}
+      {unread ? <span className="mx-dot" aria-label={t('d.messages.unread')} /> : null}
     </>
   );
   const cls = className + (active ? ' active' : '') + (unread ? ' unread' : '');

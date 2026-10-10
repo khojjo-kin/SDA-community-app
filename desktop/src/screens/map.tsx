@@ -10,10 +10,12 @@
 // list still show, over a plain grid.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { amSharingLocation, fetchFriendLocations, moveSharedLocation, openThread, shareLocation, stopSharingLocation } from 'shared/api';
-import { ago, errText } from 'shared/theme';
+import { errText } from 'shared/theme';
 import type { FriendLocation } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
+import { shortAgo } from '../ui/chat-bits';
 import { Avatar, Icon, Link, Modal, Spinner, Verified, toast } from '../ui/kit';
 import '../styles/map.css';
 
@@ -61,9 +63,9 @@ function whereAmI(maxAge = 60e3): Promise<GeolocationPosition> {
 /** Puts a location problem into words. */
 function placeProblem(e: unknown): string {
   const code = (e as { code?: unknown } | null)?.code;
-  if (code === 1) return 'Location access is off for Community. Allow it (on a Mac: System Settings → Privacy & Security → Location Services), then try again.';
-  if (code === 2) return "Your location couldn't be found. Check that Location Services and Wi-Fi are on, then try again.";
-  if (code === 3) return 'Finding your location took too long. Try again.';
+  if (code === 1) return t('d.messages.locationDenied');
+  if (code === 2) return t('d.messages.locationNotFound');
+  if (code === 3) return t('d.messages.locationSlow');
   return errText(e);
 }
 
@@ -196,19 +198,21 @@ function viewOf(points: { lat: number; lng: number }[], w: number, h: number): V
 /** How often friends' places are fetched again while the map is open. */
 const REFRESH_MS = 60e3;
 
+/** Who can see your place. `label` and `sub` are the keys of their words. */
 const AUDIENCES: { value: FriendLocation['audience']; label: string; sub: string; icon: 'people' | 'star' }[] = [
-  { value: 'mutuals', label: 'Mutual followers', sub: 'People you follow who follow you back', icon: 'people' },
-  { value: 'close_friends', label: 'Close friends', sub: 'Only the people on your close friends list', icon: 'star' },
+  { value: 'mutuals', label: 'noteNew.friendsSub', sub: 'd.messages.mutualsSub', icon: 'people' },
+  { value: 'close_friends', label: 'noteNew.closeFriends', sub: 'd.messages.closeFriendsSub', icon: 'star' },
 ];
 
 function firstName(l: { full_name: string; username: string }): string {
   return (l.full_name || '').trim().split(/\s+/)[0] || l.username;
 }
 
-/** "Updated just now", "Updated 5m ago", "Updated 3h ago". */
-function updatedLabel(iso: string): string {
-  const a = ago(iso);
-  return a === 'now' ? 'Updated just now' : `Updated ${a} ago`;
+/** "Updated just now", "Updated 5m ago", "Updated 3h ago"; `mid` for the middle of a line ("updated 5m ago"). */
+function updatedLabel(iso: string, mid = false): string {
+  const fresh = Date.now() - new Date(iso).getTime() < 60e3;
+  if (fresh) return t(mid ? 'd.messages.updatedNowLower' : 'd.messages.updatedNow');
+  return t(mid ? 'd.messages.updatedAgoLower' : 'd.messages.updatedAgo', { time: shortAgo(iso) });
 }
 
 export function FriendsMap() {
@@ -331,7 +335,7 @@ export function FriendsMap() {
         fitted.current = true;
         flyTo({ lat: spot.coords.latitude, lng: spot.coords.longitude, z: 13 });
       }
-      toast(audience === 'close_friends' ? 'Sharing your location with close friends' : 'Sharing your location with mutual followers');
+      toast(t(audience === 'close_friends' ? 'd.messages.sharingClose' : 'd.messages.sharingMutuals'));
       await load();
     } catch (e) {
       if (alive.current) setProblem(placeProblem(e));
@@ -353,7 +357,7 @@ export function FriendsMap() {
       if (!alive.current) return;
       setLocs((cur) => (cur ? cur.filter((l) => !l.mine) : cur));
       if (chosen === me.id) setChosen(null);
-      toast('Location sharing is off');
+      toast(t('d.messages.sharingOff'));
       load();
     } catch (e) {
       if (alive.current) setProblem(errText(e));
@@ -369,7 +373,7 @@ export function FriendsMap() {
     if (!mine || mine.audience === next) return;
     try {
       await shareLocation(me.id, { lat: mine.lat, lng: mine.lng, accuracy: mine.accuracy, audience: next });
-      toast(next === 'close_friends' ? 'Now only close friends can see your location' : 'Now mutual followers can see your location');
+      toast(t(next === 'close_friends' ? 'd.messages.nowClose' : 'd.messages.nowMutuals'));
       load();
     } catch (e) {
       setProblem(errText(e));
@@ -397,23 +401,23 @@ export function FriendsMap() {
     setProblem('');
     setSettings(true);
   };
-  const audienceName = (mine?.audience ?? audience) === 'close_friends' ? 'close friends' : 'mutual followers';
+  const audienceName = t((mine?.audience ?? audience) === 'close_friends' ? 'd.messages.closeFriendsLower' : 'd.messages.mutualsLower');
   const statusSub =
     locs === null
-      ? 'Looking for friends…'
+      ? t('d.messages.lookingForFriends')
       : error
-        ? "Friends' places didn't load. Click to try again."
-        : `${sharing ? `With ${audienceName}. ` : ''}${friends.length ? `${friends.length} ${friends.length === 1 ? 'friend is' : 'friends are'} sharing with you.` : 'No friends are sharing with you right now.'}`;
+        ? t('d.messages.placesFailed')
+        : (sharing ? t('d.messages.withWho', { who: audienceName }) + ' ' : '') + (friends.length ? tn('d.messages.friendsSharing', friends.length) : t('d.messages.noFriendsSharing'));
 
   return (
     <div className="mx-map-page">
-      <aside className="mx-map-side" aria-label="Friends on the map">
+      <aside className="mx-map-side" aria-label={t('d.messages.friendsOnMap')}>
         <header className="mx-map-head">
-          <button type="button" className="icon-btn" aria-label="Back to messages" onClick={() => nav('/direct')}>
+          <button type="button" className="icon-btn" aria-label={t('d.messages.backToMessages')} onClick={() => nav('/direct')}>
             <Icon name="back" size={22} />
           </button>
-          <h2>Map</h2>
-          <button type="button" className="icon-btn" aria-label="Location sharing settings" title="Location sharing settings" onClick={openSettings}>
+          <h2>{t('churchApps.map')}</h2>
+          <button type="button" className="icon-btn" aria-label={t('d.messages.locationSettings')} title={t('d.messages.locationSettings')} onClick={openSettings}>
             <Icon name="settings" size={22} />
           </button>
         </header>
@@ -434,22 +438,22 @@ export function FriendsMap() {
             <Icon name="location" size={22} />
           </span>
           <span className="mx-map-status-text">
-            <b>{sharing ? 'Sharing your location' : 'Your location is off'}</b>
+            <b>{t(sharing ? 'd.messages.sharingYourLocation' : 'd.messages.locationIsOff')}</b>
             <span>{statusSub}</span>
           </span>
           {locs === null ? <Spinner size={18} /> : <Icon name="right" size={16} stroke={2} />}
         </button>
 
         {restricted ? (
-          <p className="mx-map-note">Members under 14 can't share their location.</p>
+          <p className="mx-map-note">{t('d.messages.under14')}</p>
         ) : sharing ? (
           <button type="button" className="btn quiet block mx-map-cta" disabled={busy} onClick={turnOff}>
-            Stop sharing
+            {t('d.messages.stopSharing')}
           </button>
         ) : (
           <button type="button" className="btn block mx-map-cta" disabled={busy || locs === null} onClick={turnOn}>
             <Icon name="location" size={18} />
-            Share my location
+            {t('d.messages.shareMyLocation')}
           </button>
         )}
         {problem && !settings ? (
@@ -458,14 +462,14 @@ export function FriendsMap() {
           </p>
         ) : null}
 
-        <div className="mx-map-sub">Friends on the map</div>
+        <div className="mx-map-sub">{t('d.messages.friendsOnMap')}</div>
         <div className="mx-map-list">
-          {locs !== null && !friends.length ? <p className="mx-map-empty">When mutual followers or close friends share their location with you, they show here and on the map.</p> : null}
+          {locs !== null && !friends.length ? <p className="mx-map-empty">{t('d.messages.mapEmpty')}</p> : null}
           {friends.map((l) => {
             const who = l.full_name || l.username;
             return (
               <div key={l.user_id} className={'mx-map-row' + (chosen === l.user_id ? ' on' : '')}>
-                <button type="button" className="mx-map-row-main" onClick={() => focus(l)} aria-label={`Show ${who} on the map`}>
+                <button type="button" className="mx-map-row-main" onClick={() => focus(l)} aria-label={t('d.messages.showOnMap', { name: who })}>
                   <Avatar src={l.avatar_url} name={l.username} size={44} />
                   <span className="row-text">
                     <b>
@@ -475,28 +479,28 @@ export function FriendsMap() {
                     <span>{updatedLabel(l.updated_at)}</span>
                   </span>
                 </button>
-                <button type="button" className="icon-btn" aria-label={`Message ${who}`} title="Message" disabled={opening} onClick={() => message(l)}>
+                <button type="button" className="icon-btn" aria-label={t('d.messages.messageTo', { name: who })} title={t('profile.message')} disabled={opening} onClick={() => message(l)}>
                   <Icon name="send" size={20} />
                 </button>
               </div>
             );
           })}
         </div>
-        <p className="mx-map-foot">Only the people you choose see your location, and only while you share it. Members under 14 can't share theirs.</p>
+        <p className="mx-map-foot">{t('d.messages.mapFoot')}</p>
       </aside>
 
       <MapCanvas view={view} setView={setView} onSize={setSize} anim={anim} locs={locs ?? []} chosen={chosen} onChoose={setChosen}>
         <div className="mx-map-controls">
-          <button type="button" className="mx-map-ctl" aria-label="Zoom in" title="Zoom in" onClick={() => flyTo({ ...viewRef.current, z: clampZ(Math.round(viewRef.current.z) + 1) })}>
+          <button type="button" className="mx-map-ctl" aria-label={t('d.messages.zoomIn')} title={t('d.messages.zoomIn')} onClick={() => flyTo({ ...viewRef.current, z: clampZ(Math.round(viewRef.current.z) + 1) })}>
             <Icon name="plus" size={18} stroke={2.2} />
           </button>
-          <button type="button" className="mx-map-ctl" aria-label="Zoom out" title="Zoom out" onClick={() => flyTo({ ...viewRef.current, z: clampZ(Math.round(viewRef.current.z) - 1) })}>
+          <button type="button" className="mx-map-ctl" aria-label={t('d.messages.zoomOut')} title={t('d.messages.zoomOut')} onClick={() => flyTo({ ...viewRef.current, z: clampZ(Math.round(viewRef.current.z) - 1) })}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
               <path d="M5 12h14" />
             </svg>
           </button>
           {locs?.length ? (
-            <button type="button" className="mx-map-ctl" aria-label="Show everyone" title="Show everyone" onClick={showEveryone}>
+            <button type="button" className="mx-map-ctl" aria-label={t('d.messages.showEveryone')} title={t('d.messages.showEveryone')} onClick={showEveryone}>
               <Icon name="expand" size={17} stroke={2} />
             </button>
           ) : null}
@@ -504,25 +508,25 @@ export function FriendsMap() {
 
         {picked ? (
           // A chosen face: who, when their place was last updated, and a way to message them.
-          <div className="mx-map-card" role="dialog" aria-label={picked.mine ? 'You' : picked.full_name || picked.username}>
+          <div className="mx-map-card" role="dialog" aria-label={picked.mine ? t('support.you') : picked.full_name || picked.username}>
             <Avatar src={picked.avatar_url} name={picked.username} size={48} />
             <span className="row-text">
               <b>
-                {picked.mine ? 'You' : picked.full_name || picked.username}
+                {picked.mine ? t('support.you') : picked.full_name || picked.username}
                 {picked.verified && !picked.mine ? <Verified size={13} /> : null}
               </b>
-              <span>{picked.mine ? `Sharing with ${audienceName} · ${updatedLabel(picked.updated_at).toLowerCase()}` : updatedLabel(picked.updated_at)}</span>
+              <span>{picked.mine ? t('d.messages.sharingWith', { who: audienceName, updated: updatedLabel(picked.updated_at, true) }) : updatedLabel(picked.updated_at)}</span>
             </span>
             {picked.mine ? (
               <button type="button" className="btn quiet small" onClick={openSettings}>
-                Settings
+                {t('d.messages.settings')}
               </button>
             ) : (
               <button type="button" className="btn small" disabled={opening} onClick={() => message(picked)}>
-                Message
+                {t('profile.message')}
               </button>
             )}
-            <button type="button" className="icon-btn" aria-label="Close" onClick={() => setChosen(null)}>
+            <button type="button" className="icon-btn" aria-label={t('common.close')} onClick={() => setChosen(null)}>
               <Icon name="close" size={18} />
             </button>
           </div>
@@ -530,22 +534,22 @@ export function FriendsMap() {
       </MapCanvas>
 
       {settings ? (
-        <Modal title="Location sharing" onClose={() => setSettings(false)} className="mx-map-settings">
+        <Modal title={t('d.messages.locationSharing')} onClose={() => setSettings(false)} className="mx-map-settings">
           <div className="mx-map-set">
             <div className="mx-map-set-row">
               <span className="mx-map-set-text">
-                <b>Share my location</b>
-                <span>{restricted ? 'Not available on your account' : mine ? `On · ${updatedLabel(mine.updated_at).toLowerCase()}` : 'Off'}</span>
+                <b>{t('d.messages.shareMyLocation')}</b>
+                <span>{restricted ? t('d.messages.notOnYourAccount') : mine ? t('d.messages.onUpdated', { updated: updatedLabel(mine.updated_at, true) }) : t('settings.repliesOff')}</span>
               </span>
               {busy ? <Spinner size={18} /> : null}
-              <button type="button" role="switch" aria-checked={sharing} aria-label="Share my location" className={'switch' + (sharing ? ' on' : '')} disabled={restricted || busy} onClick={() => (sharing ? turnOff() : turnOn())}>
+              <button type="button" role="switch" aria-checked={sharing} aria-label={t('d.messages.shareMyLocation')} className={'switch' + (sharing ? ' on' : '')} disabled={restricted || busy} onClick={() => (sharing ? turnOff() : turnOn())}>
                 <i />
               </button>
             </div>
             {restricted ? (
               <p className="mx-map-note">
                 <Icon name="shield" size={18} />
-                Members under 14 can't share their location.
+                {t('d.messages.under14')}
               </p>
             ) : null}
             {problem ? (
@@ -553,26 +557,26 @@ export function FriendsMap() {
                 {problem}
               </p>
             ) : null}
-            <div className={'mx-map-who' + (restricted ? ' off' : '')} role="radiogroup" aria-label="Who can see it">
-              <b className="nt-label">Who can see it</b>
+            <div className={'mx-map-who' + (restricted ? ' off' : '')} role="radiogroup" aria-label={t('d.messages.whoCanSee')}>
+              <b className="nt-label">{t('d.messages.whoCanSee')}</b>
               {AUDIENCES.map((a) => (
                 <button key={a.value} type="button" role="radio" aria-checked={audience === a.value} disabled={restricted} className={'nt-aud' + (audience === a.value ? ' on' : '') + (a.value === 'close_friends' ? ' close' : '')} onClick={() => chooseAudience(a.value)}>
                   <span className="nt-aud-icon">
                     <Icon name={a.icon} size={18} />
                   </span>
                   <span className="row-text">
-                    <b>{a.label}</b>
-                    <span>{a.sub}</span>
+                    <b>{t(a.label)}</b>
+                    <span>{t(a.sub)}</span>
                   </span>
                   <span className="nt-radio" aria-hidden="true" />
                 </button>
               ))}
               <Link to="/accounts/close-friends" className="link-btn mx-map-edit" onClick={() => setSettings(false)}>
-                Edit close friends
+                {t('d.messages.editCloseFriends')}
               </Link>
             </div>
             <p className="mx-map-how">
-              While you share, your location is sent again every couple of minutes whenever Community is open on this computer. It stays on until you turn it off, and friends stop seeing it 24 hours after its last update.
+              {t('d.messages.mapHow')}
             </p>
           </div>
         </Modal>
@@ -680,12 +684,12 @@ function MapCanvas({ view, setView, onSize, anim, locs, chosen, onChoose, childr
     .sort((a, b) => Number(a.l.user_id === chosen) - Number(b.l.user_id === chosen) || Number(a.l.mine) - Number(b.l.mine));
 
   return (
-    <section className="mx-map" aria-label="Map">
+    <section className="mx-map" aria-label={t('churchApps.map')}>
       <div
         ref={box}
         className="mx-map-view"
         role="application"
-        aria-label="Map. Drag to move, scroll to zoom."
+        aria-label={t('d.messages.mapHint')}
         aria-roledescription="map"
         tabIndex={0}
         style={{ backgroundSize: `${grid}px ${grid}px`, backgroundPosition: gridPos }}
@@ -738,14 +742,14 @@ function MapCanvas({ view, setView, onSize, anim, locs, chosen, onChoose, childr
           ))}
         </div>
         {pins.map(({ l, left, top }) => {
-          const who = l.mine ? 'You' : l.full_name || l.username;
+          const who = l.mine ? t('support.you') : l.full_name || l.username;
           return (
             <button
               key={l.user_id}
               type="button"
               className={'mx-map-pin' + (l.mine ? ' mine' : '') + (chosen === l.user_id ? ' on' : '')}
               style={{ transform: `translate(${Math.round(left)}px, ${Math.round(top)}px)` }}
-              aria-label={l.mine ? 'Your location' : `${who}. ${updatedLabel(l.updated_at)}`}
+              aria-label={l.mine ? t('d.messages.yourLocation') : `${who}. ${updatedLabel(l.updated_at)}`}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={() => onChoose(l.user_id)}
@@ -753,14 +757,14 @@ function MapCanvas({ view, setView, onSize, anim, locs, chosen, onChoose, childr
               <span className="mx-map-face">
                 <Avatar src={l.avatar_url} name={l.username} size={44} />
               </span>
-              <span className="mx-map-label">{l.mine ? 'You' : firstName(l)}</span>
+              <span className="mx-map-label">{l.mine ? t('support.you') : firstName(l)}</span>
             </button>
           );
         })}
       </div>
       {children}
       <a className="mx-map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-        © OpenStreetMap contributors
+        {t('d.messages.osmCredit')}
       </a>
     </section>
   );
