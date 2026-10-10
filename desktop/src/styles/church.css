@@ -1,0 +1,355 @@
+/* The church area: Bible, Sabbath School, Pod and the Hymnal (screens/bible.tsx, sabbath.tsx,
+   pod.tsx, hymnal.tsx, ui/player.tsx). Colours come from the app's variables, so Dark and White
+   both work. The five highlight colours are the exception: like the iPhone app's, they are the
+   same in both appearances (only how strongly they tint a verse changes). */
+
+.ch-accent { color: var(--accent2); }
+.ch-like { color: var(--like); }
+.ch-h1 { font: italic 700 28px/1.2 var(--display); }
+.ch-foot { color: var(--fg3); font-size: 12.5px; line-height: 18px; text-align: center; padding: 24px 12px 8px; }
+.ch-sub { margin: 6px 0 20px; line-height: 20px; }
+.ch-menu-wrap { position: relative; }
+.ch-pop { right: 0; top: calc(100% + 4px); width: 280px; }
+.ch-pop button:disabled { opacity: 0.45; }
+.ch-pop-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; cursor: pointer; }
+.ch-pop-row:hover { background: var(--hover); }
+.ch-pop-row input { position: absolute; opacity: 0; pointer-events: none; }
+.ch-pop-row input:checked + .switch { background: var(--accent); }
+.ch-pop-row input:checked + .switch::after { transform: translateX(18px); }
+.ch-pop-row input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ch-list-head { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+.ch-list-head h1 { padding-bottom: 12px; }
+.ch-list-error { display: grid; gap: 10px; justify-items: start; margin: 12px 24px; padding: 14px 16px; border-radius: 12px; background: var(--surface); color: var(--fg2); line-height: 19px; }
+.ch-card-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 14px; background: var(--surface); text-align: left; color: var(--fg); }
+.ch-card-row:hover { background: var(--surface2); }
+.ch-card-row .row-text > span { font-size: 13px; }
+.ch-card-row .row-text > b { font-size: 16px; line-height: 22px; }
+.ch-dialog-actions { display: flex; gap: 8px; }
+.ch-dialog-actions .btn { height: 40px; }
+.btn.big { height: 44px; padding: 0 22px; font-size: 15px; border-radius: 10px; }
+
+/* ---------- Bible: home and the verse of the day ---------- */
+.ch-home { max-width: 700px; margin: 0 auto; padding: 40px 32px 60px; display: grid; gap: 12px; }
+.ch-votd { position: relative; display: grid; gap: 12px; padding: 22px 24px 20px; border-radius: 22px; color: var(--fg); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 30%, var(--bg)), color-mix(in srgb, var(--accent) 12%, var(--surface))); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.ch-votd-head { display: flex; align-items: center; justify-content: space-between; }
+.ch-votd-head > span { font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent2); }
+.ch-votd-text { margin: 0; font: 22px/1.5 var(--display); }
+.ch-votd-ref { font-weight: 700; font-size: 15px; }
+.ch-votd-ref span { font-weight: 500; color: var(--fg2); margin-left: 6px; }
+.ch-votd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ch-chip-btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 16px; border-radius: 18px; background: color-mix(in srgb, var(--fg) 10%, transparent); font-weight: 700; }
+.ch-chip-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--fg) 16%, transparent); }
+
+/* ---------- Bible: reading, highlights and the bar ---------- */
+.ch-reader { position: relative; padding-bottom: 40px; }
+.ch-reader .reader-nav .btn { font: 600 14px/18px var(--font); }
+.ch-translation { color: var(--fg3); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; margin: -8px 0 16px; }
+.ch-verses { font-family: var(--display); line-height: 1.7; }
+.ch-verse { position: relative; margin: 0 -10px 4px; padding: 2px 10px; border-radius: 10px; border: 1.5px solid transparent; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+.ch-verse:hover { background: var(--hover); }
+.ch-verse:focus-visible { outline: none; border-color: var(--line2); }
+.ch-verse.on { border-color: var(--accent2); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ch-verse.flash { border-color: var(--accent2); animation: ch-flash 1.8s ease; }
+@keyframes ch-flash { 0%, 60% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.ch-verse sup { color: var(--accent2); font: 700 0.62em var(--font); margin-right: 5px; vertical-align: 0.45em; }
+.ch-note-mark { display: inline-flex; vertical-align: -0.12em; margin-right: 5px; color: var(--accent2); border-radius: 6px; }
+.ch-note-mark:hover { background: var(--hover); }
+/* The highlight colours, and the soft wash behind a highlighted verse (stronger on White, so it shows). */
+.ch-dot-yellow { background: #f2c230; }
+.ch-dot-green { background: #34c271; }
+.ch-dot-blue { background: #3d8bff; }
+.ch-dot-pink { background: #ff5c9a; }
+.ch-dot-purple { background: #9b6bff; }
+.ch-verse.ch-mark-yellow { background: rgba(242, 194, 48, 0.26); }
+.ch-verse.ch-mark-green { background: rgba(52, 194, 113, 0.26); }
+.ch-verse.ch-mark-blue { background: rgba(61, 139, 255, 0.26); }
+.ch-verse.ch-mark-pink { background: rgba(255, 92, 154, 0.26); }
+.ch-verse.ch-mark-purple { background: rgba(155, 107, 255, 0.26); }
+:root[data-theme='white'] .ch-verse.ch-mark-yellow { background: rgba(242, 194, 48, 0.36); }
+:root[data-theme='white'] .ch-verse.ch-mark-green { background: rgba(52, 194, 113, 0.24); }
+:root[data-theme='white'] .ch-verse.ch-mark-blue { background: rgba(61, 139, 255, 0.22); }
+:root[data-theme='white'] .ch-verse.ch-mark-pink { background: rgba(255, 92, 154, 0.22); }
+:root[data-theme='white'] .ch-verse.ch-mark-purple { background: rgba(155, 107, 255, 0.22); }
+
+/* Sticks to the bottom of the reading pane while verses are chosen, clear of the Messages button. */
+.ch-markbar { position: sticky; bottom: 88px; z-index: 5; display: grid; gap: 6px; margin: 24px auto 0; width: max-content; max-width: 100%; padding: 10px 12px 8px 16px; border-radius: 18px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); font: 14px/18px var(--font); animation: rise 0.18s ease; }
+.ch-markbar-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ch-markbar-ref { white-space: nowrap; }
+.ch-markbar-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ch-dots { display: flex; gap: 2px; margin-left: -4px; }
+.ch-dot { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--pop); box-shadow: 0 0 0 2px transparent; transition: transform 0.1s; }
+.ch-dot:hover { transform: scale(1.1); }
+.ch-dot.on { box-shadow: 0 0 0 2px var(--fg); }
+.ch-dot-none { position: relative; background: transparent; box-shadow: inset 0 0 0 1.5px var(--fg3); overflow: hidden; }
+.ch-dot-none::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1.5px; background: var(--fg3); transform: rotate(-45deg); }
+.ch-markbar-line { width: 1px; height: 26px; background: var(--line2); margin: 0 6px; }
+.ch-bar-action { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 9px; border-radius: 10px; font-weight: 600; }
+.ch-bar-action:hover { background: var(--hover); }
+.ch-bar-action.dim { opacity: 0.45; }
+.ch-markbar-close { background: var(--surface); margin-right: -4px; }
+.ch-note-dialog { width: min(480px, 100%); }
+.ch-note-verse { color: var(--fg2); font: 16px/1.55 var(--display); max-height: 160px; overflow-y: auto; }
+.ch-note-input { width: 100%; min-height: 140px; padding: 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line2); line-height: 20px; resize: vertical; }
+.ch-note-input:focus { border-color: var(--accent); }
+.ch-send-preview { margin: 12px 16px 4px; padding: 10px 12px; border-radius: 10px; background: var(--surface); color: var(--fg2); font-size: 13px; line-height: 18px; max-height: 92px; overflow-y: auto; white-space: pre-wrap; }
+
+/* ---------- Bible: Highlights & notes ---------- */
+.ch-marks { max-width: 760px; margin: 0 auto; padding: 40px 32px 60px; }
+.ch-marks .ch-h1 { margin-bottom: 16px; }
+.ch-chips { padding: 0 0 16px; }
+.ch-swatch-chip { padding: 7px 10px; }
+.ch-swatch { display: inline-block; width: 18px; height: 18px; border-radius: 50%; vertical-align: middle; }
+.ch-mark-list { display: grid; gap: 2px; }
+.ch-mark-row { position: relative; display: flex; align-items: flex-start; border-radius: 12px; }
+.ch-mark-row:hover { background: var(--hover); }
+.ch-mark-open { flex: 1; min-width: 0; display: flex; gap: 14px; padding: 14px 12px; text-align: left; }
+.ch-mark-icon { width: 22px; flex: none; display: grid; justify-items: center; padding-top: 2px; }
+.ch-mark-icon .ch-swatch { width: 14px; height: 14px; }
+.ch-mark-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.ch-mark-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ch-mark-top b { font-size: 16px; }
+.ch-mark-words { color: var(--fg2); line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--display); }
+.ch-mark-note { display: flex; gap: 6px; align-items: flex-start; line-height: 20px; white-space: pre-wrap; }
+.ch-mark-note svg { flex: none; margin-top: 3px; }
+.ch-mark-remove { margin: 8px 8px 0 0; opacity: 0; color: var(--fg2); }
+.ch-mark-row:hover .ch-mark-remove, .ch-mark-remove:focus-visible { opacity: 1; }
+.ch-mark-remove:hover { opacity: 1; color: var(--like); }
+
+/* ---------- Sabbath School: the list on the left ---------- */
+.ch-quarter { align-items: flex-start; margin-top: 16px; }
+.ch-quarter b { line-height: 19px; }
+.ch-progress-line { margin-top: 4px; color: var(--fg2) !important; }
+.ch-progress { display: block; height: 4px; border-radius: 2px; background: var(--surface2); overflow: hidden; }
+.ch-progress i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.ch-tabs { padding-bottom: 8px; }
+.ch-lesson-row .row-text > b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.hymn-no.ch-done { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent2); }
+.ch-week-tag { flex: none; padding: 3px 8px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent2); font-size: 11px; font-weight: 700; }
+.ch-saved-row { display: flex; align-items: center; padding-right: 12px; }
+.ch-saved-row:hover { background: var(--hover); }
+.ch-saved-row .hymn-row:hover { background: none; }
+.ch-saved-row .hymn-row { min-width: 0; padding-right: 8px; }
+
+/* ---------- Sabbath School: today ---------- */
+.ch-ss-detail { position: relative; }
+.ch-ss-page { max-width: 900px; margin: 0 auto; padding: 36px 40px 60px; }
+.ch-date { margin: 4px 0 20px; }
+.ch-today-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.ch-today-grid > :only-child { grid-column: 1 / -1; }
+.ch-hero { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 22px; min-height: 320px; padding: 22px; border-radius: 22px; overflow: hidden; color: var(--on-accent); background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-size: cover; background-position: center; isolation: isolate; }
+/* A dark wash, deepest at the bottom where the words sit, so white words read on the green or on any picture. */
+.ch-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(165deg, color-mix(in srgb, var(--scrim) 45%, transparent), var(--scrim) 85%); }
+.ch-hero.has-image::before { background: linear-gradient(180deg, color-mix(in srgb, var(--scrim) 50%, transparent), var(--scrim) 60%, var(--scrim)); }
+.ch-hero-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.ch-hero-text { margin: 0; font: 22px/1.4 var(--display); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3); }
+.ch-hero-ref { display: block; margin-top: 12px; font-weight: 700; font-size: 15px; opacity: 0.9; }
+.ch-hero-lines { display: grid; gap: 10px; }
+.ch-hero-lines i { display: block; height: 18px; border-radius: 9px; background: color-mix(in srgb, var(--on-accent) 25%, transparent); animation: ch-pulse 1.2s ease-in-out infinite alternate; }
+.ch-hero-lines i:nth-child(2) { width: 84%; }
+.ch-hero-lines i:nth-child(3) { width: 60%; }
+@keyframes ch-pulse { to { opacity: 0.5; } }
+.ch-hero-actions { display: flex; align-items: center; gap: 10px; }
+.ch-glass { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--on-accent) 18%, transparent); color: var(--on-accent); }
+.ch-glass:hover { background: color-mix(in srgb, var(--on-accent) 30%, transparent); }
+.ch-glass.on { color: var(--like); }
+.ch-hero-read { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 20px; border-radius: 21px; background: var(--on-accent); color: var(--accent-hover); font-weight: 700; font-size: 15px; }
+.ch-hero-read:hover { opacity: 0.9; }
+.ch-skeleton { background: var(--surface); animation: ch-pulse 1.2s ease-in-out infinite alternate; }
+.ch-skeleton-line { height: 20px; width: 70%; border-radius: 10px; background: var(--surface2); }
+.ch-today-card { display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 22px; background: var(--surface); }
+.ch-today-head { display: flex; align-items: center; gap: 12px; }
+.ch-today-head .grow { display: flex; flex-direction: column; }
+.ch-today-head b { font-size: 21px; line-height: 26px; }
+.ch-today-icon { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent2); }
+.ch-today-title { font-size: 17px; font-weight: 600; line-height: 23px; flex: 1; }
+.ch-week { display: flex; justify-content: space-between; gap: 4px; }
+.ch-week-day { display: grid; justify-items: center; gap: 6px; font-size: 11.5px; color: var(--fg3); font-weight: 600; }
+.ch-week-day i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line2); color: var(--on-accent); }
+.ch-week-day.opened i { border-color: var(--accent); }
+.ch-week-day.done i { border-color: var(--accent); background: var(--accent); }
+.ch-week-day.today { color: var(--fg); }
+.ch-week-day.today i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.ch-today-go { border-radius: 24px; }
+.ch-note-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: var(--surface); }
+.ch-note-card .grow { display: flex; flex-direction: column; gap: 2px; line-height: 19px; }
+
+/* ---------- Sabbath School: the publishers' posts ---------- */
+.ch-pub-section { margin-top: 32px; }
+.ch-section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ch-section-head h2 { font-size: 20px; font-weight: 700; }
+.ch-post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.ch-post-card { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: var(--surface); transition: background 0.12s; }
+.ch-post-card:hover { background: var(--surface2); }
+.ch-post-img { display: block; aspect-ratio: 16 / 9; background: var(--surface2); overflow: hidden; }
+.ch-post-img img { width: 100%; height: 100%; object-fit: cover; }
+.ch-post-img.empty { display: grid; place-items: center; color: var(--accent2); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.ch-post-text { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 14px; min-width: 0; }
+.ch-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ch-tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: 11px; background: var(--surface2); color: var(--fg2); font-size: 11px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; }
+.ch-tag.strong { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent2); }
+.ch-post-card:hover .ch-tag:not(.strong) { background: var(--quiet-hover); }
+.ch-tag-ref { color: var(--fg2); font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ch-post-title { font-size: 17px; line-height: 22px; font-weight: 800; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ch-post-preview { color: var(--fg2); line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ch-post-by { display: flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 6px; font-size: 13px; min-width: 0; }
+.ch-post-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-post-by .verified { margin-left: -3px; }
+.ch-post-by .muted-text { white-space: nowrap; }
+.ch-first { display: grid; justify-items: center; gap: 6px; width: 100%; padding: 24px; border-radius: 18px; border: 1.5px dashed var(--fg3); color: var(--fg); font-weight: 700; font-size: 15px; }
+.ch-first svg { color: var(--accent2); }
+.ch-first:hover { background: var(--hover); }
+.ch-entry { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 4px; color: var(--accent2); font-weight: 700; font-size: 14.5px; }
+.ch-entry:hover { opacity: 0.75; }
+.empty .ch-entry { margin-top: 0; }
+.ch-feed { max-width: 780px; }
+.ch-post-list { display: grid; gap: 12px; margin-bottom: 16px; }
+.ch-post-list .ch-post-card { flex-direction: row-reverse; min-height: 150px; }
+.ch-post-list .ch-post-img { position: relative; flex: none; width: 220px; aspect-ratio: auto; }
+.ch-post-list .ch-post-img img { position: absolute; inset: 0; }
+.ch-post-list .ch-post-text { padding: 16px 18px; }
+.ch-post-list .ch-post-preview { -webkit-line-clamp: 3; }
+
+/* ---------- Sabbath School: one post, the editor, asking to publish ---------- */
+.ch-post { max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+.ch-post-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.ch-post-h1 { font: italic 700 32px/1.2 var(--display); }
+.ch-author { display: flex; align-items: center; gap: 10px; align-self: flex-start; padding-right: 8px; border-radius: 24px; }
+.ch-author:hover { opacity: 0.8; }
+.ch-author .row-text > b { display: flex; align-items: center; }
+.ch-post-photo { width: 100%; border-radius: 16px; object-fit: cover; background: var(--surface); aspect-ratio: 4 / 3; }
+.ch-post-body { display: grid; gap: 14px; margin-top: 4px; }
+.ch-post-body p { font-size: 16.5px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ch-link-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--accent2); }
+.ch-link-card .row-text > b { color: var(--fg); }
+.ch-link-card:hover { background: var(--surface2); }
+.ch-editor { max-width: 720px; display: flex; flex-direction: column; gap: 18px; }
+.ch-kinds { display: flex; gap: 8px; flex-wrap: wrap; }
+.ch-kind { height: 36px; padding: 0 16px; border-radius: 18px; background: var(--surface); font-weight: 600; }
+.ch-kind:hover { background: var(--surface2); }
+.ch-kind.on { background: var(--accent); color: var(--on-accent); }
+.ch-count { font-weight: 400; font-size: 12.5px; margin-left: 6px; }
+.ch-photos { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+.ch-photo { position: relative; width: 88px; height: 88px; }
+.ch-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; background: var(--surface); }
+.ch-photo-x { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--fg); color: var(--bg); }
+.ch-photo-add { width: 88px; height: 88px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--accent2); border: 1.5px dashed var(--line2); }
+.ch-photo-add:hover { background: var(--surface2); }
+.ch-publish { max-width: 620px; }
+.ch-publish > .ch-h1 { text-align: center; }
+.ch-publish > .btn { margin: 20px auto 0; display: flex; width: 240px; }
+.ch-status { display: grid; justify-items: center; gap: 10px; padding: 36px 0 8px; text-align: center; }
+.ch-status h2 { font-size: 22px; font-weight: 800; }
+.ch-status p { max-width: 420px; line-height: 21px; }
+.ch-status-ring { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); }
+.ch-status.ok .ch-status-ring { color: var(--accent2); }
+.ch-status.wait .ch-status-ring { color: var(--fg); box-shadow: inset 0 0 0 2px var(--accent); }
+.ch-status.off .ch-status-ring { color: var(--fg2); }
+.ch-ask { display: grid; gap: 16px; margin-top: 16px; }
+.ch-ask > .muted-text { line-height: 21px; }
+
+/* ---------- Sabbath School: a lesson ---------- */
+.ch-lesson { max-width: 820px; margin: 0 auto; padding: 32px 40px 60px; }
+.ch-lesson-top { display: flex; align-items: flex-start; gap: 8px; }
+.ch-lesson-top .grow { display: flex; flex-direction: column; gap: 6px; }
+.ch-memory { margin: 20px 0 0; padding: 18px 20px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); display: grid; gap: 8px; border-left: 3px solid var(--accent); }
+.ch-memory-label { font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--accent2); }
+.ch-memory-text { font: 19px/1.5 var(--display); }
+.ch-memory cite { font-style: normal; font-weight: 700; color: var(--accent2); font-size: 14px; }
+.ch-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 6px; }
+.ch-day { display: inline-flex; align-items: center; gap: 4px; }
+.ch-day:hover:not(.on) { background: var(--surface2); }
+.ch-day.done:not(.on) { color: var(--accent2); }
+.ch-day.opened:not(.on) { color: var(--fg); }
+.ch-day-head { display: flex; align-items: flex-end; gap: 8px; margin: 18px 0 4px; }
+.ch-day-head .grow { display: flex; flex-direction: column; gap: 4px; }
+.ch-day-head h2 { font: italic 700 24px/1.25 var(--display); }
+.ch-reading { display: block; width: 100%; border: 0; background: var(--bg); min-height: 200px; }
+.ch-lesson-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+/* ---------- Pod ---------- */
+.ch-pod-head { margin: 16px 0 8px; }
+.ch-pod-head .page-title { margin: 0; }
+.ch-pod-title { cursor: pointer; }
+.ch-pod-title:hover > b { text-decoration: underline; }
+.ch-pod-card { position: relative; }
+.ch-pod-card .pod-art { position: relative; }
+.ch-art-play { position: absolute; right: 8px; bottom: 8px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); opacity: 0; transform: translateY(4px); transition: opacity 0.15s, transform 0.15s; }
+.ch-pod-card:hover .ch-art-play, .pod-art:focus-visible .ch-art-play { opacity: 1; transform: none; }
+.ch-pod-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ch-pod-card-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-pod-card-text span { color: var(--fg2); font-size: 12px; }
+.ch-pod-card-text:hover b { text-decoration: underline; }
+
+/* The full player, /pod/<id>. */
+.ch-np { max-width: 1060px; padding-top: 20px; }
+.ch-np-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.ch-np-kicker { color: var(--fg2); font-size: 12.5px; font-weight: 700; letter-spacing: 0.8px; }
+.ch-np-main { display: grid; grid-template-columns: minmax(260px, 420px) minmax(0, 1fr); gap: 48px; align-items: start; }
+.ch-np-art { transform: scale(0.92); transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.2); }
+.ch-np-art.playing { transform: none; }
+.ch-np-cover { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 18px; overflow: hidden; background: var(--surface2); color: var(--fg2); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35); }
+.ch-np-cover img { width: 100%; height: 100%; object-fit: cover; }
+.ch-np-cover svg { width: 40%; height: 40%; }
+.ch-np-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; padding-top: 8px; }
+.ch-np-title h1 { font-size: 30px; line-height: 36px; font-weight: 800; overflow-wrap: anywhere; }
+.ch-np-title p { font-size: 18px; margin-top: 4px; }
+.ch-scrub { display: grid; gap: 6px; }
+.ch-scrub input { --ch-at: 0%; width: 100%; height: 6px; border-radius: 3px; appearance: none; -webkit-appearance: none; background: linear-gradient(90deg, var(--fg2) var(--ch-at), var(--surface2) var(--ch-at)); cursor: pointer; }
+.ch-scrub input:hover { background: linear-gradient(90deg, var(--accent) var(--ch-at), var(--surface2) var(--ch-at)); }
+.ch-scrub input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--fg); border: 0; }
+.ch-scrub input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--fg); border: 0; }
+.ch-scrub-times { display: flex; justify-content: space-between; color: var(--fg3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ch-transport { display: flex; align-items: center; justify-content: center; gap: 28px; }
+.ch-big-play { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--fg); color: var(--bg); transition: transform 0.1s; }
+.ch-big-play:hover { transform: scale(1.04); }
+.ch-big-play:active { transform: scale(0.95); }
+.ch-extras { display: flex; justify-content: space-evenly; }
+.ch-extra { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: var(--fg2); }
+.ch-extra:hover { background: var(--hover); color: var(--fg); }
+.ch-extra.on, .ch-toggle.on { color: var(--accent2); }
+.ch-extra.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ch-toggle { position: relative; }
+.ch-one { position: absolute; top: 4px; right: 3px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent2); color: var(--bg); font-size: 9.5px; font-weight: 800; line-height: 14px; text-align: center; }
+.ch-extra .ch-one { top: 6px; right: 6px; }
+.ch-np-actions { display: flex; gap: 10px; }
+.ch-about h3, .ch-upnext h3 { font-size: 17px; margin-bottom: 8px; }
+.ch-about p { color: var(--fg2); line-height: 21px; white-space: pre-wrap; }
+.ch-about p.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ch-plain-link { color: var(--fg2); }
+.ch-plain-link:hover { color: var(--fg); text-decoration: underline; }
+.ch-upnext { display: grid; gap: 2px; }
+.ch-up-row { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 10px; text-align: left; }
+.ch-up-row:hover { background: var(--hover); }
+
+/* The bar at the bottom of the window: the cover and title open the full player. Its round play
+   button follows the appearance (dark on White). */
+.now-playing .np-play { background: var(--fg); color: var(--bg); }
+.ch-bar-open { display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left; border-radius: 8px; }
+.ch-bar-open:hover b { text-decoration: underline; }
+.now-playing .ch-toggle { color: var(--fg2); }
+.now-playing .ch-toggle.on { color: var(--accent2); }
+.now-playing .ch-one { top: 0; right: -2px; }
+
+/* Add to Pod. */
+.ch-add { width: min(560px, 100%); }
+.ch-add-kind { padding: 0; }
+.ch-add-top { display: flex; align-items: center; gap: 16px; }
+.ch-add-top .grow { display: grid; gap: 4px; justify-items: start; }
+.ch-add-cover { position: relative; width: 104px; height: 104px; flex: none; border-radius: 16px; overflow: hidden; display: grid; place-items: center; background: var(--surface); color: var(--fg2); }
+.ch-add-cover img { width: 100%; height: 100%; object-fit: cover; }
+.ch-add-cam { position: absolute; right: 6px; bottom: 6px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--scrim); }
+.ch-audio-pick { display: flex; align-items: center; gap: 12px; font-weight: 400; min-width: 0; }
+.ch-audio-pick .btn { font-size: 14px; height: 36px; }
+.ch-file-name { color: var(--fg2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Hymnal ---------- */
+.ch-hymn-section { color: var(--fg3); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; }
+.ch-hymn-edit { width: min(640px, 100%); }
+.ch-hymn-edit textarea { font: 15px/1.6 var(--display); }
+
+@media (max-width: 1180px) {
+  .ch-today-grid { grid-template-columns: 1fr; }
+  .ch-np-main { grid-template-columns: 1fr; gap: 24px; }
+  .ch-np-art { max-width: 360px; }
+  .ch-post-list .ch-post-img { width: 160px; }
+}
