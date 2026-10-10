@@ -62,7 +62,7 @@ export default function Dashboard() {
     return (
       <Screen>
         <ScreenHeader title="Your dashboard" />
-        <Empty icon="chart" title="The dashboard comes with a creator account" body="See how many people view your posts and stories, who started following you, and what you shared. Switching is free and you can switch back." action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
+        <Empty icon="chart" title="The dashboard comes with a creator account" action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }

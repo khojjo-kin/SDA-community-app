@@ -32,7 +32,7 @@ export function Avatar({ uri, name, size = 36, ring, ringColors, online }: { uri
 
 function AvatarFace({ uri, name, size, ring, ringColors }: { uri?: string | null; name?: string; size: number; ring?: 'new' | 'seen' | 'close' | null; ringColors?: readonly string[] }) {
   const inner = uri ? (
-    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
+    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
   ) : (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: C.fg, fontWeight: '700', fontSize: size * 0.44 }}>{(name || '?').trim().charAt(0).toUpperCase() || '?'}</Text>

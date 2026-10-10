@@ -253,6 +253,11 @@ export function useProgress(): Progress {
   return useSyncExternalStore(subscribeProgress, () => progress, () => progress);
 }
 
+/** Only whether the track is still loading: for something that shows a spinner, and should not draw again with every tick of the clock. */
+export function useBuffering(): boolean {
+  return useSyncExternalStore(subscribeProgress, () => progress.buffering, () => progress.buffering);
+}
+
 /* ---------- engine ---------- */
 
 let engines = 0;

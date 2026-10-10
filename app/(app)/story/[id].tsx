@@ -244,7 +244,7 @@ export default function StoryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
-        <DarkEmpty title="No story to show" body="Stories disappear 24 hours after they are shared." />
+        <DarkEmpty title="No story to show" />
         <View style={{ position: 'absolute', top: 60, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
@@ -303,7 +303,7 @@ export default function StoryScreen() {
         {viewers === null ? (
           <Loading />
         ) : viewers.length === 0 ? (
-          <Empty icon="eye" title="No views yet" body="People who see this story will be listed here." />
+          <Empty icon="eye" title="No views yet" />
         ) : (
           <ScrollView style={{ flex: 1 }}>
             <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 8 }}>{seenBy === 1 ? 'Seen by 1 person' : `Seen by ${fmt(Math.max(seenBy, viewers.length))} people`}</Text>

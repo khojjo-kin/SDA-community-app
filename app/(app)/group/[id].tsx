@@ -251,10 +251,7 @@ export default function GroupPage() {
             {page ? null : (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Icon name="lock" size={22} color={C.fg} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 16 }}>Private</Text>
-                  <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>People ask to join and an admin lets them in.</Text>
-                </View>
+                <Text style={{ flex: 1, color: C.fg, fontSize: 16 }}>Private</Text>
                 <Toggle value={form.privacy === 'private'} onChange={(v) => setForm((f) => ({ ...f, privacy: v ? 'private' : 'public' }))} label="Private" />
               </View>
             )}

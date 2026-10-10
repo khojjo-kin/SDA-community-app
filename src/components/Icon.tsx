@@ -161,6 +161,10 @@ const ICONS = {
   browse: '<rect x="6.5" y="6.5" width="11" height="14" rx="2"/><path d="M8.5 3.5h7M4 9.5v8M20 9.5v8"/>',
   /** A sun, for the day's reading. */
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  /** A poll: three bars of different lengths. */
+  poll: '<rect x="3.5" y="4.5" width="10" height="4" rx="2"/><rect x="3.5" y="10" width="17" height="4" rx="2"/><rect x="3.5" y="15.5" width="6.5" height="4" rx="2"/>',
+  /** Giving on a live: a coin with a heart. */
+  heartcoin: '<circle cx="12" cy="12" r="8.6"/><path d="M12 16.2s-3.6-2.2-3.6-4.7a2 2 0 0 1 3.6-1.2 2 2 0 0 1 3.6 1.2c0 2.5-3.6 4.7-3.6 4.7z"/>',
 };
 
 export type IconName = keyof typeof ICONS;

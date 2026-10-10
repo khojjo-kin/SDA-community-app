@@ -1,8 +1,8 @@
 import React, { useRef, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLogOut } from '../lib/accounts';
 import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13, requestChildClosure } from '../lib/age';
 import { ageFrom, MINOR_AGE, setBirthDate } from '../lib/api';
 import { useAppFont } from '../lib/fonts';
@@ -220,7 +220,8 @@ function Page({ children }: { children: React.ReactNode }) {
  */
 export function BirthDateGate() {
   const { me, refresh } = useSession();
-  const { signOut } = useAuth();
+  // Only this account: another one signed in on this phone takes over.
+  const signOut = useLogOut();
   const router = useRouter();
   const g = useSyncExternalStore(subscribe, snapshot, snapshot);
   const font = useAppFont();

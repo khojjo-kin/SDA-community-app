@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Stack, useRouter } from 'expo-router';
+import { SwitchingCover } from '../../src/components/AccountSwitcher';
 import { AssistiveButton } from '../../src/components/AssistiveButton';
 import { BirthDateGate, useBirthDateGate } from '../../src/components/BirthDateForm';
 import { FeedbackPrompt } from '../../src/components/FeedbackPrompt';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
+import { setAddingAccount, useLogOut, useSwitching } from '../../src/lib/accounts';
 import { blockDeviceForAge, isUnder13, requestChildClosure } from '../../src/lib/age';
 import { fetchBirthDate, purgeDate, restoreAccount } from '../../src/lib/api';
 import { CallProvider } from '../../src/lib/calls';
@@ -72,16 +74,23 @@ function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; dele
 }
 
 export default function AppLayout() {
-  const { isSignedIn, signOut } = useAuth();
+  const { isSignedIn } = useAuth();
   const { me, loading, profile, error, errorCode, refresh } = useSession();
+  // Only the account in use: another one signed in on this phone takes over (src/lib/accounts.ts).
+  const logOut = useLogOut();
+  // Moving to another account: every screen closes, and opens again at Home as that account.
+  const switching = useSwitching();
+  // Back in the app, so any adding of an account has finished or was given up.
+  useEffect(() => setAddingAccount(false), []);
   // Members who haven't given their birthday yet are asked for it before anything else.
   const needsBirthday = useBirthDateGate(me, profile);
   // "Active now" for the people who can see it, while the app is open and signed in.
-  usePresence(!!isSignedIn && !!profile && !profile.deleted_at);
+  usePresence(!switching && !!isSignedIn && !!profile && !profile.deleted_at);
   // A shared live location moves with the member while the app is open (never in the background).
   // Members under 14 can't share, so it never runs for them.
-  useLiveLocation(me, !!isSignedIn && !!profile && !profile.deleted_at && !profile.restricted);
+  useLiveLocation(me, !switching && !!isSignedIn && !!profile && !profile.deleted_at && !profile.restricted);
 
+  if (switching) return <SwitchingCover to={switching} />;
   if (!isSignedIn) return <Redirect href="/sign-in" />;
 
   if (loading) {
@@ -102,13 +111,13 @@ export default function AppLayout() {
         {/* Read from the raw failure: `error` is already in friendly words, which never mention tokens. */}
         {/JWT|JWS|PGRST30|token/i.test(errorCode) ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 19, fontSize: 13 }}>Sign-in is still being connected to the database for this app. Try again in a little while.</Text> : null}
         <Button label="Try again" onPress={refresh} style={{ alignSelf: 'stretch' }} />
-        <Button label="Log out" kind="ghost" onPress={() => signOut()} style={{ alignSelf: 'stretch' }} />
+        <Button label="Log out" kind="ghost" onPress={() => { logOut().catch(() => {}); }} style={{ alignSelf: 'stretch' }} />
       </View>
     );
   }
 
   if (!profile) return <Redirect href="/onboarding" />;
-  if (profile.deleted_at) return <Deactivated me={me} deletedAt={profile.deleted_at} onRestored={refresh} onLogOut={() => signOut()} />;
+  if (profile.deleted_at) return <Deactivated me={me} deletedAt={profile.deleted_at} onRestored={refresh} onLogOut={() => { logOut().catch(() => {}); }} />;
   if (needsBirthday) return <BirthDateGate />;
 
   return (
@@ -125,6 +134,7 @@ export default function AppLayout() {
         <Stack.Screen name="share/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="send-to" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="add-story" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="note" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="new-highlight" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="camera-settings" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="story-editor" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />

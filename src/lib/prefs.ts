@@ -14,7 +14,7 @@ export type Prefs = {
   chatWallpaper: string;
   /** Plus: the app's text face. '' is the system font; see src/lib/fonts.ts for the others. */
   appFont: string;
-  /** The app's colours: Dark, White or Green (src/lib/theme.ts). */
+  /** The app's colours: Dark or White (src/lib/theme.ts). */
   theme: ThemeName;
   /** A light tap felt on buttons, likes and switches (src/lib/haptics.ts). */
   haptics: boolean;
@@ -71,6 +71,8 @@ export async function loadPrefs() {
   try {
     const raw = await SecureStore.getItemAsync(KEY);
     if (raw) current = { ...DEFAULTS, ...JSON.parse(raw) };
+    // Green was taken out: anything other than White is Dark.
+    if (current.theme !== 'white' && current.theme !== 'dark') current = { ...current, theme: 'dark' };
   } catch {
     // Keep the defaults if nothing can be read.
   }

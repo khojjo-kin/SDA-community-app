@@ -7,10 +7,9 @@ import { C, PALETTES, type ThemeName } from '../../src/lib/theme';
 import { chooseTheme } from '../../src/lib/theme-return';
 
 // Keys rather than words: the words are looked up as the screen draws, in the app's language.
-const CHOICES: { id: ThemeName; label: Key; sub: Key }[] = [
-  { id: 'dark', label: 'theme.dark', sub: 'theme.darkSub' },
-  { id: 'white', label: 'theme.white', sub: 'theme.whiteSub' },
-  { id: 'green', label: 'theme.green', sub: 'theme.greenSub' },
+const CHOICES: { id: ThemeName; label: Key }[] = [
+  { id: 'dark', label: 'theme.dark' },
+  { id: 'white', label: 'theme.white' },
 ];
 
 /** A tiny picture of the app in a theme's colours: a header, a post and a button. */
@@ -30,7 +29,7 @@ function Preview({ id }: { id: ThemeName }) {
   );
 }
 
-/** Settings → Theme: Dark, White or Green. The whole app is redrawn in the new colours straight away. */
+/** Settings → Theme: Dark or White. The whole app is redrawn in the new colours straight away. */
 export default function ThemeScreen() {
   const { theme } = usePrefs();
   const t = useT();
@@ -50,9 +49,8 @@ export default function ThemeScreen() {
               accessibilityLabel={t('theme.label', { name: label })}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: 18, backgroundColor: C.surface, borderWidth: 2, borderColor: on ? C.accent : 'transparent', opacity: pressed ? 0.8 : 1 })}>
               <Preview id={c.id} />
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700' }}>{label}</Text>
-                <Text style={{ color: C.fg2, lineHeight: 19 }}>{t(c.sub)}</Text>
               </View>
               <Radio on={on} />
             </Pressable>

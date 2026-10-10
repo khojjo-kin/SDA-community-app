@@ -54,15 +54,10 @@ export default function ChatWallpaper() {
     <Screen>
       <ScreenHeader title="Chat wallpaper" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 60 }}>
-        {plus ? (
-          <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, paddingVertical: 10 }}>The look behind every chat on this phone. Your bubbles stay the same.</Text>
-        ) : (
+        {plus ? null : (
           <Pressable onPress={() => router.push('/plus')} accessibilityRole="button" accessibilityLabel="Chat wallpapers are part of Community Plus. Find out more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginVertical: 8, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
             <Icon name="crown" size={24} color={C.accent2} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
-              <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18, marginTop: 1 }}>Have a look around. Join Plus to set one behind your chats.</Text>
-            </View>
+            <Text style={{ flex: 1, color: C.fg, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
             <Icon name="right" size={18} color={C.fg2} weight={2} />
           </Pressable>
         )}

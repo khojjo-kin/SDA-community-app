@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -26,6 +26,8 @@ const VERB: Record<Notice['kind'], Key> = {
   live: 'notifications.live',
   story_watch: 'notifications.storyWatch',
   subscriber: 'notifications.subscriber',
+  tag: 'notifications.tag',
+  live_soon: 'notifications.liveSoon',
 };
 
 /** Where tapping a notification goes. Null when there is nothing more to open than the person. */
@@ -38,6 +40,7 @@ function targetOf(n: Notice): string | null {
     case 'comment':
     case 'repost':
     case 'new_post':
+    case 'tag':
       return n.post_id ? `/post/${n.post_id}` : null;
     case 'new_story':
       return `/story/${n.actor_id}`;
@@ -45,6 +48,7 @@ function targetOf(n: Notice): string | null {
       // The story they watched was yours, so their own story is the wrong place: open the person instead.
       return `/user/${n.actor_id}`;
     case 'live':
+    case 'live_soon':
       // The live's id travels in the body. Without it, their profile shows whether they're still on.
       return n.body ? `/live/${n.body}` : `/user/${n.actor_id}`;
     default:
@@ -139,6 +143,7 @@ export default function Notifications() {
           </View>
         ) : null;
       case 'live':
+      case 'live_soon':
         return (
           <View accessibilityLabel={t('notifications.liveBadge')} style={{ height: 24, paddingHorizontal: 8, borderRadius: 7, backgroundColor: C.like, justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 }}>{t('common.live')}</Text>
@@ -154,13 +159,18 @@ export default function Notifications() {
     }
   }
 
-  const day = 86400e3;
-  const fresh = list.filter((n) => Date.now() - new Date(n.created_at).getTime() < day);
-  const older = list.filter((n) => Date.now() - new Date(n.created_at).getTime() >= day);
-  const sections = [
-    { title: t('notifications.sectionNew'), data: fresh },
-    { title: t('notifications.sectionEarlier'), data: older },
-  ].filter((s) => s.data.length);
+  // Split once per list (each date read once), not on every draw: refreshing and answering requests draw this again.
+  const sections = useMemo(() => {
+    const day = 86400e3;
+    const now = Date.now();
+    const fresh: Notice[] = [];
+    const older: Notice[] = [];
+    for (const n of list) (now - new Date(n.created_at).getTime() < day ? fresh : older).push(n);
+    return [
+      { title: t('notifications.sectionNew'), data: fresh },
+      { title: t('notifications.sectionEarlier'), data: older },
+    ].filter((s) => s.data.length);
+  }, [list, t]);
 
   return (
     <Screen>
@@ -185,7 +195,7 @@ export default function Notifications() {
             return (
               <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${n.username} ${verb}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <Pressable onPress={() => router.push(n.kind === 'new_story' ? `/story/${n.actor_id}` : `/user/${n.actor_id}`)} accessibilityLabel={t(n.kind === 'new_story' ? 'notifications.openStory' : 'notifications.openProfile', { username: n.username })}>
-                  {n.kind === 'live' ? (
+                  {n.kind === 'live' || n.kind === 'live_soon' ? (
                     <View style={{ padding: 2, borderRadius: 30, borderWidth: 2, borderColor: C.like }}>
                       <Avatar uri={n.avatar_url} name={n.full_name} size={42} />
                     </View>
@@ -209,7 +219,7 @@ export default function Notifications() {
               </View>
             ) : null
           }
-          ListEmptyComponent={<Empty icon="heart" title={t('notifications.emptyTitle')} body={t('notifications.emptyBody')} />}
+          ListEmptyComponent={<Empty icon="heart" title={t('notifications.emptyTitle')} />}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}
         />

@@ -188,7 +188,7 @@ function VerseCard({ onOpen }: { onOpen: (book: string, chapter: number) => void
       </LinearGradient>
 
       <Sheet visible={menu} onClose={() => setMenu(false)}>
-        <SheetRow first icon="close" label={t('bible.hideVerse')} sub={t('bible.hideVerseSub')} onPress={hide} />
+        <SheetRow first icon="close" label={t('bible.hideVerse')} onPress={hide} />
       </Sheet>
     </>
   );
@@ -273,7 +273,7 @@ export default function Bible() {
 
       {/* The page's menu: for now, the verse of the day, so a hidden card can be brought back. */}
       <Sheet visible={menu} onClose={() => setMenu(false)} title={t('churchApps.bible')}>
-        <Row icon="sparkle" title={t('bible.verseOfDay')} sub={t('bible.verseOfDaySub')} right={<Toggle value={dailyVerse} onChange={(next) => setPrefs({ dailyVerse: next })} label={t('bible.verseOfDay')} />} />
+        <Row icon="sparkle" title={t('bible.verseOfDay')} right={<Toggle value={dailyVerse} onChange={(next) => setPrefs({ dailyVerse: next })} label={t('bible.verseOfDay')} />} />
       </Sheet>
     </Screen>
   );

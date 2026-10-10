@@ -73,3 +73,36 @@ export async function clearCache(userId: string): Promise<void> {
     // Not worth interrupting anything for.
   }
 }
+
+/** Each kept item's JSON, worked out once: the items on screen are compared again on every refresh. */
+const jsonOf = new WeakMap<object, string>();
+function json(item: object): string {
+  let text = jsonOf.get(item);
+  if (text === undefined) {
+    text = JSON.stringify(item);
+    jsonOf.set(item, text);
+  }
+  return text;
+}
+
+/**
+ * A list that has just been fetched again, with every item that hasn't changed swapped for the one
+ * already on screen, and the old list itself when nothing changed at all. A screen that polls (Messages,
+ * a chat) then only draws again the rows that are new or different, instead of every row each time.
+ */
+export function keepSame<T extends { id: string }>(prev: readonly T[], next: T[]): T[] {
+  if (!prev.length) return next;
+  const before = new Map<string, T>();
+  for (const item of prev) before.set(item.id, item);
+  let same = prev.length === next.length;
+  const out = next.map((item, i) => {
+    const old = before.get(item.id);
+    if (!old || json(old) !== JSON.stringify(item)) {
+      same = false;
+      return item;
+    }
+    if (prev[i] !== old) same = false;
+    return old;
+  });
+  return same ? (prev as T[]) : out;
+}

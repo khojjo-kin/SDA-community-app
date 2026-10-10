@@ -17,9 +17,9 @@ type Errors = { name?: string; handle?: string; form?: string };
 /** Same rule as the database's check on handles. */
 const HANDLE = /^[a-z0-9_.]{3,30}$/;
 
-const KINDS: { kind: Kind; icon: IconName; title: string; body: string }[] = [
-  { kind: 'community', icon: 'users', title: 'Community', body: 'A place for people to join and post: a youth group, a prayer circle, a Bible study.' },
-  { kind: 'page', icon: 'crown', title: 'Page', body: 'For a ministry, choir, school or church. You post; people follow.' },
+const KINDS: { kind: Kind; icon: IconName; title: string }[] = [
+  { kind: 'community', icon: 'users', title: 'Community' },
+  { kind: 'page', icon: 'crown', title: 'Page' },
 ];
 const PRIVACY: { value: Privacy; title: string; body: string }[] = [
   { value: 'public', title: 'Public', body: 'Anyone can join and see what is posted.' },
@@ -101,16 +101,12 @@ export default function GroupNew() {
       <Screen>
         <ScreenHeader title="Create" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 48, gap: 12 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20, paddingHorizontal: 4, paddingBottom: 4 }}>What would you like to start?</Text>
           {KINDS.map((k) => (
-            <Pressable key={k.kind} onPress={() => setKind(k.kind)} accessibilityRole="button" accessibilityLabel={`${k.title}. ${k.body}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18, borderRadius: 18, backgroundColor: pressed ? C.surface2 : C.surface })}>
+            <Pressable key={k.kind} onPress={() => setKind(k.kind)} accessibilityRole="button" accessibilityLabel={k.title} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18, borderRadius: 18, backgroundColor: pressed ? C.surface2 : C.surface })}>
               <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={k.icon} size={30} color={C.accent2} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 18, fontWeight: '700' }}>{k.title}</Text>
-                <Text style={{ color: C.fg2, lineHeight: 19, marginTop: 3 }}>{k.body}</Text>
-              </View>
+              <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700' }}>{k.title}</Text>
               <Icon name="right" size={18} color={C.fg2} weight={2} />
             </Pressable>
           ))}
@@ -169,7 +165,6 @@ export default function GroupNew() {
           </Pressable>
           {errors.form ? <Text style={{ color: C.like, lineHeight: 19 }}>{errors.form}</Text> : null}
           <Button label={page ? 'Create page' : 'Create community'} busy={busy} onPress={save} style={{ marginTop: 6 }} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center' }}>{page ? 'You will be its owner. You can add admins who post with you.' : 'You will be its owner. You can make members admins later.'}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -182,7 +177,7 @@ export default function GroupNew() {
             {churches.map((c) => (
               <Row key={c.id} icon="church" title={c.name} sub={[c.city, c.country].map((s) => s.trim()).filter(Boolean).join(', ') || undefined} onPress={() => { setChurch(c); setPickingChurch(false); }} right={<Radio on={church?.id === c.id} />} chevron={false} />
             ))}
-            {churches.length === 0 ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 12, lineHeight: 20 }}>No churches are listed yet. You can add yours from the Churches screen and pick it later.</Text> : null}
+            {churches.length === 0 ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 12, lineHeight: 20 }}>No churches are listed yet.</Text> : null}
           </ScrollView>
         )}
       </Sheet>

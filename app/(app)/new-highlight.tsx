@@ -87,7 +87,7 @@ export default function NewHighlight() {
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : !list.length ? (
-        <Empty icon="highlight" title="Share a story first" body="Memories are made from your stories. Once you have shared one, you can keep it on your profile here." action={<Button small label="Add to your story" onPress={() => router.replace('/add-story')} style={{ marginTop: 8 }} />} />
+        <Empty icon="highlight" title="Share a story first" action={<Button small label="Add to your story" onPress={() => router.replace('/add-story')} style={{ marginTop: 8 }} />} />
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <FlatList

@@ -15,7 +15,7 @@ export default function Creator() {
     return (
       <Screen>
         <ScreenHeader title="Creator" />
-        <Empty icon="chart" title="Creator tools are off" body="Switch to a creator account to get a dashboard, saved replies, frequently asked questions and a category on your profile. It is free, and you can switch back at any time." action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
+        <Empty icon="chart" title="Creator tools are off" action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }

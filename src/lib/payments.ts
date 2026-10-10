@@ -38,6 +38,11 @@ export async function ensureStripe(fresh = false): Promise<PaymentsConfig> {
   return ready;
 }
 
+/** Another account is now in use: the config carries its billing status, so it is asked for again. Stripe stays started. */
+export function forgetPayments() {
+  ready = null;
+}
+
 /** True when Apple Pay can be offered: built in, set up on the server, and supported on this phone. */
 export async function applePayAvailable(config: PaymentsConfig): Promise<boolean> {
   if (!BUILT_MERCHANT_ID || config.apple_merchant_id !== BUILT_MERCHANT_ID) return false;

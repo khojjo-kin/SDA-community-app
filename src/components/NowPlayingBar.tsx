@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { deletePodItem, setPodSaved } from '../lib/api';
-import { next, patchQueued, removeQueued, toggle, usePlayer, useProgress } from '../lib/player';
+import { next, patchQueued, removeQueued, toggle, useBuffering, usePlayer, useProgress } from '../lib/player';
 import { useSession } from '../lib/session';
 import { C, errText } from '../lib/theme';
 import type { PodItem } from '../lib/types';
@@ -171,7 +171,9 @@ function ProgressLine() {
 export function NowPlayingBar({ style }: { style?: ViewStyle }) {
   const router = useRouter();
   const { current, playing, upNext, repeat } = usePlayer();
-  const { buffering } = useProgress();
+  // Not useProgress(): this bar floats over every tab, and the clock ticks a few times a second while a track plays.
+  // ProgressLine below takes the ticks on its own.
+  const buffering = useBuffering();
   if (!current) return null;
   const canSkip = upNext.length > 0 || repeat !== 'off';
   return (

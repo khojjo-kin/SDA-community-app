@@ -1,12 +1,12 @@
 /*
- * The app's colours. Three themes are offered in Settings: Dark (the original), White and Green.
+ * The app's colours. Two themes are offered in Settings: Dark (the original) and White.
  *
  * `C` is one object whose values are swapped when the theme changes (applyTheme), and the app is
  * then drawn again from the top, so every screen must read `C.x` while it renders — never copy a
  * colour into a module-level constant. Screens that show photos and video full screen (the camera,
  * the editors, the story viewer, reels, calls and live) stay dark in every theme: they use `DARK`.
  */
-export type ThemeName = 'dark' | 'white' | 'green';
+export type ThemeName = 'dark' | 'white';
 
 type Palette = {
   bg: string;
@@ -122,39 +122,7 @@ const WHITE_PALETTE: Palette = {
   statusBar: 'dark',
 };
 
-const GREEN_PALETTE: Palette = {
-  bg: '#0c2118',
-  bg2: '#10291e',
-  surface: '#163326',
-  surface2: '#1f4032',
-  line: '#1b3a2c',
-  fg: '#eef7f1',
-  fg2: '#a6c3b3',
-  fg3: '#6e8f7d',
-  accent: '#2fd47a',
-  accent2: '#74eaa8',
-  onAccent: '#06210f',
-  accentSoft: 'rgba(47,212,122,0.16)',
-  like: '#ff4d5e',
-  ok: '#4fe08a',
-  warn: '#ffd166',
-  danger: '#ff5a5f',
-  glass: 'rgba(18,46,34,0.82)',
-  blurTint: 'dark',
-  hairline: 'rgba(255,255,255,0.1)',
-  press: 'rgba(255,255,255,0.06)',
-  scrim: 'rgba(0,0,0,0.22)',
-  sheet: '#123024',
-  field: '#1a3a2c',
-  round: '#1b3b2d',
-  green: '#1fbf5a',
-  close: '#5aa9ff',
-  verified: '#5aa9ff',
-  inputBar: '#143024',
-  statusBar: 'light',
-};
-
-export const PALETTES: Record<ThemeName, Palette> = { dark: DARK_PALETTE, white: WHITE_PALETTE, green: GREEN_PALETTE };
+export const PALETTES: Record<ThemeName, Palette> = { dark: DARK_PALETTE, white: WHITE_PALETTE };
 
 /** The colours in use now. Read at render time; see the note at the top of this file. */
 export const C: Palette = { ...DARK_PALETTE };
@@ -171,7 +139,8 @@ export function themeName(): ThemeName {
 
 /** Switches the colours. The caller redraws the app (the root layout does, keyed on the theme). */
 export function applyTheme(name: ThemeName) {
-  const next = PALETTES[name] ? name : 'dark';
+  // A theme no longer offered (Green, before it was taken out) falls back to Dark.
+  const next: ThemeName = name === 'white' ? 'white' : 'dark';
   Object.assign(C, PALETTES[next]);
   current = next;
 }

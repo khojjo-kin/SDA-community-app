@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
-import { PaySheet, type PayStart } from '../../../src/components/PaySheet';
+import { type PayStart, useInstantPay } from '../../../src/components/PaySheet';
 import { RenewalTerms } from '../../../src/components/RenewalTerms';
 import { Avatar, Button, Empty, ErrorNote, Loading, Screen, ScreenHeader, useToast } from '../../../src/components/ui';
 import { cancelCreatorSubscription, getProfile, mySubscriptions, startCreatorSubscription, syncCreatorSubscription, syncCreatorSubscriptionUntilOn } from '../../../src/lib/api';
@@ -11,15 +11,15 @@ import { tap } from '../../../src/lib/haptics';
 import { tSplit, useT } from '../../../src/lib/i18n';
 import { ensureStripe, money } from '../../../src/lib/payments';
 import { useSession } from '../../../src/lib/session';
-import { C, dayLabel, errText, fmt } from '../../../src/lib/theme';
+import { C, dayLabel, errText } from '../../../src/lib/theme';
 import type { CreatorSub, Profile } from '../../../src/lib/types';
 
 /** A subscription that still gives access (a failed renewal keeps it for a little while). */
 const LIVE = ['active', 'trialing', 'past_due'];
 
 /**
- * Subscribing to a creator (/subscribe/[id]): who they are, the monthly price, what it gives, and
- * the payment sheet. The first month is paid like any other payment in the app; after that Stripe
+ * Subscribing to a creator (/subscribe/[id]): who they are, the monthly price and what it gives.
+ * Subscribe starts paying at once (Apple Pay, or the payment sheet with saved cards); after that Stripe
  * renews it each month until it is cancelled. The money goes to the creator's own payout account.
  */
 export default function Subscribe() {
@@ -33,9 +33,7 @@ export default function Subscribe() {
   const [creator, setCreator] = useState<Profile | null | undefined>(undefined);
   const [sub, setSub] = useState<CreatorSub | null>(null);
   const [error, setError] = useState('');
-  const [fee, setFee] = useState<number | null>(null);
   const [currency, setCurrency] = useState('GBP');
-  const [paying, setPaying] = useState(false);
   // After paying, while Stripe is asked whether the subscription is on yet.
   const [settling, setSettling] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -56,13 +54,11 @@ export default function Subscribe() {
     }
   }, [creatorId, me]);
   useEffect(() => { load(); }, [load]);
-  // The app's share, for the honest line about where the money goes. Not worth an error if it fails.
+  // The currency prices are shown in. Not worth an error if it fails.
   useEffect(() => {
     ensureStripe()
       .then((c) => {
-        if (!alive.current) return;
-        setFee(c.creator_fee_percent);
-        setCurrency(c.currency || 'GBP');
+        if (alive.current) setCurrency(c.currency || 'GBP');
       })
       .catch(() => {});
   }, []);
@@ -91,7 +87,6 @@ export default function Subscribe() {
   async function paid() {
     const wasOverdue = sub?.status === 'past_due';
     const name = creator?.username ?? t('subscribe.them');
-    setPaying(false);
     setSettling(true);
     const on = await syncCreatorSubscriptionUntilOn(creatorId, known.current);
     if (!alive.current) return;
@@ -131,30 +126,45 @@ export default function Subscribe() {
     ]);
   }
 
+  // What the payment is for, worked out before the page decides what to show (the hook runs on every draw).
+  const liveSub = !!sub && LIVE.includes(sub.status);
+  const payPence = liveSub && sub ? sub.amount_pence : creator?.sub_price_pence ?? 0;
+  const payPrice = money(payPence, currency);
+  const instant = useInstantPay({
+    title: sub?.status === 'past_due' ? t('subscribe.sheetDue', { username: creator?.username ?? '' }) : t('subscribe.sheetFirst', { username: creator?.username ?? '' }),
+    amountLabel: payPrice,
+    start,
+    onConfirmed: confirmed,
+    onPaid: paid,
+    walletLabel: t('subscribe.sheetWallet', { username: creator?.username ?? '' }),
+    wallet: 'subscribe',
+    note: sub?.status === 'past_due' ? t('subscribe.paysMissed') : undefined,
+    footer: <RenewalTerms kind="creator" pricePence={payPence} currency={currency} />,
+  });
+  function subscribeNow() {
+    tap('medium');
+    instant.pay();
+  }
+
   let body: React.ReactNode;
   if (error) body = <ErrorNote message={error} onRetry={load} />;
   else if (creator === undefined) body = <Loading />;
   else if (creator === null) body = <Empty icon="user" title={t('profile.unavailable')} />;
   else if (creator.id === me) {
-    body = <Empty icon="crown" title={t('subscribe.thisIsYou')} body={t('subscribe.setYourPrice')} action={<Button label={t('subscribe.yourSubscriptions')} onPress={() => router.replace('/creator-subscriptions')} style={{ marginTop: 10, alignSelf: 'stretch' }} />} />;
+    body = <Empty icon="crown" title={t('subscribe.thisIsYou')} action={<Button label={t('subscribe.yourSubscriptions')} onPress={() => router.replace('/creator-subscriptions')} style={{ marginTop: 10, alignSelf: 'stretch' }} />} />;
   } else {
-    const live = !!sub && LIVE.includes(sub.status);
+    const live = liveSub;
     const subscribed = creator.subscribed || live;
     const offered = creator.sub_price_pence;
     // A subscriber pays what they signed up at, even if the creator has changed the price since.
-    const pence = live && sub ? sub.amount_pence : offered ?? 0;
-    const price = money(pence, currency);
+    const pence = payPence;
+    const price = payPrice;
     const first = creator.full_name.trim().split(/\s+/)[0] || creator.username;
     const day = sub?.current_period_end ? dayLabel(new Date(sub.current_period_end)) : '';
-    const posts = creator.subscriber_posts;
-    const perks: { icon: IconName; title: string; body: string }[] = [
-      {
-        icon: 'lock',
-        title: t('subscribe.perkPosts'),
-        body: posts ? t(posts === 1 ? 'subscribe.perkPostsBodyOne' : 'subscribe.perkPostsBody', { count: fmt(posts), name: first }) : t('subscribe.perkPostsBodyNone', { name: first }),
-      },
-      { icon: 'heart', title: t('subscribe.perkSupport', { name: first }), body: fee != null ? t('subscribe.perkSupportBody', { name: first, percent: fee }) : t('subscribe.perkSupportBodyNoFee', { name: first }) },
-      { icon: 'repeat', title: t('subscribe.perkCancel'), body: t('subscribe.perkCancelBody') },
+    const perks: { icon: IconName; title: string }[] = [
+      { icon: 'lock', title: t('subscribe.perkPosts') },
+      { icon: 'heart', title: t('subscribe.perkSupport', { name: first }) },
+      { icon: 'repeat', title: t('subscribe.perkCancel') },
     ];
     // The monthly price drawn large, wherever the language puts it among its words.
     const [perBefore, perAfter] = tSplit('plus.perMonth', 'price');
@@ -183,7 +193,6 @@ export default function Subscribe() {
                 <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>
                   {sub?.status === 'past_due' ? t('subscribe.pastDue') : sub?.cancel_at_period_end ? t('subscribe.subscribedEnds', { day }) : day ? t('subscribe.subscribedRenews', { day }) : t('subscribe.subscribed')}
                 </Text>
-                {sub?.status === 'past_due' ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, marginTop: 2 }}>{t('subscribe.pastDueBody')}</Text> : null}
               </View>
             </View>
           ) : null}
@@ -192,61 +201,43 @@ export default function Subscribe() {
             <View style={{ paddingHorizontal: 20, gap: 18 }}>
               <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 18, fontWeight: '800' }}>{subscribed ? t('subscribe.givesYou') : t('subscribe.whatYouGet')}</Text>
               {perks.map((p) => (
-                <View key={p.title} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
+                <View key={p.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name={p.icon} size={28} color={C.fg} weight={1.6} />
                   </View>
-                  <View style={{ flex: 1, paddingTop: 1 }}>
-                    <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>{p.title}</Text>
-                    <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, marginTop: 2 }}>{p.body}</Text>
-                  </View>
+                  <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>{p.title}</Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Empty icon="crown" title={t('subscribe.notOffered', { name: first })} body={t('subscribe.notOfferedBody')} />
+            <Empty icon="crown" title={t('subscribe.notOffered', { name: first })} />
           )}
         </ScrollView>
 
         {offered || subscribed ? (
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 8, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.line }}>
             {settling ? (
-              <>
-                <Button label={t('subscribe.confirming')} busy />
-                <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center' }}>{t('subscribe.confirmingBody')}</Text>
-              </>
+              <Button label={t('subscribe.confirming')} busy />
             ) : subscribed ? (
               sub && sub.status !== 'past_due' ? (
                 <Button label={sub.cancel_at_period_end ? t('plus.resumeSubscription') : t('plus.cancelSubscription')} kind="ghost" busy={changing} onPress={changeRenewal} textColor={sub.cancel_at_period_end ? undefined : C.like} />
               ) : sub?.status === 'past_due' ? (
                 // A renewal that failed is paid on the same subscription, through the same payment sheet.
                 <>
-                  <Button label={t('subscribe.payNow', { price })} onPress={() => { tap('medium'); setPaying(true); }} />
+                  <Button label={t('subscribe.payNow', { price })} busy={instant.busy} onPress={subscribeNow} />
                   <Button label={t('plus.paymentMethods')} kind="ghost" onPress={() => router.push('/payment-methods')} />
                 </>
               ) : null
             ) : (
               <>
-                <Button label={t('subscribe.button', { price })} onPress={() => { tap('medium'); setPaying(true); }} />
+                <Button label={t('subscribe.button', { price })} busy={instant.busy} onPress={subscribeNow} />
                 <RenewalTerms kind="creator" pricePence={pence} currency={currency} />
               </>
             )}
           </View>
         ) : null}
 
-        <PaySheet
-          visible={paying}
-          onClose={() => setPaying(false)}
-          title={sub?.status === 'past_due' ? t('subscribe.sheetDue', { username: creator.username }) : t('subscribe.sheetFirst', { username: creator.username })}
-          amountLabel={price}
-          start={start}
-          onConfirmed={confirmed}
-          onPaid={paid}
-          walletLabel={t('subscribe.sheetWallet', { username: creator.username })}
-          wallet="support"
-          note={sub?.status === 'past_due' ? t('subscribe.paysMissed') : undefined}
-          footer={<RenewalTerms kind="creator" pricePence={pence} currency={currency} />}
-        />
+        {instant.sheet}
       </>
     );
   }

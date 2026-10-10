@@ -168,7 +168,7 @@ export default function Explore() {
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(true); }}
           onEnd={() => { if (cursor.current) load(false); }}
-          empty={<Empty icon="search" title="Nothing to explore yet" body="Posts from everyone on Community will appear here." />}
+          empty={<Empty icon="search" title="Nothing to explore yet" />}
         />
       )}
     </Screen>

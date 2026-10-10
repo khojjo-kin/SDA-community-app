@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MediaStream } from 'react-native-webrtc';
 import { RTCView } from 'react-native-webrtc';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { Icon } from '../../../src/components/Icon';
 import { ChatLine, ChatLines, commentRefusal, Hearts, LiveComposer, LiveHeader, useHearts, useLiveComments } from '../../../src/components/LiveOverlay';
 import { DarkStatusBar } from '../../../src/components/OnDark';
 import { Avatar, Button, RoundButton, useToast } from '../../../src/components/ui';
@@ -293,6 +294,13 @@ export default function LiveViewer() {
             <View style={{ paddingHorizontal: 14 }}>
               <ChatLines lines={comments.lines} canRemove={(l) => l.userId === me} onRemove={removeComment} />
             </View>
+            {/* A live with a fundraiser: Donate opens its page, ready to give. */}
+            {card?.fundraiser_id ? (
+              <Pressable onPress={() => router.push({ pathname: '/fundraiser/[id]', params: { id: card.fundraiser_id!, give: '1' } } as any)} accessibilityRole="button" accessibilityLabel={t('liveSetup.donate')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: 14, height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: DARK.accent, opacity: pressed ? 0.75 : 1 })}>
+                <Icon name="heartcoin" size={16} color="#fff" weight={2.2} />
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>{t('liveSetup.donate')}</Text>
+              </Pressable>
+            ) : null}
             <LiveComposer onSend={sendChat} onHeart={sendHeart} />
           </View>
         </KeyboardAvoidingView>

@@ -63,7 +63,7 @@ export default function Payments() {
           keyExtractor={(t) => t.id}
           contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={C.fg2} />}
-          ListEmptyComponent={<Empty icon="receipt" title="No payments yet" body="Your Plus payments and any refunds will show here." />}
+          ListEmptyComponent={<Empty icon="receipt" title="No payments yet" />}
           renderItem={({ item: t }) => {
             const refund = isRefund(t);
             const amount = refund ? -Math.abs(t.amount_pence) : t.amount_pence;

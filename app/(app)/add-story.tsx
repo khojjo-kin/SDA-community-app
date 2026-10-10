@@ -8,10 +8,12 @@ import * as MediaLibrary from 'expo-media-library';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../src/components/Icon';
+import { ModeSwitcher, useModeNav } from '../../src/components/ModeSwitcher';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { Button, IconButton, Sheet, useToast } from '../../src/components/ui';
 import { pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../../src/lib/pick';
 import { usePrefs } from '../../src/lib/prefs';
+import { useSession } from '../../src/lib/session';
 import { C, clock, DARK, errText } from '../../src/lib/theme';
 
 /** What the story editor is handed: one or more things to share. */
@@ -37,6 +39,8 @@ export default function AddStory() {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
+  const { profile } = useSession();
+  const goMode = useModeNav();
   const { width } = useWindowDimensions();
   const [access, setAccess] = useState<Access>('checking');
   const [assets, setAssets] = useState<MediaLibrary.Asset[]>([]);
@@ -292,7 +296,7 @@ export default function AddStory() {
       {access === 'checking' ? (
         <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={DARK.fg2} /></View>
       ) : access === 'none' ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>
           {top}
           <View style={{ padding: 28, alignItems: 'center', gap: 12 }}>
             <Icon name="image" size={44} color={DARK.fg2} />
@@ -314,7 +318,7 @@ export default function AddStory() {
           ListEmptyComponent={<Text style={{ color: DARK.fg2, textAlign: 'center', padding: 32 }}>No photos here yet.</Text>}
           onEndReached={() => load(false)}
           onEndReachedThreshold={1.2}
-          contentContainerStyle={{ paddingBottom: insets.bottom + (choosing ? 90 : 24) }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + (choosing ? 90 : 72) }}
           showsVerticalScrollIndicator={false}
           initialNumToRender={12}
           windowSize={7}
@@ -343,6 +347,12 @@ export default function AddStory() {
         />
       )}
 
+      {/* POST · STORY · SHORTS · LIVE, while not choosing several. */}
+      {!choosing ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 6, paddingBottom: insets.bottom + 6, backgroundColor: 'rgba(0,0,0,0.92)' }}>
+          <ModeSwitcher mode="story" onMode={goMode} canLive={profile?.restricted !== true} disabled={busy} />
+        </View>
+      ) : null}
       {choosing ? (
         <View style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 12 }}>
           <Button label={picked.length ? `Next (${picked.length})` : 'Next'} disabled={mode === 'collage' ? picked.length < 2 : picked.length < 1} onPress={next} />

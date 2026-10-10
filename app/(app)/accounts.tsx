@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { useAuth, useClerk } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
+import { useClerk, useSessionList } from '@clerk/clerk-expo';
+import { useNavigationContainerRef, useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
 import { Avatar, Button, Divider, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
+import { liveOpen, MAX_ACCOUNTS, removeAccount, setAddingAccount, switchAccount } from '../../src/lib/accounts';
+import { useCalls } from '../../src/lib/calls';
+import { t } from '../../src/lib/i18n';
 import { C, errText } from '../../src/lib/theme';
 
 /**
@@ -12,24 +15,44 @@ import { C, errText } from '../../src/lib/theme';
  */
 export default function Accounts() {
   const clerk = useClerk();
-  const { signOut } = useAuth();
   const router = useRouter();
+  const nav = useNavigationContainerRef();
   const toast = useToast();
+  const { inCall } = useCalls();
   const [busy, setBusy] = useState<string | null>(null);
 
-  const sessions = (clerk.client?.activeSessions ?? []).filter((s) => s.user);
+  // Kept up to date as accounts are added or logged out (src/lib/accounts.ts).
+  const { sessions: all } = useSessionList();
+  const sessions = (all ?? []).filter((s) => s.status === 'active' && s.user);
   const currentId = clerk.session?.id ?? null;
 
+  /** A call or a live would be cut off by another account taking over: those end first. */
+  function blocked() {
+    if (inCall || liveOpen(nav.isReady() ? nav.getRootState() : undefined)) {
+      toast(t('accounts.busy'));
+      return true;
+    }
+    return false;
+  }
+
   async function use(id: string) {
-    if (id === currentId || busy) return;
+    if (id === currentId || busy || blocked()) return;
     setBusy(id);
     try {
-      await clerk.setActive({ session: id });
-      router.replace('/');
+      // Every screen closes and the app opens again at Home as that account.
+      await switchAccount(clerk, id);
     } catch (e) {
       toast(errText(e));
+    } finally {
       setBusy(null);
     }
+  }
+
+  function add(screen: '/sign-in' | '/sign-up') {
+    if (busy || blocked()) return;
+    if (sessions.length >= MAX_ACCOUNTS) return toast(t('accounts.limit', { count: MAX_ACCOUNTS }));
+    setAddingAccount(true);
+    router.replace(screen);
   }
 
   function remove(id: string, name: string) {
@@ -41,8 +64,8 @@ export default function Accounts() {
         onPress: async () => {
           setBusy(id);
           try {
-            if (id === currentId) await signOut({ sessionId: id });
-            else await sessions.find((s) => s.id === id)?.remove();
+            // The one in use hands over to another account signed in here.
+            await removeAccount(clerk, id);
           } catch (e) {
             toast(errText(e));
           } finally {
@@ -83,8 +106,8 @@ export default function Accounts() {
         <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6, lineHeight: 18 }}>Hold an account to log it out of this phone.</Text>
         <Divider />
         <View style={{ padding: 16, gap: 10 }}>
-          <Button label="Add account" onPress={() => router.push({ pathname: '/sign-in', params: { add: '1' } } as any)} />
-          <Button label="Create a new account" kind="ghost" onPress={() => router.push({ pathname: '/sign-up', params: { add: '1' } } as any)} />
+          <Button label="Add account" onPress={() => add('/sign-in')} />
+          <Button label="Create a new account" kind="ghost" onPress={() => add('/sign-up')} />
         </View>
       </ScrollView>
     </Screen>

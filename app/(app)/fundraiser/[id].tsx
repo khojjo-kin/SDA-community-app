@@ -33,7 +33,8 @@ function day(iso: string): string {
  * owner's own Stripe account; the app takes nothing. The owner gets edit, payouts and end instead.
  */
 export default function FundraiserScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // give=1 (Donate on a live): the gift sheet opens as soon as the fundraiser can take one.
+  const { id, give } = useLocalSearchParams<{ id: string; give?: string }>();
   const fundraiserId = String(id ?? '');
   const router = useRouter();
   const toast = useToast();
@@ -91,6 +92,13 @@ export default function FundraiserScreen() {
     setStep('amount');
     setGiving(true);
   }
+
+  const gaveOpened = useRef(false);
+  useEffect(() => {
+    if (give !== '1' || gaveOpened.current || !f || f.user_id === me || hasEnded(f) || !f.accepting) return;
+    gaveOpened.current = true;
+    openGiving();
+  }, [give, f, me]);
 
   function closeGiving() {
     // Never mid-payment: the sheet would vanish with the money half-way.
@@ -236,7 +244,7 @@ export default function FundraiserScreen() {
               {!ended && !f.accepting ? (
                 <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
                   <Icon name="info" size={18} color={C.warn} />
-                  <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>Not taking donations yet. Set up payouts so gifts can reach your bank.</Text>
+                  <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>Not taking donations yet. Set up payouts.</Text>
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -349,14 +357,10 @@ export default function FundraiserScreen() {
             </View>
             <Field label="Message (optional)" value={message} onChangeText={setMessage} placeholder="Praying for you all" maxLength={300} multiline style={{ minHeight: 70, textAlignVertical: 'top' }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '600' }}>Give anonymously</Text>
-                <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18, marginTop: 2 }}>Your name and photo won't appear on the fundraiser.</Text>
-              </View>
+              <Text style={{ flex: 1, color: C.fg, fontSize: 15.5, fontWeight: '600' }}>Give anonymously</Text>
               <Toggle value={anonymous} onChange={setAnonymous} label="Give anonymously" />
             </View>
             <Button label={giftOk ? `Continue · ${amountLabel}` : 'Continue'} disabled={!giftOk} onPress={() => setStep('pay')} />
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>The whole gift goes to {f.full_name || f.username}. The app takes no fee.</Text>
           </ScrollView>
         ) : null}
         {f && step === 'pay' && giftOk ? (
@@ -370,7 +374,7 @@ export default function FundraiserScreen() {
               amountLabel={amountLabel}
               walletLabel={`Gift · ${f.title}`.slice(0, 60)}
               wallet="support"
-              note={`${t('legal.oneOff', { amount: amountLabel })} ${anonymous ? "You're giving anonymously: your name won't appear on the fundraiser." : message.trim() ? 'Your name and message will appear on the fundraiser.' : 'Your name will appear on the fundraiser.'}`}
+              note={t('legal.oneOff', { amount: amountLabel })}
               start={() => startDonation(f.id, gift!, message.trim(), anonymous)}
               onPaid={paid}
               onBusy={setPaying}

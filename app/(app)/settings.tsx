@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { useAuth, useSession as useClerkSession } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, Toggle, useToast } from '../../src/components/ui';
+import { useLogOut } from '../../src/lib/accounts';
 import { countCloseFriends, listBlocked, setTickHidden, updateProfile } from '../../src/lib/api';
 import { fontById } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
@@ -34,12 +34,11 @@ function PlusTag() {
 }
 
 const REPLIES: Record<string, Key> = { everyone: 'settings.repliesEveryone', following: 'settings.repliesFollowing', off: 'settings.repliesOff' };
-const THEME_LABEL: Record<string, Key> = { dark: 'theme.dark', white: 'theme.white', green: 'theme.green' };
+const THEME_LABEL: Record<string, Key> = { dark: 'theme.dark', white: 'theme.white' };
 
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
-  const { signOut } = useAuth();
-  const { session } = useClerkSession();
+  const signOutHere = useLogOut();
   const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -202,7 +201,7 @@ export default function Settings() {
     {
       label: 'settings.section.appAndMedia',
       items: [
-        { icon: 'sun', title: 'theme.title', value: t(THEME_LABEL[theme] ?? 'theme.dark'), href: '/theme', words: 'theme dark light white green colour color mode appearance look' },
+        { icon: 'sun', title: 'theme.title', value: t(THEME_LABEL[theme] ?? 'theme.dark'), href: '/theme', words: 'theme dark light white colour color mode appearance look' },
         { icon: 'palette', title: 'settings.profileStyle', sub: 'settings.profileStyleSub', href: '/profile-style', words: 'ring colour color theme look profile style customise', plus: true },
         { icon: 'camera', title: 'settings.storyCamera', href: '/camera-settings', words: 'camera roll photos front camera toolbar shorts reels sound' },
         { icon: 'globe', title: 'language.title', value: languageName(languageCode()), href: '/language', words: 'language translate english spanish french words' },
@@ -239,8 +238,8 @@ export default function Settings() {
   function logOut() {
     Alert.alert(t('settings.logOutQuestion'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
-      // Only this account: any other account signed in on this phone stays, and Clerk switches to it.
-      { text: t('settings.logOut'), style: 'destructive', onPress: () => { signOut(session ? { sessionId: session.id } : undefined).catch((e: unknown) => toast(errText(e))); } },
+      // Only this account: any other account signed in on this phone stays, and the app moves to it (at Home).
+      { text: t('settings.logOut'), style: 'destructive', onPress: () => { signOutHere().catch((e: unknown) => toast(errText(e))); } },
     ]);
   }
 
@@ -259,7 +258,8 @@ export default function Settings() {
   };
   const row = (i: Item) => {
     const title = t(i.title);
-    const sub = i.sub ? t(i.sub) : undefined;
+    // Only a notice (under 14) keeps its line of words; the others are searched by them but show just the title.
+    const sub = i.info && i.sub ? t(i.sub) : undefined;
     return i.toggle ? (
       <Row key={i.href + i.title} icon={i.icon} title={title} sub={sub} right={<Toggle value={toggles[i.toggle].value} onChange={toggles[i.toggle].set} label={title} />} />
     ) : i.info ? (

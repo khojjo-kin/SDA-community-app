@@ -200,7 +200,6 @@ export function FeedbackPrompt() {
   return (
     <Sheet visible={open} onClose={() => setOpen(false)} title={t('feedback.title')}>
       <View style={{ paddingHorizontal: 20, gap: 16 }}>
-        <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: -10, fontFamily: font }}>{t('feedback.intro')}</Text>
         <StarPicker value={stars} onChange={setStars} />
         <TextInput
           value={text}

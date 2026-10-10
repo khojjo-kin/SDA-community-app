@@ -195,15 +195,6 @@ export default function ChurchPage() {
               <Icon name={rejected ? 'info' : 'clock'} size={20} color={rejected ? C.like : C.close} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontWeight: '700', lineHeight: 20 }}>{rejected ? 'An admin did not approve this church' : 'Waiting for an admin to approve this church'}</Text>
-                <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19 }}>
-                  {rejected
-                    ? byMe
-                      ? 'It is not listed for anyone else. If you think that is a mistake, write to support from Help.'
-                      : 'It is not listed for anyone else.'
-                    : byMe
-                      ? 'Only you and the admins can see it until then.'
-                      : 'Only the member who suggested it and the admins can see it until then.'}
-                </Text>
               </View>
             </View>
             {admin ? (

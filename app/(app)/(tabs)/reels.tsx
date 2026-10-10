@@ -16,6 +16,8 @@ import { errText } from '../../../src/lib/theme';
 import type { Post } from '../../../src/lib/types';
 import { tasteKey, tasteOf, tuneFeed } from '../clips-settings';
 
+const keyOfClip = (id: string) => id;
+
 /** How many clips the server sends at a time (see fetchReels). */
 const PAGE = 10;
 /** When the member's choices leave a whole page out, look this many pages further before giving up. */
@@ -96,9 +98,18 @@ export default function Reels() {
   }).current;
   const viewConfig = useRef({ itemVisiblePercentThreshold: 70 }).current;
 
+  // Made again only when the clip in view (or the screen's size) changes; each Reel is memoised, so
+  // only the two clips whose `active` flips draw again as the list snaps from one to the next.
+  const bottomInset = Math.max(insets.bottom - 8, 10) + 68;
+  const renderClip = useCallback(
+    ({ item, index }: { item: string; index: number }) => <Reel id={item} active={focused && index === current} width={width} height={height} bottomInset={bottomInset} />,
+    [focused, current, width, height, bottomInset],
+  );
+  const clipLayout = useCallback((_: unknown, index: number) => ({ length: height, offset: height * index, index }), [height]);
+
   const create = () => {
     prefetchLibrary();
-    router.push('/create?mode=post');
+    router.push('/create?mode=shorts');
   };
 
   const choose = (f: boolean) => {
@@ -111,7 +122,7 @@ export default function Reels() {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <DarkStatusBar />
       {status === 'loading' ? (
-        <ShortsSkeleton width={width} height={height} bottomInset={Math.max(insets.bottom - 8, 10) + 68} />
+        <ShortsSkeleton width={width} height={height} bottomInset={bottomInset} />
       ) : status === 'error' ? (
         <View style={{ flex: 1, justifyContent: 'center' }}><DarkErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /></View>
       ) : ids.length === 0 ? (
@@ -126,14 +137,14 @@ export default function Reels() {
       ) : (
         <FlatList
           data={ids}
-          keyExtractor={(id) => id}
-          renderItem={({ item, index }) => <Reel id={item} active={focused && index === current} width={width} height={height} bottomInset={Math.max(insets.bottom - 8, 10) + 68} />}
+          keyExtractor={keyOfClip}
+          renderItem={renderClip}
           snapToInterval={height}
           snapToAlignment="start"
           disableIntervalMomentum
           decelerationRate="fast"
           showsVerticalScrollIndicator={false}
-          getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+          getItemLayout={clipLayout}
           onViewableItemsChanged={onViewable}
           viewabilityConfig={viewConfig}
           onEndReached={() => load(false)}

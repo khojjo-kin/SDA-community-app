@@ -37,7 +37,7 @@ export default function Blocked() {
           keyExtractor={(p) => p.id}
           ListHeaderComponent={null}
           renderItem={({ item: p }) => <PersonRow person={p} right={<Button small kind="ghost" label="Unblock" onPress={() => setBlock(me, p.id, false).then(() => { toast(`Unblocked ${p.username}`); load(); }).catch((e) => toast(errText(e)))} />} />}
-          ListEmptyComponent={<Empty icon="block" title="You haven't blocked anyone" body="To block someone, open their profile and tap the three dots." />}
+          ListEmptyComponent={<Empty icon="block" title="You haven't blocked anyone" />}
           contentContainerStyle={{ paddingBottom: 40 }}
         />
       )}

@@ -7,10 +7,9 @@ import { isUnder13 } from '../lib/age';
 import { useT } from '../lib/i18n';
 
 /**
- * "Enter your date of birth": the first step of signing up, before an email, a password or Apple or
- * Google, and the first step of onboarding for anyone who came in through Apple or Google without
- * it. The boxes start empty (no grown-up date to accept) and nothing hints at the age that matters.
- * Nothing is sent anywhere from here: the screen using it decides what happens next.
+ * "Enter your date of birth": the first step of onboarding for every new account, however it was
+ * made (email, Apple or Google). The boxes start empty (no grown-up date to accept) and nothing hints
+ * at the age that matters. Nothing is sent anywhere from here: the screen using it decides what happens next.
  */
 export function AgeStep({ onAdult, onChild, footer }: { onAdult: (iso: string, age: number) => void; onChild: () => void; footer?: React.ReactNode }) {
   const t = useT();

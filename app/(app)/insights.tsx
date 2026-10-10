@@ -126,7 +126,7 @@ export default function Insights() {
                 <Divider thin />
                 <SectionLabel strong>Most viewed</SectionLabel>
                 {stats.top.filter((t) => t.views > 0).length === 0 ? (
-                  <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>When other people see your posts and shorts, the most viewed ones are listed here. Your own views are not counted.</Text>
+                  <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>No views yet.</Text>
                 ) : (
                   stats.top
                     .filter((t) => t.views > 0)
@@ -182,7 +182,7 @@ export default function Insights() {
                     </View>
                   </>
                 ) : (
-                  <Empty title="Nothing shared in this period" body="Posts and shorts you share will be shown here." />
+                  <Empty title="Nothing shared in this period" />
                 )}
               </>
             ) : null}

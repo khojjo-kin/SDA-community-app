@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useAccountChangeReset } from './accounts';
 import { getProfile, updateProfile } from './api';
 import { cacheKey, clearCache, readCache, writeCache } from './cache';
 import { retryConsentRecord } from './consent';
@@ -96,6 +97,8 @@ function offline(e: unknown): boolean {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, userId, getToken, sessionId } = useAuth();
   const { user } = useUser();
+  // Another account in use (several can be signed in on this phone): what was kept for the last one goes.
+  useAccountChangeReset();
   const [state, setState] = useState<State>({ id: null, profile: null, error: '', errorCode: '', fresh: false });
 
   // Hand Supabase the current Clerk session token on every request.
@@ -190,5 +193,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, me]);
 
   const ready = isLoaded && state.id === me;
-  return <Ctx.Provider value={{ me, profile: ready ? state.profile : null, loading: !ready, error: ready ? state.error : '', errorCode: ready ? state.errorCode : '', refresh }}>{children}</Ctx.Provider>;
+  const profile = ready ? state.profile : null;
+  const error = ready ? state.error : '';
+  const errorCode = ready ? state.errorCode : '';
+  // The same object until something in it changes: every post card, row and button reads this, and a
+  // fresh object on each draw here (Clerk's hooks redraw this often) would draw all of them again.
+  const value = useMemo(() => ({ me, profile, loading: !ready, error, errorCode, refresh }), [me, profile, ready, error, errorCode, refresh]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

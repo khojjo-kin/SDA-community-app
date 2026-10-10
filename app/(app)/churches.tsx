@@ -158,7 +158,7 @@ export default function Churches() {
             ) : mine ? null : needle ? (
               <Empty icon="search" title="No churches match" body="Try another name, city or country." />
             ) : (
-              <Empty icon="church" title="No churches listed yet" body="Add yours so the family nearby can find it." action={<Button small label="Add a church" onPress={add} style={{ marginTop: 8 }} />} />
+              <Empty icon="church" title="No churches listed yet" action={<Button small label="Add a church" onPress={add} style={{ marginTop: 8 }} />} />
             )
           }
           keyboardShouldPersistTaps="handled"

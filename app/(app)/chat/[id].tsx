@@ -24,10 +24,11 @@ import { pickFromLibrary, takePhoto, type Picked } from '../../../src/lib/pick';
 import { useAppFont } from '../../../src/lib/fonts';
 import { usePrefs } from '../../../src/lib/prefs';
 import { useSession } from '../../../src/lib/session';
-import { getPostNow } from '../../../src/lib/store';
+import { usePost } from '../../../src/lib/store';
 import { supabase } from '../../../src/lib/supabase';
+import { keepSame } from '../../../src/lib/cache';
 import { BUBBLE, C, chatStamp, clock, DARK, errText } from '../../../src/lib/theme';
-import type { Faq, Message, SavedReply, Thread } from '../../../src/lib/types';
+import type { Faq, Message, Post, SavedReply, Thread } from '../../../src/lib/types';
 import { wallpaperById } from '../../../src/lib/wallpapers';
 
 /** `seen` marks the last thing you sent once the other person has read it. */
@@ -395,6 +396,145 @@ function BarIcon({ name, label, onPress, disabled }: { name: IconName; label: st
   );
 }
 
+/**
+ * What a row can do. Each call goes to the screen's latest handler, so this object never changes and
+ * the rows needn't draw again because of it.
+ */
+type RowActions = {
+  openSnap: (m: Message) => void;
+  isOpened: (id: string) => boolean;
+  viewPhotos: (urls: string[]) => void;
+  forward: (urls: string[]) => void;
+  call: (kind: 'voice' | 'video') => void;
+  copy: (text: string) => void;
+  openPost: (post: Post) => void;
+  send: (text: string) => void;
+  ask: (f: Faq) => void;
+};
+
+/**
+ * True when two rows draw the same. The rows are built again whenever the messages change (a new one
+ * arriving, "Seen" moving), but a message that hasn't changed keeps its object, so most rows match.
+ */
+function sameRow(a: Row, b: Row): boolean {
+  if (a === b) return true;
+  if (a.key !== b.key || a.kind !== b.kind) return false;
+  if (a.kind === 'stamp') return b.kind === 'stamp' && a.label === b.label;
+  if (b.kind === 'stamp') return false;
+  if (a.mine !== b.mine || !!a.seen !== !!b.seen) return false;
+  if (a.kind === 'photos') return b.kind === 'photos' && a.urls.length === b.urls.length && a.urls.every((u, i) => u === b.urls[i]);
+  if (b.kind === 'photos') return false;
+  if (a.m !== b.m) return false;
+  return a.kind !== 'text' || (b.kind === 'text' && a.big === b.big);
+}
+
+/** A post sent in the chat. Follows the post itself, so it stays as the rest of the app shows it. */
+function SharedPost({ id, onOpen }: { id: string; onOpen: (post: Post) => void }) {
+  const post = usePost(id);
+  if (!post) {
+    return (
+      <View style={{ borderRadius: 18, backgroundColor: C.surface, paddingHorizontal: 13, paddingVertical: 9 }}>
+        <Text style={{ color: C.fg2 }}>This post is no longer available</Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable onPress={() => onOpen(post)} accessibilityRole="button" accessibilityLabel={`Post by ${post.username}`} style={{ width: 210, borderRadius: 18, overflow: 'hidden', backgroundColor: C.surface }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9 }}>
+        <Avatar uri={post.avatar_url} name={post.full_name} size={24} />
+        <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13, flex: 1 }}>{post.username}</Text>
+      </View>
+      <Image source={{ uri: thumbOf(post) }} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" />
+      {post.caption ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, padding: 9 }}>{post.caption}</Text> : null}
+    </Pressable>
+  );
+}
+
+type ChatRowProps = { r: Row; fg2: string; fg3: string; name: string; locked: boolean; isErha: boolean; actions: RowActions };
+
+/**
+ * One row of the chat. Memoised: the screen draws again on every key typed, every quarter second while
+ * recording, and whenever their typing bubble comes and goes, and none of that changes the messages.
+ * `fg2`/`fg3` are the colours for words drawn straight on the background (light over a wallpaper).
+ */
+const ChatRow = React.memo(
+  function ChatRow({ r, fg2, fg3, name, locked, isErha, actions }: ChatRowProps) {
+    if (r.kind === 'stamp') return <Text style={{ color: fg2, fontSize: 12.5, letterSpacing: 0.2, textAlign: 'center', paddingTop: 18, paddingBottom: 10 }}>{r.label}</Text>;
+    if (r.kind === 'notice') return <ScreenshotLine mine={r.mine} name={name} fg2={fg2} fg3={fg3} />;
+    const align = { alignSelf: r.mine ? ('flex-end' as const) : ('flex-start' as const), maxWidth: '82%' as const };
+    const seen = r.seen ? <SeenLabel color={fg3} /> : null;
+    if (r.kind === 'snap') {
+      // The sender's own bubble says Delivered or Opened, so "Seen" would only repeat it.
+      const opened = !!r.m.opened_at || actions.isOpened(r.m.id);
+      return (
+        <View style={[align, { paddingVertical: 2 }]}>
+          <SnapBubble mine={r.mine} opened={opened} onOpen={() => actions.openSnap(r.m)} />
+        </View>
+      );
+    }
+    if (r.kind === 'photos') {
+      return (
+        <>
+          <View style={[align, { maxWidth: '100%', paddingVertical: 4 }]}>
+            <PhotoStack urls={r.urls} mine={r.mine} onOpen={() => actions.viewPhotos(r.urls)} onForward={() => actions.forward(r.urls)} />
+          </View>
+          {seen}
+        </>
+      );
+    }
+    if (r.kind === 'voice') {
+      return (
+        <>
+          <View style={align}><VoiceBubble m={r.m} mine={r.mine} locked={locked} /></View>
+          {seen}
+        </>
+      );
+    }
+    if (r.kind === 'call') {
+      const kind = r.m.call_kind === 'video' ? 'video' : 'voice';
+      return (
+        <>
+          <View style={align}><CallCard m={r.m} mine={r.mine} onCall={isErha ? undefined : () => actions.call(kind)} /></View>
+          {seen}
+        </>
+      );
+    }
+    if (r.kind === 'post') {
+      return (
+        <>
+          <View style={align}>
+            <SharedPost id={r.m.post_id ?? ''} onOpen={actions.openPost} />
+          </View>
+          {seen}
+        </>
+      );
+    }
+    if (r.big) {
+      return (
+        <>
+          <Text style={[align, { fontSize: 44, lineHeight: 54 }]}>{r.m.text.trim()}</Text>
+          {seen}
+        </>
+      );
+    }
+    return (
+      <>
+        <Pressable style={align} onLongPress={() => actions.copy(r.m.text)} delayLongPress={350} accessibilityHint="Touch and hold to copy">
+          <Bubble mine={r.mine}>
+            <Text style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }}>{r.m.text}</Text>
+          </Bubble>
+        </Pressable>
+        {seen}
+      </>
+    );
+  },
+  (a, b) => sameRow(a.r, b.r) && a.fg2 === b.fg2 && a.fg3 === b.fg3 && a.name === b.name && a.locked === b.locked && a.isErha === b.isErha && a.actions === b.actions,
+);
+
+const keyOfRow = (r: Row) => r.key;
+const LIST_STYLE = { flex: 1 };
+const LIST_CONTENT = { paddingHorizontal: 12, paddingVertical: 12, gap: 4 };
+
 export default function Chat() {
   // `draft` starts the message box with some words, e.g. a quoted note when replying to one (src/components/NotesRow.tsx).
   const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
@@ -529,7 +669,9 @@ export default function Chat() {
       // A slow, older answer must not replace a newer one (a message you just sent would vanish for a moment).
       if (mine < shown.current) return;
       shown.current = mine;
-      setMessages(list);
+      // Messages that haven't changed keep the objects already on screen (and an unchanged chat keeps
+      // its list), so the refresh every six seconds only draws what is new.
+      setMessages((cur) => keepSame(cur, list));
       setStatus((s) => (s === 'missing' ? s : 'ready'));
       const theirs = [...list].reverse().find((m) => m.sender_id !== me);
       // Their message has arrived, so the typing bubble has done its job.
@@ -1005,16 +1147,119 @@ export default function Chat() {
     }
   }
 
+  // The rows reach the screen's handlers through this, so the list's rows never need new ones.
+  const latest = useRef<RowActions>(null as unknown as RowActions);
+  latest.current = {
+    openSnap,
+    isOpened: (mid) => openedHere.current.has(mid),
+    viewPhotos: (urls) => setViewer({ urls, at: 0, note: '' }),
+    forward,
+    call,
+    copy: (words) => { Clipboard.setStringAsync(words).then(() => toast('Copied')); },
+    openPost: (post) => router.push(post.kind === 'reel' ? `/watch/${post.id}` : `/post/${post.id}`),
+    send: (words) => send({ text: words }),
+    ask,
+  };
+  const actions = useMemo<RowActions>(
+    () => ({
+      openSnap: (m) => latest.current.openSnap(m),
+      isOpened: (mid) => latest.current.isOpened(mid),
+      viewPhotos: (urls) => latest.current.viewPhotos(urls),
+      forward: (urls) => latest.current.forward(urls),
+      call: (kind) => latest.current.call(kind),
+      copy: (words) => latest.current.copy(words),
+      openPost: (post) => latest.current.openPost(post),
+      send: (words) => latest.current.send(words),
+      ask: (f) => latest.current.ask(f),
+    }),
+    [],
+  );
+
   // Erha never reads a chat, so nothing of yours is ever marked "Seen" there.
   const rows = useMemo(() => buildRows(messages, me, isErha ? null : theirRead).reverse(), [messages, me, theirRead, isErha]);
   const typing = text.trim().length > 0;
-  const showFaqs = faqs.length > 0 && thread && thread.other_id !== me;
+  const showFaqs = faqs.length > 0 && !!thread && thread.other_id !== me;
   const showTyping = theirTyping || (isErha && erhaThinking);
   // Plus: the chosen look behind the messages. Bubbles stay as they are.
   const wallpaper = profile?.plus && prefs.chatWallpaper ? wallpaperById(prefs.chatWallpaper) : null;
   // The wallpapers are all dark, so words drawn straight on one (times, "Seen") stay light whatever the theme.
   const onWall = wallpaper ? DARK : C;
   const callsOff = calls.inCall || recording;
+
+  /*
+   * Everything the list is handed stays the same object until what it shows changes, so typing a
+   * message, the recording clock and the typing bubble draw the screen again without drawing the list.
+   */
+  const wallFg2 = onWall.fg2;
+  const wallFg3 = onWall.fg3;
+  const theirName = thread?.full_name || thread?.username || 'They';
+  const renderRow = useCallback(
+    ({ item }: { item: Row }) => <ChatRow r={item} fg2={wallFg2} fg3={wallFg3} name={theirName} locked={item.kind === 'voice' && recording} isErha={isErha} actions={actions} />,
+    [wallFg2, wallFg3, theirName, recording, isErha, actions],
+  );
+  const typingName = thread?.full_name ?? 'They';
+  // The list is upside down, so its header sits at the bottom: their typing bubble goes under the newest message.
+  const listHeader = useMemo(
+    () =>
+      isErha && erhaThinking ? (
+        // Erha is working on her answer: her living orb as the last row of the chat.
+        // Over a wallpaper it sits on a soft card, so the words stay readable on the dark picture.
+        <View style={[{ alignSelf: 'flex-start', paddingTop: 6, paddingLeft: 4 }, wallpaper ? { paddingLeft: 12, paddingRight: 14, paddingTop: 4, paddingBottom: 4, marginTop: 4, borderRadius: 18, backgroundColor: C.surface2 } : null]} accessibilityLiveRegion="polite">
+          <AssistantThinking name="Erha" />
+        </View>
+      ) : showTyping ? (
+        <View style={{ alignSelf: 'flex-start', paddingTop: 4 }} accessibilityLabel={`${typingName} is typing`} accessibilityLiveRegion="polite">
+          <Bubble mine={false}>
+            <TypingDots />
+          </Bubble>
+        </View>
+      ) : null,
+    [isErha, erhaThinking, showTyping, wallpaper, typingName],
+  );
+  const listFooter = useMemo(
+    () =>
+      showFaqs ? (
+        <View style={{ alignItems: 'center', paddingVertical: 14, gap: 8 }}>
+          <Text style={{ color: onWall.fg2, fontSize: 13.5 }}>Frequently asked questions</Text>
+          {faqs.map((f) => (
+            <Pressable key={f.id} onPress={() => actions.ask(f)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Ask: ${f.question}`} style={({ pressed }) => ({ maxWidth: '88%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: onWall.surface2, backgroundColor: pressed ? onWall.surface : 'transparent' })}>
+              <Text style={{ color: onWall.fg, fontSize: 15.5, textAlign: 'center' }}>{f.question}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null,
+    [showFaqs, faqs, onWall, sending, actions],
+  );
+  const listEmpty = useMemo(
+    () => (
+      // The list is upside down, so the empty state is flipped back the right way up.
+      <View style={{ transform: [{ scaleY: -1 }] }}>
+        {isErha ? (
+          <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 28, gap: 12 }}>
+            {thread?.avatar_url ? <Avatar uri={thread.avatar_url} name="Erha" size={72} /> : <ErhaAvatar size={72} />}
+            <Text style={{ color: onWall.fg, fontSize: 21, fontWeight: '800' }}>Hi, I'm Erha</Text>
+            <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 21 }}>I help with church life: the Bible, Sabbath School, hymns, prayer and planning activities. Ask me anything about it.</Text>
+            <View style={{ gap: 8, alignSelf: 'stretch', marginTop: 6 }}>
+              {ERHA_OPENERS.map((o) => (
+                <Pressable key={o} onPress={() => actions.send(o)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Ask: ${o}`} style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, opacity: sending ? 0.5 : 1 })}>
+                  <Text style={{ color: C.fg, fontSize: 15.5 }}>{o}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : wallpaper ? (
+          // Empty, drawn in light words that read on the dark wallpaper.
+          <View style={{ padding: 36, alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: onWall.fg, fontSize: 17, fontWeight: '700', textAlign: 'center', fontFamily: fontBold }}>{thread ? thread.full_name : 'New chat'}</Text>
+            <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 20, fontFamily: font }}>Say hello to start the chat.</Text>
+          </View>
+        ) : (
+          <Empty title={thread ? thread.full_name : 'New chat'} body="Say hello to start the chat." />
+        )}
+      </View>
+    ),
+    [isErha, thread, onWall, sending, wallpaper, font, fontBold, actions],
+  );
 
   return (
     <Screen>
@@ -1077,149 +1322,14 @@ export default function Chat() {
             <FlatList
               data={rows}
               inverted
-              keyExtractor={(r) => r.key}
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, gap: 4 }}
+              keyExtractor={keyOfRow}
+              style={LIST_STYLE}
+              contentContainerStyle={LIST_CONTENT}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item: r }) => {
-                if (r.kind === 'stamp') return <Text style={{ color: onWall.fg2, fontSize: 12.5, letterSpacing: 0.2, textAlign: 'center', paddingTop: 18, paddingBottom: 10 }}>{r.label}</Text>;
-                if (r.kind === 'notice') return <ScreenshotLine mine={r.mine} name={thread?.full_name || thread?.username || 'They'} fg2={onWall.fg2} fg3={onWall.fg3} />;
-                const align = { alignSelf: r.mine ? ('flex-end' as const) : ('flex-start' as const), maxWidth: '82%' as const };
-                const seen = r.seen ? <SeenLabel color={onWall.fg3} /> : null;
-                if (r.kind === 'snap') {
-                  // The sender's own bubble says Delivered or Opened, so "Seen" would only repeat it.
-                  const opened = !!r.m.opened_at || openedHere.current.has(r.m.id);
-                  return (
-                    <View style={[align, { paddingVertical: 2 }]}>
-                      <SnapBubble mine={r.mine} opened={opened} onOpen={() => openSnap(r.m)} />
-                    </View>
-                  );
-                }
-                if (r.kind === 'photos') {
-                  return (
-                    <>
-                      <View style={[align, { maxWidth: '100%', paddingVertical: 4 }]}>
-                        <PhotoStack urls={r.urls} mine={r.mine} onOpen={() => setViewer({ urls: r.urls, at: 0, note: '' })} onForward={() => forward(r.urls)} />
-                      </View>
-                      {seen}
-                    </>
-                  );
-                }
-                if (r.kind === 'voice') {
-                  return (
-                    <>
-                      <View style={align}><VoiceBubble m={r.m} mine={r.mine} locked={recording} /></View>
-                      {seen}
-                    </>
-                  );
-                }
-                if (r.kind === 'call') {
-                  const kind = r.m.call_kind === 'video' ? 'video' : 'voice';
-                  return (
-                    <>
-                      <View style={align}><CallCard m={r.m} mine={r.mine} onCall={isErha ? undefined : () => call(kind)} /></View>
-                      {seen}
-                    </>
-                  );
-                }
-                if (r.kind === 'post') {
-                  const post = r.m.post_id ? getPostNow(r.m.post_id) : undefined;
-                  return (
-                    <>
-                      <View style={align}>
-                        {post ? (
-                          <Pressable onPress={() => router.push(post.kind === 'reel' ? `/watch/${post.id}` : `/post/${post.id}`)} accessibilityRole="button" accessibilityLabel={`Post by ${post.username}`} style={{ width: 210, borderRadius: 18, overflow: 'hidden', backgroundColor: C.surface }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9 }}>
-                              <Avatar uri={post.avatar_url} name={post.full_name} size={24} />
-                              <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13, flex: 1 }}>{post.username}</Text>
-                            </View>
-                            <Image source={{ uri: thumbOf(post) }} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" />
-                            {post.caption ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, padding: 9 }}>{post.caption}</Text> : null}
-                          </Pressable>
-                        ) : (
-                          <View style={{ borderRadius: 18, backgroundColor: C.surface, paddingHorizontal: 13, paddingVertical: 9 }}>
-                            <Text style={{ color: C.fg2 }}>This post is no longer available</Text>
-                          </View>
-                        )}
-                      </View>
-                      {seen}
-                    </>
-                  );
-                }
-                if (r.big) {
-                  return (
-                    <>
-                      <Text style={[align, { fontSize: 44, lineHeight: 54 }]}>{r.m.text.trim()}</Text>
-                      {seen}
-                    </>
-                  );
-                }
-                return (
-                  <>
-                    <Pressable style={align} onLongPress={() => { Clipboard.setStringAsync(r.m.text).then(() => toast('Copied')); }} delayLongPress={350} accessibilityHint="Touch and hold to copy">
-                      <Bubble mine={r.mine}>
-                        <Text style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }}>{r.m.text}</Text>
-                      </Bubble>
-                    </Pressable>
-                    {seen}
-                  </>
-                );
-              }}
-              // The list is upside down, so its header sits at the bottom: their typing bubble goes under the newest message.
-              ListHeaderComponent={
-                isErha && erhaThinking ? (
-                  // Erha is working on her answer: her living orb as the last row of the chat.
-                  // Over a wallpaper it sits on a soft card, so the words stay readable on the dark picture.
-                  <View style={[{ alignSelf: 'flex-start', paddingTop: 6, paddingLeft: 4 }, wallpaper ? { paddingLeft: 12, paddingRight: 14, paddingTop: 4, paddingBottom: 4, marginTop: 4, borderRadius: 18, backgroundColor: C.surface2 } : null]} accessibilityLiveRegion="polite">
-                    <AssistantThinking name="Erha" />
-                  </View>
-                ) : showTyping ? (
-                  <View style={{ alignSelf: 'flex-start', paddingTop: 4 }} accessibilityLabel={`${thread?.full_name ?? 'They'} is typing`} accessibilityLiveRegion="polite">
-                    <Bubble mine={false}>
-                      <TypingDots />
-                    </Bubble>
-                  </View>
-                ) : null
-              }
-              ListFooterComponent={
-                showFaqs ? (
-                  <View style={{ alignItems: 'center', paddingVertical: 14, gap: 8 }}>
-                    <Text style={{ color: onWall.fg2, fontSize: 13.5 }}>Frequently asked questions</Text>
-                    {faqs.map((f) => (
-                      <Pressable key={f.id} onPress={() => ask(f)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Ask: ${f.question}`} style={({ pressed }) => ({ maxWidth: '88%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: onWall.surface2, backgroundColor: pressed ? onWall.surface : 'transparent' })}>
-                        <Text style={{ color: onWall.fg, fontSize: 15.5, textAlign: 'center' }}>{f.question}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null
-              }
-              ListEmptyComponent={
-                // The list is upside down, so the empty state is flipped back the right way up.
-                <View style={{ transform: [{ scaleY: -1 }] }}>
-                  {isErha ? (
-                    <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 28, gap: 12 }}>
-                      {thread?.avatar_url ? <Avatar uri={thread.avatar_url} name="Erha" size={72} /> : <ErhaAvatar size={72} />}
-                      <Text style={{ color: onWall.fg, fontSize: 21, fontWeight: '800' }}>Hi, I'm Erha</Text>
-                      <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 21 }}>I help with church life: the Bible, Sabbath School, hymns, prayer and planning activities. Ask me anything about it.</Text>
-                      <View style={{ gap: 8, alignSelf: 'stretch', marginTop: 6 }}>
-                        {ERHA_OPENERS.map((o) => (
-                          <Pressable key={o} onPress={() => send({ text: o })} disabled={sending} accessibilityRole="button" accessibilityLabel={`Ask: ${o}`} style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, opacity: sending ? 0.5 : 1 })}>
-                            <Text style={{ color: C.fg, fontSize: 15.5 }}>{o}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    </View>
-                  ) : wallpaper ? (
-                    // Empty, drawn in light words that read on the dark wallpaper.
-                    <View style={{ padding: 36, alignItems: 'center', gap: 8 }}>
-                      <Text style={{ color: onWall.fg, fontSize: 17, fontWeight: '700', textAlign: 'center', fontFamily: fontBold }}>{thread ? thread.full_name : 'New chat'}</Text>
-                      <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 20, fontFamily: font }}>Say hello to start the chat.</Text>
-                    </View>
-                  ) : (
-                    <Empty title={thread ? thread.full_name : 'New chat'} body="Say hello to start the chat." />
-                  )}
-                </View>
-              }
+              renderItem={renderRow}
+              ListHeaderComponent={listHeader}
+              ListFooterComponent={listFooter}
+              ListEmptyComponent={listEmpty}
             />
           </View>
         )}
@@ -1237,7 +1347,7 @@ export default function Chat() {
             ) : null}
             {pending && !recording ? (
               // Photos waiting to be sent: choose view once (the "1") or keep them in the chat, then Send.
-              <View style={{ marginBottom: 6, padding: 8, borderRadius: 22, backgroundColor: C.inputBar, gap: 6 }}>
+              <View style={{ marginBottom: 6, padding: 8, borderRadius: 22, backgroundColor: C.inputBar }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Pressable onPress={() => setPending(null)} disabled={sending} hitSlop={6} accessibilityRole="button" accessibilityLabel="Don't send these photos" style={({ pressed }) => ({ width: 32, height: 32, borderRadius: 16, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.4 : pressed ? 0.6 : 1 })}>
                     <Icon name="close" size={16} weight={2.4} />
@@ -1252,9 +1362,6 @@ export default function Chat() {
                     {sending ? <ActivityIndicator color={C.onAccent} size="small" /> : <Icon name="send" size={19} color={C.onAccent} />}
                   </Pressable>
                 </View>
-                <Text style={{ color: pending.once ? C.accent2 : C.fg3, fontSize: 12.5, paddingHorizontal: 4 }}>
-                  {pending.once ? 'View once: they can open each photo one time, then it’s gone.' : 'Tap 1 to send as view once.'}
-                </Text>
               </View>
             ) : null}
             {recording ? (

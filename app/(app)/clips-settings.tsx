@@ -176,12 +176,11 @@ function AddChip({ onPress, label }: { onPress: () => void; label: string }) {
   );
 }
 
-function TopicSection({ title, sub, addLabel, topics, onRemove, onAdd }: { title: string; sub: string; addLabel: string; topics: string[]; onRemove: (t: string) => void; onAdd: () => void }) {
+function TopicSection({ title, addLabel, topics, onRemove, onAdd }: { title: string; addLabel: string; topics: string[]; onRemove: (t: string) => void; onAdd: () => void }) {
   const t = useT();
   return (
     <View>
       <SectionLabel strong>{title}</SectionLabel>
-      <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, paddingHorizontal: 16, marginTop: -6, marginBottom: 12 }}>{sub}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 }}>
         {topics.map((topic) => (
           <TopicChip key={topic} label={nameOf(t, topic)} onRemove={() => onRemove(topic)} />
@@ -193,25 +192,23 @@ function TopicSection({ title, sub, addLabel, topics, onRemove, onAdd }: { title
 }
 
 /** One line with a radio button, for a choice of a few. */
-function Choice({ title, sub, on, onPress }: { title: string; sub: string; on: boolean; onPress: () => void }) {
+function Choice({ title, on, onPress }: { title: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${title}. ${sub}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={title} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: pressed ? C.press : 'transparent' })}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: C.fg, fontSize: 17.5 }}>{title}</Text>
-        <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, marginTop: 2 }}>{sub}</Text>
       </View>
       <Radio on={on} />
     </Pressable>
   );
 }
 
-/** A switch with a title and a sentence under it. */
-function Switch({ title, sub, value, onChange }: { title: string; sub: string; value: boolean; onChange: (v: boolean) => void }) {
+/** A switch with a title. */
+function Switch({ title, value, onChange }: { title: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 16 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, gap: 16 }}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: C.fg, fontSize: 17.5 }}>{title}</Text>
-        <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, marginTop: 2 }}>{sub}</Text>
       </View>
       <Toggle value={value} onChange={onChange} label={title} />
     </View>
@@ -328,20 +325,20 @@ export default function ClipsSettings() {
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>{summary}</Text>
         </View>
 
-        <TopicSection title={t('feed.moreTitle')} sub={t('feed.moreSub')} addLabel={t('feed.addMore')} topics={more} onRemove={(topic) => remove('more', topic)} onAdd={() => setAdding('more')} />
-        <TopicSection title={t('feed.lessTitle')} sub={t('feed.lessSub')} addLabel={t('feed.addLess')} topics={less} onRemove={(topic) => remove('less', topic)} onAdd={() => setAdding('less')} />
+        <TopicSection title={t('feed.moreTitle')} addLabel={t('feed.addMore')} topics={more} onRemove={(topic) => remove('more', topic)} onAdd={() => setAdding('more')} />
+        <TopicSection title={t('feed.lessTitle')} addLabel={t('feed.addLess')} topics={less} onRemove={(topic) => remove('less', topic)} onAdd={() => setAdding('less')} />
 
         <Divider />
         <SectionLabel strong>{t('feed.sensitive')}</SectionLabel>
         <View accessibilityRole="radiogroup">
-          <Choice title={t('feed.standard')} sub={t('feed.standardSub')} on={filter === 'standard'} onPress={() => chooseFilter('standard')} />
-          <Choice title={t('feed.less')} sub={t('feed.lessSensitiveSub')} on={filter === 'less'} onPress={() => chooseFilter('less')} />
+          <Choice title={t('feed.standard')} on={filter === 'standard'} onPress={() => chooseFilter('standard')} />
+          <Choice title={t('feed.less')} on={filter === 'less'} onPress={() => chooseFilter('less')} />
         </View>
 
         <Divider />
         <SectionLabel strong>{t('clips.captions')}</SectionLabel>
         {/* The switch gives its own haptic tap (Toggle), so these don't add another. */}
-        <Switch title={t('feed.showCaptions')} sub={t('feed.showCaptionsSub')} value={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
+        <Switch title={t('feed.showCaptions')} value={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
         <Pressable onPress={() => setLanguages(true)} accessibilityRole="button" accessibilityLabel={`${t('settings.captionLanguage')}, ${captionLanguage}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
           <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>{t('settings.captionLanguage')}</Text>
           <Text style={{ color: C.fg2, fontSize: 16.5 }}>{captionLanguage}</Text>
@@ -350,7 +347,7 @@ export default function ClipsSettings() {
 
         <Divider />
         <SectionLabel strong>{t('clips.sound')}</SectionLabel>
-        <Switch title={t('clips.startMuted')} sub={t('clips.startMutedSub')} value={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
+        <Switch title={t('clips.startMuted')} value={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
       </ScrollView>
 
       <Sheet visible={!!adding} onClose={closeAdding} title={t(adding === 'less' ? 'feed.seeLessOf' : 'feed.seeMoreOf')} tall>

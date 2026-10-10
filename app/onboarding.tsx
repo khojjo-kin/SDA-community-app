@@ -8,8 +8,9 @@ import { DarkStatusBar } from '../src/components/OnDark';
 import { noteBirthDateSaved } from '../src/components/BirthDateForm';
 import { useLegalSheet } from '../src/components/LegalDocument';
 import { Avatar, Button, Field } from '../src/components/ui';
-import { blockDeviceForAge, forgetSignUpBirthDate, isDeviceAgeBlocked, isUnder13, requestChildClosure, signUpBirthDate } from '../src/lib/age';
-import { ageFrom, createProfile, setBirthDate, uploadImage } from '../src/lib/api';
+import { useLogOut } from '../src/lib/accounts';
+import { blockDeviceForAge, forgetSignUpBirthDate, isDeviceAgeBlocked, requestChildClosure } from '../src/lib/age';
+import { createProfile, setBirthDate, uploadImage } from '../src/lib/api';
 import { forgetSignUpConsent, noteConsentToRecord, recordConsentFor, signUpConsent } from '../src/lib/consent';
 import { useT } from '../src/lib/i18n';
 import { pickFromLibrary } from '../src/lib/pick';
@@ -24,15 +25,17 @@ import { DARK, errText } from '../src/lib/theme';
 const NEW_ACCOUNT_MS = 15 * 60 * 1000;
 
 export default function Onboarding() {
-  const { isSignedIn, signOut } = useAuth();
+  const { isSignedIn } = useAuth();
+  // Only this account: another one signed in on this phone (the one this was added from, say) takes over.
+  const signOut = useLogOut();
   const { user } = useUser();
   const { me, profile, loading, error, refresh } = useSession();
   const guess = (user?.primaryEmailAddress?.emailAddress ?? '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30);
   const [name, setName] = useState(user?.fullName ?? '');
   const [username, setUsername] = useState(guess.length >= 3 ? guess : '');
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
-  // The date of birth, from the sign-up page if it was given there on this phone. Otherwise (Apple or
-  // Google from the log-in page) it is asked for first, before anything else. undefined while checking.
+  // The date of birth, asked for first, before anything else, for every new account (email, Apple or
+  // Google). undefined while checking the phone's age block.
   const [born, setBorn] = useState<{ iso: string; age: number } | null | undefined>(undefined);
   // Consent to use what may show religious belief: true when it was given on the sign-up page on this
   // phone. Apple or Google from the log-in page skip that page, so then the same box is shown here.
@@ -62,16 +65,17 @@ export default function Onboarding() {
     // Only for an account the database has confirmed has no profile yet: never an existing one.
     if (!me || loading || profile || error) return;
     let live = true;
-    Promise.all([isDeviceAgeBlocked(), signUpBirthDate(), signUpConsent()]).then(([blocked, iso, consented]) => {
+    Promise.all([isDeviceAgeBlocked(), signUpConsent()]).then(([blocked, consented]) => {
       if (!live) return;
       if (blocked) {
         child();
         return;
       }
       setConsentGiven(consented);
-      // 13 and over anywhere in the world, as the server judges it. The age kept is by this phone's
-      // date, for the under-14 rules.
-      setBorn(iso && !isUnder13(iso) ? { iso, age: ageFrom(iso) } : null);
+      // Not known yet: the birthday step comes first. 13 and over anywhere in the world (as the server
+      // judges it) goes on; under 13 is turned away (AgeStep and child()).
+      forgetSignUpBirthDate();
+      setBorn(null);
     });
     return () => {
       live = false;
@@ -81,7 +85,7 @@ export default function Onboarding() {
   }, [me, loading, !!profile, !!error]);
 
   const logOut = (
-    <Pressable onPress={() => signOut()}>
+    <Pressable onPress={() => { signOut().catch(() => {}); }}>
       <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Log out</Text>
     </Pressable>
   );
@@ -142,7 +146,7 @@ export default function Onboarding() {
 
   return (
     <AuthShell
-      title="Set up your profile. You can change your photo, name and username later."
+      title="Set up your profile"
       footer={logOut}>
       {/* The sign-up pages sit on a photo and stay dark in every theme. */}
       <DarkStatusBar />

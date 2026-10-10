@@ -44,7 +44,7 @@ export default function MyComments() {
           data={list}
           keyExtractor={(c) => c.id}
           contentContainerStyle={{ paddingBottom: 40 }}
-          ListEmptyComponent={<Empty icon="comment" title="No comments yet" body="Comments you write on posts will be listed here." />}
+          ListEmptyComponent={<Empty icon="comment" title="No comments yet" />}
           renderItem={({ item: c }) => {
             const post = getPostNow(c.post_id);
             const thumb = post ? thumbOf(post) : undefined;

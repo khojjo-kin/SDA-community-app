@@ -1,14 +1,14 @@
 import * as SecureStore from 'expo-secure-store';
 
 /*
- * The age check that comes before an account (COPPA, and the UK Children's Code).
+ * The age check that comes before a profile (COPPA, and the UK Children's Code).
  *
- * Sign-up asks for a date of birth before anything else. Under 13, nothing is sent anywhere: the
- * person sees a "sorry" screen (app/cannot-join.tsx), and this phone remembers the answer for a day
- * so that going back and typing another date doesn't get round it. 13 and over, the date is kept here
- * until onboarding saves it with the new profile, so it isn't asked for twice.
+ * Onboarding asks every new account for a date of birth before anything else, whether it was made
+ * with an email or with Apple or Google. Under 13, no profile is made: the person sees a "sorry"
+ * screen (app/cannot-join.tsx), the account just made is closed, and this phone remembers the answer
+ * for a day so that going back and typing another date doesn't get round it.
  *
- * Both live in SecureStore, which on iPhone survives deleting and reinstalling the app, so the block
+ * The block lives in SecureStore, which on iPhone survives deleting and reinstalling the app, so it
  * can't be cleared that way either.
  */
 
@@ -45,9 +45,8 @@ export function isUnder13(iso: string, now = new Date()): boolean {
 const BLOCK_KEY = 'community.ageBlockedAt';
 const BLOCK_MS = 24 * 60 * 60 * 1000;
 
+/** Where an older version kept a date of birth given at sign-up; only ever cleared now. */
 const PENDING_KEY = 'community.signUpBirthDate';
-/** Long enough to find the email code or finish Apple or Google sign-in; short enough not to linger on a shared phone. */
-const PENDING_MS = 2 * 60 * 60 * 1000;
 
 /* ---------- the block on this phone ---------- */
 
@@ -81,34 +80,10 @@ export async function blockDeviceForAge(): Promise<void> {
   }
 }
 
-/* ---------- the date given at sign-up, until onboarding saves it ---------- */
+/* ---------- a date of birth an older version kept from sign-up ---------- */
 
-type Pending = { iso: string; at: number };
-let pending: Pending | null | undefined;
-
-/** Keeps the date of birth (YYYY-MM-DD, already checked to be 13 or over) for onboarding. */
-export function rememberSignUpBirthDate(iso: string) {
-  pending = { iso, at: Date.now() };
-  SecureStore.setItemAsync(PENDING_KEY, JSON.stringify(pending)).catch(() => {});
-}
-
-/** The date of birth given at sign-up on this phone in the last two hours, or null. */
-export async function signUpBirthDate(): Promise<string | null> {
-  if (pending === undefined) {
-    try {
-      const raw = await SecureStore.getItemAsync(PENDING_KEY);
-      pending = raw ? (JSON.parse(raw) as Pending) : null;
-    } catch {
-      pending = null;
-    }
-  }
-  if (!pending || typeof pending.iso !== 'string' || Date.now() - pending.at > PENDING_MS) return null;
-  return pending.iso;
-}
-
-/** Once saved with the profile (or no longer wanted), the date isn't kept on the phone. */
+/** Sign-up no longer asks; any date an older version left on the phone is removed. */
 export function forgetSignUpBirthDate() {
-  pending = null;
   SecureStore.deleteItemAsync(PENDING_KEY).catch(() => {});
 }
 

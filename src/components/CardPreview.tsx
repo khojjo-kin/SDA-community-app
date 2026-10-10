@@ -2,6 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CardField, type CardFieldInput } from '@stripe/stripe-react-native';
+import { t } from '../lib/i18n';
 import { brandName } from '../lib/payments';
 import { C } from '../lib/theme';
 import { Icon } from './Icon';
@@ -133,14 +134,7 @@ export function CardInput({ onChange, disabled }: { onChange: (card: CardFieldIn
   );
 }
 
-/** Shown while the Stripe keys are not on the server yet. Plus can still be arranged by an admin. */
+/** Shown while the Stripe keys are not on the server yet. */
 export function PaymentsOff({ onBack }: { onBack: () => void }) {
-  return (
-    <Empty
-      icon="card"
-      title="Card payments are being switched on"
-      body="You can still ask an admin to activate Plus through your church."
-      action={<Button label="Back to Plus" onPress={onBack} style={{ marginTop: 10, alignSelf: 'stretch' }} />}
-    />
-  );
+  return <Empty icon="card" title={t('pay.unavailable')} action={<Button label={t('common.back')} onPress={onBack} style={{ marginTop: 10, alignSelf: 'stretch' }} />} />;
 }

@@ -378,7 +378,7 @@ export default function FriendsMap() {
           {restricted ? (
             <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 14, backgroundColor: C.surface }}>
               <Icon name="shield" size={20} color={C.fg2} />
-              <Text style={{ flex: 1, color: C.fg2, fontSize: 14, lineHeight: 20, fontFamily: font }}>Members under 14 can't share their location. It keeps younger members safe. You can still see friends who share with you.</Text>
+              <Text style={{ flex: 1, color: C.fg2, fontSize: 14, lineHeight: 20, fontFamily: font }}>Members under 14 can't share their location.</Text>
             </View>
           ) : null}
 

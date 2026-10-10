@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { keepSame } from '../lib/cache';
 import { explainCopyrightReport } from '../lib/copyright-report';
 import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts } from '../lib/api';
 import { tap } from '../lib/haptics';
@@ -16,11 +17,13 @@ import { listen } from '../lib/store';
 import { profileTheme, ringColors } from '../lib/styling';
 import { C, errText, fmt, monthName } from '../lib/theme';
 import type { FollowAlerts, Post, Profile } from '../lib/types';
+import { AccountSwitcher } from './AccountSwitcher';
 import { type Accent, AccentButton, DiscoverCarousel, prefetchSuggestions } from './DiscoverCarousel';
 import { FundraiserCard } from './FundraiserCard';
 import { DarkStatusBar } from './OnDark';
 import { GridCell } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
+import { ScheduledLiveCard } from './LiveSchedule';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
 import { ProfileSkeleton } from './Skeleton';
@@ -213,9 +216,8 @@ function AboutRow({ icon, title, value }: { icon: React.ReactNode; title: string
 /**
  * "Share your first photo or clip" (and "Share your first clip" on the Clips tab): on your own empty
  * profile a band of the app's green passes through the words. The words are the theme's text colour,
- * which reads on Dark, White and Green alike; the band is C.accent, the app's green in every theme
- * (#1fbf5a on Dark, deeper on White so it shows on white, brighter on Green so it stands out from the
- * pale text). accent2 was too close to the text colour on the Green theme for the sweep to be seen.
+ * which reads on Dark and White alike; the band is C.accent, the app's green in every theme
+ * (#1fbf5a on Dark, deeper on White so it shows on white).
  */
 function ShareFirst({ title, body }: { title: string; body: string }) {
   return (
@@ -228,19 +230,21 @@ function ShareFirst({ title, body }: { title: string; body: string }) {
 
 const GRID_GAP = 2;
 const GridGap = () => <View style={{ height: GRID_GAP }} />;
+const keyOfPost = (p: Post) => p.id;
 
 /** The profile's grid: the shared grid cells, with room after them for the subscriber-only card. */
 function ProfileGrid({ posts, header, empty, footer, refreshing, onRefresh }: { posts: Post[]; header: React.ReactElement; empty: React.ReactElement; footer: React.ReactElement | null; refreshing: boolean; onRefresh: () => void }) {
   const { width } = useWindowDimensions();
   const size = Math.floor((width - GRID_GAP * 2) / 3);
+  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} />, [size]);
   return (
     <FlatList
       data={posts}
-      keyExtractor={(p) => p.id}
+      keyExtractor={keyOfPost}
       numColumns={3}
       columnWrapperStyle={{ gap: GRID_GAP }}
       ItemSeparatorComponent={GridGap}
-      renderItem={({ item }) => <GridCell post={item} size={size} />}
+      renderItem={renderCell}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
       ListFooterComponent={footer}
@@ -271,7 +275,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [sheet, setSheet] = useState<'menu' | 'about' | null>(null);
+  const [sheet, setSheet] = useState<'menu' | 'about' | 'accounts' | null>(null);
   // Where the bell is while its menu is open; null when it is shut.
   const [alertsAt, setAlertsAt] = useState<Anchor | null>(null);
   const bellRef = useRef<View>(null);
@@ -289,8 +293,10 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         return;
       }
       setProfile(p);
-      setPosts(own);
-      setReposts(rep);
+      // Reloaded each time the profile comes to the front: posts that haven't changed keep their
+      // objects, so the grid's cells don't all draw again (often while it is being scrolled).
+      setPosts((cur) => keepSame(cur, own));
+      setReposts((cur) => keepSame(cur, rep));
       setStatus('ready');
       if (mine && p.account_type === 'creator') {
         fetchStats(new Date(Date.now() - 30 * 86400e3), new Date())
@@ -577,6 +583,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         {!mine && profile.follows_me ? <Text style={{ color: C.fg3, marginTop: 6, fontSize: 13 }}>{t('profile.followsYou')}</Text> : null}
         {/* Drawn bare: the card brings its own spacing, so nothing is left behind when there is no card. */}
         {profile.fundraiser_id ? <FundraiserCard fundraiserId={profile.fundraiser_id} /> : null}
+        {/* The next planned live, if any: drawn bare like the fundraiser card. */}
+        {profile.is_blocked || locked ? null : <ScheduledLiveCard userId={userId} mine={mine} refreshKey={refreshKey} />}
 
         {mine && profile.account_type === 'creator' ? (
           <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel={t('profile.dashboard')} style={({ pressed }) => ({ marginTop: 14, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface })}>
@@ -721,10 +729,12 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       <View style={{ paddingTop: insets.top, backgroundColor: band ? band[0] : undefined }}>
         <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
           <View style={{ width: side, flexDirection: 'row' }}>{left}</View>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }} accessible accessibilityRole="header" accessibilityLabel={profile.is_private ? t('profile.privateLabel', who) : profile.username}>
+          {/* On your own profile the username opens the account switcher, as on Instagram. */}
+          <Pressable disabled={!mine} onPress={() => setSheet('accounts')} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })} accessible accessibilityRole={mine ? 'button' : 'header'} accessibilityHint={mine ? t('accounts.switchHint') : undefined} accessibilityLabel={profile.is_private ? t('profile.privateLabel', who) : profile.username}>
             {profile.is_private ? <Icon name="lock" size={15} color={onBand2} weight={2.2} /> : null}
             <Text numberOfLines={1} style={{ color: onBand, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{profile.username}</Text>
-          </View>
+            {mine ? <Icon name="down" size={15} color={onBand} weight={2.6} /> : null}
+          </Pressable>
           <View style={{ width: side, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>{right}</View>
         </View>
       </View>
@@ -750,6 +760,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         }
       />
 
+      {mine ? <AccountSwitcher visible={sheet === 'accounts'} onClose={() => setSheet(null)} /> : null}
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)}>
         {mine ? (
           <>
@@ -759,7 +770,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               <SheetRow
                 icon="people"
                 label={t('profile.hideConnections')}
-                sub={t('profile.hideConnectionsSub')}
+               
                 right={<Toggle value={profile.hide_connections} onChange={setHidden} label={t('profile.hideConnections')} />}
                 onPress={() => setHidden(!profile.hide_connections)}
               />

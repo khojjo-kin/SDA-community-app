@@ -50,12 +50,12 @@ function Pick({ label, value, sub, onPress, accent, icon }: { label: string; val
 }
 
 /** A line with a switch on the right. When `onPress` is given the whole line is tappable instead (the switch is then disabled). */
-function Switch({ label, sub, value, onChange, disabled, onPress }: { label: string; sub: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean; onPress?: () => void }) {
+function Switch({ label, sub, value, onChange, disabled, onPress }: { label: string; sub?: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean; onPress?: () => void }) {
   const body = (
     <>
-      <View style={{ flex: 1, paddingVertical: 10 }}>
+      <View style={{ flex: 1, paddingVertical: 10, minHeight: 54, justifyContent: 'center' }}>
         <Text style={{ color: C.fg, fontSize: 16.5 }}>{label}</Text>
-        <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2, lineHeight: 19 }}>{sub}</Text>
+        {sub ? <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2, lineHeight: 19 }}>{sub}</Text> : null}
       </View>
       <View pointerEvents={onPress ? 'none' : 'auto'}>
         <Toggle value={value} onChange={onChange} label={label} disabled={disabled} />
@@ -214,20 +214,19 @@ export default function EditProfile() {
           <Pick
             icon="palette"
             label="Profile style"
-            sub={profile?.plus ? `${RING_STYLES.find((r) => r.id === (profile.ring_color ?? ''))?.label ?? 'Green'} ring · ${profileTheme(profile.profile_theme).label} theme` : 'Your ring colour and profile theme'}
+            sub={profile?.plus ? `${RING_STYLES.find((r) => r.id === (profile.ring_color ?? ''))?.label ?? 'Green'} ring · ${profileTheme(profile.profile_theme).label} theme` : undefined}
             onPress={() => router.push('/profile-style')}
             accent={<PlusLabel />}
           />
           <Switch
             label="Private account"
-            sub={restricted ? 'Only people you approve can see your posts and stories. Accounts of members under 14 stay private.' : 'Only people you approve can see your posts and stories'}
+            sub={restricted ? 'Accounts of members under 14 stay private.' : undefined}
             value={restricted || isPrivate}
             onChange={setIsPrivate}
             disabled={restricted}
           />
           <Switch
             label="Read receipts"
-            sub="Let people see when you have read their messages"
             value={readReceipts}
             onChange={setReadReceipts}
             disabled={!profile?.plus}
@@ -240,7 +239,6 @@ export default function EditProfile() {
       </KeyboardAvoidingView>
 
       <Sheet visible={sheet === 'gender'} onClose={() => setSheet(null)} title="Gender">
-        <Text style={{ color: C.fg2, textAlign: 'center', paddingHorizontal: 24, paddingBottom: 12, lineHeight: 20 }}>This isn't part of your public profile.</Text>
         {GENDERS.map((g) => (
           <Pressable key={g} onPress={() => { setGender(g); setSheet(null); }} accessibilityRole="radio" accessibilityState={{ checked: gender === g }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 50 }}>
             <Text style={{ color: C.fg, fontSize: 17 }}>{g}</Text>
@@ -254,7 +252,6 @@ export default function EditProfile() {
 
       <Sheet visible={sheet === 'contact'} onClose={() => setSheet(null)} title="Contact options">
         <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 8 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>Shown on your profile so people from church can reach you. Leave either empty to keep it private.</Text>
           <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="you@example.com" />
           <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+44 …" />
           <Button label="Done" onPress={() => setSheet(null)} />

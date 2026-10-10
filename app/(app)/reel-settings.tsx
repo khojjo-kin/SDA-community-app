@@ -18,15 +18,12 @@ export default function ReelSettings() {
       <ScreenHeader title={t('tabs.clips')} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <SectionLabel strong>{t('clips.sound')}</SectionLabel>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, gap: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg, fontSize: 17.5 }}>{muted}</Text>
-            <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 4 }}>{t('clips.startMutedSub')}</Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, gap: 16 }}>
+          <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>{muted}</Text>
           <Toggle value={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} label={muted} />
         </View>
         <SectionLabel strong>{t('clips.whatYouSee')}</SectionLabel>
-        <Row icon="sliders" title={t('settings.yourFeed')} sub={t('clips.yourFeedSub')} onPress={() => router.push('/clips-settings')} />
+        <Row icon="sliders" title={t('settings.yourFeed')} onPress={() => router.push('/clips-settings')} />
       </ScrollView>
     </Screen>
   );

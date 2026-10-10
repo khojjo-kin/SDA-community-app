@@ -16,6 +16,7 @@ import type { Post } from '../lib/types';
 import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
+import { AiInfo, PollCard, PromptCard, TagsButton } from './PostExtras';
 import { Avatar, Button, IconButton, Sheet, SheetRow, useChoices, useToast } from './ui';
 
 const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', COPYRIGHT_REASON, 'Something else'];
@@ -138,6 +139,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   const toast = useToast();
   const { width } = useWindowDimensions();
   const [menu, setMenu] = useState(false);
+  // The menu (three sheets and their hooks) is only put together once someone opens it, then kept, so a
+  // long feed doesn't carry one per card while it scrolls.
+  const [menuUsed, setMenuUsed] = useState(false);
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(false);
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
@@ -153,6 +157,8 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
   const height = Math.round(mediaW * ratio);
   const many = post.media.length > 1;
   const mine = post.user_id === me;
+  // Only the author can comment on a post with comments turned off.
+  const commentsClosed = !!post.comments_off && !mine;
   const song = post.audio_title ? (post.audio_artist ? `${post.audio_title} · ${post.audio_artist}` : post.audio_title) : '';
 
   const safe = (fn: () => Promise<void>) => fn().catch((e) => toast(errText(e)));
@@ -210,10 +216,11 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
             ) : !mine && !post.following_author ? (
               <Text style={{ color: C.fg2, fontSize: 12.5 }}>Suggested for you</Text>
             ) : null}
+            {post.ai_label ? <AiInfo /> : null}
           </View>
         </Pressable>
         {!mine && !post.following_author && !post.in_my_group ? <Button small label="Follow" onPress={() => safe(() => setFollow(me, post.user_id, true))} /> : null}
-        <IconButton name="more" label="More options" onPress={() => setMenu(true)} />
+        <IconButton name="more" label="More options" onPress={() => { setMenuUsed(true); setMenu(true); }} />
       </View>
 
       <View style={{ marginHorizontal: MEDIA_GUTTER, width: mediaW, height, borderRadius: MEDIA_RADIUS, overflow: 'hidden', backgroundColor: C.bg2 }}>
@@ -224,7 +231,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
               <FeedVideo key={i} post={post} media={m} width={mediaW} height={height} active={inView && i === page} onTap={tap} />
             ) : (
               <Pressable key={i} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Photo. Double tap to like.">
-                <Image source={{ uri: m.url }} style={{ width: mediaW, height }} contentFit="cover" transition={150} />
+                <Image source={{ uri: m.url }} style={{ width: mediaW, height }} contentFit="cover" transition={150} cachePolicy="memory-disk" />
               </Pressable>
             ),
           )}
@@ -239,6 +246,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
             <BurstHeart />
           </Animated.View>
         ) : null}
+        {post.tagged_ids?.length ? <TagsButton ids={post.tagged_ids} top={post.media.some((m) => m.type === 'video')} /> : null}
       </View>
 
       {many ? (
@@ -248,6 +256,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
           ))}
         </View>
       ) : null}
+
+      <PollCard post={post} />
+      <PromptCard post={post} />
 
       {song ? (
         <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingTop: 8 }}>
@@ -263,8 +274,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 12, paddingTop: 8 }}>
-        <Act icon="heart" count={post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} onPress={() => like()} />
-        <Act icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />
+        {/* A hidden like count is still shown to the author. */}
+        <Act icon="heart" count={post.hide_likes && !mine ? undefined : post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} onPress={() => like()} />
+        {commentsClosed ? null : <Act icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />}
         <Act icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? C.ok : C.fg} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Act icon="send" label="Share" onPress={() => router.push(`/share/${post.id}`)} />
         <Act icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} fill={post.saved} end onPress={() => safe(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
@@ -277,7 +289,9 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
           {long && !open ? <Text style={{ color: C.fg2 }} onPress={() => setOpen(true)}>more</Text> : null}
         </Text>
       ) : null}
-      {post.comment_count > 0 ? (
+      {commentsClosed ? (
+        <Text style={{ color: C.fg2, fontSize: 13.5, paddingHorizontal: 14, paddingTop: 4 }}>{t('postExtras.commentsOff')}</Text>
+      ) : post.comment_count > 0 ? (
         <Pressable onPress={() => router.push(`/comments/${post.id}`)} style={{ paddingHorizontal: 14, paddingTop: 4 }}>
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>{post.comment_count > 1 ? `View all ${fmt(post.comment_count)} comments` : 'View 1 comment'}</Text>
         </Pressable>
@@ -293,7 +307,7 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
         ) : null}
       </View>
 
-      <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} />
+      {menuUsed ? <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} /> : null}
     </View>
   );
 });

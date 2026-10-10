@@ -15,6 +15,7 @@ import { DARK, errText, fmt } from '../lib/theme';
 import type { CaptionLine } from '../lib/types';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
 import { PostMenu } from './PostCard';
+import { AiInfo, PollPill, PromptCard, TaggedLine } from './PostExtras';
 import { Avatar, useToast } from './ui';
 
 function Rail({ icon, count, label, onPress, color, fill }: { icon: IconName; count?: number; label: string; onPress: () => void; color?: string; fill?: boolean }) {
@@ -66,7 +67,8 @@ function askTranslation(postId: string, lang: string, key: string): Promise<void
 /** "en-GB" and "en" are the same language for captions. */
 const baseLang = (code: string) => code.trim().toLowerCase().split(/[-_]/)[0];
 
-export function Reel({ id, active, height, width, bottomInset }: { id: string; active: boolean; height: number; width: number; bottomInset: number }) {
+/** Memoised: the list draws its rows again whenever the clip in view changes, and only two of them have anything new to show. */
+export const Reel = React.memo(function Reel({ id, active, height, width, bottomInset }: { id: string; active: boolean; height: number; width: number; bottomInset: number }) {
   const post = usePost(id);
   const { me } = useSession();
   const router = useRouter();
@@ -81,6 +83,8 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
   const { reelsMuted, captions: captionsOn, captionLang, language } = usePrefs();
   const [paused, setPaused] = useState(false);
   const [menu, setMenu] = useState(false);
+  // The menu's sheets are only put together once it has been opened, then kept.
+  const [menuUsed, setMenuUsed] = useState(false);
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
   const anim = useRef(new Animated.Value(0)).current;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,7 +215,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
 
   return (
     <View style={{ width, height, backgroundColor: '#000' }}>
-      {media?.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" /> : null}
+      {media?.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" cachePolicy="memory-disk" /> : null}
       {media?.type === 'video' ? <VideoView player={player} style={{ position: 'absolute', width, height }} contentFit="cover" nativeControls={false} /> : media ? <Image source={{ uri: media.url }} style={{ position: 'absolute', width, height }} contentFit="cover" /> : null}
       <Pressable style={{ position: 'absolute', width, height }} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Short. Tap to pause, double tap to like." />
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']} locations={[0, 0.2, 0.55, 1]} style={{ position: 'absolute', width, height }} />
@@ -228,8 +232,9 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
       ) : null}
 
       <View style={{ position: 'absolute', right: 10, bottom: bottomInset + 28, alignItems: 'center', gap: 18 }}>
-        <Rail icon="heart" count={post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? DARK.like : '#fff'} fill={post.liked} onPress={() => safe(() => setFlag(me, post, 'liked', !post.liked))} />
-        <Rail icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />
+        {/* A hidden like count is still shown to the author; with comments off, only the author comments. */}
+        <Rail icon="heart" count={post.hide_likes && !mine ? undefined : post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? DARK.like : '#fff'} fill={post.liked} onPress={() => safe(() => setFlag(me, post, 'liked', !post.liked))} />
+        {post.comments_off && !mine ? null : <Rail icon="comment" count={post.comment_count} label="Comments" onPress={() => router.push(`/comments/${post.id}`)} />}
         <Rail icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? DARK.ok : '#fff'} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Rail icon="send" label="Share" onPress={() => router.push(`/share/${post.id}`)} />
         {media?.type === 'video' ? <Rail icon={reelsMuted ? 'mute' : 'sound'} label={reelsMuted ? 'Turn sound on' : 'Turn sound off'} onPress={() => setPrefs({ reelsMuted: !reelsMuted })} /> : null}
@@ -243,7 +248,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
             }}
           />
         ) : null}
-        <Rail icon="more" label="More options" onPress={() => setMenu(true)} />
+        <Rail icon="more" label="More options" onPress={() => { setMenuUsed(true); setMenu(true); }} />
       </View>
 
       {/* Captions sit just above the name and caption, so the bottom info never moves when a line appears. */}
@@ -266,7 +271,11 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
               </Pressable>
             ) : null}
           </View>
+          {post.ai_label ? <View style={{ marginBottom: 4 }}><AiInfo dark /></View> : null}
           {post.caption ? <Text numberOfLines={2} style={{ color: '#fff', lineHeight: 20 }}>{post.caption}</Text> : null}
+          {post.tagged_ids?.length ? <TaggedLine ids={post.tagged_ids} /> : null}
+          <PollPill post={post} />
+          <PromptCard post={post} dark />
           {post.view_count ? <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4 }}>{fmt(post.view_count)} {post.view_count === 1 ? 'view' : 'views'}</Text> : null}
         </View>
       </View>
@@ -275,7 +284,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
         <Animated.View style={{ width: barWidth, height: 2, borderRadius: 1, backgroundColor: '#fff', transform: [{ translateX: barX }] }} />
       </View>
 
-      <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} />
+      {menuUsed ? <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} /> : null}
     </View>
   );
-}
+});

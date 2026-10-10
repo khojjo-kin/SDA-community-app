@@ -303,7 +303,7 @@ export default function SabbathSchool() {
 
   function renderSaved() {
     const items = [...progress.saved].reverse();
-    if (!items.length) return <Empty icon="heart" title="Nothing saved yet" body="Tap the heart on a lesson, or the bookmark on a day's reading, to keep it here." />;
+    if (!items.length) return <Empty icon="heart" title="Nothing saved yet" />;
     return items.map((s) => {
       const { quarterId: q, lessonId, day } = parseKey(s.k);
       return (
@@ -325,7 +325,7 @@ export default function SabbathSchool() {
       const { quarterId: q, lessonId } = parseKey(x.k);
       return lessonComplete(q, lessonId, 7, progress);
     });
-    if (!items.length) return <Empty icon="check" title="No finished lessons yet" body="Open all seven days of a lesson, or mark each one done, and it will appear here." />;
+    if (!items.length) return <Empty icon="check" title="No finished lessons yet" />;
     return items.map((x) => {
       const { quarterId: q, lessonId } = parseKey(x.k);
       return <ItemRow key={x.k} colour={tileColour(parseInt(lessonId, 10) || 1)} icon="check" title={x.t} sub={x.s} onPress={() => openLesson(q, lessonId)} />;

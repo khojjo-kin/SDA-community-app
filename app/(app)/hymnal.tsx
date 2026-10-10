@@ -85,7 +85,7 @@ export default function Hymnal() {
       ) : !hymns ? (
         <Loading />
       ) : !hymns.length ? (
-        <Empty icon="hymnal" title="The hymnal is being added" body="All 695 hymns will appear here once they have been loaded. Check back soon." />
+        <Empty icon="hymnal" title="The hymnal is being added" />
       ) : (
         <FlatList
           data={items}

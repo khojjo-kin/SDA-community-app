@@ -144,7 +144,8 @@ export function StoryPlayer<E extends PlayerEntry>({
   stepRef.current = step;
 
   const run = (from: number) => {
-    Animated.timing(progress, { toValue: 1, duration: Math.max(1, (1 - from) * STILL_MS), easing: Easing.linear, useNativeDriver: false }).start(({ finished }) => {
+    // On the native side, so the bar runs smoothly however busy the app is (it moves by scale, not width).
+    Animated.timing(progress, { toValue: 1, duration: Math.max(1, (1 - from) * STILL_MS), easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => {
       if (finished && !closed.current) stepRef.current(1);
     });
   };
@@ -319,7 +320,7 @@ export function StoryPlayer<E extends PlayerEntry>({
           <View style={{ flexDirection: 'row', gap: 3, paddingHorizontal: 8 }}>
             {bars.map((s, i) => (
               <View key={s.id} style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
-                {i < index ? <View style={{ flex: 1, backgroundColor: '#fff' }} /> : i === index ? <Animated.View style={{ height: 2, backgroundColor: '#fff', width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} /> : null}
+                {i < index ? <View style={{ flex: 1, backgroundColor: '#fff' }} /> : i === index ? <Animated.View style={{ width: '100%', height: 2, backgroundColor: '#fff', transformOrigin: 'left', transform: [{ scaleX: progress }] }} /> : null}
               </View>
             ))}
           </View>

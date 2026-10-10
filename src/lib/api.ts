@@ -7,6 +7,7 @@ import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
 import { FriendlyError } from './theme';
 import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, LiveComment, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
+import type { LiveAudience, LiveSchedule, PostPoll } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -286,15 +287,23 @@ export async function deleteAccount(me: string) {
 
 /** Notes from mutual followers and close friends, mine first, newest first. */
 export async function fetchNotes(): Promise<Note[]> {
-  const rows: Note[] = ok(await supabase.from('community_note_cards').select('*').order('created_at', { ascending: false }).limit(100)) ?? [];
+  const raw: Note[] = ok(await supabase.from('community_note_cards').select('*').order('created_at', { ascending: false }).limit(100)) ?? [];
+  // Cards from before songs, places and colours came in lack those fields.
+  const rows = raw.map((n) => ({ ...n, text: n.text ?? '', song_id: n.song_id ?? null, song_title: n.song_title ?? null, song_artist: n.song_artist ?? null, song_url: n.song_url ?? null, song_cover: n.song_cover ?? null, place: n.place ?? '', color: n.color ?? '' }));
   return [...rows.filter((n) => n.mine), ...rows.filter((n) => !n.mine)];
 }
 
-/** Writes (or replaces) my note for the next 24 hours: up to 60 characters. */
-export async function saveNote(me: string, text: string, audience: Note['audience'] = 'mutuals') {
-  const t = text.trim().slice(0, 60);
-  if (!t) throw new Error('Write something first.');
-  ok(await supabase.from('community_notes').upsert({ user_id: me, text: t, audience }, { onConflict: 'user_id' }));
+/**
+ * Writes (or replaces) my note for the next 24 hours: up to 60 characters, a song from Pod, a place
+ * (up to 80 characters) and a bubble colour. Words or a song are needed; a song can stand alone.
+ */
+export async function saveNote(me: string, text: string, audience: Note['audience'] = 'mutuals', extra: { song_id?: string | null; place?: string; color?: string } = {}) {
+  const t = text.replace(/\s+/g, ' ').trim().slice(0, 60);
+  const song_id = extra.song_id || null;
+  if (!t && !song_id) throw new Error('Write something first.');
+  const place = (extra.place ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const color = (extra.color ?? '').trim().slice(0, 20);
+  ok(await supabase.from('community_notes').upsert({ user_id: me, text: t, audience, song_id, place, color }, { onConflict: 'user_id' }));
 }
 
 export async function deleteNote(me: string) {
@@ -347,7 +356,8 @@ export type FeedKind = 'foryou' | 'following' | 'subscribers';
  * from Community Plus members.
  */
 export async function fetchFeed(me: string, before?: string, kind: FeedKind = 'following'): Promise<Post[]> {
-  let q = supabase.from('community_post_cards').select('*');
+  // Posts kept to the author's profile (Plus) stay off every feed.
+  let q = supabase.from('community_post_cards').select('*').eq('profile_only', false);
   if (kind === 'following') q = q.or(`following_author.eq.true,user_id.eq.${me},in_my_group.eq.true`);
   else if (kind === 'subscribers') q = q.eq('author_plus', true);
   q = q.order('created_at', { ascending: false }).limit(PAGE);
@@ -361,7 +371,7 @@ export async function fetchFeed(me: string, before?: string, kind: FeedKind = 'f
 }
 
 export async function fetchExplore(before?: string, limit = 30): Promise<Post[]> {
-  let q = supabase.from('community_post_cards').select('*').order('created_at', { ascending: false }).limit(limit);
+  let q = supabase.from('community_post_cards').select('*').eq('profile_only', false).order('created_at', { ascending: false }).limit(limit);
   if (before) q = q.lt('created_at', before);
   const page = keep(ok(await q));
   if (before) return page;
@@ -372,7 +382,7 @@ export async function fetchExplore(before?: string, limit = 30): Promise<Post[]>
 
 /** Up to `n` of the posts being promoted right now, picked at random each time from all of them. */
 async function someSponsored(n: number): Promise<Post[]> {
-  const all: Post[] = ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).limit(60)) ?? [];
+  const all: Post[] = ok(await supabase.from('community_post_cards').select('*').eq('boosted', true).eq('profile_only', false).limit(60)) ?? [];
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [all[i], all[j]] = [all[j], all[i]];
@@ -425,7 +435,7 @@ export async function adminEndBoost(postId: string) {
 }
 
 export async function fetchReels(onlyFollowing: boolean, before?: string): Promise<Post[]> {
-  let q = supabase.from('community_post_cards').select('*').eq('kind', 'reel').order('created_at', { ascending: false }).limit(10);
+  let q = supabase.from('community_post_cards').select('*').eq('kind', 'reel').eq('profile_only', false).order('created_at', { ascending: false }).limit(10);
   if (onlyFollowing) q = q.eq('following_author', true);
   if (before) q = q.lt('created_at', before);
   return keep(ok(await q));
@@ -458,14 +468,83 @@ export const fetchSaved = (me: string) => fetchVia('community_saves', me);
 export const fetchLiked = (me: string) => fetchVia('community_likes', me);
 export const fetchReposts = (userId: string) => fetchVia('community_reposts', userId);
 
-export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null; audio_id?: string | null; location?: string; sensitive?: boolean; audience?: 'everyone' | 'subscribers' }): Promise<void> {
-  // A single video is a reel; anything else (photos, or a carousel with a video in it) is a post.
-  const kind = input.media.length === 1 && input.media[0]?.type === 'video' ? 'reel' : 'post';
-  const row: { id: string } = ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null, audio_id: input.audio_id ?? null, location: (input.location ?? '').trim().slice(0, 120), sensitive: !!input.sensitive, audience: input.audience ?? 'everyone' }).select('id').single());
+/** What a new post can carry besides its media (version 20 added everything from tagged_ids on). */
+export type NewPostInput = {
+  caption: string;
+  media: Media[];
+  group_id?: string | null;
+  audio_id?: string | null;
+  location?: string;
+  sensitive?: boolean;
+  audience?: 'everyone' | 'subscribers';
+  /** 'post' keeps a single video out of Shorts; left out, a single video is a short. */
+  kind?: 'post' | 'reel';
+  tagged_ids?: string[];
+  ai_label?: boolean;
+  /** Plus only: the server refuses it otherwise. */
+  profile_only?: boolean;
+  hide_likes?: boolean;
+  comments_off?: boolean;
+  prompt?: string;
+  poll?: PostPoll | null;
+};
+
+/** Shares a post and returns its id. */
+export async function createPost(me: string, input: NewPostInput): Promise<string> {
+  // A single video is a reel unless asked otherwise; anything else (photos, or a carousel with a video in it) is a post.
+  const single = input.media.length === 1 && input.media[0]?.type === 'video';
+  const kind = single && input.kind !== 'post' ? 'reel' : 'post';
+  const options = (input.poll?.options ?? []).map((o) => o.trim().slice(0, 80)).filter(Boolean).slice(0, 4);
+  const question = (input.poll?.question ?? '').trim().slice(0, 140);
+  const poll = options.length >= 2 ? (question ? { question, options } : { options }) : null;
+  const row: { id: string } = ok(
+    await supabase
+      .from('community_posts')
+      .insert({
+        user_id: me,
+        caption: input.caption.trim().slice(0, 2200),
+        media: input.media,
+        kind,
+        group_id: input.group_id ?? null,
+        audio_id: input.audio_id ?? null,
+        location: (input.location ?? '').trim().slice(0, 120),
+        sensitive: !!input.sensitive,
+        audience: input.audience ?? 'everyone',
+        tagged_ids: [...new Set(input.tagged_ids ?? [])].filter((id) => id !== me).slice(0, 20),
+        ai_label: !!input.ai_label,
+        profile_only: !!input.profile_only,
+        hide_likes: !!input.hide_likes,
+        comments_off: !!input.comments_off,
+        prompt: (input.prompt ?? '').trim().slice(0, 200),
+        poll,
+      })
+      .select('id')
+      .single(),
+  );
   // Clips get captions made from their audio in the background (only when the service is set up).
   if (kind === 'reel') requestCaptions(row.id);
   announce('feed');
   announce('profile');
+  return row.id;
+}
+
+/**
+ * Votes in a post's poll, moves my vote to another option, or (null) takes it back. The card
+ * changes at once and goes back if the server says no.
+ */
+export async function votePoll(me: string, post: Post, option: number | null) {
+  const before = { my_vote: post.my_vote ?? null, poll_counts: post.poll_counts ?? null };
+  const counts = [...(post.poll_counts ?? (post.poll?.options ?? []).map(() => 0))];
+  if (typeof before.my_vote === 'number' && counts[before.my_vote] !== undefined) counts[before.my_vote] = Math.max(0, counts[before.my_vote] - 1);
+  if (option !== null && counts[option] !== undefined) counts[option] += 1;
+  patchPost(post.id, { my_vote: option, poll_counts: counts });
+  try {
+    if (option === null) ok(await supabase.from('community_poll_votes').delete().eq('post_id', post.id).eq('user_id', me));
+    else ok(await supabase.from('community_poll_votes').upsert({ post_id: post.id, user_id: me, option }, { onConflict: 'post_id,user_id' }));
+  } catch (e) {
+    patchPost(post.id, before);
+    throw e;
+  }
 }
 
 /** Asks the server to make captions for a clip. Fire and forget: the post shows them once ready. */
@@ -606,6 +685,12 @@ export function noteStorySeen(storyId: string, own: boolean) {
   }
   if (seenAnnounce) clearTimeout(seenAnnounce);
   seenAnnounce = setTimeout(() => { seenAnnounce = null; announce('stories'); }, 400);
+}
+
+/** Another account is now in use: the stories it has watched are its own (its own stories' are read again from the phone). */
+export function forgetSeenStories() {
+  seenHere.clear();
+  ownSeenLoaded = null;
 }
 
 /** Whether every story in a list has been watched (from the server or on this phone). */
@@ -1438,11 +1523,44 @@ export async function fetchLive(id: string): Promise<LiveCard | null> {
   return row;
 }
 
-/** Starts a live broadcast and returns its id. Everyone sees it in the story tray with a LIVE badge. */
-export async function startLive(me: string, title: string): Promise<string> {
-  const row: { id: string } = ok(await supabase.from('community_lives').insert({ user_id: me, title: title.trim().slice(0, 120) }).select('id').single());
+/**
+ * Starts a live broadcast and returns its id. Everyone sees it in the story tray with a LIVE badge.
+ * `audience` decides who may watch ('practice' is only me); `fundraiserId` puts a Donate chip on it.
+ */
+export async function startLive(me: string, title: string, opts: { audience?: LiveAudience; fundraiserId?: string | null } = {}): Promise<string> {
+  const row: { id: string } = ok(await supabase.from('community_lives').insert({ user_id: me, title: title.trim().slice(0, 120), audience: opts.audience ?? 'followers', fundraiser_id: opts.fundraiserId ?? null }).select('id').single());
   announce('stories');
   return row.id;
+}
+
+/* Lives planned ahead: shown on the profile, and people who ask are reminded when it starts. */
+
+/** Someone's lives still to come (or started within the last half hour), soonest first. */
+export async function fetchLiveSchedules(userId: string): Promise<LiveSchedule[]> {
+  const since = new Date(Date.now() - 30 * 60e3).toISOString();
+  return ok(await supabase.from('community_live_schedules').select('*').eq('user_id', userId).gte('starts_at', since).order('starts_at', { ascending: true }).limit(20)) ?? [];
+}
+
+export async function scheduleLive(me: string, title: string, startsAt: Date): Promise<LiveSchedule> {
+  return ok(await supabase.from('community_live_schedules').insert({ user_id: me, title: title.trim().slice(0, 120), starts_at: startsAt.toISOString() }).select('*').single());
+}
+
+export async function updateLiveSchedule(id: string, title: string, startsAt: Date) {
+  ok(await supabase.from('community_live_schedules').update({ title: title.trim().slice(0, 120), starts_at: startsAt.toISOString() }).eq('id', id));
+}
+
+export async function cancelLiveSchedule(id: string) {
+  ok(await supabase.from('community_live_schedules').delete().eq('id', id));
+}
+
+export async function hasLiveReminder(me: string, scheduleId: string): Promise<boolean> {
+  const rows: unknown[] = ok(await supabase.from('community_live_reminders').select('schedule_id').eq('schedule_id', scheduleId).eq('user_id', me).limit(1)) ?? [];
+  return rows.length > 0;
+}
+
+export async function setLiveReminder(me: string, scheduleId: string, on: boolean) {
+  if (on) ok(await supabase.from('community_live_reminders').upsert({ schedule_id: scheduleId, user_id: me }, { onConflict: 'schedule_id,user_id', ignoreDuplicates: true }));
+  else ok(await supabase.from('community_live_reminders').delete().eq('schedule_id', scheduleId).eq('user_id', me));
 }
 
 export async function endLive(id: string) {

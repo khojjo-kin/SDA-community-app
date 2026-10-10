@@ -335,14 +335,14 @@ export default function People() {
         data={subs ?? []}
         keyExtractor={(s) => s.id}
         renderItem={({ item }) => <SubLine s={item} onOpen={() => router.push(`/subscribe/${item.creator_id}`)} />}
-        ListHeaderComponent={subs?.length ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 }}>Creators you support each month. Tap one to see your subscription.</Text> : null}
+        ListHeaderComponent={null}
         ListEmptyComponent={
           subs === null ? (
             error ? <ErrorNote message={error} onRetry={() => loadTab('subscriptions')} /> : <RowsSkeleton count={5} />
           ) : error ? (
             <ErrorNote message={error} onRetry={() => loadTab('subscriptions')} />
           ) : (
-            <Empty icon="star" title="No subscriptions yet" body="When you subscribe to a creator, they appear here with the date it renews." />
+            <Empty icon="star" title="No subscriptions yet" />
           )
         }
         contentContainerStyle={{ paddingBottom: 48 }}

@@ -147,17 +147,15 @@ export default function Help() {
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 16, gap: 4 }}>
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.4, fontFamily: fontBold }}>{t('help.headline')}</Text>
-          <Text style={{ color: C.fg2, fontSize: 15.5, lineHeight: 21, fontFamily: font }}>{t('help.intro')}</Text>
         </View>
 
-        <Pressable onPress={() => router.push('/support-chat' as any)} accessibilityRole="button" accessibilityLabel={`${t('help.chat')}. ${t('help.chatSub')}.`} style={({ pressed }) => ({ marginHorizontal: 16, borderRadius: 24, overflow: 'hidden', transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+        <Pressable onPress={() => router.push('/support-chat' as any)} accessibilityRole="button" accessibilityLabel={t('help.chat')} style={({ pressed }) => ({ marginHorizontal: 16, borderRadius: 24, overflow: 'hidden', transform: [{ scale: pressed ? 0.98 : 1 }] })}>
           <LinearGradient colors={[BUBBLE[0], BUBBLE[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
               <ThinkingOrb size={36} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800', fontFamily: fontBold }}>{t('help.chat')}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.88)', fontSize: 14.5, lineHeight: 20, fontFamily: font }}>{t('help.chatSub')}</Text>
             </View>
             <Icon name="right" size={20} color="#ffffff" weight={2.2} />
           </LinearGradient>
@@ -171,9 +169,9 @@ export default function Help() {
         </View>
 
         <SectionLabel>{t('help.tellUs')}</SectionLabel>
-        <Row icon="star" title={t('help.rateApp')} sub={t('help.rateAppSub')} onPress={() => openSheet('review')} />
-        <Row icon="bulb" title={t('help.suggestIdea')} sub={t('help.suggestIdeaSub')} onPress={() => openSheet('idea')} />
-        <Row icon="flag" title={t('help.reportProblem')} sub={t('help.reportProblemSub')} onPress={() => openSheet('problem')} />
+        <Row icon="star" title={t('help.rateApp')} onPress={() => openSheet('review')} />
+        <Row icon="bulb" title={t('help.suggestIdea')} onPress={() => openSheet('idea')} />
+        <Row icon="flag" title={t('help.reportProblem')} onPress={() => openSheet('problem')} />
 
         <SectionLabel>{t('legal.title')}</SectionLabel>
         <LegalRows onOpen={legal.open} />
@@ -204,7 +202,6 @@ export default function Help() {
                 </View>
               );
             })}
-            <Text style={{ color: C.fg3, fontSize: 13, lineHeight: 18, paddingHorizontal: 16, paddingTop: 2 }}>{t('help.anythingNew')}</Text>
           </>
         ) : null}
       </ScrollView>

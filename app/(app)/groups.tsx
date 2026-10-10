@@ -130,9 +130,9 @@ export default function Groups() {
     ) : needle ? (
       <Empty icon="search" title="Nothing matches" body="Try another name or @handle." />
     ) : segment === 'yours' ? (
-      <Empty icon="users" title="You're not in any yet" body="Join a community or follow a page from Discover, or start your own." action={<Button small label="Discover" onPress={() => setSegment('discover')} style={{ marginTop: 8 }} />} />
+      <Empty icon="users" title="You're not in any yet" action={<Button small label="Discover" onPress={() => setSegment('discover')} style={{ marginTop: 8 }} />} />
     ) : (
-      <Empty icon="users" title="Nothing here yet" body="Be the first: create a community or a page for your church family." action={<Button small label="Create" onPress={create} style={{ marginTop: 8 }} />} />
+      <Empty icon="users" title="Nothing here yet" action={<Button small label="Create" onPress={create} style={{ marginTop: 8 }} />} />
     );
 
   return (

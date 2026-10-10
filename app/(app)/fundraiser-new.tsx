@@ -169,7 +169,6 @@ export default function FundraiserNew() {
       <Empty
         icon="gift"
         title="Fundraisers are for members 14 and over"
-        body="You can still give to someone else's fundraiser. When you're older, you'll be able to start your own here."
       />
     );
   } else if (loadError) {

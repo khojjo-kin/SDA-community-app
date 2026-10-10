@@ -71,7 +71,6 @@ export default function StoryAlerts() {
         <Empty
           icon="bell"
           title="Story alerts are part of Community Plus"
-          body="Pick people, and you'll get a notification each time one of them watches your story. They aren't told."
           action={<Button label="See Community Plus" onPress={() => router.push('/plus')} style={{ marginTop: 10, alignSelf: 'stretch' }} />}
         />
       </Screen>
@@ -92,14 +91,10 @@ export default function StoryAlerts() {
         <Loading />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>
-            You'll get a notification when one of these people watches your story. They aren't told you added them.
-          </Text>
           {list.length === 0 ? (
             <Empty
               icon="bell"
               title="No one yet"
-              body="Add people you follow, and you'll hear each time one of them watches your story."
               action={<Button label="Add people" onPress={openPicker} style={{ marginTop: 10, alignSelf: 'stretch' }} />}
             />
           ) : (

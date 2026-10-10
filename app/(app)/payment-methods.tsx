@@ -125,8 +125,7 @@ export default function PaymentMethods() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {cards.length ? (
           <>
-            <Text style={{ color: C.fg2, lineHeight: 20, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14 }}>Plus renews with your default card. Tap a card to change it.</Text>
-            <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>
+            <View style={{ marginHorizontal: 16, marginTop: 6, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>
               {cards.map((c, i) => {
                 const exp = expiryLabel(c.exp_month, c.exp_year);
                 const expired = isExpired(c.exp_month, c.exp_year);
@@ -155,13 +154,10 @@ export default function PaymentMethods() {
             </View>
           </>
         ) : (
-          <Empty icon="card" title="No saved cards" body="Add a card and Plus can renew with it each month." />
+          <Empty icon="card" title="No saved cards" />
         )}
         <View style={{ paddingHorizontal: 16, paddingTop: 20, gap: 12 }}>
           <Button label="Add card" onPress={() => setAdding(true)} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>
-            Cards are kept securely by Stripe. The app only ever sees the brand, the last four digits and the expiry date.
-          </Text>
         </View>
       </ScrollView>
     );
@@ -198,7 +194,6 @@ export default function PaymentMethods() {
             </Text>
           ) : null}
           <Button label="Save card" onPress={save} busy={saving} disabled={!card?.complete} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>Saved securely by Stripe. Your card details never touch our servers.</Text>
         </ScrollView>
       </Sheet>
     </Screen>

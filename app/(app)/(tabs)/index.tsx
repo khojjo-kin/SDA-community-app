@@ -51,6 +51,10 @@ function tune(page: Post[], me: string, taste: FeedTaste, feed: HomeFeed, sugges
   return page;
 }
 
+/** The list's row and key, made once so the list isn't handed new ones each time Home draws. */
+const renderPost = ({ item }: { item: string }) => <PostCard id={item} />;
+const keyOfPost = (id: string) => id;
+
 /** The picture a post shows first: the photo, or a video's cover. */
 function firstPicture(p: Post): string | undefined {
   const m = p.media?.[0];
@@ -263,7 +267,7 @@ export default function Home() {
   };
 
   const empty = (
-    <Empty icon="image" title={t('home.welcome')} body={t('home.welcomeBody')} action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label={t('home.sharePhoto')} onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label={t('home.findPeople')} onPress={() => router.push('/explore')} /></View>} />
+    <Empty icon="image" title={t('home.welcome')} action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label={t('home.sharePhoto')} onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label={t('home.findPeople')} onPress={() => router.push('/explore')} /></View>} />
   );
 
   return (
@@ -278,8 +282,8 @@ export default function Home() {
       <SlowLine active={refreshing || paging} />
       <FlatList
         data={ids}
-        keyExtractor={(id) => id}
-        renderItem={({ item }) => <PostCard id={item} />}
+        keyExtractor={keyOfPost}
+        renderItem={renderPost}
         ListHeaderComponent={
           <View>
             <StoryTray refreshKey={trayKey} />
@@ -302,6 +306,8 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.fg2} />}
         windowSize={7}
         initialNumToRender={3}
+        // A post card is a lot to draw: a few at a time keeps each batch short, so a fling never waits on ten of them.
+        maxToRenderPerBatch={4}
         viewabilityConfigCallbackPairs={viewabilityPairs}
       />
     </Screen>

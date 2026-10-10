@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PlatformPay } from '@stripe/stripe-react-native';
 import { Icon, IconName, Mark, VerifiedTick } from '../../src/components/Icon';
+import { type PayStart, useInstantPay } from '../../src/components/PaySheet';
 import { RenewalTerms } from '../../src/components/RenewalTerms';
-import { Button, IconButton, Row, Screen, SectionLabel, Sheet, Toggle, useToast } from '../../src/components/ui';
-import { cancelSubscription, myPlusRequests, requestPlus, resumeSubscription, setTickHidden, updateProfile } from '../../src/lib/api';
+import { Button, IconButton, Row, Screen, SectionLabel, Toggle, useToast } from '../../src/components/ui';
+import { cancelSubscription, myPlusRequests, resumeSubscription, setTickHidden, startSubscription, syncSubscription, updateProfile } from '../../src/lib/api';
 import { fontById, useAppFont } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
 import { type Key, tSplit, useT } from '../../src/lib/i18n';
@@ -23,19 +25,19 @@ type Plan = 'monthly' | 'yearly';
  * identity check (/verify), so it always means "this account is who it says it is", never "this
  * account paid". Plus only lets a verified member choose whether it shows.
  */
-const BENEFITS: { icon: IconName; title: Key; body: Key }[] = [
-  { icon: 'eye', title: 'plus.benefitPreview', body: 'plus.benefitPreviewBody' },
-  { icon: 'repeat', title: 'plus.benefitRewatches', body: 'plus.benefitRewatchesBody' },
-  { icon: 'clock', title: 'plus.benefitViewTimes', body: 'plus.benefitViewTimesBody' },
-  { icon: 'chatdots', title: 'settings.readQuietly', body: 'plus.benefitReadQuietlyBody' },
-  { icon: 'star', title: 'plus.benefitPriority', body: 'plus.benefitPriorityBody' },
-  { icon: 'bell', title: 'settings.storyAlerts', body: 'plus.benefitStoryAlertsBody' },
-  { icon: 'phone', title: 'plus.benefitScreenshots', body: 'plus.benefitScreenshotsBody' },
-  { icon: 'palette', title: 'settings.profileStyle', body: 'plus.benefitProfileStyleBody' },
-  { icon: 'shield', title: 'plus.benefitHideTick', body: 'plus.benefitHideTickBody' },
-  { icon: 'font', title: 'plus.benefitFonts', body: 'plus.benefitFontsBody' },
-  { icon: 'account', title: 'settings.profileViewers', body: 'plus.benefitViewersBody' },
-  { icon: 'lifebuoy', title: 'plus.benefitSupport', body: 'plus.benefitSupportBody' },
+const BENEFITS: { icon: IconName; title: Key }[] = [
+  { icon: 'eye', title: 'plus.benefitPreview' },
+  { icon: 'repeat', title: 'plus.benefitRewatches' },
+  { icon: 'clock', title: 'plus.benefitViewTimes' },
+  { icon: 'chatdots', title: 'settings.readQuietly' },
+  { icon: 'star', title: 'plus.benefitPriority' },
+  { icon: 'bell', title: 'settings.storyAlerts' },
+  { icon: 'phone', title: 'plus.benefitScreenshots' },
+  { icon: 'palette', title: 'settings.profileStyle' },
+  { icon: 'shield', title: 'plus.benefitHideTick' },
+  { icon: 'font', title: 'plus.benefitFonts' },
+  { icon: 'account', title: 'settings.profileViewers' },
+  { icon: 'lifebuoy', title: 'plus.benefitSupport' },
 ];
 
 /** Every perk in one line each, for "Explore all benefits". Keys, looked up as the page draws. */
@@ -97,10 +99,6 @@ export default function Plus() {
   const fontBold = useAppFont('bold');
   const font = useAppFont();
   const [requests, setRequests] = useState<PlusRequest[]>([]);
-  // The sheet for asking an admin to activate Plus that a church has arranged. (The tick has its own screen, /verify.)
-  const [asking, setAsking] = useState(false);
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
   // Prices, whether payments are on, and the member's subscription (the config carries its status too).
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [configError, setConfigError] = useState('');
@@ -118,6 +116,8 @@ export default function Plus() {
   useEffect(() => { setTickHiddenNow(!!profile?.tick_hidden); }, [profile?.tick_hidden]);
   const tickSaving = useRef(false);
   const lastPush = useRef(0);
+  // Whether the subscription just started is a free week (a card saved, nothing charged).
+  const startedTrial = useRef(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
@@ -188,7 +188,7 @@ export default function Plus() {
     );
   }
 
-  const pending = (kind: 'verify' | 'plus') => requests.find((r) => r.kind === kind && r.status === 'pending');
+  const pending = (kind: 'verify') => requests.find((r) => r.kind === kind && r.status === 'pending');
 
   function setReadReceipts(next: boolean) {
     const before = receipts;
@@ -215,22 +215,6 @@ export default function Plus() {
       .finally(() => { tickSaving.current = false; });
   }
 
-  async function send() {
-    if (!asking || busy) return;
-    setBusy(true);
-    try {
-      await requestPlus(me, 'plus', note);
-      toast(t('plus.requestSent'));
-      setAsking(false);
-      setNote('');
-      load();
-    } catch (e) {
-      toast(errText(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /** The checkout's card form, to save a card for after the free week (nothing is charged now). */
   function addCard() {
     if (Date.now() - lastPush.current < 800) return;
@@ -239,21 +223,80 @@ export default function Plus() {
     router.push(`/checkout?plan=${currentPlan ?? 'monthly'}`);
   }
 
-  /** Off to the checkout for the chosen plan (or the switch to it). */
-  function go() {
-    if (!config?.ready) return;
-    // One checkout, however quickly the button is pressed twice.
-    if (Date.now() - lastPush.current < 800) return;
-    lastPush.current = Date.now();
-    tap('medium');
-    router.push(`/checkout?plan=${plan}`);
-  }
-
   const until = profile?.plus_until ? dayLabel(new Date(profile.plus_until)) : '';
   const isPlus = !!profile?.plus;
   // A renewing Stripe subscription: the bottom area offers the other plan instead of a new one.
   const member = !!currentPlan;
   const trialOffer = !!config?.trial_available && !isPlus && !member;
+  const planPence = config ? (plan === 'yearly' ? config.yearly_pence : config.price_pence) : 0;
+
+  /** Starts the subscription on the server. A free week saves the card (nothing is charged); otherwise the first payment. */
+  const startPlus = async (saved: string | null): Promise<PayStart> => {
+    const r = await startSubscription(saved, plan);
+    startedTrial.current = r.intent === 'setup';
+    const currency = r.currency ?? config?.currency ?? 'GBP';
+    // This page offered a free week but the server would charge today: stop, so nobody pays who expected not to.
+    if (!r.already && trialOffer && r.intent !== 'setup' && (r.amount ?? 0) > 0) {
+      load();
+      throw new Error(t('checkout.trialUnavailable', { amount: money(r.amount ?? planPence, currency) }));
+    }
+    const secret = r.client_secret ?? '';
+    return { already: !!r.already, client_secret: secret, payment_intent_id: secret.split('_secret_')[0], amount: r.amount ?? (r.intent === 'setup' ? 0 : planPence), currency, intent: r.intent };
+  };
+
+  /** Paid (or the free week started): Plus is switched on by the server once Stripe agrees, so give it a few seconds. */
+  async function paidPlus() {
+    let synced = await syncSubscription().catch(() => null);
+    for (let i = 0; i < 3 && !synced?.plus; i++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+      if (!alive.current) return;
+      synced = await syncSubscription().catch(() => null);
+    }
+    await refresh();
+    if (!alive.current) return;
+    tap('success');
+    toast(startedTrial.current ? t('checkout.trialStarted') : t('checkout.welcome'));
+    load();
+  }
+
+  const instant = useInstantPay({
+    title: `${t('common.communityPlus')} · ${plan === 'yearly' ? t('plus.yearly') : t('plus.monthly')}`,
+    amountLabel: money(trialOffer ? 0 : planPence, config?.currency ?? 'GBP'),
+    start: startPlus,
+    onConfirmed: async () => {
+      await syncSubscription();
+    },
+    onPaid: paidPlus,
+    wallet: 'subscribe',
+    walletItems: (p) => {
+      const interval = { intervalUnit: plan === 'yearly' ? PlatformPay.IntervalUnit.Year : PlatformPay.IntervalUnit.Month, intervalCount: 1 };
+      const full = (planPence / 100).toFixed(2);
+      if (p.intent !== 'setup') return [{ label: t('common.communityPlus'), amount: (p.amount / 100).toFixed(2), paymentType: PlatformPay.PaymentType.Recurring, ...interval }];
+      // The free week: what happens after it, then nothing today as the total.
+      const days = config?.trial_days || 7;
+      const from = new Date(Date.now() + days * 86400e3);
+      return [
+        { label: t('checkout.applePayFrom', { day: longDay(from.toISOString()) }), amount: full, paymentType: PlatformPay.PaymentType.Recurring, ...interval, startDate: Math.floor(from.getTime() / 1000) },
+        { label: t('checkout.applePayFreeFor', { days }), amount: '0.00', paymentType: PlatformPay.PaymentType.Immediate },
+      ];
+    },
+    footer: config ? <RenewalTerms kind="plus" pricePence={planPence} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} trialDays={trialOffer ? config.trial_days : 0} /> : null,
+  });
+
+  /** Subscribing starts paying straight away; a member changing plan goes to the checkout. */
+  function go() {
+    if (!config) return;
+    if (!config.ready) {
+      toast(t('pay.unavailable'));
+      return;
+    }
+    // One go, however quickly the button is pressed twice.
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    tap('medium');
+    if (member) router.push(`/checkout?plan=${plan}`);
+    else instant.pay();
+  }
   const trialWords = !config || config.trial_days === 7 ? t('plus.oneWeek') : t('plus.days', { count: config.trial_days });
   // Verified, or verified with the tick hidden (the account then shows as not verified).
   const ticked = !!profile?.verified || tickHidden;
@@ -269,8 +312,6 @@ export default function Plus() {
     buttonOn = true;
   } else if (!config) {
     buttonLabel = '';
-  } else if (!config.ready) {
-    buttonLabel = t('plus.comingSoon');
   } else if (member) {
     buttonLabel = plan === currentPlan ? '' : plan === 'yearly' ? t('plus.switchToYearly') : t('plus.switchToMonthly');
     buttonOn = plan !== currentPlan;
@@ -302,7 +343,6 @@ export default function Plus() {
               <Text style={{ color: C.accent2 }}>{t('common.communityPlus')}</Text>
             )}
           </Text>
-          <Text style={{ color: C.fg2, fontSize: 16, textAlign: 'center', lineHeight: 22, fontFamily: font }}>{t('plus.subtitle')}</Text>
           {isPlus ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: C.accentSoft }}>
               <Icon name="check" size={15} color={C.accent2} weight={2.6} />
@@ -328,10 +368,7 @@ export default function Plus() {
                 </View>
               </View>
               {needsCard ? (
-                <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 10 }}>
-                  <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, fontFamily: font }}>
-                    {billing.current_period_end ? t('plus.needsCardOn', { day: longDay(billing.current_period_end) }) : t('plus.needsCard')}
-                  </Text>
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
                   <Button label={t('plus.addCard')} onPress={addCard} />
                 </View>
               ) : null}
@@ -365,7 +402,7 @@ export default function Plus() {
               <Row icon="palette" title={t('settings.profileStyle')} onPress={() => router.push('/profile-style')} />
               <Row icon="eye" title={t('settings.profileViewers')} onPress={() => router.push('/profile-viewers')} />
               <Row icon="bell" title={t('settings.storyAlerts')} onPress={() => router.push('/story-alerts')} />
-              <Row icon="lock" title={t('settings.readReceipts')} sub={receipts ? t('plus.receiptsOn') : t('plus.receiptsOff')} right={<Toggle value={receipts} onChange={setReadReceipts} label={t('settings.readReceipts')} />} />
+              <Row icon="lock" title={t('settings.readReceipts')} right={<Toggle value={receipts} onChange={setReadReceipts} label={t('settings.readReceipts')} />} />
             </View>
             <SectionLabel strong>{t('plus.whatYouGet')}</SectionLabel>
           </>
@@ -373,14 +410,11 @@ export default function Plus() {
 
         <View style={{ paddingHorizontal: 20, gap: 20 }}>
           {BENEFITS.map((b) => (
-            <View key={b.title} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
+            <View key={b.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={b.icon} size={30} color={C.fg} weight={1.6} />
               </View>
-              <View style={{ flex: 1, paddingTop: 1 }}>
-                <Text style={{ color: C.fg, fontWeight: '700', fontSize: 16, fontFamily: fontBold }}>{t(b.title)}</Text>
-                <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, marginTop: 2, fontFamily: font }}>{t(b.body)}</Text>
-              </View>
+              <Text style={{ flex: 1, color: C.fg, fontWeight: '700', fontSize: 16, fontFamily: fontBold }}>{t(b.title)}</Text>
             </View>
           ))}
         </View>
@@ -401,7 +435,6 @@ export default function Plus() {
             <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden', paddingVertical: 4 }}>
               <Row
                 title={t('settings.showTick')}
-                sub={tickHidden ? t('plus.tickHiddenSub') : isPlus ? t('plus.tickShowsSub') : t('plus.tickNeedsPlus')}
                 right={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <VerifiedTick size={20} />
@@ -414,32 +447,6 @@ export default function Plus() {
           </>
         ) : null}
 
-        <View style={{ paddingHorizontal: 16, paddingTop: 26, gap: 10 }}>
-          {isPlus ? (
-            hasSub ? null : <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{t('plus.churchRenews')}</Text>
-          ) : pending('plus') ? (
-            <View style={{ padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
-              <Text style={{ color: C.fg, fontWeight: '700' }}>{t('plus.requestWithAdmins')}</Text>
-              <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19 }}>{t('plus.requestSentOn', { day: dayLabel(new Date(pending('plus')!.created_at)) })}</Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => setAsking(true)}
-              accessibilityRole="button"
-              accessibilityLabel={t('plus.askAdmin')}
-              style={({ pressed }) => ({ height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.fg, fontWeight: '600', fontSize: 15.5, fontFamily: fontBold }}>
-                {t('plus.askAdmin')}
-              </Text>
-            </Pressable>
-          )}
-          {isPlus ? null : (
-            <Text style={{ color: C.fg3, fontSize: 13, textAlign: 'center', lineHeight: 18, paddingTop: 6 }}>
-              {t('plus.stripeNote')}
-            </Text>
-          )}
-        </View>
-
         {/* The tick is separate from Plus and free: it only ever comes from an identity check. */}
         {ticked ? null : (
           <Pressable
@@ -448,12 +455,7 @@ export default function Plus() {
             accessibilityLabel={pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 20, padding: 14, borderRadius: 16, backgroundColor: C.surface, opacity: pressed ? 0.75 : 1 })}>
             <VerifiedTick size={26} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: C.fg, fontWeight: '700' }}>{pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}</Text>
-              <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19, fontSize: 13.5 }}>
-                {pending('verify') ? t('plus.idBeingReviewedSub') : t('plus.wantTickSub')}
-              </Text>
-            </View>
+            <Text style={{ flex: 1, color: C.fg, fontWeight: '700' }}>{pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}</Text>
             <Icon name="right" size={16} color={C.fg2} weight={2} />
           </Pressable>
         )}
@@ -477,7 +479,7 @@ export default function Plus() {
             </View>
           ) : null}
           {/* The renewal terms of the plan chosen, right above the button that starts it. */}
-          {member || !config?.ready ? null : (
+          {member || !config ? null : (
             <RenewalTerms
               kind="plus"
               pricePence={plan === 'yearly' ? config.yearly_pence : config.price_pence}
@@ -486,20 +488,15 @@ export default function Plus() {
               trialDays={trialOffer ? config.trial_days : 0}
             />
           )}
-          {member && plan !== currentPlan ? (
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', fontFamily: font }}>
-              {t(billing?.cancel_at_period_end ? 'plus.youreOnRenew' : 'plus.youreOn', { plan: currentPlan === 'yearly' ? t('plus.planYearly') : t('plus.planMonthly') })}
-            </Text>
-          ) : null}
           {buttonLabel || !config ? (
             <Pressable
-              onPress={buttonOn ? (config ? go : load) : undefined}
+              onPress={buttonOn && !instant.busy ? (config ? go : load) : undefined}
               accessibilityRole="button"
               accessibilityLabel={buttonLabel || t('plus.loadingPrices')}
-              accessibilityState={{ disabled: !buttonOn }}
+              accessibilityState={{ disabled: !buttonOn, busy: instant.busy }}
               style={({ pressed }) => ({ height: 52, borderRadius: 26, backgroundColor: buttonOn ? C.accent : C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed && buttonOn ? 0.8 : 1 })}>
-              {!config && !configError ? (
-                <ActivityIndicator color={C.fg2} />
+              {(!config && !configError) || instant.busy ? (
+                <ActivityIndicator color={instant.busy ? C.onAccent : C.fg2} />
               ) : (
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: buttonOn ? C.onAccent : C.fg2, fontSize: 16.5, fontWeight: '700', fontFamily: fontBold }}>
                   {buttonLabel}
@@ -510,13 +507,7 @@ export default function Plus() {
         </View>
       ) : null}
 
-      <Sheet visible={asking} onClose={() => setAsking(false)} title={t('plus.getPlus')}>
-        <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 8 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>{t('plus.askBody')}</Text>
-          <TextInput value={note} onChangeText={setNote} placeholder={t('plus.notePlaceholder')} placeholderTextColor={C.fg3} multiline maxLength={500} keyboardAppearance={C.blurTint} accessibilityLabel={t('plus.noteLabel')} style={{ minHeight: 96, color: C.fg, fontSize: 16, padding: 14, borderRadius: 12, backgroundColor: C.surface, textAlignVertical: 'top' }} />
-          <Button label={t('plus.sendRequest')} onPress={send} busy={busy} />
-        </View>
-      </Sheet>
+      {instant.sheet}
     </Screen>
   );
 }

@@ -16,7 +16,7 @@ import { C } from '../lib/theme';
  * edge of the screen (`x`) so it can light up as the band passes it; that is known from the layout,
  * which is why the shapes below are drawn to the same measurements as the screens they stand in for.
  *
- * The colours are read from the theme as the shapes draw, so they suit Dark, White and Green. On the
+ * The colours are read from the theme as the shapes draw, so they suit Dark and White. On the
  * always-black screens (Shorts) they use a dark version whatever the theme. With Reduce Motion on the
  * blocks stay still.
  */
@@ -47,7 +47,7 @@ function leave() {
 /** The block's colour and the shine's, for the theme in use or for an always-dark screen. */
 function tones(dark?: boolean): { base: string; shine: string } {
   if (dark) return { base: 'rgba(255,255,255,0.09)', shine: 'rgba(255,255,255,0.09)' };
-  // White has dark text: a pale grey block with a bright shine. Dark and Green: a lighter block with a faint one.
+  // White has dark text: a pale grey block with a bright shine. Dark: a lighter block with a faint one.
   if (C.statusBar === 'dark') return { base: C.surface, shine: 'rgba(255,255,255,0.8)' };
   return { base: C.surface, shine: 'rgba(255,255,255,0.065)' };
 }

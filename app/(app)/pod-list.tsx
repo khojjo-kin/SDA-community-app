@@ -59,7 +59,7 @@ export default function PodList() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingTop: 4, paddingBottom: (current ? 80 : 20) + insets.bottom + 20 }}
-          ListEmptyComponent={needle ? <Empty icon="search" title="Nothing matches" body="Try another title or artist." /> : <Empty icon={kind === 'podcast' ? 'podcast' : 'music'} title="Nothing here yet" body="Tracks will appear here as they are added." />}
+          ListEmptyComponent={needle ? <Empty icon="search" title="Nothing matches" body="Try another title or artist." /> : <Empty icon={kind === 'podcast' ? 'podcast' : 'music'} title="Nothing here yet" />}
           renderItem={({ item, index }) => <PodRow item={item} onPress={() => play(shown, index)} onMore={() => setMenuItem(item)} />}
         />
       )}

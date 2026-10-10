@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { fetchLives, fetchStoryTray } from '../lib/api';
+import { allStoriesSeen, fetchLives, fetchStoryTray } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { useSession } from '../lib/session';
 import { listen } from '../lib/store';
@@ -12,7 +12,8 @@ import { LiveAvatar } from './LiveBadge';
 import { StoryCircleSkeleton } from './Skeleton';
 import { Avatar, useToast } from './ui';
 
-export function StoryTray({ refreshKey }: { refreshKey: number }) {
+/** Memoised: it sits in Home's list header, which is drawn again whenever Home is (paging, refreshing). */
+export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refreshKey: number }) {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -36,7 +37,15 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
-  useEffect(() => listen('stories', load), [load]);
+  // A story just watched turns its ring grey at once, from what this phone knows, then the tray loads again.
+  useEffect(
+    () =>
+      listen('stories', () => {
+        setGroups((gs) => gs.map((g) => (g.seen || !allStoriesSeen(g.stories, me) ? g : { ...g, seen: true })));
+        load();
+      }),
+    [load, me],
+  );
 
   const mine = groups.find((g) => g.user_id === me);
   const others = groups.filter((g) => g.user_id !== me);
@@ -101,4 +110,4 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
       {loaded ? null : [1, 2, 3, 4, 5].map((i) => <StoryCircleSkeleton key={i} index={i} />)}
     </ScrollView>
   );
-}
+});

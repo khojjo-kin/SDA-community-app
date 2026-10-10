@@ -30,9 +30,7 @@ export default function PlusFont() {
     <Screen>
       <ScreenHeader title="App font" />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, lineHeight: 20 }}>
-          {plus ? 'Buttons, headings and lists take the face you choose. It applies on this phone.' : 'Choosing a font is part of Community Plus.'}
-        </Text>
+        {plus ? null : <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, lineHeight: 20 }}>Part of Community Plus</Text>}
         <View style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: C.surface, overflow: 'hidden' }}>
           {FONTS.map((f, i) => {
             const on = plus && appFont === f.id;

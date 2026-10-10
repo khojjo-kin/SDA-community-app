@@ -183,7 +183,7 @@ export default function DiscoverPeople() {
           ) : error ? (
             <ErrorNote message={error} onRetry={() => { setError(''); load(); }} />
           ) : (
-            <Empty icon="people" title="No suggestions right now" body="As you follow people from church, you'll find more people you might know here." />
+            <Empty icon="people" title="No suggestions right now" />
           )
         }
         contentContainerStyle={{ paddingBottom: 48 }}

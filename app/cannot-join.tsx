@@ -7,6 +7,7 @@ import { isPlaceholder, LinkedSentence, openLegalLink } from '../src/components/
 import { DarkStatusBar } from '../src/components/OnDark';
 import { Button } from '../src/components/ui';
 import { LEGAL_DETAILS } from '../src/legal/documents';
+import { useLogOut } from '../src/lib/accounts';
 import { childClosureRequested, closeChildAccount } from '../src/lib/age';
 import { useT } from '../src/lib/i18n';
 import { DARK } from '../src/lib/theme';
@@ -30,7 +31,9 @@ import { DARK } from '../src/lib/theme';
  */
 export default function CannotJoin() {
   const { closed } = useLocalSearchParams<{ closed?: string }>();
-  const { isLoaded, isSignedIn, userId, signOut } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Only the closed account: any other account signed in on this phone stays, and takes over.
+  const signOut = useLogOut();
   const { user } = useUser();
   const router = useRouter();
   const t = useT();

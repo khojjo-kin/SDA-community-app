@@ -39,7 +39,7 @@ export default function Saved() {
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : (
-        <PostGrid posts={posts} empty={liked ? <Empty icon="heart" title="No likes yet" body="Double-tap a post to like it." /> : reposts ? <Empty icon="repost" title="No reposts yet" body="Posts you repost show on your profile and are listed here." /> : <Empty icon="bookmark" title="Nothing saved yet" body="Tap the bookmark on a post to keep it here. Only you can see what you save." />} />
+        <PostGrid posts={posts} empty={liked ? <Empty icon="heart" title="No likes yet" /> : reposts ? <Empty icon="repost" title="No reposts yet" /> : <Empty icon="bookmark" title="Nothing saved yet" />} />
       )}
     </Screen>
   );

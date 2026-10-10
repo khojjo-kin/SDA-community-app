@@ -210,7 +210,7 @@ export default function Pod() {
       ) : needle ? (
         <Empty icon="search" title="Nothing matches" body="Try another title or artist." />
       ) : segment === 'library' ? (
-        <Empty icon="bookmark" title="Your library is empty" body="Use the menu on any track, or the bookmark in the player, to keep it here." />
+        <Empty icon="bookmark" title="Your library is empty" />
       ) : segment === 'song' ? (
         <Empty icon="music" title="No songs yet" body={canAdd ? 'Add the first one for the family.' : 'Songs will appear here as they are added.'} />
       ) : (

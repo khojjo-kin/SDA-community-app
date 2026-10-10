@@ -107,7 +107,6 @@ export default function CreatorSubscriptions() {
   const chosenPence = selected === 'custom' ? parsePounds(custom) : selected;
   const customBad = selected === 'custom' && custom.trim() !== '' && chosenPence == null;
   const canSave = chosenPence != null && chosenPence !== current && !saving;
-  const fee = config?.creator_fee_percent;
   const ready = !!payouts?.charges_enabled;
 
   async function save() {
@@ -230,13 +229,13 @@ export default function CreatorSubscriptions() {
     loadMine();
   }
 
-  let payoutRow: { icon: IconName; color: string; title: string; body: string } | null = null;
+  let payoutRow: { icon: IconName; color: string; title: string; body?: string } | null = null;
   if (payoutsError) payoutRow = { icon: 'info', color: C.fg2, title: t('creatorSubs.payouts'), body: t('creatorSubs.payoutsDidNotLoad') };
-  else if (config && !config.ready) payoutRow = { icon: 'card', color: C.fg2, title: t('creatorSubs.paymentsOff'), body: t('creatorSubs.paymentsOffBody') };
+  else if (config && !config.ready) payoutRow = { icon: 'card', color: C.fg2, title: t('pay.unavailable') };
   else if (payouts) {
-    if (ready) payoutRow = { icon: 'check', color: C.accent2, title: t('creatorSubs.payoutsReady'), body: t('creatorSubs.payoutsReadyBody') };
-    else if (payouts.has_account) payoutRow = { icon: 'info', color: C.warn, title: t('creatorSubs.finishPayouts'), body: t('creatorSubs.payoutsNotReady') };
-    else payoutRow = { icon: 'card', color: C.warn, title: t('creatorSubs.setUpPayouts'), body: t('creatorSubs.payoutsNotReady') };
+    if (ready) payoutRow = { icon: 'check', color: C.accent2, title: t('creatorSubs.payoutsReady') };
+    else if (payouts.has_account) payoutRow = { icon: 'info', color: C.warn, title: t('creatorSubs.finishPayouts') };
+    else payoutRow = { icon: 'card', color: C.warn, title: t('creatorSubs.setUpPayouts') };
   }
   // "You offer subscriptions at £4.99 a month.", with the price and how often in bold wherever the language puts it.
   const [offerBefore, offerAfter] = tSplit('creatorSubs.youOffer', 'cost');
@@ -246,13 +245,6 @@ export default function CreatorSubscriptions() {
       <ScreenHeader title={t('settings.subscriptions')} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
-          <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 6 }}>
-            <Icon name="crown" size={22} color={C.accent2} />
-            <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 21 }}>
-              {fee != null ? t('creatorSubs.intro', { percent: fee }) : t('creatorSubs.introNoFee')}
-            </Text>
-          </View>
-
           <SectionLabel>{t('creatorSubs.yourPrice')}</SectionLabel>
           {restricted ? (
             <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
@@ -298,7 +290,6 @@ export default function CreatorSubscriptions() {
                 </View>
               ) : null}
               <Button label={saving ? t('creatorSubs.saving') : current == null ? t('creatorSubs.start') : t('creatorSubs.save')} busy={saving} disabled={!canSave} onPress={save} />
-              {current != null ? <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18 }}>{t('creatorSubs.newPriceNote')}</Text> : null}
               {current != null ? <Button label={t('creatorSubs.turnOff')} kind="ghost" disabled={saving} onPress={turnOff} textColor={C.like} /> : null}
             </View>
           )}
@@ -310,14 +301,14 @@ export default function CreatorSubscriptions() {
                 <Pressable
                   onPress={() => router.push('/payouts')}
                   accessibilityRole="button"
-                  accessibilityLabel={`${payoutRow.title}. ${payoutRow.body}`}
+                  accessibilityLabel={payoutRow.body ? `${payoutRow.title}. ${payoutRow.body}` : payoutRow.title}
                   style={({ pressed }) => ({ marginHorizontal: 16, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
                   <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name={payoutRow.icon} size={22} color={payoutRow.color} weight={2.2} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: payoutRow.color === C.accent2 ? C.accent2 : C.fg, fontSize: 16, fontWeight: '700' }}>{payoutRow.title}</Text>
-                    <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, marginTop: 2 }}>{payoutRow.body}</Text>
+                    {payoutRow.body ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, marginTop: 2 }}>{payoutRow.body}</Text> : null}
                   </View>
                   <Icon name="right" size={16} color={C.fg2} weight={2} />
                 </Pressable>
@@ -333,7 +324,7 @@ export default function CreatorSubscriptions() {
               {subscribers === null ? (
                 <Loading />
               ) : subscribers.length === 0 ? (
-                <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noSubscribers')}</Text>
+                <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noSubscribersYet')}</Text>
               ) : (
                 subscribers.map((s) => (
                   <PersonLine
@@ -352,7 +343,7 @@ export default function CreatorSubscriptions() {
           {mine === null ? (
             <Loading />
           ) : mine.length === 0 ? (
-            <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noneMine')}</Text>
+            <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noneMineYet')}</Text>
           ) : (
             mine.map((s) => (
               <PersonLine

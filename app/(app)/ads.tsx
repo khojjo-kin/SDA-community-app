@@ -76,7 +76,6 @@ export default function Ads() {
           <Empty
             icon="megaphone"
             title="No ads yet"
-            body="Promoting a post puts it at the top of For you and Explore, labelled Sponsored, for the days you choose. You pay once; nothing renews."
           />
         }
         renderItem={({ item }) => <AdRow item={item} onAgain={(postId) => router.push(`/promote/${postId}`)} />}

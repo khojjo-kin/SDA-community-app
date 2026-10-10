@@ -37,7 +37,7 @@ function useHideLaunchScreen(ready: boolean) {
   useEffect(() => {
     // Wait for the saved theme so the first screen is drawn in the right colours, but never for long.
     if (ready) {
-      // Once the logo cover (LaunchCover) has its logo on screen, so the launch screen gives way to the same picture.
+      // Only once the logo cover's (LaunchCover) first frame is on screen, so the launch screen gives way to the same picture.
       whenCoverDrawn().then(() => SplashScreen.hideAsync().catch(() => {}));
       return;
     }
@@ -47,15 +47,15 @@ function useHideLaunchScreen(ready: boolean) {
 }
 
 /**
- * The phone's own parts of the app (alerts, share sheets, the keyboard) are dark from app.json. On
- * White they are made light to match, and dark again on the other themes.
+ * The phone's own parts of the app (alerts, share sheets, the keyboard) follow the theme: light on
+ * White, dark on Dark.
  */
 function useSystemAppearance(theme: string) {
   useEffect(() => {
     try {
       if (typeof Appearance?.setColorScheme === 'function') Appearance.setColorScheme(theme === 'white' ? 'light' : 'dark');
     } catch {
-      // Older phones without the setting keep the dark look from app.json.
+      // Older phones without the setting follow the phone's own light or dark mode.
     }
   }, [theme]);
 }
@@ -197,7 +197,7 @@ export default function RootLayout() {
           </SessionProvider>
         </Gate>
       </ClerkProvider>
-      {/* The logo at start-up and after a long time away, over everything. Outside the keyed parts above, so a new theme or language never plays it again. */}
+      {/* The logo at start-up, over everything. Outside the keyed parts above, so a new theme or language never plays it again. */}
       <LaunchCover />
     </GestureHandlerRootView>
   );

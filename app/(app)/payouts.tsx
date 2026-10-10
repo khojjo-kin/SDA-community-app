@@ -6,6 +6,7 @@ import { Icon, type IconName } from '../../src/components/Icon';
 import { Button, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, Sheet, useToast } from '../../src/components/ui';
 import { fetchPayouts, fetchUserFundraisers, openPayoutsDashboard, startPayoutsOnboarding } from '../../src/lib/api';
 import { ensureStripe, money } from '../../src/lib/payments';
+import { t } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Fundraiser, PayoutStatus } from '../../src/lib/types';
@@ -67,11 +68,11 @@ function inAppBrowser(): WebBrowserModule | null {
 }
 
 /** The four states a payout account can be in, in plain words. */
-function describe(s: PayoutStatus): { title: string; body: string; icon: IconName; color: string; ready: boolean } {
-  if (!s.has_account) return { title: 'Not set up', body: 'Set up payouts to receive donations to a fundraiser.', icon: 'card', color: C.fg2, ready: false };
-  if (!s.charges_enabled) return { title: 'Details needed', body: 'Stripe needs a few more details before gifts can be taken. Continue where you left off.', icon: 'info', color: C.warn, ready: false };
-  if (!s.payouts_enabled) return { title: 'Ready to receive donations', body: 'Gifts can be taken now. Add or check your bank details so the money can be paid out.', icon: 'check', color: C.accent2, ready: true };
-  return { title: 'Payouts enabled', body: 'Gifts are taken and paid out to your bank automatically.', icon: 'check', color: C.accent2, ready: true };
+function describe(s: PayoutStatus): { title: string; icon: IconName; color: string; ready: boolean } {
+  if (!s.has_account) return { title: 'Not set up', icon: 'card', color: C.fg2, ready: false };
+  if (!s.charges_enabled) return { title: 'Details needed', icon: 'info', color: C.warn, ready: false };
+  if (!s.payouts_enabled) return { title: 'Ready to receive donations', icon: 'check', color: C.accent2, ready: true };
+  return { title: 'Payouts enabled', icon: 'check', color: C.accent2, ready: true };
 }
 
 /**
@@ -169,10 +170,7 @@ export default function Payouts() {
     account = (
       <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
         <Icon name="card" size={24} color={C.fg2} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Card payments aren't switched on yet</Text>
-          <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 3 }}>You can set up payouts as soon as they are. Your fundraiser can still be started and shared meanwhile.</Text>
-        </View>
+        <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>{t('pay.unavailable')}</Text>
       </View>
     );
   } else if (!status) account = <Loading />;
@@ -194,7 +192,6 @@ export default function Payouts() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '700' }}>STATUS</Text>
             <Text style={{ color: d.ready ? C.accent2 : C.fg, fontSize: 17, fontWeight: '700', marginTop: 1 }}>{d.title}</Text>
-            <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 3 }}>{d.body}</Text>
           </View>
         </View>
         {status.has_account ? null : (
@@ -213,18 +210,12 @@ export default function Payouts() {
               </View>
               <Icon name="right" size={16} color={C.fg2} weight={2} />
             </Pressable>
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18 }}>
-              It can't be changed once payouts are set up. Members in countries not listed can't receive donations yet.
-            </Text>
           </View>
         )}
         {!finished ? <Button label={status.has_account ? 'Continue setup' : 'Set up payouts'} busy={busy === 'setup'} disabled={!!busy && busy !== 'setup'} onPress={setup} /> : null}
         {status.has_account && status.details_submitted ? (
           <Button label="Open payout dashboard" kind="ghost" busy={busy === 'dashboard'} disabled={!!busy && busy !== 'dashboard'} onPress={dashboard} />
         ) : null}
-        <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>
-          {finished ? 'Your bank details, payouts and tax forms are in the payout dashboard, run by Stripe.' : "Setup happens on Stripe's secure form. It asks for your name, date of birth and bank details."}
-        </Text>
       </View>
     );
   }
@@ -234,12 +225,7 @@ export default function Payouts() {
     <Screen>
       <ScreenHeader title="Payouts" />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 6, marginBottom: 16 }}>
-          <Icon name="gift" size={22} color={C.accent2} />
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 21 }}>
-            Donations to your fundraisers go straight to your own Stripe account and on to your bank. The app never holds the money and takes no fee.
-          </Text>
-        </View>
+        <View style={{ height: 6 }} />
         {account}
 
         <SectionLabel>Your fundraisers</SectionLabel>
@@ -270,7 +256,7 @@ export default function Payouts() {
             })}
             {fundraisers.length === 0 ? (
               <Text style={{ color: C.fg2, lineHeight: 20 }}>
-                {restricted ? 'Fundraisers are for members 14 and over.' : "You haven't started a fundraiser. Raise money for your church, a mission trip or someone in need."}
+                {restricted ? 'Fundraisers are for members 14 and over.' : "You haven't started a fundraiser."}
               </Text>
             ) : null}
             {restricted ? null : <Button label="Start a fundraiser" kind={fundraisers.length ? 'ghost' : 'primary'} onPress={() => router.push('/fundraiser-new')} style={{ marginTop: 4 }} />}

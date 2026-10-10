@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AgeStep } from '../../src/components/AgeGate';
 import { AuthShell, ConsentBox, DARK_FIELD } from '../../src/components/AuthShell';
 import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
-import { blockDeviceForAge, isDeviceAgeBlocked, rememberSignUpBirthDate } from '../../src/lib/age';
+import { isDeviceAgeBlocked } from '../../src/lib/age';
 import { rememberSignUpConsent } from '../../src/lib/consent';
 import { useT } from '../../src/lib/i18n';
 import { DARK, errText } from '../../src/lib/theme';
@@ -21,8 +20,8 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  // The date of birth comes first, before an email, a password or Apple or Google (see AgeStep).
-  const [stage, setStage] = useState<'age' | 'form' | 'verify'>('age');
+  // The date of birth is asked once, in onboarding, for every new account however it was made.
+  const [stage, setStage] = useState<'form' | 'verify'>('form');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   // Explicit consent to use what may show religious belief (a church, using a Christian app), which
@@ -39,22 +38,6 @@ export default function SignUp() {
       if (blocked) router.replace('/cannot-join');
     });
   }, [router]);
-
-  async function adult(iso: string) {
-    if (await isDeviceAgeBlocked()) {
-      router.replace('/cannot-join');
-      return;
-    }
-    // Carried to onboarding, which saves it with the new profile instead of asking again.
-    rememberSignUpBirthDate(iso);
-    setStage('form');
-  }
-
-  function child() {
-    // Nothing has been sent anywhere. The phone remembers for a day, so another date doesn't get round it.
-    blockDeviceForAge();
-    router.replace('/cannot-join');
-  }
 
   async function create() {
     if (!isLoaded || busy) return;
@@ -120,8 +103,6 @@ export default function SignUp() {
       </Pressable>
     </Link>
   );
-
-  if (stage === 'age') return <AgeStep onAdult={adult} onChild={child} footer={haveAccount} />;
 
   if (stage === 'verify') {
     return (

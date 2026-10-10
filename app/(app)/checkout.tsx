@@ -5,7 +5,7 @@ import { confirmPayment, confirmPlatformPayPayment, confirmPlatformPaySetupInten
 import { CardChip, CardInput, CardPreview, cardTitle, expiryLabel, isExpired, PaymentsOff } from '../../src/components/CardPreview';
 import { Icon } from '../../src/components/Icon';
 import { RenewalTerms } from '../../src/components/RenewalTerms';
-import { Button, ErrorNote, Loading, Radio, Screen, ScreenHeader, SectionLabel, Toggle } from '../../src/components/ui';
+import { Button, ErrorNote, Loading, Radio, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
 import { fetchSavedCards, startSubscription, syncSubscription } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
 import { type Key, tSplit, useT } from '../../src/lib/i18n';
@@ -18,9 +18,6 @@ import type { PaymentsConfig, SavedCard } from '../../src/lib/types';
 const NEW = 'new';
 
 type Plan = 'monthly' | 'yearly';
-
-/* The tick is not a Plus feature (it comes from an identity check), so it is not listed here. Keys, looked up as the page draws. */
-const PERKS: Key[] = ['checkout.perkPreview', 'checkout.perkAlerts', 'checkout.perkStyle', 'plus.allErha'];
 
 type Failure = { code: string; message: string; localizedMessage?: string };
 
@@ -66,8 +63,6 @@ export default function Checkout() {
   const [done, setDone] = useState<Done | null>(null);
   // Set when the page offered a free week but the server would charge now (it was used up meanwhile).
   const [noTrial, setNoTrial] = useState(false);
-  // Set when the plan was just switched during the free week and a card for after it is still needed.
-  const [switched, setSwitched] = useState(false);
   // State updates land a frame late, so a quick double tap could slip past `busy`: the ref cannot.
   const working = useRef(false);
   const alive = useRef(true);
@@ -254,7 +249,6 @@ export default function Checkout() {
       if (r.intent === 'setup' && r.client_secret) {
         if (alive.current) {
           setConfig((c) => (c ? { ...c, plan, needs_card: true } : c));
-          setSwitched(true);
         }
         refresh().catch(() => {});
         return;
@@ -274,7 +268,7 @@ export default function Checkout() {
   if (error) body = <ErrorNote message={error} onRetry={load} />;
   else if (!config) body = <Loading />;
   else if (!config.ready) body = <PaymentsOff onBack={leave} />;
-  else if (done) body = <Welcome done={done} plan={plan} fallbackEnds={startsOn} onDone={leave} />;
+  else if (done) body = <Welcome done={done} plan={plan} onDone={leave} />;
   // A member in the free week without a card, on the plan asked for, gets the card form below instead.
   else if ((config.status === 'active' || config.status === 'trialing') && !(addingCard && (config.plan ?? 'monthly') === plan)) {
     // Subscriptions from before the yearly plan have no plan recorded: they are monthly.
@@ -285,7 +279,6 @@ export default function Checkout() {
       const was = money(priceOf(config, current), config.currency);
       // The price drawn large, wherever the language puts it among its words.
       const [perBefore, perAfter] = tSplit(perKey(plan), 'price');
-      const carriesOn = t(plan === 'yearly' ? (day ? 'checkout.switchTrialYearlyOn' : 'checkout.switchTrialYearly') : day ? 'checkout.switchTrialMonthlyOn' : 'checkout.switchTrialMonthly', { day });
       const switchTo = plan === 'yearly' ? t('plus.switchToYearly') : t('plus.switchToMonthly');
       body = (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 40, gap: 14 }}>
@@ -297,14 +290,7 @@ export default function Checkout() {
             <Text style={{ color: C.fg, fontSize: 15.5 }}>
               {perBefore}<Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text>{perAfter}
             </Text>
-            <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>
-              {t(config.cancel_at_period_end ? 'checkout.insteadOfRenew' : 'checkout.insteadOf', { cost: cost(current, was) })}
-            </Text>
-            <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>
-              {config.status === 'trialing'
-                ? addingCard ? t('checkout.nextAddCard', { text: carriesOn }) : carriesOn
-                : t('checkout.switchNow')}
-            </Text>
+            <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{t('checkout.insteadOf', { cost: cost(current, was) })}</Text>
           </View>
           {payError ? <PayError message={payError} /> : null}
           <Button label={switchTo} busy={!!busy} onPress={switchPlan} />
@@ -316,9 +302,6 @@ export default function Checkout() {
         <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 40, gap: 10 }}>
           <PlusBadge size={92} />
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>{t('checkout.alreadyMember')}</Text>
-          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
-            {config.cancel_at_period_end ? t('checkout.setToEnd', { day }) : day ? t('checkout.renewsOn', { day }) : t('checkout.thanks')}
-          </Text>
           <Button label={from ? t('checkout.done') : t('checkout.goToPlus')} onPress={leave} style={{ alignSelf: 'stretch', marginTop: 14 }} />
         </View>
       );
@@ -342,11 +325,6 @@ export default function Checkout() {
             <Notice color={C.warn} icon="info">{t('checkout.testMode')}</Notice>
           ) : null}
           {config.status === 'past_due' ? <Notice color={C.like} icon="info">{t('checkout.renewalFailed')}</Notice> : null}
-          {addingCard ? (
-            <Notice color={C.accent2} icon="info">
-              {switched ? t(plan === 'yearly' ? 'checkout.switchedAddCardYearly' : 'checkout.switchedAddCardMonthly') : t('checkout.noCardEndsOn', { day: ends })}
-            </Notice>
-          ) : null}
 
           <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -360,32 +338,17 @@ export default function Checkout() {
               <View style={{ gap: 4 }}>
                 <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>{t('checkout.freeForDays', { days: trialDays })}</Text>
                 <Text style={{ color: C.fg, fontSize: 15.5 }}>{t('checkout.then', { cost: per })}</Text>
-                <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 4 }}>
-                  {t('checkout.trialNote', { days: trialDays, cost: per, day: ends })}
-                </Text>
               </View>
             ) : addingCard ? (
               <View style={{ gap: 4 }}>
                 <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>{t('checkout.freeUntil', { day: ends })}</Text>
                 <Text style={{ color: C.fg, fontSize: 15.5 }}>{t('checkout.then', { cost: per })}</Text>
-                <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 4 }}>
-                  {t('checkout.addingCardNote', { day: ends })}
-                </Text>
               </View>
             ) : (
               <Text style={{ color: C.fg, fontSize: 15.5 }}>
                 {perBefore}<Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text>{perAfter}
               </Text>
             )}
-            <View style={{ gap: 8 }}>
-              {PERKS.map((p) => (
-                <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Icon name="check" size={18} color={C.accent2} weight={2.4} />
-                  <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5 }}>{t(p)}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={{ color: C.fg3, fontSize: 13 }}>{t(shownPlan === 'yearly' ? 'checkout.cancelRenewsYearly' : 'checkout.cancelRenewsMonthly')}</Text>
           </View>
 
           <SectionLabel>{freeNow ? t('checkout.cardForAfter') : t('checkout.payWith')}</SectionLabel>
@@ -453,15 +416,6 @@ export default function Checkout() {
             <View style={{ paddingHorizontal: 16, paddingTop: 18, gap: 14 }}>
               <CardPreview brand={card?.brand} last4={card?.last4} expMonth={card?.expiryMonth} expYear={card?.expiryYear} name={name} />
               <CardInput onChange={setCard} disabled={!!busy} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '600' }}>{t('checkout.keepOnFile')}</Text>
-                  <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18, marginTop: 2 }}>
-                    {freeNow ? t('checkout.keepOnFileTrial', { day: ends }) : t(shownPlan === 'yearly' ? 'checkout.keepOnFileYearly' : 'checkout.keepOnFileMonthly')}
-                  </Text>
-                </View>
-                <Toggle value onChange={() => {}} disabled label={t('checkout.keepOnFile')} />
-              </View>
             </View>
           ) : null}
 
@@ -483,9 +437,6 @@ export default function Checkout() {
               )}
             </Pressable>
             {terms}
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>
-              {t('checkout.stripeNote')}
-            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -537,32 +488,20 @@ function DefaultPill() {
 }
 
 /** Shown in place of the checkout once Plus is paid for, the free week has started, or the plan has changed. */
-function Welcome({ done, plan, fallbackEnds, onDone }: { done: Done; plan: Plan; fallbackEnds: Date; onDone: () => void }) {
+function Welcome({ done, plan, onDone }: { done: Done; plan: Plan; onDone: () => void }) {
   const t = useT();
   const pop = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
     tap('success');
     Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
   }, [pop]);
-  // A trialling subscription's period ends when the free week does.
-  const ends = longDay(done.ends ?? fallbackEnds);
   const title = done.kind === 'trial' ? t('checkout.trialStarted') : done.kind === 'switched' ? t(plan === 'yearly' ? 'checkout.onYearly' : 'checkout.onMonthly') : done.kind === 'card' ? t('checkout.cardSaved') : t('checkout.welcome');
-  const body =
-    done.kind === 'trial'
-      ? t('checkout.trialStartedBody', { day: ends })
-      : done.kind === 'switched'
-        ? t('checkout.thanks')
-        : done.kind === 'card'
-          ? t('checkout.cardSavedBody', { day: ends })
-          : t('checkout.welcomeBody');
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 60, gap: 10 }}>
       <Animated.View style={{ transform: [{ scale: pop }] }}>
         <PlusBadge size={128} />
       </Animated.View>
       <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 26, fontWeight: '800', marginTop: 8, textAlign: 'center' }}>{title}</Text>
-      <Text style={{ color: C.fg2, fontSize: 16, textAlign: 'center', lineHeight: 22 }}>{body}</Text>
-      {done.slow ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 20 }}>{t('checkout.slow')}</Text> : null}
       <Button label={t('checkout.done')} onPress={onDone} style={{ alignSelf: 'stretch', marginTop: 18 }} />
     </View>
   );

@@ -133,16 +133,11 @@ export default function ProfileStyle() {
       <ScrollView contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 }}>
         <Preview name={profile?.full_name || profile?.username || 'You'} username={profile?.username ?? ''} uri={profile?.avatar_url} ring={ring} theme={theme} />
 
-        {plus ? (
-          <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20, paddingHorizontal: GUTTER, paddingTop: 14 }}>Everyone who visits your profile sees these. Stories for close friends keep their blue ring.</Text>
-        ) : (
+        {plus ? null : (
           <View style={{ marginHorizontal: GUTTER, marginTop: 14, padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Icon name="crown" size={26} color={C.accent2} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Part of Community Plus</Text>
-                <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 19, marginTop: 2 }}>Choose the colour of the ring round your stories and memories, and give your profile a look of its own.</Text>
-              </View>
+              <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>Part of Community Plus</Text>
             </View>
             <Button label="Get Community Plus" onPress={() => router.push('/plus')} />
           </View>

@@ -254,7 +254,7 @@ export function DiscoverCarousel({ open, accent, link }: { open: boolean; accent
       </View>
     );
   } else if (!visible.length) {
-    body = <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingVertical: 18, lineHeight: 20 }}>No one to suggest just now. Tap See all to invite friends from church.</Text>;
+    body = <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingVertical: 18, lineHeight: 20 }}>No one to suggest just now.</Text>;
   } else {
     body = (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>

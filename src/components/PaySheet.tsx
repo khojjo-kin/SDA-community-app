@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { confirmPayment, confirmPlatformPayPayment, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
+import { confirmPayment, confirmPlatformPayPayment, confirmPlatformPaySetupIntent, confirmSetupIntent, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
 import { fetchSavedCards, settlePayment } from '../lib/api';
 // Plain t(): every screen is drawn again from the root when the language changes. The card and
 // payment lines are shared with the Plus checkout (checkout.*).
@@ -11,14 +11,16 @@ import { C, errText } from '../lib/theme';
 import type { OneOffPayment, PaymentsConfig, SavedCard } from '../lib/types';
 import { CardChip, CardInput, cardTitle, expiryLabel, isExpired } from './CardPreview';
 import { Icon } from './Icon';
-import { Button, Empty, ErrorNote, Loading, Radio, Sheet } from './ui';
+import { Button, Empty, ErrorNote, Loading, Radio, Sheet, useToast } from './ui';
 
 /**
- * Paying a one-off amount (an ad, a gift to a fundraiser, the first month of a subscription to a
- * creator) in the app's own sheet: Apple Pay, a saved
- * card, or a new card typed into Stripe's field. The same approach as the Plus checkout: the server
- * starts the payment, the phone confirms it (Stripe handles 3-D Secure inside the confirm call), then
- * the server is asked to settle it. The webhook settles it too, so a slow settle is not a failure.
+ * Paying in the app's own sheet (an ad, a gift to a fundraiser, a subscription to a creator or to
+ * Plus): Apple Pay, a saved card, or a new card typed into Stripe's field. The server starts the
+ * payment, the phone confirms it (Stripe handles 3-D Secure inside the confirm call), then the server
+ * is asked to settle it. The webhook settles it too, so a slow settle is not a failure.
+ *
+ * useInstantPay starts paying from a single button, the way a subscribe button should: Apple Pay's
+ * own sheet straight away when the phone has it, otherwise this sheet with the saved cards.
  */
 
 /** The "New card" choice. Saved cards use their Stripe id (pm_…). */
@@ -26,27 +28,32 @@ const NEW = 'new';
 
 type Failure = { code: string; message: string; localizedMessage?: string };
 
-/** What `start` hands back. `already` means there is nothing left to pay (a subscription that is already on). */
-export type PayStart = OneOffPayment & { already?: boolean };
+/**
+ * What `start` hands back. `already` means there is nothing left to pay (a subscription that is
+ * already on). `intent: 'setup'` is a card saved for later with nothing charged now (Plus's free week).
+ */
+export type PayStart = OneOffPayment & { already?: boolean; intent?: 'payment' | 'setup' };
 
 export type PayProps = {
   /** What is being paid for ("Promote for 7 days", "Gift to Choir trip"). */
   title: string;
   /** The total, already formatted ("£14.00"). */
   amountLabel: string;
-  /** Starts the payment on the server. Called once per press of Pay, never before. */
-  start: () => Promise<PayStart>;
+  /** Starts the payment on the server, with the saved card chosen (if any). Called once per press of Pay, never before. */
+  start: (savedCardId: string | null) => Promise<PayStart>;
   /** Paid. `slow` is true when the server has not caught up yet: it may take a minute to show. */
   onPaid: (paymentIntentId: string, slow: boolean) => void;
   /**
    * Used instead of settlePayment after confirming, for payments the server reads back another way
-   * (a creator subscription is synced, not settled). If it throws, the payment counts as slow.
+   * (a subscription is synced, not settled). If it throws, the payment counts as slow.
    */
   onConfirmed?: (paymentIntentId: string) => Promise<void>;
   /** The line on the Apple Pay sheet ("Community ad · 7 days"). Defaults to the title. */
   walletLabel?: string;
-  /** Apple Pay button wording: "Buy with" for ads, "Support with" for gifts. */
-  wallet?: 'buy' | 'support';
+  /** Apple Pay's lines for a payment, when one line won't do (a subscription that recurs). The last is the total. */
+  walletItems?: (p: PayStart) => PlatformPay.CartSummaryItem[];
+  /** Apple Pay button wording: "Buy with" for ads, "Support with" for gifts, "Subscribe with". */
+  wallet?: 'buy' | 'support' | 'subscribe';
   /** Small print under the Pay button. */
   note?: string;
   /** Drawn under the note, such as a subscription's renewal terms (RenewalTerms). */
@@ -57,11 +64,69 @@ export type PayProps = {
   onClose?: () => void;
 };
 
+type Outcome = { kind: 'paid'; id: string; slow: boolean } | { kind: 'cancelled' } | { kind: 'failed'; message: string };
+
+/** Confirms the payment (or the card saved for later) on the phone. Returns nothing when done, or why it was not. */
+async function confirmOnPhone(via: 'apple' | 'card', saved: string | null, p: PayStart, props: PayProps, name: string): Promise<Failure | undefined> {
+  const currency = (p.currency || 'GBP').toUpperCase();
+  const setup = p.intent === 'setup';
+  if (via === 'apple') {
+    const amount = (p.amount / 100).toFixed(2);
+    const label = props.walletLabel || props.title;
+    const applePay = {
+      // Apple shows the last line as the total, paid to the business named on it.
+      cartItems: props.walletItems?.(p) ?? [
+        { label, amount, paymentType: PlatformPay.PaymentType.Immediate },
+        { label: 'Community', amount, paymentType: PlatformPay.PaymentType.Immediate },
+      ],
+      merchantCountryCode: 'GB',
+      currencyCode: currency,
+    };
+    const { error: e } = setup ? await confirmPlatformPaySetupIntent(p.client_secret, { applePay }) : await confirmPlatformPayPayment(p.client_secret, { applePay });
+    return e;
+  }
+  const paymentMethodData = saved ? { paymentMethodId: saved } : { billingDetails: name ? { name } : undefined };
+  const { error: e } = setup ? await confirmSetupIntent(p.client_secret, { paymentMethodType: 'Card', paymentMethodData }) : await confirmPayment(p.client_secret, { paymentMethodType: 'Card', paymentMethodData });
+  return e;
+}
+
+/** One go at paying: start it on the server, confirm it on the phone, then have the server catch up. */
+async function payOnce(via: 'apple' | 'card', saved: string | null, props: PayProps, name: string): Promise<Outcome> {
+  // A fresh payment for every attempt: the server marks a declined one as failed, and a failed
+  // ad would not start even if the same payment went through on a second try.
+  const p = await props.start(saved);
+  // Nothing to pay (already subscribed, say): done, without asking the card or Apple Pay.
+  if (p?.already) return { kind: 'paid', id: p.payment_intent_id || '', slow: false };
+  if (!p?.client_secret) throw new Error(t('checkout.couldNotStart'));
+  const id = p.payment_intent_id || p.client_secret.split('_secret_')[0];
+  const failure = await confirmOnPhone(via, saved, p, props, name);
+  // Closing Apple Pay or the bank's check is not an error.
+  if (failure && String(failure.code) === 'Canceled') return { kind: 'cancelled' };
+  const failed = (f: Failure): Outcome => ({ kind: 'failed', message: f.localizedMessage || f.message || t('checkout.didNotGoThrough') });
+  if (props.onConfirmed) {
+    // Asked either way, as with settling below: if Stripe's answer was lost but the money moved, this finds it.
+    let synced = true;
+    try {
+      await props.onConfirmed(id);
+    } catch {
+      synced = false;
+    }
+    if (failure) return failed(failure);
+    return { kind: 'paid', id, slow: !synced };
+  }
+  // Ask the server either way: if Stripe's answer was lost on the way back but the money moved,
+  // this finds it, rather than asking the member to pay a second time.
+  const settled = await settlePayment(id).catch(() => null);
+  if (failure && settled?.status !== 'succeeded') return failed(failure);
+  return { kind: 'paid', id, slow: !settled?.settled };
+}
+
 /**
  * The paying part on its own, for a sheet that has steps of its own before it (the donation sheet).
  * Mount it only while it is showing: each visit starts fresh.
  */
-export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walletLabel, wallet = 'buy', note, footer, onBusy, onClose }: PayProps) {
+export function PayPanel(props: PayProps) {
+  const { title, amountLabel, onPaid, wallet = 'buy', note, footer, onBusy, onClose } = props;
   const { profile } = useSession();
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [error, setError] = useState('');
@@ -111,33 +176,6 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
     setPayError('');
   }
 
-  /** Confirms the payment on the phone. Returns nothing when paid, or why it was not. */
-  async function confirm(via: 'apple' | 'card', saved: string | null, p: OneOffPayment): Promise<Failure | undefined> {
-    const currency = (p.currency || 'GBP').toUpperCase();
-    if (via === 'apple') {
-      const amount = (p.amount / 100).toFixed(2);
-      const label = walletLabel || title;
-      const { error: e } = await confirmPlatformPayPayment(p.client_secret, {
-        applePay: {
-          // Apple shows the last line as the total, paid to the business named on it.
-          cartItems: [
-            { label, amount, paymentType: PlatformPay.PaymentType.Immediate },
-            { label: 'Community', amount, paymentType: PlatformPay.PaymentType.Immediate },
-          ],
-          merchantCountryCode: 'GB',
-          currencyCode: currency,
-        },
-      });
-      return e;
-    }
-    if (saved) {
-      const { error: e } = await confirmPayment(p.client_secret, { paymentMethodType: 'Card', paymentMethodData: { paymentMethodId: saved } });
-      return e;
-    }
-    const { error: e } = await confirmPayment(p.client_secret, { paymentMethodType: 'Card', paymentMethodData: { billingDetails: name ? { name } : undefined } });
-    return e;
-  }
-
   async function pay(via: 'apple' | 'card') {
     if (!config || working.current) return;
     const saved = via === 'card' && method && method !== NEW ? method : null;
@@ -147,40 +185,9 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
     setBusy(via);
     onBusy?.(true);
     try {
-      // A fresh payment for every attempt: the server marks a declined one as failed, and a failed
-      // ad would not start even if the same payment went through on a second try.
-      const p = await start();
-      // Nothing to pay (already subscribed, say): done, without asking the card or Apple Pay.
-      if (p?.already) {
-        onPaid(p.payment_intent_id || '', false);
-        return;
-      }
-      if (!p?.client_secret || !p.payment_intent_id) throw new Error(t('checkout.couldNotStart'));
-      const failure = await confirm(via, saved, p);
-      if (failure && String(failure.code) === 'Canceled') return; // Closing Apple Pay or the bank's check is not an error.
-      if (onConfirmed) {
-        // Asked either way, as with settling below: if Stripe's answer was lost but the money moved, this finds it.
-        let synced = true;
-        try {
-          await onConfirmed(p.payment_intent_id);
-        } catch {
-          synced = false;
-        }
-        if (failure) {
-          if (alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
-          return;
-        }
-        onPaid(p.payment_intent_id, !synced);
-        return;
-      }
-      // Ask the server either way: if Stripe's answer was lost on the way back but the money moved,
-      // this finds it, rather than asking the member to pay a second time.
-      const settled = await settlePayment(p.payment_intent_id).catch(() => null);
-      if (failure && settled?.status !== 'succeeded') {
-        if (alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
-        return;
-      }
-      onPaid(p.payment_intent_id, !settled?.settled);
+      const r = await payOnce(via, saved, props, name);
+      if (r.kind === 'paid') onPaid(r.id, r.slow);
+      else if (r.kind === 'failed' && alive.current) setPayError(r.message);
     } catch (e) {
       if (alive.current) setPayError(errText(e));
     } finally {
@@ -193,14 +200,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
   if (error) return <ErrorNote message={error} onRetry={load} />;
   if (!config) return <Loading />;
   if (!config.ready) {
-    return (
-      <Empty
-        icon="card"
-        title={t('pay.off')}
-        body={t('pay.offBody')}
-        action={onClose ? <Button label={t('common.close')} kind="ghost" onPress={onClose} style={{ marginTop: 10, alignSelf: 'stretch' }} /> : undefined}
-      />
-    );
+    return <Empty icon="card" title={t('pay.unavailable')} action={onClose ? <Button label={t('common.close')} kind="ghost" onPress={onClose} style={{ marginTop: 10, alignSelf: 'stretch' }} /> : undefined} />;
   }
 
   const canPay = !busy && !!method && (method !== NEW || !!card?.complete);
@@ -225,7 +225,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
       {applePay ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 14 }}>
           <PlatformPayButton
-            type={wallet === 'support' ? PlatformPay.ButtonType.Support : PlatformPay.ButtonType.Buy}
+            type={wallet === 'support' ? PlatformPay.ButtonType.Support : wallet === 'subscribe' ? PlatformPay.ButtonType.Subscribe : PlatformPay.ButtonType.Buy}
             appearance={C.blurTint === 'light' ? PlatformPay.ButtonStyle.Black : PlatformPay.ButtonStyle.White}
             borderRadius={12}
             disabled={!!busy}
@@ -313,7 +313,6 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
             </>
           )}
         </Pressable>
-        <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{t('checkout.stripeNote')}</Text>
         {note ? <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{note}</Text> : null}
         {footer}
       </View>
@@ -343,4 +342,62 @@ export function PaySheet({ visible, onClose, ...props }: PayProps & { visible: b
       ) : null}
     </Sheet>
   );
+}
+
+/**
+ * Paying from one button, straight away: Apple Pay's own sheet when the phone has it, otherwise
+ * the payment sheet with the saved cards and a new card. When payments aren't on, a short toast.
+ * Render `sheet` in the screen; call `pay` from the button; `busy` is true while it gets going.
+ */
+export function useInstantPay(props: PayProps): { pay: () => void; busy: boolean; sheet: React.ReactNode } {
+  const { profile } = useSession();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const working = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+  // The latest words and callbacks, read when the button is pressed.
+  const latest = useRef(props);
+  latest.current = props;
+
+  const pay = useCallback(async () => {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    try {
+      let c = await ensureStripe();
+      if (!c.ready) c = await ensureStripe(true);
+      if (!c.ready) {
+        toast(t('pay.unavailable'));
+        return;
+      }
+      if (Platform.OS === 'ios' && (await applePayAvailable(c))) {
+        const p = latest.current;
+        const r = await payOnce('apple', null, p, profile?.full_name?.trim() ?? '');
+        if (r.kind === 'paid') p.onPaid(r.id, r.slow);
+        else if (r.kind === 'failed') toast(r.message);
+        return;
+      }
+      if (alive.current) setOpen(true);
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      working.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }, [profile?.full_name, toast]);
+
+  const sheet = (
+    <PaySheet
+      {...props}
+      visible={open}
+      onClose={() => setOpen(false)}
+      onPaid={(id, slow) => {
+        setOpen(false);
+        props.onPaid(id, slow);
+      }}
+    />
+  );
+  return { pay, busy, sheet };
 }

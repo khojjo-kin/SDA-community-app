@@ -6,7 +6,7 @@ import { C } from '../../lib/theme';
 
 /**
  * Small pieces shared by the Sabbath School pages. Page colours come from `C` at render time so
- * the coming light and green themes apply; the saturated lesson colours carry white text and are
+ * the White theme applies; the saturated lesson colours carry white text and are
  * fixed, because white on a deep colour reads in every theme.
  */
 

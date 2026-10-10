@@ -69,7 +69,7 @@ export default function Promote() {
   else if (!config || !post) body = <Loading />;
   else if (post.user_id !== me) body = <Empty icon="megaphone" title="You can only promote your own posts" />;
   else if (!config.ready) {
-    body = <Empty icon="card" title="Card payments aren't switched on yet" body="Promoting a post will be available as soon as they are. Nothing has been charged." />;
+    body = <Empty icon="card" title={t('pay.unavailable')} />;
   } else {
     const total = days * config.ad_day_pence;
     const totalLabel = money(total, config.currency);
@@ -168,7 +168,7 @@ export default function Promote() {
           amountLabel={totalLabel}
           walletLabel={`Community ad · ${plural(days, 'day')}`}
           wallet="buy"
-          note={`${t('legal.oneOff', { amount: totalLabel })} Your post is promoted as soon as the payment goes through.`}
+          note={t('legal.oneOff', { amount: totalLabel })}
           start={() => promotePost(postId, days)}
           onPaid={paid}
         />

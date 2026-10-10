@@ -85,7 +85,28 @@ export type Post = {
   captions: CaptionLine[] | null;
   captions_lang: string;
   captions_status: '' | 'pending' | 'ready' | 'none' | 'failed';
+  /* Version 20. Optional: posts kept from before it arrived have none of them. */
+  /** People tagged in it. */
+  tagged_ids?: string[];
+  /** Made or changed with AI: shows "AI info". */
+  ai_label?: boolean;
+  /** Plus: kept off feeds and Explore, only on the author's profile. */
+  profile_only?: boolean;
+  /** The like count shows to the author only. */
+  hide_likes?: boolean;
+  /** Only the author can comment. */
+  comments_off?: boolean;
+  /** A question others answer in the comments; '' for none. */
+  prompt?: string;
+  poll?: PostPoll | null;
+  /** Votes per option, in the order of poll.options. */
+  poll_counts?: number[] | null;
+  /** The option I voted for, or null. */
+  my_vote?: number | null;
 };
+
+/** A poll on a post: 2 to 4 options and an optional question. */
+export type PostPoll = { question?: string; options: string[] };
 
 /** One caption line: start and end in seconds, and the words. */
 export type CaptionLine = { s: number; e: number; t: string };
@@ -365,7 +386,29 @@ export type Thread = {
 };
 
 /** A short line above the inbox for 24 hours, seen by mutual followers or close friends. */
-export type Note = { user_id: string; text: string; audience: 'mutuals' | 'close_friends'; created_at: string; expires_at: string; username: string; full_name: string; avatar_url: string; verified: boolean; mine: boolean };
+export type Note = {
+  user_id: string;
+  /** '' when the note is a song alone. */
+  text: string;
+  audience: 'mutuals' | 'close_friends';
+  created_at: string;
+  expires_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  mine: boolean;
+  /** A song from Pod with the note (null when none, or when the song has since been taken off Pod). */
+  song_id: string | null;
+  song_title: string | null;
+  song_artist: string | null;
+  song_url: string | null;
+  song_cover: string | null;
+  /** A place, up to 80 characters; '' for none. */
+  place: string;
+  /** The bubble's colour (a hex colour); '' is the theme's own. */
+  color: string;
+};
 
 export type Message = {
   id: string;
@@ -391,7 +434,7 @@ export type Notice = {
   id: string;
   user_id: string;
   actor_id: string;
-  kind: 'like' | 'comment' | 'follow' | 'repost' | 'request' | 'accept' | 'new_post' | 'new_clip' | 'new_story' | 'live' | 'story_watch' | 'subscriber';
+  kind: 'like' | 'comment' | 'follow' | 'repost' | 'request' | 'accept' | 'new_post' | 'new_clip' | 'new_story' | 'live' | 'story_watch' | 'subscriber' | 'tag' | 'live_soon';
   post_id: string | null;
   body: string;
   created_at: string;
@@ -493,7 +536,16 @@ export type LiveCard = {
   avatar_url: string;
   verified: boolean;
   following: boolean;
+  /** Who may watch: followers, close friends, or 'practice' (only the broadcaster). */
+  audience?: LiveAudience;
+  /** A fundraiser of the broadcaster's that viewers can give to. */
+  fundraiser_id?: string | null;
 };
+
+export type LiveAudience = 'followers' | 'close_friends' | 'practice';
+
+/** A live planned ahead, shown on the broadcaster's profile. Starts within 90 days. */
+export type LiveSchedule = { id: string; user_id: string; title: string; starts_at: string; created_at: string };
 
 /** A comment on a live. The row carries who wrote it; their name is looked up from their profile. */
 export type LiveComment = {

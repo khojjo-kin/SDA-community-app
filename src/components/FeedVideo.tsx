@@ -32,7 +32,7 @@ export function FeedVideo({ post, media, width, height, active, onTap }: Props) 
   return (
     <View style={{ width, height, overflow: 'hidden' }}>
       {/* The poster stays underneath while the video loads, so starting never flashes black. */}
-      {media.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" transition={150} /> : null}
+      {media.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" transition={150} cachePolicy="memory-disk" /> : null}
       {active && media.url ? (
         <ActiveVideo media={media} width={width} height={height} onTap={onTap} onOpen={open} />
       ) : (

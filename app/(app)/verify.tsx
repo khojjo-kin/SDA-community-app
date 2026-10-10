@@ -57,21 +57,6 @@ function withScheme(s: string): string {
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
-/** One line of the introduction: an icon, a short title and a sentence. */
-function Point({ icon, title, body, tick }: { icon?: IconName; title: string; body: string; tick?: boolean }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 14 }}>
-      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-        {tick ? <VerifiedTick size={20} /> : icon ? <Icon name={icon} size={20} color={C.fg} /> : null}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>{title}</Text>
-        <Text style={{ color: C.fg2, marginTop: 2, lineHeight: 19 }}>{body}</Text>
-      </View>
-    </View>
-  );
-}
-
 /** A block of the form. A green check shows once it is complete; `onEdit` adds an Edit link (on the review page). */
 function Card({ title, sub, done, onEdit, children }: { title: string; sub?: string; done?: boolean; onEdit?: () => void; children: React.ReactNode }) {
   return (
@@ -124,7 +109,7 @@ function Line({ label, value, lines }: { label: string; value: string; lines?: n
 }
 
 /** One of the two ways to get the tick, as a card with its own button. */
-function PathCard({ icon, tag, title, body, points, action, chosen, onPress }: { icon: IconName; tag: string; title: string; body: string; points: string[]; action: string; chosen: boolean; onPress: () => void }) {
+function PathCard({ icon, tag, title, points, action, chosen, onPress }: { icon: IconName; tag: string; title: string; points: string[]; action: string; chosen: boolean; onPress: () => void }) {
   return (
     <View style={{ marginHorizontal: 16, marginTop: 12, padding: 18, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: chosen ? C.accent : 'transparent', gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -138,7 +123,6 @@ function PathCard({ icon, tag, title, body, points, action, chosen, onPress }: {
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 17.5, fontWeight: '800' }}>{title}</Text>
         </View>
       </View>
-      <Text style={{ color: C.fg2, lineHeight: 20 }}>{body}</Text>
       <View style={{ gap: 6 }}>
         {points.map((p) => (
           <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -172,14 +156,14 @@ function Progress({ index, total, title }: { index: number; total: number; title
 }
 
 /** A whole-screen message in place of the form: verified, under 14, waiting, or just sent. */
-function Notice({ icon, tick, title, body, children }: { icon?: IconName; tick?: boolean; title: string; body: string; children?: React.ReactNode }) {
+function Notice({ icon, tick, title, body, children }: { icon?: IconName; tick?: boolean; title: string; body?: string; children?: React.ReactNode }) {
   return (
     <View style={{ alignItems: 'center', paddingHorizontal: 28, paddingTop: 36, gap: 12 }}>
       <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
         {tick ? <VerifiedTick size={54} /> : icon ? <Icon name={icon} size={44} color={C.fg} /> : null}
       </View>
       <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>{title}</Text>
-      <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>{body}</Text>
+      {body ? <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>{body}</Text> : null}
       {children}
     </View>
   );
@@ -412,7 +396,7 @@ export default function Verify() {
     return (
       <Screen>
         {header}
-        <Notice tick title="You're verified" body="The blue tick shows next to your name on your profile, your posts, your comments and in chats.">
+        <Notice tick title="You're verified">
           <Button label="Done" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
         </Notice>
       </Screen>
@@ -423,7 +407,7 @@ export default function Verify() {
     return (
       <Screen>
         {header}
-        <Notice icon="lock" title="Not available yet" body="The blue tick is for members aged 14 and over, because it needs an identity document and a selfie. You can ask for it once you turn 14." />
+        <Notice icon="lock" title="Not available yet" body="The blue tick is for members aged 14 and over." />
       </Screen>
     );
   }
@@ -432,14 +416,7 @@ export default function Verify() {
     return (
       <Screen>
         {header}
-        <Notice
-          icon="check"
-          title="Request sent"
-          body={
-            sent === 'notable'
-              ? "Our team will compare your selfie with your document and look at how widely known the account is. We'll let you know what they decide. Your photos are deleted as soon as they have decided."
-              : "Our team will compare your selfie with your document, and we'll let you know when they have decided. Your photos are deleted as soon as they have."
-          }>
+        <Notice icon="check" title="Request sent">
           <Button label="Done" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
         </Notice>
       </Screen>
@@ -456,11 +433,10 @@ export default function Verify() {
   }
 
   if (pending) {
-    const what = pending.path === 'notable' ? 'compare your selfie with your document and look at how widely known the account is' : 'compare your selfie with your document';
     return (
       <Screen>
         {header}
-        <Notice icon="clock" title="Your request is being reviewed" body={`Sent on ${dayLabel(new Date(pending.created_at))}. Our team will ${what}, and we'll let you know when they have decided.`}>
+        <Notice icon="clock" title="Your request is being reviewed" body={`Sent on ${dayLabel(new Date(pending.created_at))}`}>
           <Button label="Done" kind="ghost" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
         </Notice>
       </Screen>
@@ -480,7 +456,6 @@ export default function Verify() {
             <VerifiedTick size={50} />
           </View>
           <Text style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>Get the blue tick</Text>
-          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Show people that this account really is you. Choose the way that fits you.</Text>
         </View>
 
         {declined ? (
@@ -494,7 +469,6 @@ export default function Verify() {
           icon="star"
           tag="Free"
           title="Apply as a notable account"
-          body="For public figures, ministries, churches, pastors and creators who are widely known. Our team reviews every application."
           points={['A photo of your ID and a selfie', 'A few questions about who follows you and why']}
           action="Apply"
           chosen={path === 'notable'}
@@ -504,23 +478,17 @@ export default function Verify() {
           icon="crown"
           tag={profile?.plus ? 'You have Plus' : 'With Community Plus'}
           title="Get verified with Community Plus"
-          body="For any authentic member with Community Plus. You don't need to be widely known: confirm it's really you, and our team adds the tick once they've checked."
           points={['A photo of your ID and a selfie', 'No questions about your audience']}
           action={profile?.plus ? 'Continue with Plus' : 'Get Plus to continue'}
           chosen={path === 'plus'}
           onPress={choosePlus}
         />
-
-        <View style={{ marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 18, backgroundColor: C.surface, gap: 16 }}>
-          <Point tick title="What the tick means" body="This account is who it says it is. It is not a reward or a rank." />
-          <Point icon="lock" title="Your photos stay private" body="Only our team can see them, and they are deleted as soon as your request is decided." />
-        </View>
       </>
     );
   } else if (step === 'identity') {
     body = (
       <>
-        <Card title="Your name and document" sub="Use your name exactly as it is written on your document." done={legalName.trim().length >= 2 && !!docType}>
+        <Card title="Your name and document" done={legalName.trim().length >= 2 && !!docType}>
           <Field label="Full legal name" value={legalName} onChangeText={(t) => { setLegalName(t); setFormError(''); }} placeholder="As it is written on your document" autoCapitalize="words" autoCorrect={false} autoComplete="name" textContentType="name" maxLength={120} editable={!locked} />
           <Text style={{ color: C.fg2, fontSize: 12.5 }}>Document type</Text>
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -530,7 +498,7 @@ export default function Verify() {
           </View>
         </Card>
 
-        <Card title="Photo of your document" sub="Lay it flat in good light, with no glare. Your photo, your name and all four corners should be easy to read." done={!!doc}>
+        <Card title="Photo of your document" done={!!doc}>
           {doc ? (
             <>
               <Preview photo={doc} label="Your document photo" />
@@ -547,7 +515,7 @@ export default function Verify() {
           )}
         </Card>
 
-        <Card title="A selfie" sub="Taken now, with the front camera. Face the camera in good light, with no hat or sunglasses." done={!!selfie}>
+        <Card title="A selfie" done={!!selfie}>
           {selfie ? (
             <>
               <Preview photo={selfie} label="Your selfie" />
@@ -562,8 +530,6 @@ export default function Verify() {
   } else if (step === 'notability') {
     body = (
       <>
-        <Text style={{ color: C.fg2, lineHeight: 20, paddingHorizontal: 20, paddingTop: 4 }}>Tell us about the account, so our team can see that it's widely known. Answer in your own words.</Text>
-
         <Card title="Category" done={!!category}>
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {CATEGORIES.map((c) => (
@@ -572,7 +538,7 @@ export default function Verify() {
           </View>
         </Card>
 
-        <Card title="Country or region" sub="Where the account is based, or where most of its work happens." done={country.trim().length >= 2}>
+        <Card title="Country or region" done={country.trim().length >= 2}>
           <Field value={country} onChangeText={(t) => { setCountry(t); setFormError(''); }} placeholder="For example, Ghana" autoCapitalize="words" autoComplete="country" textContentType="countryName" maxLength={60} accessibilityLabel="Country or region" />
         </Card>
 
@@ -581,11 +547,11 @@ export default function Verify() {
           <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'right' }}>{audience.trim().length}/500</Text>
         </Card>
 
-        <Card title="Also known as (optional)" sub="Other names people know you or the ministry by.">
+        <Card title="Also known as (optional)">
           <Field value={knownAs} onChangeText={setKnownAs} placeholder="Other names, in any language" maxLength={200} accessibilityLabel="Also known as" />
         </Card>
 
-        <Card title="Links (optional)" sub={`Up to ${MAX_LINKS} news articles, websites or other pages about you or your work.`}>
+        <Card title="Links (optional)">
           {links.map((l, i) => (
             <Field
               key={i}
