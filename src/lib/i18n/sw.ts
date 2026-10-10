@@ -1217,4 +1217,245 @@ export const sw: Partial<Record<Key, string>> = {
   'churches.pendingNote': 'Litaonekana kwa kila mtu msimamizi atakapoliidhinisha.',
   'churches.thanksMakeYours': 'Asante! Ungependa liwe kanisa lako?',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Malipo',
+  'payments.cards': 'Kadi zilizohifadhiwa',
+  'payments.addCard': 'Ongeza kadi',
+  // The add-card sheet's title.
+  'payments.addACard': 'Ongeza kadi',
+  'payments.cardSaved': 'Kadi imehifadhiwa',
+  'payments.cardNotSaved': 'Kadi haikuweza kuhifadhiwa. Jaribu tena.',
+  'payments.cardOptions': 'Hufungua chaguo za kadi hii',
+  'payments.makeDefault': 'Weka kuwa chaguo-msingi',
+  'payments.removeCard': 'Ondoa kadi',
+  'payments.removeQuestion': 'Ungependa kuondoa kadi hii?',
+  'payments.removeBody': '{card} itaondolewa kwenye akaunti yako.',
+  'payments.removeBodyDefault': '{card} itaondolewa kwenye akaunti yako. Plus hujisasisha kwa kadi hii, kwa hiyo ongeza nyingine kabla ya usasishaji wako ujao.',
+  'payments.remove': 'Ondoa',
+  'payments.cardRemoved': 'Kadi imeondolewa',
+  'payments.defaultSet': 'Plus itasasishwa kwa kadi hii',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Hujajisajili',
+  'payments.activeUntil': 'Hai hadi {day}',
+  'payments.paymentFailed': 'Malipo hayakufanikiwa',
+  'payments.creatorSubs': 'Usajili wa watayarishaji',
+  'payments.none': 'Hakuna',
+  'payments.noPayments': 'Bado hakuna malipo',
+  // A payment's state.
+  'payments.paid': 'Imelipwa',
+  'payments.failed': 'Haikufanikiwa',
+  'payments.refunded': 'Imerejeshwa',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Usajili wa mtayarishaji',
+  'payments.kindDonation': 'Mchango',
+  'payments.kindAd': 'Tangazo',
+  'payments.kindRefund': 'Marejesho ya pesa',
+  'payments.kindOther': 'Malipo',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Imepangwa na msimamizi',
+  // One payment's details.
+  'payments.status': 'Hali',
+  'payments.date': 'Tarehe',
+  'payments.method': 'Njia ya malipo',
+  'payments.reference': 'Kumbukumbu',
+  'payments.copied': 'Kumbukumbu imenakiliwa',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Kadi ya fungu',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Kadi',
+  'verseCard.make': 'Tengeneza kadi',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Mandharinyuma',
+  'verseCard.font': 'Fonti',
+  'verseCard.layout': 'Mpangilio',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Msitu',
+  'verseCard.bgGreen': 'Kijani',
+  'verseCard.bgNight': 'Usiku',
+  'verseCard.bgDusk': 'Machweo',
+  'verseCard.bgDawn': 'Alfajiri',
+  'verseCard.bgOcean': 'Bahari',
+  'verseCard.bgPaper': 'Karatasi',
+  'verseCard.bgWhite': 'Nyeupe',
+  'verseCard.bgBlack': 'Nyeusi',
+  'verseCard.photo': 'Picha',
+  'verseCard.choosePhoto': 'Chagua picha',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Panga kushoto',
+  'verseCard.alignCenter': 'Katikati',
+  'verseCard.alignRight': 'Panga kulia',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Mraba',
+  'verseCard.tall': 'Ndefu',
+  // What to do with the card.
+  'verseCard.toStory': 'Hadithi yako',
+  'verseCard.post': 'Chapisha',
+  'verseCard.save': 'Hifadhi',
+  'verseCard.saved': 'Imehifadhiwa',
+  'verseCard.allowPhotos': 'Ruhusu Community kuongeza picha kwenye mipangilio ya simu ili uhifadhi kadi.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Imefupishwa ili itoshe',
+  'verseCard.notFound': 'Fungu hilo halikupatikana.',
+  'verseCard.failed': 'Kadi haikuweza kutengenezwa. Jaribu tena.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Mfululizo wa siku {n}',
+  'bible.streakStart': 'Anza mfululizo',
+  'bible.readToday': 'Umesoma leo',
+  'bible.readAChapter': 'Soma sura moja leo',
+  'bible.bestStreak': 'Rekodi: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Siku ya {n} — endelea',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Endelea kusoma',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Fungua {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Matukio',
+  'events.title': 'Matukio',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Yajayo',
+  'events.going': 'Nitahudhuria',
+  'events.yours': 'Yako',
+  'events.interested': 'Ninavutiwa',
+  'events.create': 'Unda tukio',
+  'events.nearYou': 'Karibu nawe',
+  'events.useMyLocation': 'Tumia mahali nilipo',
+  'events.openSettings': 'Fungua mipangilio',
+  'events.emptyUpcoming': 'Hakuna matukio yajayo',
+  'events.emptyGoing': 'Bado huna mipango',
+  'events.emptyYours': 'Bado hakuna matukio',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'Watakaohudhuria {count}',
+  'events.interestedCount': 'Wanaovutiwa {count}',
+  // How far away an event is.
+  'events.km': 'km {km}',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Limeghairiwa',
+  'events.ended': 'Limeisha',
+  'events.now': 'Linaendelea sasa',
+  // The kinds of event.
+  'events.kind.service': 'Ibada',
+  'events.kind.bible_study': 'Kujifunza Biblia',
+  'events.kind.youth': 'Vijana',
+  'events.kind.prayer': 'Maombi',
+  'events.kind.outreach': 'Uinjilisti',
+  'events.kind.music': 'Muziki',
+  'events.kind.social': 'Ushirika',
+  'events.kind.other': 'Mengineyo',
+  // The event page.
+  'events.event': 'Tukio',
+  'events.gone': 'Tukio hili halipo tena',
+  'events.openInMaps': 'Fungua kwenye Ramani',
+  'events.mapsFailed': 'Ramani haikufunguka',
+  'events.organiser': 'Mratibu',
+  'events.options': 'Chaguo zaidi',
+  'events.noOneYet': 'Bado hakuna mtu',
+  'events.edit': 'Hariri',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Ghairi tukio',
+  'events.callOffQuestion': 'Ughairi tukio hili?',
+  'events.callOffBody': 'Kila aliyejibu ataona kwamba limeghairiwa.',
+  'events.keep': 'Liache',
+  'events.deleteQuestion': 'Ufute tukio hili?',
+  'events.deleteBody': 'Hili haliwezi kutenduliwa.',
+  'events.deleted': 'Tukio limefutwa',
+  // Making or changing an event.
+  'events.new': 'Tukio jipya',
+  'events.editTitle': 'Hariri tukio',
+  'events.save': 'Hifadhi',
+  'events.saved': 'Limehifadhiwa',
+  'events.addCover': 'Ongeza picha ya jalada',
+  'events.changeCover': 'Badilisha picha ya jalada',
+  'events.removeCover': 'Ondoa picha ya jalada',
+  'events.titleLabel': 'Kichwa',
+  'events.titlePlaceholder': 'Jina la tukio',
+  'events.needTitle': 'Ongeza kichwa.',
+  'events.kindLabel': 'Aina',
+  'events.date': 'Tarehe',
+  'events.starts': 'Mwanzo',
+  'events.ends': 'Mwisho',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Ongeza',
+  'events.removeEnd': 'Ondoa muda wa mwisho',
+  'events.prevMonth': 'Mwezi uliopita',
+  'events.nextMonth': 'Mwezi ujao',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Chagua muda ambao bado haujapita.',
+  'events.place': 'Mahali',
+  'events.placePlaceholder': 'Ukumbi wa kanisa, Mtaa wa Uhuru 12',
+  'events.pinOnMap': 'Weka alama kwenye ramani',
+  'events.movePin': 'Sogeza alama',
+  'events.removePin': 'Ondoa alama',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Sogeza ramani hadi mahali hapo',
+  'events.done': 'Imekamilika',
+  'events.locationOff': 'Ruhusa ya mahali imezimwa kwa Community. Iwashe kwenye mipangilio ya simu.',
+  'events.noFix': 'Mahali ulipo hapapatikani kwa sasa.',
+  'events.church': 'Kanisa',
+  'events.community': 'Jumuiya',
+  'events.none': 'Hakuna',
+  'events.searchChurches': 'Tafuta makanisa',
+  'events.details': 'Maelezo',
+  'events.detailsPlaceholder': 'Nini kitafanyika?',
+  'events.forMembers14': 'Matukio ni kwa wanachama wenye umri wa miaka 14 na zaidi',
+  // On a church or community page.
+  'events.seeAll': 'Ona yote',
+  'events.addEvent': 'Ongeza tukio',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Onyesha',
+  'auth.hide': 'Ficha',
+  'auth.showPassword': 'Onyesha nenosiri',
+  'auth.hidePassword': 'Ficha nenosiri',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Marafiki',
+  'map.nearby': 'Walio karibu',
+  'map.churches': 'Makanisa',
+  'map.events': 'Matukio',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Nenda mahali nilipo',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Nionyeshe kwenye "Walio karibu"',
+  'map.nearbyPrivacy': 'Wengine wanaona takriban mahali ulipo, kamwe si mahali hasa.',
+  'map.adultsOnly': '"Walio karibu" ni kwa wanachama wenye umri wa miaka 18 na zaidi.',
+  'map.locationOff': 'Ruhusa ya mahali imezimwa kwa Community.',
+  'map.allowLocation': 'Ruhusu ufikiaji wa mahali ili utumie "Walio karibu".',
+  'map.nearbyOnToast': 'Sasa unaonekana kwenye "Walio karibu"',
+  'map.nearbyOffToast': '"Walio karibu" imezimwa',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Hakuna mtu karibu kwa sasa',
+  'map.onePerson': 'Mtu 1 yuko karibu',
+  'map.personCount': 'Watu {n} wako karibu',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Takriban km {n} kutoka hapa',
+  'map.noChurches': 'Bado hakuna makanisa kwenye ramani',
+  'map.oneChurch': 'Kanisa 1',
+  'map.churchCount': 'Makanisa {n}',
+  'map.noEvents': 'Hakuna matukio yajayo kwenye ramani',
+  'map.oneEvent': 'Tukio 1 lijalo',
+  'map.eventCount': 'Matukio {n} yajayo',
+  'map.nearestFirst': 'Yaliyo karibu zaidi kwanza',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Onyesha orodha',
+  'map.hideList': 'Ficha orodha',
+  'map.going': 'Watakaohudhuria {n}',
+  'map.happeningNow': 'Linaendelea sasa',
+  'map.today': 'Leo',
+  'map.tomorrow': 'Kesho',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} kutoka hapa',
+  'map.viewChurch': 'Tazama kanisa',
+  'map.viewEvent': 'Tazama tukio',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Maelekezo',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Shiriki chapisho lako la kwanza',
+  // ======== end of v23 ========
 };

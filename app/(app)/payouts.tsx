@@ -179,8 +179,8 @@ export default function Payouts() {
   if (error && !status) account = <ErrorNote message={error} onRetry={refresh} />;
   else if (paymentsOn === false) {
     account = (
-      <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
-        <Icon name="card" size={24} color={C.fg2} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 4 }}>
+        <Icon name="card" size={22} color={C.fg2} />
         <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>{t('pay.unavailable')}</Text>
       </View>
     );
@@ -191,18 +191,19 @@ export default function Payouts() {
     account = (
       <View style={{ paddingHorizontal: 16, gap: 12 }}>
         {expired && !finished ? (
-          <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
-            <Icon name="info" size={18} color={C.warn} />
-            <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>{t('payouts.linkExpired')}</Text>
+          <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ paddingTop: 1 }}>
+              <Icon name="info" size={18} color={C.warn} />
+            </View>
+            <Text style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 20 }}>{t('payouts.linkExpired')}</Text>
           </View>
         ) : null}
-        <View style={{ padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={d.icon} size={22} color={d.color} weight={2.2} />
-          </View>
+        {/* Where the account stands: a small label over large words, on the page itself. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
+          <Icon name={d.icon} size={28} color={d.color} weight={2.2} />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '700' }}>STATUS</Text>
-            <Text style={{ color: d.ready ? C.accent2 : C.fg, fontSize: 17, fontWeight: '700', marginTop: 1 }}>{d.title}</Text>
+            <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '700', letterSpacing: 0.4 }}>STATUS</Text>
+            <Text style={{ color: d.ready ? C.accent2 : C.fg, fontSize: 20, fontWeight: '800', marginTop: 1 }}>{d.title}</Text>
           </View>
         </View>
         {status.has_account ? null : (

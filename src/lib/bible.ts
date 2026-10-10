@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { withTimeout } from './api';
-import type { BibleMark } from './types';
+import { fetchReadingStreak, localDay, markReading, withTimeout } from './api';
+import type { BibleMark, ReadingStreak } from './types';
 
 /** The 66 books, with how many chapters each has. */
 export const BOOKS: { name: string; chapters: number; testament: 'old' | 'new' }[] = [
@@ -179,6 +179,97 @@ export function verseRef(book: string, chapter: number, verses: number[]): strin
     i = j;
   }
   return `${book} ${chapter}${parts.length ? `:${parts.join(', ')}` : ''}`;
+}
+
+/** A reference as people say it: "Psalm 23:1" for one psalm (the book is Psalms). */
+export function spokenRef(book: string, chapter: number, verses: number[]): string {
+  const ref = verseRef(book, chapter, verses);
+  return book === 'Psalms' ? ref.replace(/^Psalms /, 'Psalm ') : ref;
+}
+
+/* ---------- the reading streak ---------- */
+
+/** The streak as last fetched in this session, for the member it belongs to and the day it was fetched. */
+let streakNow: { me: string; day: string; streak: ReadingStreak } | null = null;
+
+/** The streak already fetched today in this session, straight away, or null. */
+export function peekStreak(me: string): ReadingStreak | null {
+  return streakNow && streakNow.me === me && streakNow.day === localDay() ? streakNow.streak : null;
+}
+
+/** The member's reading streak from the server, kept for peekStreak. */
+export async function loadStreak(me: string): Promise<ReadingStreak> {
+  const day = localDay();
+  const streak = await fetchReadingStreak();
+  streakNow = { me, day, streak };
+  return streak;
+}
+
+/**
+ * What this phone has counted today, per member: the chapters (so each counts once a day) and whether
+ * the day's first chapter has been celebrated. Kept on the phone so reopening the app doesn't count
+ * the same chapter twice.
+ */
+type ReadLog = { day: string; chapters: string[]; cheered: boolean };
+const readKey = (me: string) => `community.bible.read.${me}`;
+const readLogs = new Map<string, ReadLog>();
+
+async function readLog(me: string): Promise<ReadLog> {
+  const day = localDay();
+  const known = readLogs.get(me);
+  if (known && known.day === day) return known;
+  let log: ReadLog = { day, chapters: [], cheered: false };
+  try {
+    const raw = await AsyncStorage.getItem(readKey(me));
+    const kept = raw ? (JSON.parse(raw) as Partial<ReadLog>) : null;
+    if (kept && kept.day === day && Array.isArray(kept.chapters)) log = { day, chapters: kept.chapters.filter((c) => typeof c === 'string'), cheered: !!kept.cheered };
+  } catch {
+    // Unreadable: a fresh day.
+  }
+  // Another call may have filled it in while this one was reading.
+  const now = readLogs.get(me);
+  if (now && now.day === day) return now;
+  readLogs.set(me, log);
+  return log;
+}
+
+function keepLog(me: string, log: ReadLog) {
+  AsyncStorage.setItem(readKey(me), JSON.stringify(log)).catch(() => {});
+}
+
+/** Whether this chapter has already counted towards today's reading (as far as this session knows). */
+export function chapterCounted(me: string, book: string, chapter: number): boolean {
+  const log = readLogs.get(me);
+  return !!log && log.day === localDay() && log.chapters.includes(`${book} ${chapter}`);
+}
+
+/**
+ * Counts a chapter the member has actually read towards today's streak, once per chapter per day.
+ * Resolves to the streak when this was the first chapter counted today on this phone (for a small
+ * celebration), otherwise null. Never throws: reading must never wait on this.
+ */
+export async function noteChapterRead(me: string, book: string, chapter: number): Promise<ReadingStreak | null> {
+  if (!me) return null;
+  try {
+    const log = await readLog(me);
+    const key = `${book} ${chapter}`;
+    if (log.chapters.includes(key)) return null;
+    log.chapters.push(key);
+    try {
+      await markReading();
+    } catch {
+      // Not counted: it can count next time the chapter is read.
+      log.chapters = log.chapters.filter((c) => c !== key);
+      return null;
+    }
+    const first = !log.cheered;
+    log.cheered = true;
+    keepLog(me, log);
+    const streak = await loadStreak(me).catch(() => null);
+    return first && streak && streak.read_today && streak.current_streak > 0 ? streak : null;
+  } catch {
+    return null;
+  }
 }
 
 /** "john 3", "1 sam 2", "psalm 23" and similar, to a book and chapter. */

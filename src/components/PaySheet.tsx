@@ -218,16 +218,17 @@ export function PayPanel(props: PayProps) {
   const canPay = !busy && !!method && (method !== NEW || !!card?.complete);
   return (
     <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 20 }}>
-      <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      {/* What is being paid for and the total, set on the page itself (no box). */}
+      <View style={{ marginHorizontal: 16, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 14, lineHeight: 19 }}>{title}</Text>
-          <Text style={{ color: C.fg, fontSize: 13, marginTop: 2, fontWeight: '600' }}>{t('pay.total')}</Text>
+          <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{title}</Text>
+          <Text style={{ color: C.fg, fontSize: 13, marginTop: 4, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' }}>{t('pay.total')}</Text>
         </View>
-        <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{amountLabel}</Text>
+        <Text style={{ color: C.fg, fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{amountLabel}</Text>
       </View>
 
       {config.test_mode ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.warn, backgroundColor: C.warn + '1f' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12 }}>
           <Icon name="info" size={16} color={C.warn} />
           <Text style={{ flex: 1, color: C.warn, fontSize: 13, lineHeight: 18 }}>{t('checkout.testMode')}</Text>
         </View>
@@ -305,7 +306,7 @@ export function PayPanel(props: PayProps) {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 18, gap: 12 }}>
         {payError ? (
-          <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, backgroundColor: C.like + '1a' }}>
+          <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8 }}>
             <Icon name="info" size={18} color={C.like} />
             <Text style={{ flex: 1, color: C.like, fontSize: 14, lineHeight: 19 }}>{payError}</Text>
           </View>

@@ -254,9 +254,11 @@ export function PublishersSection({ refresh }: { refresh: number }) {
           ))}
         </ScrollView>
       ) : (
-        <Pressable onPress={write} accessibilityRole="button" style={({ pressed }) => ({ marginHorizontal: 16, height: 96, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.fg3, alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}>
-          <Icon name="pluscircle" size={26} color={C.accent2} />
-          <Text style={{ color: C.fg, fontSize: 15, fontWeight: '700' }}>{t('ssPub.publishFirst')}</Text>
+        // Green words, as "Become a publisher" is: no dashed box around them.
+        <Pressable onPress={write} accessibilityRole="button" accessibilityLabel={t('ssPub.publishFirst')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
+          <Icon name="pluscircle" size={20} color={C.accent2} weight={2} />
+          <Text style={{ flex: 1, color: C.accent2, fontSize: 15, fontWeight: '700' }}>{t('ssPub.publishFirst')}</Text>
+          <Icon name="right" size={14} color={C.fg3} weight={2.2} />
         </Pressable>
       )}
       {canPublish ? null : <PublisherEntry publisher={publisher} />}

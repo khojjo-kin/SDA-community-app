@@ -9,7 +9,7 @@ import { Icon } from '../../../src/components/Icon';
 import { Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
 import { ErrorNote, RoundButton, Row, Screen, Sheet, useToast } from '../../../src/components/ui';
 import { fetchBibleMarks, setBibleColor, setBibleNote } from '../../../src/lib/api';
-import { BOOKS, BibleSettings, cachedMarks, Chapter, fetchChapter, keepMarks, loadBibleSettings, peekBibleSettings, peekChapter, peekMarks, saveBibleSettings, TRANSLATIONS, verseRef } from '../../../src/lib/bible';
+import { BOOKS, BibleSettings, cachedMarks, Chapter, chapterCounted, fetchChapter, keepMarks, loadBibleSettings, noteChapterRead, peekBibleSettings, peekChapter, peekMarks, saveBibleSettings, TRANSLATIONS, verseRef } from '../../../src/lib/bible';
 import { tap } from '../../../src/lib/haptics';
 import { useT } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
@@ -20,6 +20,11 @@ import type { BibleMark, BibleMarkColor } from '../../../src/lib/types';
 type Marks = Record<number, BibleMark | null>;
 
 const byVerse = (rows: BibleMark[]): Marks => Object.fromEntries(rows.map((m) => [m.verse, m]));
+
+/** A chapter counts towards the reading streak after this long on it… */
+const READ_MS = 20000;
+/** …or once most of a long chapter has been scrolled through, after at least this long. */
+const SKIM_MS = 8000;
 
 type VerseProps = {
   verse: number;
@@ -122,6 +127,8 @@ export default function BibleChapter() {
   const touched = useRef<Set<number>>(new Set());
   /** Only the latest chapter load may land: Next can be tapped faster than the network answers. */
   const ticket = useRef(0);
+  /** When the card maker was last opened, so a quick second tap doesn't open it twice. */
+  const cardAt = useRef(0);
 
   // The verse bar sits along the bottom while verses are chosen; the floating button steps aside for it
   // (only while this screen is the one showing, not while another is opened over it).
@@ -199,6 +206,32 @@ export default function BibleChapter() {
     const timer = setTimeout(() => setFlash(null), 1800);
     return () => clearTimeout(timer);
   }, [flash]);
+
+  /* ----- the reading streak: a chapter counts once it has really been read, once a day ----- */
+
+  const chapterShown = !!text && text.book === book.name && text.chapter === chapter;
+  /** When this chapter's words came on screen (0 before), and the chapter last sent to be counted. */
+  const readSince = useRef(0);
+  const countedHere = useRef('');
+  const countRead = useCallback(() => {
+    const key = `${book.name} ${chapter}`;
+    if (!me || countedHere.current === key) return;
+    countedHere.current = key;
+    // In the background: reading never waits on it, and a failure is simply not counted.
+    noteChapterRead(me, book.name, chapter).then((streak) => {
+      if (!streak) return;
+      tap('success');
+      toast(t('bible.streakDay', { n: streak.current_streak }));
+    });
+  }, [me, book.name, chapter, toast, t]);
+  useEffect(() => {
+    readSince.current = 0;
+    if (!chapterShown || !focused || !me) return;
+    readSince.current = Date.now();
+    if (chapterCounted(me, book.name, chapter)) return;
+    const timer = setTimeout(countRead, READ_MS);
+    return () => clearTimeout(timer);
+  }, [chapterShown, focused, me, book.name, chapter, countRead]);
 
   function update(patch: Partial<BibleSettings>) {
     const s = settingsRef.current;
@@ -353,6 +386,16 @@ export default function BibleChapter() {
     router.push({ pathname: '/create', params: { text: q } } as any);
   }
 
+  /** The chosen verses as a designed picture, in the card maker. */
+  function card() {
+    const verses = [...selected].sort((a, b) => a - b);
+    const now = Date.now();
+    if (!verses.length || now - cardAt.current < 800) return;
+    cardAt.current = now;
+    setSelected([]);
+    router.push({ pathname: '/verse-card', params: { book: book.name, c: String(chapter), v: verses.join(','), tr: settings?.translation ?? '' } } as any);
+  }
+
   function note() {
     if (selected.length !== 1) {
       toast(t('bibleMarks.oneVerse'));
@@ -403,7 +446,11 @@ export default function BibleChapter() {
           ref={scroll}
           scrollEventThrottle={16}
           onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
-            offset.current = e.nativeEvent.contentOffset.y;
+            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+            offset.current = contentOffset.y;
+            // Most of a long chapter scrolled through, at reading pace rather than a flick to the end, counts as read.
+            const since = readSince.current;
+            if (since && contentSize.height > layoutMeasurement.height * 1.5 && contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.8 && Date.now() - since >= SKIM_MS) countRead();
           }}
           // Always room under the last verses for the verse bar, so nothing jumps when it comes and goes.
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: insets.bottom + MARK_BAR_GAP + MARK_BAR_HEIGHT + 24 }}>
@@ -436,7 +483,7 @@ export default function BibleChapter() {
       )}
 
       {selected.length && shownText ? (
-        <MarkBar reference={verseRef(book.name, chapter, selected)} active={active} single={selected.length === 1} onColor={colour} onNote={note} onCopy={copy} onShare={share} onPost={post} onClose={() => setSelected([])} />
+        <MarkBar reference={verseRef(book.name, chapter, selected)} active={active} single={selected.length === 1} onColor={colour} onNote={note} onCopy={copy} onShare={share} onCard={card} onPost={post} onClose={() => setSelected([])} />
       ) : null}
 
       <NoteSheet visible={noteFor !== null} reference={noteFor === null ? '' : verseRef(book.name, chapter, [noteFor])} verseText={noteVerse?.text ?? ''} initial={noteFor === null ? '' : markOf(noteFor)?.note ?? ''} onClose={() => setNoteFor(null)} onSave={(n) => noteFor !== null && saveNote(noteFor, n)} />

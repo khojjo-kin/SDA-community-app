@@ -220,9 +220,9 @@ export function LegalBody({ id, onOpenDoc }: { id: string; onOpenDoc: (id: Legal
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 40 }}>
       {language !== 'en' ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: C.surface, marginBottom: 14 }}>
-          <Icon name="globe" size={16} color={C.fg2} />
-          <Text style={{ color: C.fg2, fontSize: 13.5, fontFamily: font }}>{t('legal.englishOnly')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+          <Icon name="globe" size={15} color={C.fg2} />
+          <Text style={{ flexShrink: 1, color: C.fg2, fontSize: 13.5, fontFamily: font }}>{t('legal.englishOnly')}</Text>
         </View>
       ) : null}
       <Block block={title} onOpenDoc={onOpenDoc} font={font} fontBold={fontBold} />

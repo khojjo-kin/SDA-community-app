@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, type TextStyle } from 'react-native';
+import { Animated, Easing, Platform, Text, type TextStyle, View, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppFont } from '../lib/fonts';
 import { useReduceMotion } from '../lib/motion';
 import { C } from '../lib/theme';
@@ -129,5 +130,105 @@ export function WritingText({ text, size = 20, bold = true, center = true, color
       {writing ? <Text style={{ color: withAlpha(ink, cursor), fontWeight: '300' }}>|</Text> : null}
       <Text style={{ color: 'transparent' }}>{rest}</Text>
     </Text>
+  );
+}
+
+/* ---------- signed: words that appear as if written by hand ---------- */
+
+/**
+ * A handwriting face that ships with the phone, so nothing extra is downloaded: Snell Roundhand on
+ * iPhone (a flowing signature script), the system's cursive face on Android.
+ */
+const SIGNATURE_FONT = Platform.select({ ios: 'SnellRoundhand-Bold', android: 'cursive', default: undefined });
+
+/**
+ * Words that sign themselves: the whole line is laid out at once (nothing moves), and a soft edge
+ * sweeps from left to right uncovering it, the way a pen signs a name, then a fine stroke underlines
+ * it. Drawn over `bg` (the page colour), which the sweep is painted in. With Reduce Motion on, the
+ * words are simply there.
+ */
+export function SignatureText({ text, size = 34, color, bg, style }: { text: string; size?: number; color?: string; bg?: string; style?: ViewStyle }) {
+  const reduce = useReduceMotion();
+  const ink = color ?? C.fg;
+  const paper = bg ?? C.bg;
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  // 0: nothing written yet; 1: the last letter is done. Then the underline draws (0 → 1).
+  const pen = useRef(new Animated.Value(0)).current;
+  const line = useRef(new Animated.Value(0)).current;
+  // Once the words have been shown still, they stay: a late answer about motion never signs them again.
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!box) return;
+    const still = () => {
+      settled.current = true;
+      pen.setValue(1);
+      line.setValue(1);
+    };
+    if (reduce === true || settled.current) {
+      still();
+      return;
+    }
+    if (reduce === null) {
+      // The phone says within a few milliseconds whether it wants less motion; should it never say, show them.
+      const timer = setTimeout(still, 700);
+      return () => clearTimeout(timer);
+    }
+    pen.setValue(0);
+    line.setValue(0);
+    const signing = Animated.sequence([
+      Animated.delay(320),
+      Animated.timing(pen, { toValue: 1, duration: Math.min(2600, Math.max(1300, Array.from(text).length * 85)), easing: Easing.bezier(0.42, 0.05, 0.3, 1), useNativeDriver: true }),
+      Animated.timing(line, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]);
+    signing.start();
+    return () => signing.stop();
+    // Signed once each time the words (or their size) change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box?.w, box?.h, text, reduce]);
+
+  // Room around the words, so the script's loops and tails aren't clipped.
+  const padX = Math.round(size * 0.4);
+  const padY = Math.round(size * 0.25);
+  const edge = Math.round(size * 0.9);
+  const lineW = box ? Math.round(box.w * 0.55) : 0;
+  return (
+    <View style={[{ alignItems: 'center' }, style]} accessible accessibilityRole="text" accessibilityLabel={text}>
+      <View style={{ overflow: 'hidden', paddingHorizontal: padX, paddingVertical: padY }}>
+        <Text
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (!box || Math.abs(box.w - width) > 1 || Math.abs(box.h - height) > 1) setBox({ w: width, h: height });
+          }}
+          style={{ color: ink, fontSize: size, lineHeight: Math.round(size * 1.35), fontFamily: SIGNATURE_FONT, textAlign: 'center' }}>
+          {text}
+        </Text>
+        {box ? (
+          // The page colour slides off to the right; its soft left edge is the pen.
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: box.w + padX * 2 + edge,
+              flexDirection: 'row',
+              transform: [{ translateX: pen.interpolate({ inputRange: [0, 1], outputRange: [-edge, box.w + padX * 2] }) }],
+            }}>
+            <LinearGradient colors={[withAlpha(paper, 0), paper]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ width: edge }} />
+            <View style={{ flex: 1, backgroundColor: paper }} />
+          </Animated.View>
+        ) : (
+          // Until the words are measured they stay covered, so they never flash in whole first.
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: paper }} />
+        )}
+      </View>
+      {box ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{ width: lineW, height: 1.5, marginTop: -padY + 2, borderRadius: 1, backgroundColor: ink, opacity: line.interpolate({ inputRange: [0, 1], outputRange: [0, 0.55] }), transform: [{ scaleX: line }] }}
+        />
+      ) : null}
+    </View>
   );
 }

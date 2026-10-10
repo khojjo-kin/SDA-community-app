@@ -26,14 +26,33 @@ type Panel = null | 'audio' | 'tags' | 'location' | 'audience' | 'more' | 'group
 type Field = 'caption' | 'poll' | 'prompt';
 
 /**
+ * Photos made elsewhere in the app (a verse card), from ?media=[{"uri","width","height"}]. Only files on
+ * the phone: a link from outside the app can't fill a post with a picture from the web.
+ */
+function readyMedia(raw: unknown): PickedItem[] {
+  try {
+    const list: unknown = JSON.parse(typeof raw === 'string' && raw ? raw : '[]');
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((m) => m && typeof m.uri === 'string' && /^(file:\/\/|\/)/.test(m.uri))
+      .slice(0, 10)
+      .map((m) => ({ uri: String(m.uri), type: 'image' as const, w: Number(m.width ?? m.w) || 1080, h: Number(m.height ?? m.h) || 1080 }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Share a post of up to 10 photos and videos (each video up to 60 seconds), or a short, in three
  * steps on one screen: choose, edit, share. The picker's mode switcher moves between POST and SHORTS
  * here, and hands STORY and LIVE over to their own screens. Deep links arrive as ?mode=post or
  * ?mode=shorts (older links with ?mode=reel open Shorts), and a verse or a hymn line can arrive as a
- * ready-made caption.
+ * ready-made caption. Photos made in the app (?media=…) skip the picker and open in the editor;
+ * closing the editor then closes this screen.
  */
 export default function Create() {
-  const params = useLocalSearchParams<{ mode?: string; text?: string; group?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; text?: string; group?: string; media?: string }>();
+  const [preset] = useState(() => readyMedia(params.media));
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -43,10 +62,10 @@ export default function Create() {
   const keyboard = useKeyboardOpen();
   const { width } = useWindowDimensions();
   const [mode, setMode] = useState<PickMode>(params.mode === 'shorts' || params.mode === 'reel' ? 'shorts' : 'post');
-  const [step, setStep] = useState<Step>('pick');
-  const [items, setItems] = useState<PickedItem[]>([]);
+  const [step, setStep] = useState<Step>(preset.length ? 'edit' : 'pick');
+  const [items, setItems] = useState<PickedItem[]>(preset);
   // One edit per photo, in the same order as items.
-  const [edits, setEdits] = useState<PhotoEdit[]>([]);
+  const [edits, setEdits] = useState<PhotoEdit[]>(() => preset.map(() => PLAIN_EDIT));
   const [audio, setAudio] = useState<PodItem | null>(null);
   const [caption, setCaption] = useState(typeof params.text === 'string' ? params.text.slice(0, 2200) : '');
   const [location, setLocation] = useState('');
@@ -363,8 +382,8 @@ export default function Create() {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       {/* The picker and the editor are dark in every theme; the last step, a form, follows the theme. */}
       {step === 'share' && items.length ? null : <DarkStatusBar />}
-      {/* The picker stays underneath so its selection is still there when the editor closes. */}
-      <MediaPicker mode={mode} onMode={pickerMode} onNext={pickerNext} onClose={pickerClose} />
+      {/* The picker stays underneath so its selection is still there when the editor closes. Not needed for photos that arrived ready. */}
+      {preset.length ? null : <MediaPicker mode={mode} onMode={pickerMode} onNext={pickerNext} onClose={pickerClose} />}
 
       {preparing ? (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', gap: 12 }]} accessibilityLiveRegion="polite">
@@ -375,7 +394,7 @@ export default function Create() {
 
       {step === 'edit' && items.length ? (
         <View style={StyleSheet.absoluteFill}>
-          <PostEditor items={editorItems} edits={edits} setEdits={setEdits} audio={audio} onAudio={setAudio} caption={caption} onCaption={setCaption} poster={poster} onPoster={(uri) => { setPoster(uri); setPosterChosen(true); }} plus={plus} onClose={() => setStep('pick')} onNext={() => setStep('share')} />
+          <PostEditor items={editorItems} edits={edits} setEdits={setEdits} audio={audio} onAudio={setAudio} caption={caption} onCaption={setCaption} poster={poster} onPoster={(uri) => { setPoster(uri); setPosterChosen(true); }} plus={plus} onClose={() => (preset.length ? close() : setStep('pick'))} onNext={() => setStep('share')} />
         </View>
       ) : null}
 

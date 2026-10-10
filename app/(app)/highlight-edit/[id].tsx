@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon } from '../../../src/components/Icon';
@@ -221,8 +221,6 @@ export default function EditHighlight() {
 
   return (
     <Screen>
-      {/* With changes not yet saved, a swipe back can't throw them away unasked: the back button asks first. */}
-      <Stack.Screen options={{ gestureEnabled: !dirty && !saving }} />
       <ScreenHeader
         title="Edit memory"
         onBack={back}

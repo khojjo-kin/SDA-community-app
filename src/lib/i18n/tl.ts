@@ -1217,4 +1217,245 @@ export const tl: Partial<Record<Key, string>> = {
   'churches.pendingNote': 'Makikita ito ng lahat kapag naaprubahan na ng isang admin.',
   'churches.thanksMakeYours': 'Salamat! Gawin itong simbahan mo?',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Mga bayad',
+  'payments.cards': 'Mga naka-save na card',
+  'payments.addCard': 'Magdagdag ng card',
+  // The add-card sheet's title.
+  'payments.addACard': 'Magdagdag ng card',
+  'payments.cardSaved': 'Na-save ang card',
+  'payments.cardNotSaved': 'Hindi ma-save ang card. Subukan ulit.',
+  'payments.cardOptions': 'Binubuksan ang mga opsyon para sa card na ito',
+  'payments.makeDefault': 'Gawing default',
+  'payments.removeCard': 'Alisin ang card',
+  'payments.removeQuestion': 'Alisin ang card na ito?',
+  'payments.removeBody': 'Aalisin ang {card} sa account mo.',
+  'payments.removeBodyDefault': 'Aalisin ang {card} sa account mo. Sa card na ito nagre-renew ang Plus, kaya magdagdag ng iba bago ang susunod mong renewal.',
+  'payments.remove': 'Alisin',
+  'payments.cardRemoved': 'Inalis ang card',
+  'payments.defaultSet': 'Sa card na ito magre-renew ang Plus',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Hindi naka-subscribe',
+  'payments.activeUntil': 'Aktibo hanggang {day}',
+  'payments.paymentFailed': 'Hindi pumasok ang bayad',
+  'payments.creatorSubs': 'Mga creator subscription',
+  'payments.none': 'Wala',
+  'payments.noPayments': 'Wala pang bayad',
+  // A payment's state.
+  'payments.paid': 'Bayad na',
+  'payments.failed': 'Hindi pumasok',
+  'payments.refunded': 'Na-refund',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Creator subscription',
+  'payments.kindDonation': 'Donasyon',
+  'payments.kindAd': 'Ad',
+  'payments.kindRefund': 'Refund',
+  'payments.kindOther': 'Bayad',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Inayos ng isang admin',
+  // One payment's details.
+  'payments.status': 'Status',
+  'payments.date': 'Petsa',
+  'payments.method': 'Paraan',
+  'payments.reference': 'Reference',
+  'payments.copied': 'Na-copy ang reference',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Card ng talata',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Card',
+  'verseCard.make': 'Gumawa ng card',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Background',
+  'verseCard.font': 'Font',
+  'verseCard.layout': 'Layout',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Gubat',
+  'verseCard.bgGreen': 'Berde',
+  'verseCard.bgNight': 'Gabi',
+  'verseCard.bgDusk': 'Takipsilim',
+  'verseCard.bgDawn': 'Bukang-liwayway',
+  'verseCard.bgOcean': 'Dagat',
+  'verseCard.bgPaper': 'Papel',
+  'verseCard.bgWhite': 'Puti',
+  'verseCard.bgBlack': 'Itim',
+  'verseCard.photo': 'Photo',
+  'verseCard.choosePhoto': 'Pumili ng photo',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'I-align sa kaliwa',
+  'verseCard.alignCenter': 'Sa gitna',
+  'verseCard.alignRight': 'I-align sa kanan',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Square',
+  'verseCard.tall': 'Patayo',
+  // What to do with the card.
+  'verseCard.toStory': 'Story mo',
+  'verseCard.post': 'I-post',
+  'verseCard.save': 'I-save',
+  'verseCard.saved': 'Na-save',
+  'verseCard.allowPhotos': 'Payagan ang Community na magdagdag ng mga photo sa Settings para ma-save ang mga card.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Pinaikli para magkasya',
+  'verseCard.notFound': 'Hindi mahanap ang talatang iyon.',
+  'verseCard.failed': 'Hindi magawa ang card. Subukan ulit.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '{n}-day streak',
+  'bible.streakStart': 'Magsimula ng streak',
+  'bible.readToday': 'Nakabasa na ngayong araw',
+  'bible.readAChapter': 'Magbasa ng isang kabanata ngayong araw',
+  'bible.bestStreak': 'Pinakamahaba: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Ika-{n} araw — tuloy lang',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Ituloy ang pagbasa',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Buksan ang {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Mga event',
+  'events.title': 'Mga event',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Paparating',
+  'events.going': 'Pupunta',
+  'events.yours': 'Sa iyo',
+  'events.interested': 'Interesado',
+  'events.create': 'Gumawa ng event',
+  'events.nearYou': 'Malapit sa iyo',
+  'events.useMyLocation': 'Gamitin ang location ko',
+  'events.openSettings': 'Buksan ang Settings',
+  'events.emptyUpcoming': 'Walang paparating na event',
+  'events.emptyGoing': 'Wala pang plano',
+  'events.emptyYours': 'Wala pang event',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} ang pupunta',
+  'events.interestedCount': '{count} ang interesado',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Kinansela',
+  'events.ended': 'Tapos na',
+  'events.now': 'Nangyayari ngayon',
+  // The kinds of event.
+  'events.kind.service': 'Pagsamba',
+  'events.kind.bible_study': 'Bible study',
+  'events.kind.youth': 'Kabataan',
+  'events.kind.prayer': 'Panalangin',
+  'events.kind.outreach': 'Outreach',
+  'events.kind.music': 'Musika',
+  'events.kind.social': 'Fellowship',
+  'events.kind.other': 'Iba pa',
+  // The event page.
+  'events.event': 'Event',
+  'events.gone': 'Wala na rito ang event na ito',
+  'events.openInMaps': 'Buksan sa Maps',
+  'events.mapsFailed': 'Hindi nabuksan ang Maps',
+  'events.organiser': 'Organizer',
+  'events.options': 'Iba pang opsyon',
+  'events.noOneYet': 'Wala pa',
+  'events.edit': 'I-edit',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'I-cancel',
+  'events.callOffQuestion': 'I-cancel ang event na ito?',
+  'events.callOffBody': 'Makikita ng lahat ng sumagot na kinansela na ito.',
+  'events.keep': 'Panatilihin',
+  'events.deleteQuestion': 'I-delete ang event na ito?',
+  'events.deleteBody': 'Hindi na ito mababawi.',
+  'events.deleted': 'Na-delete ang event',
+  // Making or changing an event.
+  'events.new': 'Bagong event',
+  'events.editTitle': 'I-edit ang event',
+  'events.save': 'I-save',
+  'events.saved': 'Na-save',
+  'events.addCover': 'Magdagdag ng cover',
+  'events.changeCover': 'Palitan ang cover',
+  'events.removeCover': 'Alisin ang cover',
+  'events.titleLabel': 'Pamagat',
+  'events.titlePlaceholder': 'Pangalan ng event',
+  'events.needTitle': 'Maglagay ng pamagat.',
+  'events.kindLabel': 'Uri',
+  'events.date': 'Petsa',
+  'events.starts': 'Magsisimula',
+  'events.ends': 'Matatapos',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Idagdag',
+  'events.removeEnd': 'Alisin ang oras ng pagtatapos',
+  'events.prevMonth': 'Nakaraang buwan',
+  'events.nextMonth': 'Susunod na buwan',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Pumili ng oras na hindi pa lumilipas.',
+  'events.place': 'Lugar',
+  'events.placePlaceholder': 'Church hall, 12 Mabini St.',
+  'events.pinOnMap': 'I-pin sa map',
+  'events.movePin': 'Ilipat ang pin',
+  'events.removePin': 'Alisin ang pin',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Igalaw ang map papunta sa lugar',
+  'events.done': 'Tapos na',
+  'events.locationOff': 'Naka-off ang location para sa Community. I-on ito sa Settings.',
+  'events.noFix': 'Hindi available ang location mo ngayon.',
+  'events.church': 'Simbahan',
+  'events.community': 'Komunidad',
+  'events.none': 'Wala',
+  'events.searchChurches': 'Maghanap ng simbahan',
+  'events.details': 'Detalye',
+  'events.detailsPlaceholder': 'Ano ang mangyayari?',
+  'events.forMembers14': 'Para lang sa mga member na edad 14 pataas ang mga event',
+  // On a church or community page.
+  'events.seeAll': 'Tingnan lahat',
+  'events.addEvent': 'Magdagdag ng event',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Ipakita',
+  'auth.hide': 'Itago',
+  'auth.showPassword': 'Ipakita ang password',
+  'auth.hidePassword': 'Itago ang password',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Mga kaibigan',
+  'map.nearby': 'Nearby',
+  'map.churches': 'Mga simbahan',
+  'map.events': 'Mga event',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Pumunta sa location ko',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Ipakita ako sa Nearby',
+  'map.nearbyPrivacy': 'Tantiyang location mo lang ang nakikita ng iba, hindi kailanman ang eksakto.',
+  'map.adultsOnly': 'Para lang sa mga member na edad 18 pataas ang Nearby.',
+  'map.locationOff': 'Naka-off ang access sa location para sa Community.',
+  'map.allowLocation': 'Payagan ang access sa location para magamit ang Nearby.',
+  'map.nearbyOnToast': 'Nasa Nearby ka na',
+  'map.nearbyOffToast': 'Naka-off ang Nearby',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Walang tao sa malapit ngayon',
+  'map.onePerson': '1 tao sa malapit',
+  'map.personCount': '{n} tao sa malapit',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Mga {n} km ang layo',
+  'map.noChurches': 'Wala pang simbahan sa map',
+  'map.oneChurch': '1 simbahan',
+  'map.churchCount': '{n} simbahan',
+  'map.noEvents': 'Walang paparating na event sa map',
+  'map.oneEvent': '1 paparating na event',
+  'map.eventCount': '{n} paparating na event',
+  'map.nearestFirst': 'Pinakamalapit muna',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Ipakita ang listahan',
+  'map.hideList': 'Itago ang listahan',
+  'map.going': '{n} ang pupunta',
+  'map.happeningNow': 'Nangyayari ngayon',
+  'map.today': 'Ngayong araw',
+  'map.tomorrow': 'Bukas',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} ang layo',
+  'map.viewChurch': 'Tingnan ang simbahan',
+  'map.viewEvent': 'Tingnan ang event',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Direksyon',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'I-share ang una mong post',
+  // ======== end of v23 ========
 };

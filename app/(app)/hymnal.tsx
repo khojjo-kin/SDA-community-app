@@ -153,10 +153,10 @@ export default function Hymnal() {
           contentContainerStyle={{ paddingBottom: 60 }}
           ListHeaderComponent={
             exactHymn ? (
-              <Pressable onPress={() => open(exactHymn.number)} accessibilityRole="button" accessibilityLabel={`Open hymn ${exactHymn.number}, ${exactHymn.title}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 8, marginBottom: 10, padding: 14, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
+              <Pressable onPress={() => open(exactHymn.number)} accessibilityRole="button" accessibilityLabel={`Open hymn ${exactHymn.number}, ${exactHymn.title}`} style={({ pressed }) => ({ marginTop: 4, marginBottom: 6, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 12 })}>
                 <Icon name="hymnal" size={24} color={C.accent2} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg2, fontSize: 13 }}>Open hymn {exactHymn.number}</Text>
+                  <Text style={{ color: C.accent2, fontSize: 13, fontWeight: '700' }}>Open hymn {exactHymn.number}</Text>
                   <Text numberOfLines={1} style={{ color: C.fg, fontSize: 17, fontWeight: '700' }}>{exactHymn.title}</Text>
                 </View>
                 <Icon name="right" size={18} color={C.fg2} weight={2} />

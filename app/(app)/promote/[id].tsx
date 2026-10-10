@@ -135,7 +135,8 @@ export default function Promote() {
           <Stepper icon="plus" label="One day more" disabled={days >= MAX_DAYS} onPress={() => step(1)} />
         </View>
 
-        <View style={{ marginHorizontal: 16, marginTop: 18, padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 6 }}>
+        {/* The total, set large on the page itself: no card around it. */}
+        <View style={{ marginHorizontal: 16, marginTop: 24, gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700' }}>Total</Text>
             <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{totalLabel}</Text>
@@ -190,9 +191,11 @@ export default function Promote() {
 /** Why this post can't be paid for here, in place of the Pay button. */
 function Blocked({ icon, text }: { icon: 'lock' | 'grid'; text: string }) {
   return (
-    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
-      <Icon name={icon} size={18} color={C.warn} />
-      <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>{text}</Text>
+    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ paddingTop: 1 }}>
+        <Icon name={icon} size={18} color={C.warn} />
+      </View>
+      <Text style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 20 }}>{text}</Text>
     </View>
   );
 }

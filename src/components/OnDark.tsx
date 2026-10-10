@@ -9,7 +9,7 @@ import { Button } from './ui';
 
 /*
  * For the screens that stay dark in every theme: the camera, the editors, the story viewer, reels,
- * video, calls, live and the sign-in pages. Empty, Loading and ErrorNote in ui.tsx follow the theme,
+ * video, calls and live. Empty, Loading and ErrorNote in ui.tsx follow the theme,
  * so on these screens they would put dark words on black in the White theme; these draw in DARK.
  */
 

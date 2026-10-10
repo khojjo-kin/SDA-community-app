@@ -249,7 +249,8 @@ export default function FundraiserScreen() {
             <Icon name="right" size={18} color={C.fg2} weight={2} />
           </Pressable>
 
-          <View style={{ padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 10 }}>
+          {/* How far it has got, on the page itself: no card around it. */}
+          <View style={{ paddingTop: 2, gap: 10 }}>
             <Text style={{ color: C.fg2, fontSize: 15, fontVariant: ['tabular-nums'] }}>
               <Text style={{ color: C.fg, fontSize: 24, fontWeight: '800' }}>{raised}</Text> raised of {goal}
             </Text>
@@ -271,9 +272,11 @@ export default function FundraiserScreen() {
           {mine ? (
             <View style={{ gap: 10 }}>
               {!ended && !f.accepting ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
-                  <Icon name="info" size={18} color={C.warn} />
-                  <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>{t('fundraiser.notTaking')}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ paddingTop: 1 }}>
+                    <Icon name="info" size={18} color={C.warn} />
+                  </View>
+                  <Text style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 20 }}>{t('fundraiser.notTaking')}</Text>
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>

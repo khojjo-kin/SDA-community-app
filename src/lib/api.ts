@@ -10,6 +10,7 @@ import { t } from './i18n';
 import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, LiveComment, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 import type { LiveAudience, LiveSchedule, PostPoll } from './types';
 import type { BibleMark, BibleMarkColor, Publisher, SabbathPost, SabbathPostKind } from './types';
+import type { EventCard, EventInput, EventPerson, EventRsvp, NearbyPerson, ReadingStreak } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -1795,9 +1796,24 @@ export async function syncSubscription(): Promise<BillingStatus & { plus: boolea
 export const cancelSubscription = () => payments<BillingStatus>('cancel');
 export const resumeSubscription = () => payments<BillingStatus>('resume');
 
-/** My payments, newest first (the database only returns my own). */
-export async function myTransactions(me: string): Promise<Transaction[]> {
-  return ok(await supabase.from('community_transaction_cards').select('*').eq('user_id', me).order('created_at', { ascending: false }).limit(50)) ?? [];
+/**
+ * My payments, newest first. Filtered to me as well as by the database (an admin can read everyone's).
+ * `offset` pages further back; the id breaks ties so a page never repeats or skips a row.
+ */
+export async function myTransactions(me: string, page: { offset?: number; limit?: number } = {}): Promise<Transaction[]> {
+  const from = Math.max(0, page.offset ?? 0);
+  const limit = Math.max(1, page.limit ?? 50);
+  return (
+    ok(
+      await supabase
+        .from('community_transaction_cards')
+        .select('*')
+        .eq('user_id', me)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + limit - 1),
+    ) ?? []
+  );
 }
 
 /* ---------- fundraisers ---------- */
@@ -2120,4 +2136,135 @@ export async function setBibleNote(me: string, translation: string, book: string
   }
   ok(await supabase.from(MARKS).delete().eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse).eq('color', ''));
   ok(await supabase.from(MARKS).update({ note: '', updated_at }).eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse));
+}
+
+/* ---------- church events (v23) ---------- */
+
+const EVENT_CARDS = 'community_event_cards';
+/**
+ * An event still worth listing, as an `or` filter: not over, as the database decides when answers close.
+ * With an end time, it hasn't ended (an event already ended isn't listed as coming up; a weekend camp
+ * that began yesterday still is); without one, it started under six hours ago.
+ */
+const eventStillOn = () => {
+  const now = Date.now();
+  return `ends_at.gt.${new Date(now).toISOString()},and(ends_at.is.null,starts_at.gt.${new Date(now - 6 * 3600e3).toISOString()})`;
+};
+
+/**
+ * Events, soonest first. `upcoming`: everything not yet over and not called off. `going`: the ones I
+ * answered Going or Interested. `mine`: the ones I posted, newest first, including past and called off.
+ * `churchId` / `groupId` narrow any of them to one church or community.
+ */
+export async function fetchEvents(opts: { scope?: 'upcoming' | 'going' | 'mine'; churchId?: string; groupId?: string; limit?: number } = {}): Promise<EventCard[]> {
+  const scope = opts.scope ?? 'upcoming';
+  let q = supabase.from(EVENT_CARDS).select('*');
+  if (opts.churchId) q = q.eq('church_id', opts.churchId);
+  if (opts.groupId) q = q.eq('group_id', opts.groupId);
+  if (scope === 'mine') {
+    q = q.eq('mine', true).order('starts_at', { ascending: false });
+  } else {
+    q = q.or(eventStillOn()).is('cancelled_at', null);
+    if (scope === 'going') q = q.not('my_rsvp', 'is', null);
+    q = q.order('starts_at', { ascending: true });
+  }
+  return ok(await withTimeout(q.limit(opts.limit ?? 100))) ?? [];
+}
+
+/** Upcoming events with a place on the map, for the map's Events layer. */
+export async function fetchMapEvents(): Promise<EventCard[]> {
+  return ok(await withTimeout(supabase.from(EVENT_CARDS).select('*').or(eventStillOn()).is('cancelled_at', null).not('lat', 'is', null).order('starts_at', { ascending: true }).limit(200))) ?? [];
+}
+
+export async function fetchEvent(id: string): Promise<EventCard | null> {
+  return ok(await withTimeout(supabase.from(EVENT_CARDS).select('*').eq('id', id).maybeSingle()));
+}
+
+/** Posts an event and returns its id. The organiser is always me. */
+export async function createEvent(me: string, input: EventInput): Promise<string> {
+  const row: { id: string } = ok(await supabase.from('community_events').insert({ ...cleanEvent(input), user_id: me }).select('id').single());
+  return row.id;
+}
+
+/** Changes an event. Refused (nothing changes) unless I posted it, manage its community, or am an admin. */
+export async function updateEvent(id: string, patch: Partial<EventInput>) {
+  const rows: { id: string }[] = ok(await supabase.from('community_events').update(cleanEvent(patch)).eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+/** Calls an event off: it stays, marked as called off, so people who planned to go see it. */
+export async function cancelEvent(id: string) {
+  // A refusal changes nothing without an error, so the row coming back is what says it worked.
+  const rows: { id: string }[] = ok(await supabase.from('community_events').update({ cancelled_at: new Date().toISOString() }).eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+export async function deleteEvent(id: string) {
+  const rows: { id: string }[] = ok(await supabase.from('community_events').delete().eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+/** Answers an event: Going, Interested, or null to take the answer back. */
+export async function setEventRsvp(me: string, eventId: string, status: EventRsvp | null) {
+  if (status) ok(await supabase.from('community_event_rsvps').upsert({ event_id: eventId, user_id: me, status }, { onConflict: 'event_id,user_id' }));
+  else ok(await supabase.from('community_event_rsvps').delete().eq('event_id', eventId).eq('user_id', me));
+}
+
+/** People who answered an event, newest first: all of them, or only Going / Interested. */
+export async function fetchEventPeople(eventId: string, status?: EventRsvp): Promise<EventPerson[]> {
+  let q = supabase.from('community_event_people').select('*').eq('event_id', eventId);
+  if (status) q = q.eq('status', status);
+  return ok(await withTimeout(q.order('created_at', { ascending: false }).limit(300))) ?? [];
+}
+
+/** Trims what the organiser typed; the database checks the rest. */
+function cleanEvent<T extends Partial<EventInput>>(input: T): T {
+  const out: Partial<EventInput> = { ...input };
+  if (out.title !== undefined) out.title = out.title.trim().slice(0, 120);
+  if (out.description !== undefined) out.description = out.description.trim().slice(0, 2000);
+  if (out.place !== undefined) out.place = out.place.trim().slice(0, 200);
+  return out as T;
+}
+
+/* ---------- Bible reading streak (v23) ---------- */
+
+/** Today's date on this phone, as YYYY-MM-DD (the member's own day, not the server's). */
+export function localDay(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Counts a chapter read today towards the streak. */
+export async function markReading(): Promise<void> {
+  ok(await supabase.rpc('community_mark_reading', { p_day: localDay() }));
+}
+
+export async function fetchReadingStreak(): Promise<ReadingStreak> {
+  const rows: ReadingStreak[] = ok(await withTimeout(supabase.rpc('community_reading_streak', { p_today: localDay() }))) ?? [];
+  return rows[0] ?? { current_streak: 0, best_streak: 0, read_today: false, total_days: 0, last_days: [] };
+}
+
+/* ---------- Nearby on the map (v23) ---------- */
+
+/**
+ * Shows me in Nearby at about where I am (the server keeps only a rough place, to about a kilometre).
+ * False when this account can't use Nearby: it's for adults (18 and over) whose birthday is known.
+ */
+export async function nearbyShow(lat: number, lng: number): Promise<boolean> {
+  return !!ok(await supabase.rpc('community_nearby_set', { p_lat: lat, p_lng: lng }));
+}
+
+/** Stops showing me in Nearby. */
+export async function nearbyHide(): Promise<void> {
+  ok(await supabase.rpc('community_nearby_off'));
+}
+
+/** Whether I show in Nearby now (it lapses after a day without an update). */
+export async function nearbyIsOn(): Promise<boolean> {
+  return !!ok(await withTimeout(supabase.rpc('community_nearby_on')));
+}
+
+/** Adults showing in Nearby within `km` of a point, closest first. Empty unless I show in Nearby myself. */
+export async function fetchNearbyPeople(lat: number, lng: number, km = 30): Promise<NearbyPerson[]> {
+  return ok(await withTimeout(supabase.rpc('community_nearby_people', { p_lat: lat, p_lng: lng, p_km: km }))) ?? [];
 }

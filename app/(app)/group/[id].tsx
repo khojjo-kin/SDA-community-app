@@ -2,18 +2,19 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { EventTile } from '../../../src/components/EventCard';
 import { PostGrid } from '../../../src/components/Grid';
 import { Icon } from '../../../src/components/Icon';
 import { GridSkeleton, Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
-import { Button, Empty, ErrorNote, Field, Loading, Radio, RoundButton, Row, Screen, ScreenHeader, Sheet, SheetRow, Toggle, useToast } from '../../../src/components/ui';
-import { canPostIn, deleteGroup, fetchChurches, fetchGroup, fetchGroupPosts, joinGroup, leaveGroup, updateGroup, uploadImage } from '../../../src/lib/api';
+import { Button, Empty, ErrorNote, Field, Loading, Radio, RoundButton, Row, Screen, ScreenHeader, SectionLabel, Sheet, SheetRow, Toggle, useToast } from '../../../src/components/ui';
+import { canPostIn, deleteGroup, fetchChurches, fetchEvents, fetchGroup, fetchGroupPosts, joinGroup, leaveGroup, updateGroup, uploadImage } from '../../../src/lib/api';
 import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
 import { pickFromLibrary } from '../../../src/lib/pick';
 import { useSession } from '../../../src/lib/session';
 import { getPostNow } from '../../../src/lib/store';
 import { C, errText, fmt } from '../../../src/lib/theme';
-import type { Church, Group, Post } from '../../../src/lib/types';
+import type { Church, EventCard, Group, Post } from '../../../src/lib/types';
 
 /** What a manager can change. church_name rides along so the screen can show it without another fetch. */
 type Form = Pick<Group, 'name' | 'description' | 'privacy' | 'church_id' | 'church_name'>;
@@ -42,6 +43,11 @@ function mergeFirst(page: Post[], cur: Post[]): Post[] | null {
 }
 
 const churchPlace = (c: Church) => [c.city, c.country].map((s) => (s ?? '').trim()).filter(Boolean).join(', ') || undefined;
+
+/** The community's next few events, in a sideways strip over its posts. */
+const EVENTS_SHOWN = 6;
+const EVENT_TILE = 236;
+const keyOfEvent = (e: EventCard) => e.id;
 
 /** The page while it loads: the cover, the name and its lines, the buttons, then the grid. */
 function GroupSkeleton() {
@@ -86,6 +92,8 @@ export default function GroupPage() {
   const [churchError, setChurchError] = useState('');
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [events, setEvents] = useState<EventCard[]>([]);
+  const lastOpen = useRef(0);
   // Work on its way, against a second tap before the button shows it: joining or leaving, saving.
   const busyNow = useRef(false);
   const savingNow = useRef(false);
@@ -117,6 +125,10 @@ export default function GroupPage() {
       setGroup(g);
       setError('');
       if (g && canSee(g, appAdmin)) {
+        // The strip of events is extra: if it can't load, the page goes without it.
+        fetchEvents({ groupId: id, limit: EVENTS_SHOWN })
+          .then((list) => { if (alive.current) setEvents(list); })
+          .catch(() => {});
         const page = await fetchGroupPosts(id);
         if (!alive.current) return;
         const merged = again && shown.current ? mergeFirst(page, shown.current) : null;
@@ -124,6 +136,7 @@ export default function GroupPage() {
         if (!merged) setDone(false);
       } else {
         setPosts([]);
+        setEvents([]);
       }
     } catch (e) {
       if (!alive.current) return;
@@ -140,6 +153,17 @@ export default function GroupPage() {
       load();
     }, [load]),
   );
+
+  const openEvent = useCallback(
+    (eventId: string) => {
+      // One page per tap, however quickly a tile is tapped twice.
+      if (Date.now() - lastOpen.current < 700) return;
+      lastOpen.current = Date.now();
+      router.push(`/event/${eventId}`);
+    },
+    [router],
+  );
+  const renderEvent = useCallback(({ item }: { item: EventCard }) => <EventTile ev={item} width={EVENT_TILE} onOpen={openEvent} />, [openEvent]);
 
   /** The next page of posts, older than the last one shown. An empty page means there are no more. */
   function more() {
@@ -336,8 +360,22 @@ export default function GroupPage() {
             ) : null}
           </View>
           {canPostIn(group) ? <Button small label="Post" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/create', params: { group: id } } as any)} /> : null}
+          {canPostIn(group) && profile?.restricted !== true ? <Button small kind="ghost" label={t('events.event')} style={{ flex: 1 }} onPress={() => router.push({ pathname: '/event-edit', params: { group: id } } as any)} /> : null}
         </View>
       </View>
+      {visible && events.length ? (
+        <View style={{ paddingBottom: 14 }}>
+          <SectionLabel
+            right={
+              <Pressable onPress={() => router.push({ pathname: '/events', params: { group: id } } as any)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('events.seeAll')} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+                <Text style={{ color: C.accent2, fontSize: 14.5, fontWeight: '600' }}>{t('events.seeAll')}</Text>
+              </Pressable>
+            }>
+            {t('events.title')}
+          </SectionLabel>
+          <FlatList horizontal data={events} keyExtractor={keyOfEvent} renderItem={renderEvent} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }} />
+        </View>
+      ) : null}
     </View>
   );
   const empty = !visible ? (

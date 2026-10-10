@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Icon, IconName } from '../../src/components/Icon';
 import { Screen, ScreenHeader } from '../../src/components/ui';
@@ -20,14 +20,15 @@ export default function BestPractices() {
   return (
     <Screen>
       <ScreenHeader title="Best practices" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 12, paddingBottom: 60 }}>
-        {TIPS.map((t) => (
-          <View key={t.title} style={{ padding: 16, borderRadius: 14, backgroundColor: C.surface, gap: 8 }}>
+      {/* Set like an article: each practice is a heading, a few words and a green link, with a hairline between. */}
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 60 }}>
+        {TIPS.map((t, i) => (
+          <View key={t.title} style={{ paddingVertical: 20, gap: 8, borderTopWidth: i ? StyleSheet.hairlineWidth : 0, borderTopColor: C.line }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Icon name={t.icon} size={26} />
-              <Text style={{ flex: 1, color: C.fg, fontSize: 17.5, fontWeight: '700' }}>{t.title}</Text>
+              <Icon name={t.icon} size={26} color={C.fg} />
+              <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700' }}>{t.title}</Text>
             </View>
-            <Text style={{ color: C.fg2, fontSize: 15.5, lineHeight: 21 }}>{t.body}</Text>
+            <Text style={{ color: C.fg2, fontSize: 15.5, lineHeight: 22 }}>{t.body}</Text>
             <Pressable onPress={() => router.push(t.href as any)} hitSlop={8} accessibilityRole="link" style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 2 }}>
               <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 15.5 }}>{t.action}</Text>
               <Icon name="right" size={15} color={C.accent2} weight={2.4} />

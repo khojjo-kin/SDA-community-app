@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Linking, Platform, RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, FlatList, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import { EventTile, EventTilesSkeleton } from '../../../src/components/EventCard';
 import { Icon } from '../../../src/components/Icon';
 import { PersonRow } from '../../../src/components/PersonRow';
 import { RowsSkeleton, Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
 import { Button, Divider, Empty, ErrorNote, Field, Loading, RoundButton, Row, Screen, ScreenHeader, SectionLabel, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { countChurchMembers, decideChurch, deleteChurch, fetchChurch, fetchChurchMembers, updateChurch, updateProfile } from '../../../src/lib/api';
+import { countChurchMembers, decideChurch, deleteChurch, fetchChurch, fetchChurchMembers, fetchEvents, updateChurch, updateProfile } from '../../../src/lib/api';
 import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { announce } from '../../../src/lib/store';
 import { C, errText, fmt } from '../../../src/lib/theme';
-import type { Church, Profile } from '../../../src/lib/types';
+import type { Church, EventCard, Profile } from '../../../src/lib/types';
 
 /** The fields an admin can correct. */
 type Form = Pick<Church, 'name' | 'address' | 'city' | 'country' | 'website' | 'service_times'>;
@@ -31,6 +32,10 @@ function websiteFrom(raw: string): string | null {
   return /^https?:\/\/[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(url) ? url : null;
 }
 const keyOfPerson = (p: Profile) => p.id;
+/** The church's next few events, in a sideways strip. */
+const EVENTS_SHOWN = 6;
+const EVENT_TILE = 236;
+const keyOfEvent = (e: EventCard) => e.id;
 
 /** Apple Maps on iOS. On Android the Google Maps link opens the app when it is installed and the browser otherwise. A pin wins over the typed address. */
 function mapsUrl(c: Church) {
@@ -128,6 +133,26 @@ export default function ChurchPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // The church's next events, on every visit: one made from here shows on the way back. The strip is
+  // extra, so if it can't load the page goes without it (or keeps what it showed).
+  const [events, setEvents] = useState<EventCard[] | null>(null);
+  const loadEvents = useCallback(() => {
+    fetchEvents({ churchId: id, limit: EVENTS_SHOWN })
+      .then((list) => { if (alive.current) setEvents(list); })
+      .catch(() => { if (alive.current) setEvents((cur) => cur ?? []); });
+  }, [id]);
+  useFocusEffect(loadEvents);
+  const lastOpen = useRef(0);
+  const openEvent = useCallback(
+    (eventId: string) => {
+      if (Date.now() - lastOpen.current < 700) return;
+      lastOpen.current = Date.now();
+      router.push(`/event/${eventId}`);
+    },
+    [router],
+  );
+  const renderEvent = useCallback(({ item }: { item: EventCard }) => <EventTile ev={item} width={EVENT_TILE} onOpen={openEvent} />, [openEvent]);
 
   function more() {
     const cur = members;
@@ -290,6 +315,9 @@ export default function ChurchPage() {
   const times = church.service_times.trim();
   const pending = church.status === 'pending';
   const rejected = church.status === 'rejected';
+  // Members 14 and over can post an event for a listed church; the section shows when there's something in it.
+  const canAddEvent = !rejected && profile?.restricted !== true;
+  const showEvents = events === null || events.length > 0 || canAddEvent;
 
   const head = (
     <View>
@@ -326,6 +354,28 @@ export default function ChurchPage() {
       {site ? <Row icon="link" title="Website" sub={site.replace(/^https?:\/\//i, '').replace(/\/.*$/, '')} onPress={() => Linking.openURL(site).catch(() => toast('Could not open that link'))} /> : null}
       <Row icon="location" title="Open in Maps" sub={place || undefined} onPress={() => Linking.openURL(mapsUrl(church)).catch(() => toast('Could not open Maps'))} />
 
+      {showEvents ? (
+        <>
+          <Divider />
+          <SectionLabel
+            right={
+              events && events.length ? (
+                <Pressable onPress={() => router.push({ pathname: '/events', params: { church: id } } as any)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('events.seeAll')} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+                  <Text style={{ color: C.accent2, fontSize: 14.5, fontWeight: '600' }}>{t('events.seeAll')}</Text>
+                </Pressable>
+              ) : undefined
+            }>
+            {t('events.title')}
+          </SectionLabel>
+          {events === null ? (
+            <EventTilesSkeleton width={EVENT_TILE} />
+          ) : events.length ? (
+            <FlatList horizontal data={events} keyExtractor={keyOfEvent} renderItem={renderEvent} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }} />
+          ) : null}
+          {canAddEvent ? <Row icon="pluscircle" title={t('events.addEvent')} onPress={() => router.push({ pathname: '/event-edit', params: { church: id } } as any)} chevron={false} /> : null}
+        </>
+      ) : null}
+
       <Divider />
       <SectionLabel>{total !== null ? `Members · ${fmt(total)}` : 'Members'}</SectionLabel>
     </View>
@@ -344,7 +394,7 @@ export default function ChurchPage() {
         onEndReached={more}
         onEndReachedThreshold={0.6}
         initialNumToRender={10}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.fg2} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { load(true); loadEvents(); }} tintColor={C.fg2} />}
         contentContainerStyle={{ paddingBottom: 60 }}
       />
 

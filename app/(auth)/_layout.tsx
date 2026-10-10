@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/Icon';
 import { useAddingAccount, useResumeAccount } from '../../src/lib/accounts';
 import { useT } from '../../src/lib/i18n';
-import { DARK } from '../../src/lib/theme';
+import { C } from '../../src/lib/theme';
 
 export default function AuthLayout() {
   const { isSignedIn } = useAuth();
@@ -29,8 +29,9 @@ export default function AuthLayout() {
   }, [adding, router]);
   if (isSignedIn && !adding) return <Redirect href="/" />;
   return (
-    <View style={{ flex: 1, backgroundColor: DARK.bg }}>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: DARK.bg }, animation: 'fade' }} />
+    // The sign-in pages follow the theme, so the fade between them never flashes another colour.
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg }, animation: 'fade', gestureEnabled: false }} />
       {adding ? (
         <Pressable
           onPress={() => router.replace('/')}

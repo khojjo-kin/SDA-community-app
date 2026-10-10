@@ -265,9 +265,9 @@ export default function CreatorSubscriptions() {
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 48 }}>
           <SectionLabel>{t('creatorSubs.yourPrice')}</SectionLabel>
           {restricted ? (
-            <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
-              <Icon name="lock" size={22} color={C.fg2} />
-              <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{t('creatorSubs.under14')}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}>
+              <Icon name="lock" size={20} color={C.fg2} />
+              <Text style={{ flex: 1, color: C.fg2, fontSize: 15, lineHeight: 20 }}>{t('creatorSubs.under14')}</Text>
             </View>
           ) : (
             <View style={{ paddingHorizontal: 16, gap: 12 }}>
@@ -317,12 +317,11 @@ export default function CreatorSubscriptions() {
                   onPress={() => open('/payouts')}
                   accessibilityRole="button"
                   accessibilityLabel={payoutRow.body ? `${payoutRow.title}. ${payoutRow.body}` : payoutRow.title}
-                  style={({ pressed }) => ({ marginHorizontal: 16, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
-                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={payoutRow.icon} size={22} color={payoutRow.color} weight={2.2} />
-                  </View>
+                  // A plain row, as in a settings list: no card around it.
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 10, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
+                  <Icon name={payoutRow.icon} size={24} color={payoutRow.color} weight={2.2} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: payoutRow.color === C.accent2 ? C.accent2 : C.fg, fontSize: 16, fontWeight: '700' }}>{payoutRow.title}</Text>
+                    <Text style={{ color: payoutRow.color === C.accent2 ? C.accent2 : C.fg, fontSize: 16.5, fontWeight: '600' }}>{payoutRow.title}</Text>
                     {payoutRow.body ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, marginTop: 2 }}>{payoutRow.body}</Text> : null}
                   </View>
                   <Icon name="right" size={16} color={C.fg2} weight={2} />

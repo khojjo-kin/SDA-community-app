@@ -65,10 +65,11 @@ export default function ChatWallpaper() {
       <ScreenHeader title="Chat wallpaper" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 60 }}>
         {plus ? null : (
-          <Pressable onPress={openPlus} accessibilityRole="button" accessibilityLabel="Chat wallpapers are part of Community Plus. Find out more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginVertical: 8, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
-            <Icon name="crown" size={24} color={C.accent2} />
-            <Text style={{ flex: 1, color: C.fg, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
-            <Icon name="right" size={18} color={C.fg2} weight={2} />
+          // Green words with a chevron, on the page itself: no card around them.
+          <Pressable onPress={openPlus} hitSlop={6} accessibilityRole="button" accessibilityLabel="Chat wallpapers are part of Community Plus. Find out more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 8, marginTop: 2, marginBottom: 6, opacity: pressed ? 0.6 : 1 })}>
+            <Icon name="crown" size={20} color={C.accent2} />
+            <Text style={{ color: C.accent2, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
+            <Icon name="right" size={15} color={C.accent2} weight={2.4} />
           </Pressable>
         )}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingTop: 8 }}>

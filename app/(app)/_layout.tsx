@@ -123,12 +123,11 @@ export default function AppLayout() {
   return (
     // Calls live above every screen: an incoming call can ring over whatever is open.
     <CallProvider>
-      {/* Swipe right from anywhere on a pushed screen (a profile, Settings, anything with a back arrow) to go back, not just from the edge. */}
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg }, fullScreenGestureEnabled: true }}>
+      {/* No swipe gestures to leave a screen, anywhere: the owner wants screens left only with their buttons. */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg }, gestureEnabled: false }}>
         <Stack.Screen name="(tabs)" />
-        {/* Screens that slide up have a Close button and scroll, so the swipe-to-dismiss gesture is off: it would fight the scrolling. */}
         <Stack.Screen name="create" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-        <Stack.Screen name="story/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="story/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="watch/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="shorts" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="comments/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
@@ -139,10 +138,12 @@ export default function AppLayout() {
         <Stack.Screen name="new-highlight" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="camera-settings" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="story-editor" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="highlight/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
-        <Stack.Screen name="story-archive/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureDirection: 'vertical' }} />
+        <Stack.Screen name="highlight/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
+        <Stack.Screen name="story-archive/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade' }} />
         <Stack.Screen name="group-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="church-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="event-edit" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="verse-card" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'slide_from_bottom', gestureEnabled: false }} />
         {/* Photo and video screens are black in every theme; their background says so, so no white shows as they open. */}
         {/* Calls and live video fill the screen; a swipe back would leave the camera running, so the gesture is off. */}
         <Stack.Screen name="call/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />

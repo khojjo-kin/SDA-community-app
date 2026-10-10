@@ -142,9 +142,10 @@ export default function ProfileStyle() {
         <Preview name={profile?.full_name || profile?.username || 'You'} username={profile?.username ?? ''} uri={profile?.avatar_url} ring={ring} theme={theme} />
 
         {plus ? null : (
-          <View style={{ marginHorizontal: GUTTER, marginTop: 14, padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Icon name="crown" size={26} color={C.accent2} />
+          // A line of words and the button, on the page itself: no card around them.
+          <View style={{ marginHorizontal: GUTTER, marginTop: 18, gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="crown" size={20} color={C.accent2} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>Part of Community Plus</Text>
             </View>
             <Button label="Get Community Plus" onPress={() => router.push('/plus')} />

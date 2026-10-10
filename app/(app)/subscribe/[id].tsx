@@ -222,14 +222,13 @@ export default function Subscribe() {
             ) : null}
           </View>
 
+          {/* Where the subscription stands: one line under the price, in green (or amber when a renewal failed). */}
           {subscribed ? (
-            <View style={{ marginHorizontal: 16, marginBottom: 18, padding: 14, borderRadius: 16, backgroundColor: sub?.status === 'past_due' ? C.warn + '1f' : C.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Icon name={sub?.status === 'past_due' ? 'info' : 'check'} size={22} color={sub?.status === 'past_due' ? C.warn : C.accent2} weight={2.4} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>
-                  {sub?.status === 'past_due' ? t('subscribe.pastDue') : sub?.cancel_at_period_end ? t('subscribe.subscribedEnds', { day }) : day ? t('subscribe.subscribedRenews', { day }) : t('subscribe.subscribed')}
-                </Text>
-              </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 24, marginTop: -8, marginBottom: 24 }}>
+              <Icon name={sub?.status === 'past_due' ? 'info' : 'check'} size={17} color={sub?.status === 'past_due' ? C.warn : C.accent2} weight={2.4} />
+              <Text style={{ flexShrink: 1, color: sub?.status === 'past_due' ? C.warn : C.accent2, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+                {sub?.status === 'past_due' ? t('subscribe.pastDue') : sub?.cancel_at_period_end ? t('subscribe.subscribedEnds', { day }) : day ? t('subscribe.subscribedRenews', { day }) : t('subscribe.subscribed')}
+              </Text>
             </View>
           ) : null}
 

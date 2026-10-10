@@ -2,21 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthField, AuthShell, ConsentBox } from '../../src/components/AuthShell';
+import { AUTH_FIELD_HEIGHT, AUTH_SMALL_PRINT, AuthAction, AuthField, AuthShell, ConsentBox } from '../../src/components/AuthShell';
 import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
-import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button } from '../../src/components/ui';
 import { isDeviceAgeBlocked } from '../../src/lib/age';
 import { rememberSignUpConsent } from '../../src/lib/consent';
+import { useAppFont } from '../../src/lib/fonts';
 import { useT } from '../../src/lib/i18n';
-import { DARK, errText } from '../../src/lib/theme';
+import { C, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
   // The app's own words are translated; what Clerk says when something fails (errText) stays as Clerk sends it.
   const t = useT();
+  const font = useAppFont();
+  const fontBold = useAppFont('bold');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -106,77 +108,76 @@ export default function SignUp() {
   const haveAccount = (
     <Link href="/sign-in" replace asChild>
       <Pressable accessibilityRole="button" hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-        <Text style={{ color: DARK.fg2 }}>
-          {t('auth.haveAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.logIn')}</Text>
+        <Text style={{ color: C.fg2, fontSize: 14.5, fontFamily: font }}>
+          {t('auth.haveAccount')} <Text style={{ color: C.accent2, fontWeight: '600', fontFamily: fontBold }}>{t('auth.logIn')}</Text>
         </Text>
       </Pressable>
     </Link>
   );
+  const link = { color: C.accent2, textAlign: 'center' as const, fontWeight: '600' as const, fontSize: 15, fontFamily: fontBold };
 
   if (stage === 'verify') {
     return (
-      <>
-        <DarkStatusBar />
-        <AuthShell title={t('auth.enterCodeSentTo', { email: email.trim() })}>
-          <AuthField value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" autoComplete="one-time-code" error={err} onSubmitEditing={verify} returnKeyType="go" />
-          {note ? <Text style={{ color: DARK.ok, textAlign: 'center' }} accessibilityLiveRegion="polite">{note}</Text> : null}
-          <Button label={t('auth.confirmEmail')} onPress={verify} busy={busy} />
-          <Pressable onPress={resend} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy }} style={({ pressed }) => ({ padding: 10, opacity: busy ? 0.5 : pressed ? 0.6 : 1 })}>
-            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.sendNewCode')}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              if (busyRef.current) return;
-              setStage('form');
-              setCode('');
-              setErr('');
-              setNote('');
-            }}
-            accessibilityRole="button"
-            style={({ pressed }) => ({ padding: 10, opacity: pressed ? 0.6 : 1 })}>
-            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.differentEmail')}</Text>
-          </Pressable>
-        </AuthShell>
-      </>
+      <AuthShell title={t('auth.enterCodeSentTo', { email: email.trim() })}>
+        <AuthField value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" autoComplete="one-time-code" error={err} onSubmitEditing={verify} returnKeyType="go" />
+        {note ? <Text style={{ color: C.ok, textAlign: 'center', fontFamily: font }} accessibilityLiveRegion="polite">{note}</Text> : null}
+        <Button label={t('auth.confirmEmail')} onPress={verify} busy={busy} style={{ height: AUTH_FIELD_HEIGHT, marginTop: 4 }} />
+        <Pressable onPress={resend} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy }} style={({ pressed }) => ({ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 10, opacity: busy ? 0.5 : pressed ? 0.6 : 1 })}>
+          <Text style={link}>{t('auth.sendNewCode')}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            if (busyRef.current) return;
+            setStage('form');
+            setCode('');
+            setErr('');
+            setNote('');
+          }}
+          accessibilityRole="button"
+          style={({ pressed }) => ({ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 10, opacity: pressed ? 0.6 : 1 })}>
+          <Text style={[link, { color: C.fg2 }]}>{t('auth.differentEmail')}</Text>
+        </Pressable>
+      </AuthShell>
     );
   }
 
   return (
-    <>
-      <DarkStatusBar />
-      <AuthShell title={t('auth.joinTagline')} footer={haveAccount}>
-        <AuthField
-          value={email}
-          onChangeText={setEmail}
-          placeholder={t('auth.email')}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          autoComplete="email"
-          returnKeyType="next"
-          submitBehavior="submit"
-          onSubmitEditing={() => passwordRef.current?.focus()}
-        />
-        <AuthField ref={passwordRef} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="newPassword" autoComplete="new-password" autoCapitalize="none" error={err} onSubmitEditing={create} returnKeyType="go" />
-        <Button label={t('auth.signUp')} onPress={create} busy={busy} disabled={!consent} />
-        <SsoButtons onError={setErr} disabled={!consent} onStart={rememberSignUpConsent} />
-        <ConsentBox
-          checked={consent}
-          onToggle={() => {
-            setConsent((c) => !c);
-            if (err === t('legal.consentNeeded')) setErr('');
-          }}
-          onOpenPrivacy={() => legal.open('privacy')}
-        />
-        <LinkedSentence
-          text={t('legal.agreeSignUp')}
-          slots={{ terms: { label: t('legal.termsLink'), onPress: () => legal.open('terms') }, privacy: { label: t('legal.privacyLink'), onPress: () => legal.open('privacy') } }}
-          style={{ color: DARK.fg2, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 2 }}
-          linkStyle={{ color: DARK.accent2 }}
-        />
-        {legal.element}
-      </AuthShell>
-    </>
+    <AuthShell title={t('auth.joinTagline')} footer={haveAccount}>
+      <AuthField
+        value={email}
+        onChangeText={setEmail}
+        placeholder={t('auth.email')}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        autoComplete="email"
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+      />
+      <AuthField ref={passwordRef} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="newPassword" autoComplete="new-password" autoCapitalize="none" error={err} onSubmitEditing={create} returnKeyType="go" />
+      {/* Right above the button it unlocks. */}
+      <ConsentBox
+        checked={consent}
+        onToggle={() => {
+          setConsent((c) => !c);
+          if (err === t('legal.consentNeeded')) setErr('');
+        }}
+        onOpenPrivacy={() => legal.open('privacy')}
+      />
+      {/* Kept in view with the field being typed in, past the consent box (AuthAction). */}
+      <AuthAction>
+        <Button label={t('auth.signUp')} onPress={create} busy={busy} disabled={!consent} style={{ height: AUTH_FIELD_HEIGHT, marginTop: 4 }} />
+      </AuthAction>
+      <SsoButtons onError={setErr} disabled={!consent} onStart={rememberSignUpConsent} />
+      <LinkedSentence
+        text={t('legal.agreeSignUp')}
+        slots={{ terms: { label: t('legal.termsLink'), onPress: () => legal.open('terms') }, privacy: { label: t('legal.privacyLink'), onPress: () => legal.open('privacy') } }}
+        style={{ ...AUTH_SMALL_PRINT, color: C.fg3, textAlign: 'center', marginTop: 6, fontFamily: font }}
+        linkStyle={{ color: C.fg2, fontWeight: '600' }}
+      />
+      {legal.element}
+    </AuthShell>
   );
 }

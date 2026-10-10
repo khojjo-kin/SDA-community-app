@@ -30,7 +30,7 @@ import { Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
 import { ProfileSkeleton } from './Skeleton';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
-import { WritingText } from './WritingText';
+import { SignatureText } from './WritingText';
 import { useTabListBottom } from '../lib/player';
 
 type Tab = 'grid' | 'reels' | 'reposts';
@@ -232,8 +232,8 @@ function AboutRow({ icon, title, value }: { icon: React.ReactNode; title: string
 }
 
 /**
- * "Share your first photo or short" (and "Share your first short" on the Shorts tab): on your own empty
- * profile the words write themselves in the app's green (WritingText) under a round camera. A tap opens Create.
+ * "Share your first post" (and "Share your first short" on the Shorts tab): on your own empty profile
+ * the words sign themselves in a handwriting face (SignatureText) under a round camera. A tap opens Create.
  */
 function ShareFirst({ title, icon, onPress }: { title: string; icon: IconName; onPress: () => void }) {
   return (
@@ -248,7 +248,7 @@ function ShareFirst({ title, icon, onPress }: { title: string; icon: IconName; o
       <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: C.fg, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={32} color={C.fg} />
       </View>
-      <WritingText text={title} size={20} />
+      <SignatureText text={title} size={34} color={C.fg} bg={C.bg} />
     </Pressable>
   );
 }
@@ -760,7 +760,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const hidden = profile.is_blocked || locked;
   const shown = hidden ? NO_POSTS : list;
   const emptyTitle: Record<Tab, string> = {
-    grid: mine ? t('profile.emptyFirstPhoto') : t('profile.emptyNoPosts'),
+    grid: mine ? t('profile.shareFirstPost') : t('profile.emptyNoPosts'),
     reels: mine ? t('profile.emptyFirstClip') : t('profile.emptyNoClips'),
     reposts: t('profile.emptyNoReposts'),
   };
@@ -868,15 +868,19 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         {hidden ? null : <ScheduledLiveCard userId={userId} mine={mine} refreshKey={refreshKey} />}
 
         {mine && profile.account_type === 'creator' ? (
-          <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel={t('profile.dashboard')} style={({ pressed }) => ({ marginTop: 14, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface })}>
-            <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>{t('profile.dashboard')}</Text>
-            {/* The views, once known: a line kept for them meanwhile, so the card doesn't grow when they arrive. */}
-            {views === -1 ? null : <Text style={{ color: C.fg2, marginTop: 2, fontSize: 14 }}>{views === null ? ' ' : t(views === 1 ? 'profile.dashboardViewsOne' : 'profile.dashboardViews', { count: fmt(views) })}</Text>}
+          // Plain words on the page, with a chevron: no card around them.
+          <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel={t('profile.dashboard')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>{t('profile.dashboard')}</Text>
+              {/* The views, once known: a line kept for them meanwhile, so nothing grows when they arrive. */}
+              {views === -1 ? null : <Text style={{ color: C.fg2, marginTop: 2, fontSize: 14 }}>{views === null ? ' ' : t(views === 1 ? 'profile.dashboardViewsOne' : 'profile.dashboardViews', { count: fmt(views) })}</Text>}
+            </View>
+            <Icon name="right" size={16} color={C.fg2} weight={2} />
           </Pressable>
         ) : null}
 
         {!mine && !profile.is_blocked && profile.requests_me ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: C.surface }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
             <Text numberOfLines={2} style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 19 }}>
               {wantsBefore}
               <Text style={{ fontWeight: '700' }}>{profile.username}</Text>
@@ -921,7 +925,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
                 <AccentButton label={profile.follows_me ? t('common.followBack') : t('common.follow')} accent={accent} style={{ flex: 1 }} onPress={follow} />
               )}
               <Button small kind="ghost" label={t('profile.message')} style={{ flex: 1 }} busy={opening === 'message'} onPress={message} />
-              {profile.sub_price_pence ? (
+              {/* Only for a creator who has subscriptions on and keeps posts for subscribers (or for someone already subscribed, to manage it). */}
+              {profile.sub_price_pence && ((profile.subscriber_posts ?? 0) > 0 || profile.subscribed) ? (
                 <Button small kind="ghost" label={profile.subscribed ? t('profile.subscribed') : t('profile.subscribe')} textColor={profile.subscribed ? undefined : link} style={{ flex: 1, paddingHorizontal: 8 }} onPress={() => router.push(`/subscribe/${userId}`)} />
               ) : null}
             </>
@@ -947,22 +952,17 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const subOnlyCount = t(subscriberOnly === 1 ? 'profile.subOnlyOne' : 'profile.subOnly', { count: fmt(subscriberOnly) });
   const subOnlyHow = profile.sub_price_pence ? t('profile.subscribeToSee') : t('profile.onlySubscribers');
   const lockedCard =
-    tab === 'grid' && subscriberOnly > 0 ? (
+    // Only while the creator has subscriptions on: with them off there is nothing to offer.
+    tab === 'grid' && subscriberOnly > 0 && !!profile.sub_price_pence ? (
       <Pressable
         onPress={() => router.push(`/subscribe/${userId}`)}
         accessibilityRole="button"
         accessibilityLabel={`${subOnlyCount}. ${subOnlyHow}`}
-        style={({ pressed }) => ({ marginHorizontal: 16, marginTop: shown.length ? 14 : 0, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, opacity: pressed ? 0.8 : 1 })}>
-        <LinearGradient colors={[C.accentSoft, C.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="lock" size={22} color={C.accent2} weight={2.2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>{subOnlyCount}</Text>
-            <Text style={{ color: C.fg2, fontSize: 14, marginTop: 2 }}>{subOnlyHow}</Text>
-          </View>
-          <Icon name="right" size={18} color={C.fg2} weight={2} />
-        </LinearGradient>
+        // Centred words under the grid, the way a private account says so: no card around them.
+        style={({ pressed }) => ({ alignItems: 'center', gap: 6, marginHorizontal: 24, marginTop: shown.length ? 22 : 0, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
+        <Icon name="lock" size={26} color={C.fg} weight={1.8} />
+        <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{subOnlyCount}</Text>
+        <Text style={{ color: profile.sub_price_pence ? link : C.fg2, fontSize: 15, fontWeight: profile.sub_price_pence ? '700' : '400', textAlign: 'center' }}>{subOnlyHow}</Text>
       </Pressable>
     ) : null;
 

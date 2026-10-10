@@ -4,9 +4,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { MARK_COLORS, markHex } from '../../src/components/BibleMarks';
 import { Icon } from '../../src/components/Icon';
 import { RowsSkeleton } from '../../src/components/Skeleton';
-import { Empty, ErrorNote, Screen, ScreenHeader, useToast } from '../../src/components/ui';
+import { Empty, ErrorNote, Screen, ScreenHeader, Sheet, SheetRow, useToast } from '../../src/components/ui';
 import { fetchBibleMarks } from '../../src/lib/api';
-import { cachedChapters, type Chapter, loadBibleSettings, verseRef } from '../../src/lib/bible';
+import { cachedChapters, type Chapter, loadBibleSettings, TRANSLATIONS, verseRef } from '../../src/lib/bible';
 import { tap } from '../../src/lib/haptics';
 import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
@@ -15,11 +15,22 @@ import type { BibleMark, BibleMarkColor } from '../../src/lib/types';
 
 type Filter = 'all' | 'notes' | Exclude<BibleMarkColor, ''>;
 
-/** One highlighted verse or note: its colour (or a pencil), the reference, the words if the phone has them, and the note. */
-const MarkRow = React.memo(function MarkRow({ mark: m, words, onOpen }: { mark: BibleMark; words: string; onOpen: (m: BibleMark) => void }) {
+/**
+ * One highlighted verse or note: its colour (or a pencil), the reference, the words if the phone has them, and the note.
+ * A long press offers more (a verse card).
+ */
+const MarkRow = React.memo(function MarkRow({ mark: m, words, cardLabel, onOpen, onMore }: { mark: BibleMark; words: string; cardLabel: string; onOpen: (m: BibleMark) => void; onMore: (m: BibleMark) => void }) {
   const ref = verseRef(m.book, m.chapter, [m.verse]);
   return (
-    <Pressable onPress={() => onOpen(m)} accessibilityRole="button" accessibilityLabel={m.note ? `${ref}. ${m.note}` : ref} style={({ pressed }) => ({ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable
+      onPress={() => onOpen(m)}
+      onLongPress={() => onMore(m)}
+      delayLongPress={350}
+      accessibilityRole="button"
+      accessibilityLabel={m.note ? `${ref}. ${m.note}` : ref}
+      accessibilityActions={[{ name: 'card', label: cardLabel }]}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'card' && onMore(m)}
+      style={({ pressed }) => ({ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent' })}>
       <View style={{ width: 22, alignItems: 'center', paddingTop: 2 }}>
         {m.color ? <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: markHex(m.color), marginTop: 2 }} /> : <Icon name="compose" size={18} color={C.accent2} weight={2.2} />}
       </View>
@@ -58,6 +69,9 @@ export default function BibleMarksScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [refreshing, setRefreshing] = useState(false);
   const hasList = useRef(false);
+  // The long-press menu: the verse it is for stays while the sheet slides away.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMark, setMenuMark] = useState<BibleMark | null>(null);
   hasList.current = marks !== null;
   const openedAt = useRef(0);
 
@@ -114,7 +128,21 @@ export default function BibleMarksScreen() {
     },
     [router],
   );
-  const renderItem = useCallback(({ item }: { item: BibleMark }) => <MarkRow mark={item} words={chapters[`${item.book} ${item.chapter}`]?.verses.find((v) => v.verse === item.verse)?.text ?? ''} onOpen={open} />, [chapters, open]);
+  const onMore = useCallback((m: BibleMark) => {
+    tap('medium');
+    setMenuMark(m);
+    setMenuOpen(true);
+  }, []);
+  const makeCard = (m: BibleMark) => {
+    setMenuOpen(false);
+    const now = Date.now();
+    if (now - openedAt.current < 700) return;
+    openedAt.current = now;
+    const tr = TRANSLATIONS.some((x) => x.id === m.translation) ? m.translation : '';
+    router.push({ pathname: '/verse-card', params: { book: m.book, c: String(m.chapter), v: String(m.verse), tr } } as any);
+  };
+  const cardLabel = t('verseCard.make');
+  const renderItem = useCallback(({ item }: { item: BibleMark }) => <MarkRow mark={item} words={chapters[`${item.book} ${item.chapter}`]?.verses.find((v) => v.verse === item.verse)?.text ?? ''} cardLabel={cardLabel} onOpen={open} onMore={onMore} />, [chapters, open, onMore, cardLabel]);
 
   return (
     <Screen>
@@ -141,6 +169,18 @@ export default function BibleMarksScreen() {
           renderItem={renderItem}
         />
       )}
+
+      <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={menuMark ? verseRef(menuMark.book, menuMark.chapter, [menuMark.verse]) : undefined}>
+        <SheetRow first icon="image" label={t('verseCard.make')} onPress={() => menuMark && makeCard(menuMark)} />
+        <SheetRow
+          icon="book"
+          label={t('bible.readChapter')}
+          onPress={() => {
+            setMenuOpen(false);
+            if (menuMark) open(menuMark);
+          }}
+        />
+      </Sheet>
     </Screen>
   );
 }

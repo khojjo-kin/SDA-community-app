@@ -137,10 +137,10 @@ export default function SabbathPostScreen() {
             </Text>
           ))}
           {post.link ? (
-            <Pressable onPress={() => openLink(post.link)} accessibilityRole="link" accessibilityLabel={`${t('ssPub.openLink')}, ${host}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
-              <Icon name="link" size={22} color={C.accent2} />
+            <Pressable onPress={() => openLink(post.link)} accessibilityRole="link" accessibilityLabel={`${t('ssPub.openLink')}, ${host}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4, paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
+              <Icon name="link" size={20} color={C.accent2} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '700' }}>{t('ssPub.openLink')}</Text>
+                <Text style={{ color: C.accent2, fontSize: 15.5, fontWeight: '700' }}>{t('ssPub.openLink')}</Text>
                 <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13 }}>{host}</Text>
               </View>
               <Icon name="up" size={18} color={C.fg2} weight={2} />

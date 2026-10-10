@@ -1313,6 +1313,247 @@ export const en = {
   'churches.pendingNote': 'It shows for everyone once an admin has approved it.',
   'churches.thanksMakeYours': 'Thanks! Make it your church?',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Payments',
+  'payments.cards': 'Saved cards',
+  'payments.addCard': 'Add card',
+  // The add-card sheet's title.
+  'payments.addACard': 'Add a card',
+  'payments.cardSaved': 'Card saved',
+  'payments.cardNotSaved': 'The card could not be saved. Try again.',
+  'payments.cardOptions': 'Opens options for this card',
+  'payments.makeDefault': 'Make default',
+  'payments.removeCard': 'Remove card',
+  'payments.removeQuestion': 'Remove this card?',
+  'payments.removeBody': '{card} will be removed from your account.',
+  'payments.removeBodyDefault': '{card} will be removed from your account. Plus renews with this card, so add another before your next renewal.',
+  'payments.remove': 'Remove',
+  'payments.cardRemoved': 'Card removed',
+  'payments.defaultSet': 'Plus will renew with this card',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Not subscribed',
+  'payments.activeUntil': 'Active until {day}',
+  'payments.paymentFailed': 'Payment failed',
+  'payments.creatorSubs': 'Creator subscriptions',
+  'payments.none': 'None',
+  'payments.noPayments': 'No payments yet',
+  // A payment's state.
+  'payments.paid': 'Paid',
+  'payments.failed': 'Failed',
+  'payments.refunded': 'Refunded',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Creator subscription',
+  'payments.kindDonation': 'Donation',
+  'payments.kindAd': 'Ad',
+  'payments.kindRefund': 'Refund',
+  'payments.kindOther': 'Payment',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Arranged by an admin',
+  // One payment's details.
+  'payments.status': 'Status',
+  'payments.date': 'Date',
+  'payments.method': 'Method',
+  'payments.reference': 'Reference',
+  'payments.copied': 'Reference copied',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Verse card',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Card',
+  'verseCard.make': 'Make a card',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Background',
+  'verseCard.font': 'Font',
+  'verseCard.layout': 'Layout',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Forest',
+  'verseCard.bgGreen': 'Green',
+  'verseCard.bgNight': 'Night',
+  'verseCard.bgDusk': 'Dusk',
+  'verseCard.bgDawn': 'Dawn',
+  'verseCard.bgOcean': 'Ocean',
+  'verseCard.bgPaper': 'Paper',
+  'verseCard.bgWhite': 'White',
+  'verseCard.bgBlack': 'Black',
+  'verseCard.photo': 'Photo',
+  'verseCard.choosePhoto': 'Choose a photo',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Align left',
+  'verseCard.alignCenter': 'Centre',
+  'verseCard.alignRight': 'Align right',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Square',
+  'verseCard.tall': 'Tall',
+  // What to do with the card.
+  'verseCard.toStory': 'Your story',
+  'verseCard.post': 'Post',
+  'verseCard.save': 'Save',
+  'verseCard.saved': 'Saved',
+  'verseCard.allowPhotos': 'Allow Community to add photos in Settings to save cards.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Shortened to fit',
+  'verseCard.notFound': "That verse couldn't be found.",
+  'verseCard.failed': "The card couldn't be made. Try again.",
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '{n}-day streak',
+  'bible.streakStart': 'Start a streak',
+  'bible.readToday': 'Read today',
+  'bible.readAChapter': 'Read a chapter today',
+  'bible.bestStreak': 'Best {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Day {n} — keep going',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Continue reading',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Open {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Events',
+  'events.title': 'Events',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Upcoming',
+  'events.going': 'Going',
+  'events.yours': 'Yours',
+  'events.interested': 'Interested',
+  'events.create': 'Create event',
+  'events.nearYou': 'Near you',
+  'events.useMyLocation': 'Use my location',
+  'events.openSettings': 'Open Settings',
+  'events.emptyUpcoming': 'No events coming up',
+  'events.emptyGoing': 'No plans yet',
+  'events.emptyYours': 'No events yet',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} going',
+  'events.interestedCount': '{count} interested',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Called off',
+  'events.ended': 'Ended',
+  'events.now': 'Happening now',
+  // The kinds of event.
+  'events.kind.service': 'Service',
+  'events.kind.bible_study': 'Bible study',
+  'events.kind.youth': 'Youth',
+  'events.kind.prayer': 'Prayer',
+  'events.kind.outreach': 'Outreach',
+  'events.kind.music': 'Music',
+  'events.kind.social': 'Social',
+  'events.kind.other': 'Other',
+  // The event page.
+  'events.event': 'Event',
+  'events.gone': "This event isn't here any more",
+  'events.openInMaps': 'Open in Maps',
+  'events.mapsFailed': "Maps didn't open",
+  'events.organiser': 'Organiser',
+  'events.options': 'More options',
+  'events.noOneYet': 'No one yet',
+  'events.edit': 'Edit',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Call off',
+  'events.callOffQuestion': 'Call off this event?',
+  'events.callOffBody': "Everyone who answered will see it's called off.",
+  'events.keep': 'Keep it',
+  'events.deleteQuestion': 'Delete this event?',
+  'events.deleteBody': "This can't be undone.",
+  'events.deleted': 'Event deleted',
+  // Making or changing an event.
+  'events.new': 'New event',
+  'events.editTitle': 'Edit event',
+  'events.save': 'Save',
+  'events.saved': 'Saved',
+  'events.addCover': 'Add a cover',
+  'events.changeCover': 'Change cover',
+  'events.removeCover': 'Remove cover',
+  'events.titleLabel': 'Title',
+  'events.titlePlaceholder': 'Event name',
+  'events.needTitle': 'Add a title.',
+  'events.kindLabel': 'Type',
+  'events.date': 'Date',
+  'events.starts': 'Starts',
+  'events.ends': 'Ends',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Add',
+  'events.removeEnd': 'Remove end time',
+  'events.prevMonth': 'Previous month',
+  'events.nextMonth': 'Next month',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': "Choose a time that hasn't passed.",
+  'events.place': 'Place',
+  'events.placePlaceholder': 'Church hall, 12 High St',
+  'events.pinOnMap': 'Pin on map',
+  'events.movePin': 'Move pin',
+  'events.removePin': 'Remove pin',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Move the map to the place',
+  'events.done': 'Done',
+  'events.locationOff': 'Location is off for Community. Turn it on in Settings.',
+  'events.noFix': "Your location isn't available right now.",
+  'events.church': 'Church',
+  'events.community': 'Community',
+  'events.none': 'None',
+  'events.searchChurches': 'Search churches',
+  'events.details': 'Details',
+  'events.detailsPlaceholder': "What's happening?",
+  'events.forMembers14': 'Events are for members 14 and over',
+  // On a church or community page.
+  'events.seeAll': 'See all',
+  'events.addEvent': 'Add an event',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Show',
+  'auth.hide': 'Hide',
+  'auth.showPassword': 'Show password',
+  'auth.hidePassword': 'Hide password',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Friends',
+  'map.nearby': 'Nearby',
+  'map.churches': 'Churches',
+  'map.events': 'Events',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Go to my location',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Show me in Nearby',
+  'map.nearbyPrivacy': 'Others see roughly where you are, never exactly.',
+  'map.adultsOnly': 'Nearby is for members 18 and over.',
+  'map.locationOff': 'Location access is off for Community.',
+  'map.allowLocation': 'Allow location access to use Nearby.',
+  'map.nearbyOnToast': "You're in Nearby",
+  'map.nearbyOffToast': 'Nearby is off',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'No one nearby right now',
+  'map.onePerson': '1 person nearby',
+  'map.personCount': '{n} people nearby',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'About {n} km away',
+  'map.noChurches': 'No churches on the map yet',
+  'map.oneChurch': '1 church',
+  'map.churchCount': '{n} churches',
+  'map.noEvents': 'No upcoming events on the map',
+  'map.oneEvent': '1 upcoming event',
+  'map.eventCount': '{n} upcoming events',
+  'map.nearestFirst': 'Nearest first',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Show list',
+  'map.hideList': 'Hide list',
+  'map.going': '{n} going',
+  'map.happeningNow': 'Happening now',
+  'map.today': 'Today',
+  'map.tomorrow': 'Tomorrow',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} away',
+  'map.viewChurch': 'View church',
+  'map.viewEvent': 'View event',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Directions',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Share your first post',
+  // ======== end of v23 ========
 } as const;
 
 /** The name of one line of words. A typo in a key is caught by the type check. */

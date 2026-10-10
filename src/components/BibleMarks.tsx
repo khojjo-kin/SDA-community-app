@@ -60,8 +60,8 @@ function BarAction({ icon, label, onPress, dim }: { icon: IconName; label: strin
   );
 }
 
-/** The bar that rises while verses are chosen: colours, then Note, Copy, Share and Post. */
-export function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onPost: () => void; onClose: () => void }) {
+/** The bar that rises while verses are chosen: colours, then Note, Copy, Share, Card (a verse card) and Post. */
+export function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onCard, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onCard: () => void; onPost: () => void; onClose: () => void }) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const reduce = useReduceMotion();
@@ -119,6 +119,7 @@ export function MarkBar({ reference, active, single, onColor, onNote, onCopy, on
         <BarAction icon="compose" label={t('bibleMarks.note')} onPress={onNote} dim={!single} />
         <BarAction icon="copy" label={t('bibleMarks.copy')} onPress={onCopy} />
         <BarAction icon="share" label={t('common.share')} onPress={onShare} />
+        <BarAction icon="image" label={t('verseCard.card')} onPress={onCard} />
         <BarAction icon="pluscircle" label={t('bibleMarks.post')} onPress={onPost} />
       </View>
     </Animated.View>

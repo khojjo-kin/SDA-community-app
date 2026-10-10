@@ -1281,4 +1281,245 @@ export const tw: Partial<Record<Key, string>> = {
   'churches.pendingNote': 'Sɛ admin bi pene so a, ɛbɛda adi ama obiara.',
   'churches.thanksMakeYours': "Yɛda wo ase! Wopɛ sɛ ɛyɛ w'asɔre?",
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Sika tua',
+  'payments.cards': 'Kaad a woakora',
+  'payments.addCard': 'Fa kaad ka ho',
+  // The add-card sheet's title.
+  'payments.addACard': 'Fa kaad bi ka ho',
+  'payments.cardSaved': 'Wɔakora kaad no',
+  'payments.cardNotSaved': 'Yɛantumi ankora kaad no. San sɔ hwɛ.',
+  'payments.cardOptions': 'Ɛbue kaad yi ho nhyehyɛeɛ',
+  'payments.makeDefault': 'Yɛ no titiriw',
+  'payments.removeCard': 'Yi kaad no fi hɔ',
+  'payments.removeQuestion': 'Yi kaad yi fi hɔ?',
+  'payments.removeBody': "Wɔbɛyi {card} afi w'akawnt mu.",
+  'payments.removeBodyDefault': "Wɔbɛyi {card} afi w'akawnt mu. Plus de kaad yi na ɛtoa so, enti fa kaad foforɔ ka ho ansa na wo toa so akatua a ɛdi hɔ aba.",
+  'payments.remove': 'Yi fi hɔ',
+  'payments.cardRemoved': 'Wɔayi kaad no',
+  'payments.defaultSet': 'Plus bɛtoa so wɔ kaad yi so',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Wonnyɛɛ subscribe',
+  'payments.activeUntil': 'Ɛreyɛ adwuma kosi {day}',
+  'payments.paymentFailed': 'Sika tua no anyɛ yie',
+  'payments.creatorSubs': 'Creator subscriptions',
+  'payments.none': 'Hwee',
+  'payments.noPayments': 'Sika tua biara nni hɔ da',
+  // A payment's state.
+  'payments.paid': 'Wɔatua',
+  'payments.failed': 'Anyɛ yie',
+  'payments.refunded': 'Wɔasan de ama',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Creator subscription',
+  'payments.kindDonation': 'Ntoboa',
+  'payments.kindAd': 'Dawurubɔ',
+  'payments.kindRefund': 'Sika a wɔsan de ma',
+  'payments.kindOther': 'Sika tua',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Admin bi na ɔhyehyɛeɛ',
+  // One payment's details.
+  'payments.status': 'Tebea',
+  'payments.date': 'Da',
+  'payments.method': 'Ɔkwan',
+  'payments.reference': 'Reference',
+  'payments.copied': 'Woakɔpi reference no',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Bible asɛm kaad',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Kaad',
+  'verseCard.make': 'Yɛ kaad',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Akyi',
+  'verseCard.font': 'Nkyerɛwee',
+  'verseCard.layout': 'Nhyehyɛeɛ',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Kwaeɛ',
+  'verseCard.bgGreen': 'Ahabammono',
+  'verseCard.bgNight': 'Anadwo',
+  'verseCard.bgDusk': 'Anwummerɛ',
+  'verseCard.bgDawn': 'Anɔpahema',
+  'verseCard.bgOcean': 'Ɛpo',
+  'verseCard.bgPaper': 'Krataa',
+  'verseCard.bgWhite': 'Fitaa',
+  'verseCard.bgBlack': 'Tuntum',
+  'verseCard.photo': 'Mfonini',
+  'verseCard.choosePhoto': 'Paw mfonini',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Fa kɔ benkum',
+  'verseCard.alignCenter': 'Fa kɔ mfinimfini',
+  'verseCard.alignRight': 'Fa kɔ nifa',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Ahinanan',
+  'verseCard.tall': 'Tenten',
+  // What to do with the card.
+  'verseCard.toStory': 'Wo story',
+  'verseCard.post': 'Post',
+  'verseCard.save': 'Kora',
+  'verseCard.saved': 'Wɔakora',
+  'verseCard.allowPhotos': 'Ma Community kwan wɔ fon nhyehyɛeɛ mu sɛ ɛmfa mfonini nka ho, na woatumi akora kaad.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Wɔatwa so ama afata',
+  'verseCard.notFound': 'Yɛanhu saa Bible asɛm no.',
+  'verseCard.failed': 'Yɛantumi anyɛ kaad no. San sɔ hwɛ.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Nna {n} a ɛtoatoa so',
+  'bible.streakStart': 'Fi ase kenkan da biara',
+  'bible.readToday': 'Wakenkan ɛnnɛ',
+  'bible.readAChapter': 'Kenkan ti baako ɛnnɛ',
+  'bible.bestStreak': 'Deɛ ɛsen biara {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Da {n} — kɔ so',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Toa so kenkan',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Bue {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Dwumadie',
+  'events.title': 'Dwumadie',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Deɛ ɛreba',
+  'events.going': 'Merekɔ',
+  'events.yours': 'Wo deɛ',
+  'events.interested': "M'ani gye ho",
+  'events.create': 'Yɛ dwumadie',
+  'events.nearYou': 'Wo mpɔtam',
+  'events.useMyLocation': 'Fa baabi a mewɔ di dwuma',
+  'events.openSettings': 'Bue fon nhyehyɛeɛ',
+  'events.emptyUpcoming': 'Dwumadie biara nni hɔ a ɛreba',
+  'events.emptyGoing': 'Nhyehyɛeɛ biara nni hɔ da',
+  'events.emptyYours': 'Dwumadie biara nni hɔ da',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'Nnipa {count} rekɔ',
+  'events.interestedCount': 'Nnipa {count} ani gye ho',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Wɔagyae',
+  'events.ended': 'Aba awieeɛ',
+  'events.now': 'Ɛrekɔ so seesei',
+  // The kinds of event.
+  'events.kind.service': 'Asɔre som',
+  'events.kind.bible_study': 'Bible adesua',
+  'events.kind.youth': 'Mmabunu',
+  'events.kind.prayer': 'Mpaeɛ',
+  'events.kind.outreach': 'Asɛmpatrɛw',
+  'events.kind.music': 'Nnwom',
+  'events.kind.social': 'Fekubɔ',
+  'events.kind.other': 'Afoforɔ',
+  // The event page.
+  'events.event': 'Dwumadie',
+  'events.gone': 'Dwumadie yi nni hɔ bio',
+  'events.openInMaps': 'Bue wɔ Maps mu',
+  'events.mapsFailed': 'Maps ammue',
+  'events.organiser': 'Ɔhyehyɛfoɔ',
+  'events.options': 'Nea ɛkeka ho',
+  'events.noOneYet': 'Obiara nni hɔ da',
+  'events.edit': 'Sesa',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Gyae',
+  'events.callOffQuestion': 'Gyae dwumadie yi?',
+  'events.callOffBody': 'Obiara a ɔbuaa no bɛhunu sɛ wɔagyae.',
+  'events.keep': 'Ma ɛntena hɔ',
+  'events.deleteQuestion': 'Pepa dwumadie yi?',
+  'events.deleteBody': 'Wontumi nsan nnya bio.',
+  'events.deleted': 'Wɔapepa dwumadie no',
+  // Making or changing an event.
+  'events.new': 'Dwumadie foforɔ',
+  'events.editTitle': 'Sesa dwumadie',
+  'events.save': 'Kora',
+  'events.saved': 'Wɔakora',
+  'events.addCover': 'Fa anim mfonini ka ho',
+  'events.changeCover': 'Sesa anim mfonini',
+  'events.removeCover': 'Yi anim mfonini fi hɔ',
+  'events.titleLabel': 'Asɛmti',
+  'events.titlePlaceholder': 'Dwumadie no din',
+  'events.needTitle': 'Fa asɛmti ka ho.',
+  'events.kindLabel': 'Dwumadie su',
+  'events.date': 'Da',
+  'events.starts': 'Ɛfi ase',
+  'events.ends': 'Ɛba awieeɛ',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Fa ka ho',
+  'events.removeEnd': 'Yi awieeɛ bere no fi hɔ',
+  'events.prevMonth': 'Ɔsram a atwam',
+  'events.nextMonth': 'Ɔsram a ɛdi hɔ',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Paw bere a ɛwɔ seesei akyi.',
+  'events.place': 'Beaeɛ',
+  'events.placePlaceholder': 'Asɔredan, 12 High St',
+  'events.pinOnMap': 'Hyɛ agyiraeɛ wɔ asase mfonini so',
+  'events.movePin': 'Twe agyiraeɛ no',
+  'events.removePin': 'Yi agyiraeɛ no fi hɔ',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Twe asase mfonini no kɔ beaeɛ no',
+  'events.done': 'Wie',
+  'events.locationOff': 'Wɔadum beaeɛ kwan ama Community. Bue no wɔ wo fon nhyehyɛeɛ mu.',
+  'events.noFix': 'Yɛntumi nhu baabi a wowɔ seesei.',
+  'events.church': 'Asɔre',
+  'events.community': 'Kuo',
+  'events.none': 'Hwee',
+  'events.searchChurches': 'Hwehwɛ asɔre',
+  'events.details': 'Nsɛm a ɛfa ho',
+  'events.detailsPlaceholder': 'Deɛn na ɛrekɔ so?',
+  'events.forMembers14': 'Dwumadie yɛ ma members a wɔadi mfeɛ 14 ne deɛ ɛboro saa',
+  // On a church or community page.
+  'events.seeAll': 'Hwɛ ne nyinaa',
+  'events.addEvent': 'Fa dwumadie ka ho',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Kyerɛ',
+  'auth.hide': 'Hintaw',
+  'auth.showPassword': 'Kyerɛ password',
+  'auth.hidePassword': 'Hintaw password',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Nnamfo',
+  'map.nearby': 'Mpɔtam hɔ',
+  'map.churches': 'Asɔre ahodoɔ',
+  'map.events': 'Dwumadie',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Kɔ baabi a mewɔ',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Ma me nna adi wɔ Mpɔtam hɔ',
+  'map.nearbyPrivacy': 'Afoforɔ hunu mpɔtam a wowɔ mu nko ara, ɛnyɛ baabi pɔtee a wowɔ da.',
+  'map.adultsOnly': 'Mpɔtam hɔ yɛ ma members a wɔadi mfeɛ 18 ne deɛ ɛboro saa.',
+  'map.locationOff': 'Wɔadum beaeɛ kwan ama Community.',
+  'map.allowLocation': 'Ma beaeɛ kwan na woatumi de Mpɔtam hɔ adi dwuma.',
+  'map.nearbyOnToast': 'Wowɔ Mpɔtam hɔ seesei',
+  'map.nearbyOffToast': 'Wɔadum Mpɔtam hɔ',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Obiara nni wo mpɔtam seesei',
+  'map.onePerson': 'Onipa 1 wɔ wo mpɔtam',
+  'map.personCount': 'Nnipa {n} wɔ wo mpɔtam',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Bɛyɛ {n} km firi ha',
+  'map.noChurches': 'Asɔre biara nni asase mfonini no so da',
+  'map.oneChurch': 'Asɔre 1',
+  'map.churchCount': 'Asɔre {n}',
+  'map.noEvents': 'Dwumadie biara a ɛreba nni asase mfonini no so',
+  'map.oneEvent': 'Dwumadie 1 a ɛreba',
+  'map.eventCount': 'Dwumadie {n} a ɛreba',
+  'map.nearestFirst': 'Deɛ ɛbɛn kan',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Kyerɛ list no',
+  'map.hideList': 'Hintaw list no',
+  'map.going': 'Nnipa {n} rekɔ',
+  'map.happeningNow': 'Ɛrekɔ so seesei',
+  'map.today': 'Ɛnnɛ',
+  'map.tomorrow': 'Ɔkyena',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} firi ha',
+  'map.viewChurch': 'Hwɛ asɔre no',
+  'map.viewEvent': 'Hwɛ dwumadie no',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Ɔkwan kyerɛ',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Kyɛ wo post a edi kan',
+  // ======== end of v23 ========
 };

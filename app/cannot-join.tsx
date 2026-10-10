@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { AuthShell } from '../src/components/AuthShell';
+import { AUTH_FIELD_HEIGHT, AuthShell } from '../src/components/AuthShell';
 import { isPlaceholder, LinkedSentence, openLegalLink } from '../src/components/LegalDocument';
-import { DarkStatusBar } from '../src/components/OnDark';
 import { Button } from '../src/components/ui';
 import { LEGAL_DETAILS } from '../src/legal/documents';
 import { useLogOut } from '../src/lib/accounts';
 import { childClosureRequested, closeChildAccount } from '../src/lib/age';
+import { useAppFont } from '../src/lib/fonts';
 import { useT } from '../src/lib/i18n';
-import { DARK } from '../src/lib/theme';
+import { C } from '../src/lib/theme';
 
 /**
  * "Sorry, you can't create an account": where every age check ends for someone under 13.
@@ -37,6 +36,7 @@ export default function CannotJoin() {
   const { user } = useUser();
   const router = useRouter();
   const t = useT();
+  const font = useAppFont();
   const mine = !!userId && childClosureRequested(userId);
   // Busy from the start when there is an account to close, so "Try again" never flashes up first.
   const [working, setWorking] = useState(() => !!isSignedIn && mine);
@@ -60,30 +60,22 @@ export default function CannotJoin() {
   // Still signed in once the closing has finished: it couldn't reach the server, so offer another go.
   // (Signed in to some other account, such as when adding a second one, nothing is closed.)
   const stuck = !!isSignedIn && mine && !working;
+  const button = { height: AUTH_FIELD_HEIGHT, marginTop: 8 };
   return (
-    <>
-      <DarkStatusBar />
-      <AuthShell>
-        <View style={{ gap: 12, marginBottom: 6 }}>
-          <Text accessibilityRole="header" style={{ color: DARK.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>
-            {wasClosed ? t('age.closedTitle') : t('age.sorryTitle')}
-          </Text>
-          <Text style={{ color: DARK.fg2, fontSize: 15.5, lineHeight: 22, textAlign: 'center' }}>{wasClosed ? t('age.closedBody') : t('age.sorryBody')}</Text>
-          <LinkedSentence
-            text={t('age.parents')}
-            slots={{ email: { label: email, onPress: mailable ? () => openLegalLink(`mailto:${encodeURI(email)}`, () => {}) : undefined } }}
-            style={{ color: DARK.fg3, fontSize: 13.5, lineHeight: 19, textAlign: 'center' }}
-            linkStyle={{ color: DARK.accent2 }}
-          />
-        </View>
-        {working ? (
-          <Button label={t('age.closing')} busy />
-        ) : stuck ? (
-          <Button label={t('common.tryAgain')} onPress={close} />
-        ) : (
-          <Button label={t('age.backToStart')} onPress={() => router.replace(isSignedIn ? '/' : '/sign-in')} />
-        )}
-      </AuthShell>
-    </>
+    <AuthShell heading={wasClosed ? t('age.closedTitle') : t('age.sorryTitle')} title={wasClosed ? t('age.closedBody') : t('age.sorryBody')}>
+      <LinkedSentence
+        text={t('age.parents')}
+        slots={{ email: { label: email, onPress: mailable ? () => openLegalLink(`mailto:${encodeURI(email)}`, () => {}) : undefined } }}
+        style={{ color: C.fg3, fontSize: 13.5, lineHeight: 19, textAlign: 'center', fontFamily: font }}
+        linkStyle={{ color: C.accent2 }}
+      />
+      {working ? (
+        <Button label={t('age.closing')} busy style={button} />
+      ) : stuck ? (
+        <Button label={t('common.tryAgain')} onPress={close} style={button} />
+      ) : (
+        <Button label={t('age.backToStart')} onPress={() => router.replace(isSignedIn ? '/' : '/sign-in')} style={button} />
+      )}
+    </AuthShell>
   );
 }

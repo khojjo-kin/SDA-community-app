@@ -1281,4 +1281,245 @@ export const ig: Partial<Record<Key, string>> = {
   'churches.pendingNote': 'Onye ọ bụla ga-ahụ ya ozugbo onye nchịkwa kwadoro ya.',
   'churches.thanksMakeYours': 'Daalụ! Ị chọrọ ime ya ụka gị?',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Ịkwụ ụgwọ',
+  'payments.cards': 'Kaadị echekwara',
+  'payments.addCard': 'Tinye kaadị',
+  // The add-card sheet's title.
+  'payments.addACard': 'Tinye kaadị',
+  'payments.cardSaved': 'Echekwala kaadị',
+  'payments.cardNotSaved': 'Enweghị ike ichekwa kaadị ahụ. Nwaa ọzọ.',
+  'payments.cardOptions': 'Ọ na-emepe nhọrọ maka kaadị a',
+  'payments.makeDefault': 'Mee ya isi',
+  'payments.removeCard': 'Wepụ kaadị',
+  'payments.removeQuestion': 'Wepụ kaadị a?',
+  'payments.removeBody': "A ga-ewepụ {card} n'akaụntụ gị.",
+  'payments.removeBodyDefault': "A ga-ewepụ {card} n'akaụntụ gị. Plus na-emegharị site na kaadị a, ya mere tinye nke ọzọ tupu mmegharị gị na-esote.",
+  'payments.remove': 'Wepụ',
+  'payments.cardRemoved': 'Ewepụla kaadị',
+  'payments.defaultSet': 'Plus ga-emegharị site na kaadị a',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Ị debanyeghị aha',
+  'payments.activeUntil': 'Ọ na-arụ ọrụ ruo {day}',
+  'payments.paymentFailed': 'Ịkwụ ụgwọ agaghị nke ọma',
+  'payments.creatorSubs': 'Ndebanye aha ndị na-emepụta ihe',
+  'payments.none': 'Ọ dịghị',
+  'payments.noPayments': 'Ọ dịbeghị ụgwọ a kwụrụ',
+  // A payment's state.
+  'payments.paid': 'Akwụọla',
+  'payments.failed': 'Agaghị',
+  'payments.refunded': 'Eweghachila ego',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Ndebanye aha onye na-emepụta ihe',
+  'payments.kindDonation': 'Onyinye',
+  'payments.kindAd': 'Mgbasa ozi',
+  'payments.kindRefund': 'Nkwụghachi ego',
+  'payments.kindOther': 'Ịkwụ ụgwọ',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Onye nchịkwa haziri ya',
+  // One payment's details.
+  'payments.status': 'Ọnọdụ',
+  'payments.date': 'Ụbọchị',
+  'payments.method': 'Ụzọ',
+  'payments.reference': 'Nọmba ntụaka',
+  'payments.copied': 'Edetuola nọmba ntụaka',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Kaadị amaokwu',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Kaadị',
+  'verseCard.make': 'Mee kaadị',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Azụ',
+  'verseCard.font': 'Mkpụrụ edemede',
+  'verseCard.layout': 'Nhazi',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Ọhịa',
+  'verseCard.bgGreen': 'Akwụkwọ ndụ',
+  'verseCard.bgNight': 'Abalị',
+  'verseCard.bgDusk': 'Mgbede',
+  'verseCard.bgDawn': 'Ọbụbọ',
+  'verseCard.bgOcean': 'Oké osimiri',
+  'verseCard.bgPaper': 'Mpempe akwụkwọ',
+  'verseCard.bgWhite': 'Ọcha',
+  'verseCard.bgBlack': 'Oji',
+  'verseCard.photo': 'Foto',
+  'verseCard.choosePhoto': 'Họrọ foto',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': "Hazie n'aka ekpe",
+  'verseCard.alignCenter': "Hazie n'etiti",
+  'verseCard.alignRight': "Hazie n'aka nri",
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Akụkụ anọ',
+  'verseCard.tall': 'Ogologo',
+  // What to do with the card.
+  'verseCard.toStory': 'Akụkọ gị',
+  'verseCard.post': 'Debe',
+  'verseCard.save': 'Chekwaa',
+  'verseCard.saved': 'Echekwala',
+  'verseCard.allowPhotos': 'Na ntọala ekwentị gị, kwe ka Community tinye foto, iji chekwaa kaadị.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Emere ya mkpụmkpụ ka o kwekọọ',
+  'verseCard.notFound': 'Ahụghị amaokwu ahụ.',
+  'verseCard.failed': 'Enweghị ike ime kaadị ahụ. Nwaa ọzọ.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': "Ụbọchị {n} n'usoro",
+  'bible.streakStart': 'Malite ịgụ kwa ụbọchị',
+  'bible.readToday': 'Ị gụọla taa',
+  'bible.readAChapter': 'Gụọ otu isi taa',
+  'bible.bestStreak': 'Kachasị ogologo {n}',
+  // After the first chapter read today.
+  'bible.streakDay': "Ụbọchị {n} — gaa n'ihu",
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': "Gaa n'ihu ịgụ",
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Mepee {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Mmemme',
+  'events.title': 'Mmemme',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Ndị na-abịa',
+  'events.going': 'Aga m',
+  'events.yours': 'Nke gị',
+  'events.interested': 'Ọ masịrị m',
+  'events.create': 'Mepụta mmemme',
+  'events.nearYou': 'Nso gị',
+  'events.useMyLocation': 'Jiri ebe m nọ',
+  'events.openSettings': 'Mepee ntọala ekwentị gị',
+  'events.emptyUpcoming': 'Enweghị mmemme na-abịa',
+  'events.emptyGoing': 'Ọ dịbeghị atụmatụ',
+  'events.emptyYours': 'Ọ dịbeghị mmemme',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'Mmadụ {count} na-aga',
+  'events.interestedCount': 'Ọ masịrị mmadụ {count}',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Akagbuola ya',
+  'events.ended': 'Ọ kwụsịla',
+  'events.now': 'Ọ na-eme ugbu a',
+  // The kinds of event.
+  'events.kind.service': 'Ofufe',
+  'events.kind.bible_study': 'Ọmụmụ Baịbụl',
+  'events.kind.youth': 'Ndị ntorobịa',
+  'events.kind.prayer': 'Ekpere',
+  'events.kind.outreach': 'Ozi ọma',
+  'events.kind.music': 'Egwu',
+  'events.kind.social': 'Mmekọrịta',
+  'events.kind.other': 'Ọzọ',
+  // The event page.
+  'events.event': 'Mmemme',
+  'events.gone': 'Mmemme a adịghịzi ebe a',
+  'events.openInMaps': 'Mepee na Maps',
+  'events.mapsFailed': 'Maps emepeghị',
+  'events.organiser': 'Onye haziri ya',
+  'events.options': 'Nhọrọ ndị ọzọ',
+  'events.noOneYet': 'Ọ dịbeghị onye ọ bụla',
+  'events.edit': 'Dezie',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Kagbuo',
+  'events.callOffQuestion': 'Kagbuo mmemme a?',
+  'events.callOffBody': 'Onye ọ bụla zara ga-ahụ na akagbuola ya.',
+  'events.keep': 'Hapụ ya',
+  'events.deleteQuestion': 'Hichapụ mmemme a?',
+  'events.deleteBody': 'A gaghị enwe ike iweghachi ya.',
+  'events.deleted': 'Ehichapụla mmemme',
+  // Making or changing an event.
+  'events.new': 'Mmemme ọhụrụ',
+  'events.editTitle': 'Dezie mmemme',
+  'events.save': 'Chekwaa',
+  'events.saved': 'Echekwala',
+  'events.addCover': 'Tinye foto mkpuchi',
+  'events.changeCover': 'Gbanwee foto mkpuchi',
+  'events.removeCover': 'Wepụ foto mkpuchi',
+  'events.titleLabel': 'Isiokwu',
+  'events.titlePlaceholder': 'Aha mmemme',
+  'events.needTitle': 'Tinye isiokwu.',
+  'events.kindLabel': 'Ụdị',
+  'events.date': 'Ụbọchị',
+  'events.starts': 'Mmalite',
+  'events.ends': 'Njedebe',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Tinye',
+  'events.removeEnd': 'Wepụ oge njedebe',
+  'events.prevMonth': 'Ọnwa gara aga',
+  'events.nextMonth': 'Ọnwa na-abịa',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': "Họrọ oge dị n'ihu, ọ bụghị nke gafeworo.",
+  'events.place': 'Ebe',
+  'events.placePlaceholder': 'Ụlọ nzukọ ụka, 12 High St',
+  'events.pinOnMap': 'Kanye akara na maapụ',
+  'events.movePin': 'Bugharịa akara',
+  'events.removePin': 'Wepụ akara',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': "Bugharịa maapụ gaa n'ebe ahụ",
+  'events.done': 'Emechaala',
+  'events.locationOff': 'Agbanyụrụ ohere ịhụ ebe ị nọ maka Community. Gbanye ya na ntọala ekwentị gị.',
+  'events.noFix': 'Ahụghị ebe ị nọ ugbu a.',
+  'events.church': 'Ụka',
+  'events.community': 'Otu',
+  'events.none': 'Ọ dịghị',
+  'events.searchChurches': 'Chọọ ụka',
+  'events.details': 'Nkọwa',
+  'events.detailsPlaceholder': 'Gịnị na-eme?',
+  'events.forMembers14': "Mmemme bụ maka ndị otu dị afọ 14 gaa n'ihu",
+  // On a church or community page.
+  'events.seeAll': 'Hụ ha niile',
+  'events.addEvent': 'Tinye mmemme',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Gosi',
+  'auth.hide': 'Zoo',
+  'auth.showPassword': 'Gosi okwuntụghe',
+  'auth.hidePassword': 'Zoo okwuntụghe',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Ndị enyi',
+  'map.nearby': 'Nso',
+  'map.churches': 'Ụka dị iche iche',
+  'map.events': 'Mmemme',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Gaa ebe m nọ',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Gosi m na Nso',
+  'map.nearbyPrivacy': 'Ndị ọzọ na-ahụ naanị mpaghara ị nọ, ọ bụghị kpọmkwem ebe ị nọ.',
+  'map.adultsOnly': "Nso bụ maka ndị otu dị afọ 18 gaa n'ihu.",
+  'map.locationOff': 'Agbanyụrụ ohere ịhụ ebe ị nọ maka Community.',
+  'map.allowLocation': 'Kwe ka a hụ ebe ị nọ iji jiri Nso.',
+  'map.nearbyOnToast': 'Ị nọ na Nso',
+  'map.nearbyOffToast': 'Agbanyụrụ Nso',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Ọ dịghị onye nọ nso ugbu a',
+  'map.onePerson': 'Mmadụ 1 nọ nso',
+  'map.personCount': 'Mmadụ {n} nọ nso',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Ihe dị ka {n} km site ebe a',
+  'map.noChurches': 'Ọ dịbeghị ụka na maapụ',
+  'map.oneChurch': 'Ụka 1',
+  'map.churchCount': 'Ụka {n}',
+  'map.noEvents': 'Enweghị mmemme na-abịa na maapụ',
+  'map.oneEvent': 'Mmemme 1 na-abịa',
+  'map.eventCount': 'Mmemme {n} na-abịa',
+  'map.nearestFirst': 'Nke kacha nso na mbụ',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Gosi ndepụta',
+  'map.hideList': 'Zoo ndepụta',
+  'map.going': 'Mmadụ {n} na-aga',
+  'map.happeningNow': 'Ọ na-eme ugbu a',
+  'map.today': 'Taa',
+  'map.tomorrow': 'Echi',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} site ebe a',
+  'map.viewChurch': 'Lee ụka',
+  'map.viewEvent': 'Lee mmemme',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Ntụziaka ụzọ',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Kesaa post mbụ gị',
+  // ======== end of v23 ========
 };

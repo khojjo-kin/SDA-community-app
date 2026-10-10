@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { penceFrom } from '../../src/components/FundraiserCard';
 import { Icon } from '../../src/components/Icon';
 import { Button, Empty, ErrorNote, Field, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
@@ -156,8 +156,6 @@ export default function FundraiserNew() {
   if (started) {
     return (
       <Screen>
-        {/* Swiping back works again: the form's "not while saving" setting would otherwise stay on. */}
-        <Stack.Screen options={{ gestureEnabled: true }} />
         <ScreenHeader title={heading} onBack={() => router.replace(`/fundraiser/${started}`)} />
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 28, paddingTop: 36, gap: 10 }}>
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
@@ -282,8 +280,6 @@ export default function FundraiserNew() {
 
   return (
     <Screen>
-      {/* Not while saving: the photo and the fundraiser would be half made. */}
-      <Stack.Screen options={{ gestureEnabled: !busy }} />
       <ScreenHeader title={heading} onBack={busy ? () => undefined : undefined} />
       {body}
     </Screen>

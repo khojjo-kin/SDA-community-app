@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { confirmPayment, confirmPlatformPayPayment, confirmPlatformPaySetupIntent, confirmSetupIntent, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
 import { CardChip, CardInput, CardPreview, cardTitle, expiryLabel, isExpired, PaymentsOff } from '../../src/components/CardPreview';
 import { Icon } from '../../src/components/Icon';
@@ -294,7 +294,8 @@ export default function Checkout() {
       const switchTo = plan === 'yearly' ? t('plus.switchToYearly') : t('plus.switchToMonthly');
       body = (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 40, gap: 14 }}>
-          <View style={{ padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 10 }}>
+          {/* The new plan and its price, set on the page itself: no card around them. */}
+          <View style={{ paddingTop: 4, paddingBottom: 6, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={34} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{switchTo}</Text>
@@ -338,7 +339,8 @@ export default function Checkout() {
           ) : null}
           {config.status === 'past_due' ? <Notice color={C.like} icon="info">{t('checkout.renewalFailed')}</Notice> : null}
 
-          <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 12 }}>
+          {/* What is being bought, set on the page itself: no card around it. */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6, gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={30} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{t('common.communityPlus')}</Text>
@@ -457,8 +459,6 @@ export default function Checkout() {
 
   return (
     <Screen>
-      {/* Not while a payment is going through: leaving then would look like cancelling it, and it isn't. */}
-      <Stack.Screen options={{ gestureEnabled: !busy }} />
       <ScreenHeader title={t('checkout.title')} onBack={busy ? () => undefined : undefined} />
       {body}
     </Screen>
@@ -474,20 +474,26 @@ function PlusBadge({ size }: { size: number }) {
   );
 }
 
+/** Why paying didn't work: red words on the page, no box. */
 function PayError({ message }: { message: string }) {
   return (
-    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, backgroundColor: C.like + '1a' }}>
-      <Icon name="info" size={18} color={C.like} />
-      <Text style={{ flex: 1, color: C.like, fontSize: 14, lineHeight: 19 }}>{message}</Text>
+    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ paddingTop: 1 }}>
+        <Icon name="info" size={18} color={C.like} />
+      </View>
+      <Text style={{ flex: 1, color: C.like, fontSize: 14.5, lineHeight: 20, fontWeight: '600' }}>{message}</Text>
     </View>
   );
 }
 
+/** A short line in its colour (test mode, a failed renewal) above the plan: words on the page, no box. */
 function Notice({ color, icon, children }: { color: string; icon: 'info'; children: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color, backgroundColor: color + '1f' }}>
-      <Icon name={icon} size={16} color={color} />
-      <Text style={{ flex: 1, color, fontSize: 13, lineHeight: 18 }}>{children}</Text>
+    <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 16, marginBottom: 14 }}>
+      <View style={{ paddingTop: 1 }}>
+        <Icon name={icon} size={16} color={color} />
+      </View>
+      <Text style={{ flex: 1, color, fontSize: 14, lineHeight: 19, fontWeight: '600' }}>{children}</Text>
     </View>
   );
 }

@@ -115,13 +115,12 @@ export default function Ads() {
   const renderAd = useCallback(({ item }: { item: Promotion }) => <AdRow item={item} onAgain={promote} />, [promote]);
   const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={cell} onOpen={pick} />, [cell, pick]);
 
+  // Promoting another post: a line of green text above the list, not a card.
   const header = (
-    <Pressable onPress={openPicker} accessibilityRole="button" accessibilityLabel="Promote a post" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 16, marginTop: 6, marginBottom: 10, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface })}>
-      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="megaphone" size={24} color={C.accent2} />
-      </View>
-      <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>Promote a post</Text>
-      <Icon name="right" size={18} color={C.fg2} weight={2} />
+    <Pressable onPress={openPicker} hitSlop={6} accessibilityRole="button" accessibilityLabel="Promote a post" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginHorizontal: 16, marginTop: 2, marginBottom: 10, paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
+      <Icon name="megaphone" size={20} color={C.accent2} />
+      <Text style={{ color: C.accent2, fontSize: 16, fontWeight: '700' }}>Promote a post</Text>
+      <Icon name="right" size={15} color={C.accent2} weight={2.4} />
     </Pressable>
   );
 

@@ -333,10 +333,10 @@ export default function StoryScreen() {
                 onPress={fromSheet(() => { hold.leave(); router.push('/plus'); })}
                 accessibilityRole="button"
                 accessibilityLabel="See rewatches and times with Plus"
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: pressed ? C.press : C.accentSoft })}>
-                <Icon name="crown" size={18} color={C.accent2} />
-                <Text style={{ flex: 1, color: C.fg, fontSize: 14 }}>See rewatches and times with Plus</Text>
-                <Icon name="right" size={14} color={C.fg2} weight={2} />
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginHorizontal: 16, marginBottom: 10, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
+                <Icon name="crown" size={16} color={C.accent2} />
+                <Text style={{ flexShrink: 1, color: C.accent2, fontSize: 14.5, fontWeight: '700' }}>See rewatches and times with Plus</Text>
+                <Icon name="right" size={13} color={C.accent2} weight={2.4} />
               </Pressable>
             )}
             {viewers.map((v) => {

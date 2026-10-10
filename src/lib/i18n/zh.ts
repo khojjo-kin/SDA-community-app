@@ -1281,4 +1281,245 @@ export const zh: Partial<Record<Key, string>> = {
   'churches.pendingNote': '管理员批准后，所有人都能看到它。',
   'churches.thanksMakeYours': '谢谢！要把它设为你的教会吗？',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': '付款',
+  'payments.cards': '已保存的卡',
+  'payments.addCard': '添加卡',
+  // The add-card sheet's title.
+  'payments.addACard': '添加卡',
+  'payments.cardSaved': '卡已保存',
+  'payments.cardNotSaved': '无法保存这张卡。请重试。',
+  'payments.cardOptions': '打开此卡的选项',
+  'payments.makeDefault': '设为默认',
+  'payments.removeCard': '移除卡',
+  'payments.removeQuestion': '要移除这张卡吗？',
+  'payments.removeBody': '{card} 将从你的账户中移除。',
+  'payments.removeBodyDefault': '{card} 将从你的账户中移除。Plus 使用这张卡续订，请在下次续订前添加另一张卡。',
+  'payments.remove': '移除',
+  'payments.cardRemoved': '卡已移除',
+  'payments.defaultSet': 'Plus 将使用这张卡续订',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': '未订阅',
+  'payments.activeUntil': '有效期至 {day}',
+  'payments.paymentFailed': '付款失败',
+  'payments.creatorSubs': '创作者订阅',
+  'payments.none': '无',
+  'payments.noPayments': '还没有付款记录',
+  // A payment's state.
+  'payments.paid': '已付款',
+  'payments.failed': '失败',
+  'payments.refunded': '已退款',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': '创作者订阅',
+  'payments.kindDonation': '捐款',
+  'payments.kindAd': '广告',
+  'payments.kindRefund': '退款',
+  'payments.kindOther': '付款',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': '由管理员安排',
+  // One payment's details.
+  'payments.status': '状态',
+  'payments.date': '日期',
+  'payments.method': '方式',
+  'payments.reference': '参考编号',
+  'payments.copied': '参考编号已复制',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': '经文卡片',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': '卡片',
+  'verseCard.make': '制作卡片',
+  // The card maker's three tool tabs.
+  'verseCard.background': '背景',
+  'verseCard.font': '字体',
+  'verseCard.layout': '布局',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': '森林',
+  'verseCard.bgGreen': '绿色',
+  'verseCard.bgNight': '夜晚',
+  'verseCard.bgDusk': '黄昏',
+  'verseCard.bgDawn': '黎明',
+  'verseCard.bgOcean': '海洋',
+  'verseCard.bgPaper': '纸张',
+  'verseCard.bgWhite': '白色',
+  'verseCard.bgBlack': '黑色',
+  'verseCard.photo': '照片',
+  'verseCard.choosePhoto': '选择照片',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': '左对齐',
+  'verseCard.alignCenter': '居中',
+  'verseCard.alignRight': '右对齐',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': '方形',
+  'verseCard.tall': '竖版',
+  // What to do with the card.
+  'verseCard.toStory': '你的快拍',
+  'verseCard.post': '发帖',
+  'verseCard.save': '保存',
+  'verseCard.saved': '已保存',
+  'verseCard.allowPhotos': '请在“设置”中允许 Community 添加照片，以便保存卡片。',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': '已缩短以适合卡片',
+  'verseCard.notFound': '找不到这节经文。',
+  'verseCard.failed': '无法制作卡片。请重试。',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '连续 {n} 天',
+  'bible.streakStart': '开始连续阅读',
+  'bible.readToday': '今日已读',
+  'bible.readAChapter': '今天读一章',
+  'bible.bestStreak': '最长 {n} 天',
+  // After the first chapter read today.
+  'bible.streakDay': '第 {n} 天——继续加油',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': '继续阅读',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': '打开 {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': '活动',
+  'events.title': '活动',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': '即将举行',
+  'events.going': '参加',
+  'events.yours': '我的',
+  'events.interested': '感兴趣',
+  'events.create': '创建活动',
+  'events.nearYou': '你附近',
+  'events.useMyLocation': '使用我的位置',
+  'events.openSettings': '打开设置',
+  'events.emptyUpcoming': '暂无即将举行的活动',
+  'events.emptyGoing': '还没有计划',
+  'events.emptyYours': '还没有活动',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} 人参加',
+  'events.interestedCount': '{count} 人感兴趣',
+  // How far away an event is.
+  'events.km': '{km} 公里',
+  // An event's state, shown as plain text.
+  'events.calledOff': '已取消',
+  'events.ended': '已结束',
+  'events.now': '正在进行',
+  // The kinds of event.
+  'events.kind.service': '礼拜',
+  'events.kind.bible_study': '查经',
+  'events.kind.youth': '青年',
+  'events.kind.prayer': '祷告',
+  'events.kind.outreach': '外展布道',
+  'events.kind.music': '音乐',
+  'events.kind.social': '联谊',
+  'events.kind.other': '其他',
+  // The event page.
+  'events.event': '活动',
+  'events.gone': '此活动已不存在',
+  'events.openInMaps': '在地图中打开',
+  'events.mapsFailed': '无法打开地图',
+  'events.organiser': '组织者',
+  'events.options': '更多选项',
+  'events.noOneYet': '还没有人',
+  'events.edit': '编辑',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': '取消活动',
+  'events.callOffQuestion': '要取消此活动吗？',
+  'events.callOffBody': '所有已回复的人都会看到活动已取消。',
+  'events.keep': '保留',
+  'events.deleteQuestion': '要删除此活动吗？',
+  'events.deleteBody': '此操作无法撤销。',
+  'events.deleted': '活动已删除',
+  // Making or changing an event.
+  'events.new': '新活动',
+  'events.editTitle': '编辑活动',
+  'events.save': '保存',
+  'events.saved': '已保存',
+  'events.addCover': '添加封面',
+  'events.changeCover': '更换封面',
+  'events.removeCover': '移除封面',
+  'events.titleLabel': '标题',
+  'events.titlePlaceholder': '活动名称',
+  'events.needTitle': '请添加标题。',
+  'events.kindLabel': '类型',
+  'events.date': '日期',
+  'events.starts': '开始',
+  'events.ends': '结束',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': '添加',
+  'events.removeEnd': '移除结束时间',
+  'events.prevMonth': '上个月',
+  'events.nextMonth': '下个月',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': '请选择尚未过去的时间。',
+  'events.place': '地点',
+  'events.placePlaceholder': '教会礼堂，人民路 12 号',
+  'events.pinOnMap': '在地图上标记',
+  'events.movePin': '移动标记',
+  'events.removePin': '移除标记',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': '将地图移到该地点',
+  'events.done': '完成',
+  'events.locationOff': 'Community 的定位权限已关闭。请在“设置”中开启。',
+  'events.noFix': '目前无法获取你的位置。',
+  'events.church': '教会',
+  'events.community': '社群',
+  'events.none': '无',
+  'events.searchChurches': '搜索教会',
+  'events.details': '详情',
+  'events.detailsPlaceholder': '活动内容是什么？',
+  'events.forMembers14': '年满 14 岁的成员才能使用活动功能',
+  // On a church or community page.
+  'events.seeAll': '查看全部',
+  'events.addEvent': '添加活动',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': '显示',
+  'auth.hide': '隐藏',
+  'auth.showPassword': '显示密码',
+  'auth.hidePassword': '隐藏密码',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': '好友',
+  'map.nearby': '附近',
+  'map.churches': '教会',
+  'map.events': '活动',
+  // The round button that moves the map to where you are.
+  'map.myLocation': '前往我的位置',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': '在“附近”中显示我',
+  'map.nearbyPrivacy': '其他人只能看到你的大致位置，绝不会看到确切位置。',
+  'map.adultsOnly': '年满 18 岁的成员才能使用“附近”。',
+  'map.locationOff': 'Community 的位置访问权限已关闭。',
+  'map.allowLocation': '请允许访问位置信息以使用“附近”。',
+  'map.nearbyOnToast': '你已出现在“附近”中',
+  'map.nearbyOffToast': '“附近”已关闭',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': '目前附近没有人',
+  'map.onePerson': '附近有 1 人',
+  'map.personCount': '附近有 {n} 人',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': '距离约 {n} 公里',
+  'map.noChurches': '地图上还没有教会',
+  'map.oneChurch': '1 个教会',
+  'map.churchCount': '{n} 个教会',
+  'map.noEvents': '地图上没有即将举行的活动',
+  'map.oneEvent': '1 个即将举行的活动',
+  'map.eventCount': '{n} 个即将举行的活动',
+  'map.nearestFirst': '由近到远',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': '显示列表',
+  'map.hideList': '隐藏列表',
+  'map.going': '{n} 人参加',
+  'map.happeningNow': '正在进行',
+  'map.today': '今天',
+  'map.tomorrow': '明天',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '距离 {d}',
+  'map.viewChurch': '查看教会',
+  'map.viewEvent': '查看活动',
+  // Opens the phone's maps app with the way there.
+  'map.directions': '路线',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': '分享你的第一条帖子',
+  // ======== end of v23 ========
 };

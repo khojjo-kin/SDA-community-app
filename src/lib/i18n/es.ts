@@ -1217,4 +1217,245 @@ export const es: Partial<Record<Key, string>> = {
   'churches.pendingNote': 'Será visible para todos cuando un admin la apruebe.',
   'churches.thanksMakeYours': '¡Gracias! ¿Quieres que sea tu iglesia?',
   // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Pagos',
+  'payments.cards': 'Tarjetas guardadas',
+  'payments.addCard': 'Añadir tarjeta',
+  // The add-card sheet's title.
+  'payments.addACard': 'Añadir una tarjeta',
+  'payments.cardSaved': 'Tarjeta guardada',
+  'payments.cardNotSaved': 'No se pudo guardar la tarjeta. Inténtalo de nuevo.',
+  'payments.cardOptions': 'Abre las opciones de esta tarjeta',
+  'payments.makeDefault': 'Hacer predeterminada',
+  'payments.removeCard': 'Eliminar tarjeta',
+  'payments.removeQuestion': '¿Eliminar esta tarjeta?',
+  'payments.removeBody': '{card} se eliminará de tu cuenta.',
+  'payments.removeBodyDefault': '{card} se eliminará de tu cuenta. Plus se renueva con esta tarjeta, así que añade otra antes de tu próxima renovación.',
+  'payments.remove': 'Eliminar',
+  'payments.cardRemoved': 'Tarjeta eliminada',
+  'payments.defaultSet': 'Plus se renovará con esta tarjeta',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Sin suscripción',
+  'payments.activeUntil': 'Activa hasta el {day}',
+  'payments.paymentFailed': 'Pago fallido',
+  'payments.creatorSubs': 'Suscripciones a creadores',
+  'payments.none': 'Ninguna',
+  'payments.noPayments': 'Aún no hay pagos',
+  // A payment's state.
+  'payments.paid': 'Pagado',
+  'payments.failed': 'Fallido',
+  'payments.refunded': 'Reembolsado',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Suscripción a creador',
+  'payments.kindDonation': 'Donación',
+  'payments.kindAd': 'Anuncio',
+  'payments.kindRefund': 'Reembolso',
+  'payments.kindOther': 'Pago',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Gestionado por un admin',
+  // One payment's details.
+  'payments.status': 'Estado',
+  'payments.date': 'Fecha',
+  'payments.method': 'Método de pago',
+  'payments.reference': 'Referencia',
+  'payments.copied': 'Referencia copiada',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Tarjeta de versículo',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Tarjeta',
+  'verseCard.make': 'Crear una tarjeta',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Fondo',
+  'verseCard.font': 'Fuente',
+  'verseCard.layout': 'Diseño',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Bosque',
+  'verseCard.bgGreen': 'Verde',
+  'verseCard.bgNight': 'Noche',
+  'verseCard.bgDusk': 'Atardecer',
+  'verseCard.bgDawn': 'Amanecer',
+  'verseCard.bgOcean': 'Océano',
+  'verseCard.bgPaper': 'Papel',
+  'verseCard.bgWhite': 'Blanco',
+  'verseCard.bgBlack': 'Negro',
+  'verseCard.photo': 'Foto',
+  'verseCard.choosePhoto': 'Elegir una foto',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Alinear a la izquierda',
+  'verseCard.alignCenter': 'Centrar',
+  'verseCard.alignRight': 'Alinear a la derecha',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Cuadrado',
+  'verseCard.tall': 'Vertical',
+  // What to do with the card.
+  'verseCard.toStory': 'Tu historia',
+  'verseCard.post': 'Publicar',
+  'verseCard.save': 'Guardar',
+  'verseCard.saved': 'Guardada',
+  'verseCard.allowPhotos': 'Permite que Community añada fotos en la configuración del teléfono para guardar tarjetas.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Acortado para que quepa',
+  'verseCard.notFound': 'No se encontró ese versículo.',
+  'verseCard.failed': 'No se pudo crear la tarjeta. Inténtalo de nuevo.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Racha de {n} días',
+  'bible.streakStart': 'Empieza una racha',
+  'bible.readToday': 'Leído hoy',
+  'bible.readAChapter': 'Lee un capítulo hoy',
+  'bible.bestStreak': 'Récord: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Día {n} — sigue así',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Seguir leyendo',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Abrir {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Eventos',
+  'events.title': 'Eventos',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Próximos',
+  'events.going': 'Asistiré',
+  'events.yours': 'Tuyos',
+  'events.interested': 'Me interesa',
+  'events.create': 'Crear evento',
+  'events.nearYou': 'Cerca de ti',
+  'events.useMyLocation': 'Usar mi ubicación',
+  'events.openSettings': 'Abrir Configuración',
+  'events.emptyUpcoming': 'No hay eventos próximos',
+  'events.emptyGoing': 'Aún no tienes planes',
+  'events.emptyYours': 'Aún no hay eventos',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} asistirán',
+  'events.interestedCount': '{count} interesados',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Cancelado',
+  'events.ended': 'Terminado',
+  'events.now': 'En curso',
+  // The kinds of event.
+  'events.kind.service': 'Culto',
+  'events.kind.bible_study': 'Estudio bíblico',
+  'events.kind.youth': 'Jóvenes',
+  'events.kind.prayer': 'Oración',
+  'events.kind.outreach': 'Evangelismo',
+  'events.kind.music': 'Música',
+  'events.kind.social': 'Convivio',
+  'events.kind.other': 'Otro',
+  // The event page.
+  'events.event': 'Evento',
+  'events.gone': 'Este evento ya no está disponible',
+  'events.openInMaps': 'Abrir en Mapas',
+  'events.mapsFailed': 'No se pudo abrir Mapas',
+  'events.organiser': 'Organizador',
+  'events.options': 'Más opciones',
+  'events.noOneYet': 'Nadie todavía',
+  'events.edit': 'Editar',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Cancelar evento',
+  'events.callOffQuestion': '¿Cancelar este evento?',
+  'events.callOffBody': 'Todos los que respondieron verán que se canceló.',
+  'events.keep': 'Mantenerlo',
+  'events.deleteQuestion': '¿Eliminar este evento?',
+  'events.deleteBody': 'Esto no se puede deshacer.',
+  'events.deleted': 'Evento eliminado',
+  // Making or changing an event.
+  'events.new': 'Nuevo evento',
+  'events.editTitle': 'Editar evento',
+  'events.save': 'Guardar',
+  'events.saved': 'Guardado',
+  'events.addCover': 'Añadir una portada',
+  'events.changeCover': 'Cambiar portada',
+  'events.removeCover': 'Quitar portada',
+  'events.titleLabel': 'Título',
+  'events.titlePlaceholder': 'Nombre del evento',
+  'events.needTitle': 'Añade un título.',
+  'events.kindLabel': 'Tipo',
+  'events.date': 'Fecha',
+  'events.starts': 'Inicio',
+  'events.ends': 'Fin',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Añadir',
+  'events.removeEnd': 'Quitar hora de fin',
+  'events.prevMonth': 'Mes anterior',
+  'events.nextMonth': 'Mes siguiente',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Elige una hora que aún no haya pasado.',
+  'events.place': 'Lugar',
+  'events.placePlaceholder': 'Salón de la iglesia, Calle Mayor 12',
+  'events.pinOnMap': 'Marcar en el mapa',
+  'events.movePin': 'Mover el marcador',
+  'events.removePin': 'Quitar el marcador',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Mueve el mapa hasta el lugar',
+  'events.done': 'Listo',
+  'events.locationOff': 'La ubicación está desactivada para Community. Actívala en la configuración del teléfono.',
+  'events.noFix': 'Tu ubicación no está disponible en este momento.',
+  'events.church': 'Iglesia',
+  'events.community': 'Comunidad',
+  'events.none': 'Ninguna',
+  'events.searchChurches': 'Buscar iglesias',
+  'events.details': 'Detalles',
+  'events.detailsPlaceholder': '¿Qué va a pasar?',
+  'events.forMembers14': 'Los eventos son para miembros de 14 años en adelante',
+  // On a church or community page.
+  'events.seeAll': 'Ver todo',
+  'events.addEvent': 'Añadir un evento',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Mostrar',
+  'auth.hide': 'Ocultar',
+  'auth.showPassword': 'Mostrar contraseña',
+  'auth.hidePassword': 'Ocultar contraseña',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Amigos',
+  'map.nearby': 'Cerca',
+  'map.churches': 'Iglesias',
+  'map.events': 'Eventos',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Ir a mi ubicación',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Mostrarme en "Cerca"',
+  'map.nearbyPrivacy': 'Los demás ven más o menos dónde estás, nunca el lugar exacto.',
+  'map.adultsOnly': '"Cerca" es para miembros de 18 años en adelante.',
+  'map.locationOff': 'El acceso a la ubicación está desactivado para Community.',
+  'map.allowLocation': 'Permite el acceso a tu ubicación para usar "Cerca".',
+  'map.nearbyOnToast': 'Ya apareces en "Cerca"',
+  'map.nearbyOffToast': '"Cerca" está desactivado',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'No hay nadie cerca ahora',
+  'map.onePerson': '1 persona cerca',
+  'map.personCount': '{n} personas cerca',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'A unos {n} km',
+  'map.noChurches': 'Aún no hay iglesias en el mapa',
+  'map.oneChurch': '1 iglesia',
+  'map.churchCount': '{n} iglesias',
+  'map.noEvents': 'No hay eventos próximos en el mapa',
+  'map.oneEvent': '1 evento próximo',
+  'map.eventCount': '{n} eventos próximos',
+  'map.nearestFirst': 'Los más cercanos primero',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Mostrar lista',
+  'map.hideList': 'Ocultar lista',
+  'map.going': '{n} asistirán',
+  'map.happeningNow': 'En curso',
+  'map.today': 'Hoy',
+  'map.tomorrow': 'Mañana',
+  // How far a church or event is: "2.4 km away".
+  'map.away': 'A {d}',
+  'map.viewChurch': 'Ver iglesia',
+  'map.viewEvent': 'Ver evento',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Cómo llegar',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Comparte tu primera publicación',
+  // ======== end of v23 ========
 };

@@ -409,7 +409,7 @@ export default function Plus() {
                 </View>
               ) : null}
               <Row icon="card" title={t('plus.paymentMethods')} onPress={() => open('/payment-methods')} />
-              <Row icon="receipt" title={t('plus.paymentHistory')} onPress={() => open('/payments')} />
+              <Row icon="receipt" title={t('payments.title')} onPress={() => open('/payments')} />
               {RENEWING.includes(billing.status) ? (
                 <Row
                   icon={billing.cancel_at_period_end ? 'repeat' : 'close'}
@@ -484,9 +484,9 @@ export default function Plus() {
             onPress={() => open('/verify')}
             accessibilityRole="link"
             accessibilityLabel={pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 20, padding: 14, borderRadius: 16, backgroundColor: C.surface, opacity: pressed ? 0.75 : 1 })}>
-            <VerifiedTick size={26} />
-            <Text style={{ flex: 1, color: C.fg, fontWeight: '700' }}>{pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}</Text>
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent' })}>
+            <VerifiedTick size={24} />
+            <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700', fontFamily: fontBold }}>{pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}</Text>
             <Icon name="right" size={16} color={C.fg2} weight={2} />
           </Pressable>
         )}

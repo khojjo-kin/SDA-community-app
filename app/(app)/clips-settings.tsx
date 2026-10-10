@@ -320,7 +320,8 @@ export default function ClipsSettings() {
     <Screen>
       <ScreenHeader title={t('settings.yourFeed')} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-        <View style={{ marginHorizontal: 16, marginTop: 4, padding: 18, borderRadius: 20, backgroundColor: C.surface, gap: 8 }}>
+        {/* What the feed leans towards, as a headline on the page itself. */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 6, gap: 8 }}>
           <Icon name="sparkle" size={24} color={C.accent2} />
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>{summary}</Text>
         </View>

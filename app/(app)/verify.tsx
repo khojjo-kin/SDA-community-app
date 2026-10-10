@@ -479,14 +479,8 @@ export default function Verify() {
             <VerifiedTick size={50} />
           </View>
           <Text style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>Get the blue tick</Text>
+          {declined ? <Text style={{ color: C.like, fontSize: 15, fontWeight: '600', textAlign: 'center' }}>Your last request wasn't approved.</Text> : null}
         </View>
-
-        {declined ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: C.like + '1f' }}>
-            <Icon name="info" size={20} color={C.like} />
-            <Text style={{ flex: 1, color: C.fg, lineHeight: 19 }}>Your last request wasn't approved.</Text>
-          </View>
-        ) : null}
 
         <PathCard
           icon="star"

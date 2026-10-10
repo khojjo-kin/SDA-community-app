@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AuthShell } from './AuthShell';
 import { BirthDateInput, BirthParts, checkBirthDate, EMPTY_BIRTH } from './BirthDateForm';
-import { DarkStatusBar } from './OnDark';
 import { Button } from './ui';
 import { isUnder13 } from '../lib/age';
 import { useT } from '../lib/i18n';
@@ -30,13 +29,10 @@ export function AgeStep({ onAdult, onChild, footer }: { onAdult: (iso: string, a
   }
 
   return (
-    <>
-      {/* The sign-up pages sit on a photo and stay dark in every theme. */}
-      <DarkStatusBar />
-      <AuthShell title={t('age.title')} footer={footer}>
-        <BirthDateInput dark value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} note={t('age.why')} />
-        <Button label={t('age.continue')} onPress={next} />
-      </AuthShell>
-    </>
+    // The sign-in frame follows the member's theme and sets the status bar itself.
+    <AuthShell heading={t('age.title')} footer={footer}>
+      <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} note={t('age.why')} />
+      <Button label={t('age.continue')} onPress={next} style={{ height: 50 }} />
+    </AuthShell>
   );
 }

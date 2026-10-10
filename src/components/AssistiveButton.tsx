@@ -18,7 +18,8 @@ import { ThinkingOrb } from './ThinkingOrb';
  * The floating church-apps button. A small frosted square that sits over every screen, like a phone's
  * own floating shortcut button but in our colours: drag it anywhere and it settles against the nearer
  * side; tap it and, like the iPhone's AssistiveTouch, a rounded dark see-through square grows out of it
- * into the middle of the screen with the church apps (Bible, Hymnal, Pod…) in a three-by-three grid.
+ * into the middle of the screen with the church apps (Bible, Hymnal, Pod…) in a grid three across, Home
+ * on its own in the middle of the last row.
  * Tapping outside the square closes it. This is the only way into the church apps, so it can't be
  * turned off. It keeps out of the way: it fades when left alone; it rests between a screen's header
  * and the tab bar (and the player bar over it), never on them; and it isn't there over photos and video
@@ -53,7 +54,7 @@ const MEDIA_PREFIXES = ['/story/', '/story-archive/', '/highlight/', '/watch/', 
 const MEDIA_SCREENS = ['/reels', '/shorts', '/go-live', '/story-editor', '/create', '/add-story', '/camera-settings', '/sign-in', '/sign-up', '/forgot', '/onboarding', '/birth-date'];
 // Screens that slide up for one task, with their box or button along the bottom.
 const SHEET_PREFIXES = ['/comments/', '/share/'];
-const SHEET_SCREENS = ['/send-to', '/note', '/new-highlight', '/group-new', '/church-new'];
+const SHEET_SCREENS = ['/send-to', '/note', '/new-highlight', '/group-new', '/church-new', '/event-edit'];
 
 const matches = (path: string, prefixes: string[], screens: string[]) => prefixes.some((p) => path.startsWith(p)) || screens.some((p) => path === p || path.startsWith(p + '/'));
 
@@ -121,6 +122,7 @@ export const CHURCH_APPS: ChurchApp[] = [
   { key: 'lesson', label: 'churchApps.sabbathSchool', icon: 'lesson', href: '/sabbath-school', words: 'sabbath school lesson quarterly study' },
   { key: 'churches', label: 'churchApps.churches', icon: 'church', href: '/churches', words: 'churches church congregation find near' },
   { key: 'groups', label: 'churchApps.communities', icon: 'users', href: '/groups', words: 'communities groups pages ministries' },
+  { key: 'events', label: 'churchApps.events', icon: 'calendar', href: '/events', words: 'events calendar programme program services meetings rsvp going' },
 ];
 
 const APPS: App[] = [
@@ -347,8 +349,10 @@ export function AssistiveButton() {
   if (hidden) return null;
 
   const cell = (PANEL - 24) / 3;
+  // As tall as its rows of three need.
+  const panelH = Math.ceil(APPS.length / 3) * cell + 24;
   const panelLeft = (W - PANEL) / 2;
-  const panelTop = (H - PANEL) / 2;
+  const panelTop = (H - panelH) / 2;
   // It grows out of the button; with Reduce Motion on it simply fades in where it ends up.
   const grow =
     reduce !== false
@@ -372,10 +376,10 @@ export function AssistiveButton() {
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)', opacity: opening.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => closePanel()} accessibilityRole="button" accessibilityLabel={t('churchApps.close')} />
           </Animated.View>
-          <Animated.View accessibilityViewIsModal onAccessibilityEscape={() => closePanel()} style={[{ position: 'absolute', left: panelLeft, top: panelTop, width: PANEL, height: PANEL }, grow]}>
+          <Animated.View accessibilityViewIsModal onAccessibilityEscape={() => closePanel()} style={[{ position: 'absolute', left: panelLeft, top: panelTop, width: PANEL, height: panelH }, grow]}>
             {/* Always dark and see-through, whatever the theme, like the phone's own panel. */}
             <BlurView intensity={50} tint="dark" style={{ flex: 1, borderRadius: 36, overflow: 'hidden' }}>
-              <View style={{ flex: 1, padding: 12, backgroundColor: 'rgba(28,28,30,0.72)', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center' }}>
+              <View style={{ flex: 1, padding: 12, backgroundColor: 'rgba(28,28,30,0.72)', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center' }}>
                 {APPS.map((app) => (
                   <Pressable
                     key={app.key}

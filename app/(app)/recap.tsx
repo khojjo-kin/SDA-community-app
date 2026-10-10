@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ErrorNote, Loading, Screen, ScreenHeader } from '../../src/components/ui';
 import { fetchStats } from '../../src/lib/api';
@@ -96,12 +95,12 @@ export default function Recap() {
         </ScrollView>
 
         <View style={{ opacity: loading && stats ? 0.45 : 1 }} accessibilityState={{ busy: loading }}>
-          {/* The app's green, deep where the words sit so they read clearly in white. */}
-          <LinearGradient colors={['#0b6b3d', C.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ margin: 16, padding: 20, borderRadius: 18 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '600' }}>{cardMonth.from.getFullYear()}</Text>
-            <Text style={{ color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 2 }}>Your {cardMonth.label}</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 15.5, lineHeight: 21, marginTop: 6 }}>{!stats ? 'Adding it up…' : quiet ? 'A quiet month. Nothing was shared and nobody new came by.' : `${fmt(stats.views)} ${stats.views === 1 ? 'view' : 'views'} from ${fmt(stats.accounts)} ${stats.accounts === 1 ? 'person' : 'people'}, and ${fmt(stats.new_followers)} new ${stats.new_followers === 1 ? 'follower' : 'followers'}.`}</Text>
-          </LinearGradient>
+          {/* The month as a headline on the page itself: the year in green, the month large, one line under it. */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 22, paddingBottom: 18 }}>
+            <Text style={{ color: C.accent2, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{cardMonth.from.getFullYear()}</Text>
+            <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.3, marginTop: 2 }}>Your {cardMonth.label}</Text>
+            <Text style={{ color: C.fg2, fontSize: 15.5, lineHeight: 21, marginTop: 6 }}>{!stats ? 'Adding it up…' : quiet ? 'A quiet month. Nothing was shared and nobody new came by.' : `${fmt(stats.views)} ${stats.views === 1 ? 'view' : 'views'} from ${fmt(stats.accounts)} ${stats.accounts === 1 ? 'person' : 'people'}, and ${fmt(stats.new_followers)} new ${stats.new_followers === 1 ? 'follower' : 'followers'}.`}</Text>
+          </View>
 
           {error ? (
             <ErrorNote message={error} onRetry={load} />

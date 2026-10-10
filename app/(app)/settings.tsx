@@ -122,7 +122,6 @@ export default function Settings() {
   const restricted = profile?.restricted === true;
   // A verified member who has hidden the tick shows as not verified on their own card, so both count.
   const hasTick = !!profile?.verified || !!profile?.tick_hidden;
-  const plusValue = profile?.plus ? t('settings.plusActive') : hasTick ? t('common.verified') : undefined;
   const sections: Section[] = [
     ...(restricted
       ? [
@@ -146,7 +145,13 @@ export default function Settings() {
       items: [
         { icon: 'account', title: 'settings.account', sub: 'settings.accountSub', href: '/account', words: 'email phone password security delete personal details profile add account switch' },
         { icon: 'devices', title: 'settings.loginActivity', sub: 'settings.loginActivitySub', href: '/login-activity', words: 'sessions devices phones logged in log out security sign in where location' },
-        { icon: 'crown', title: 'common.communityPlus', sub: 'settings.plusSub', value: plusValue, href: '/plus', words: 'subscribe subscription premium plus fonts wallpaper profile style' },
+        // Saved cards, Community Plus and creator subscriptions, and every payment made (Plus is managed from there).
+        {
+          icon: 'card',
+          title: 'payments.title',
+          href: '/payments',
+          words: 'subscribe subscription subscriptions community plus premium card cards credit debit payment payments payment methods wallet apple pay transactions history receipts billing refunds donations renew cancel',
+        },
         ...(hasTick ? [] : [{ icon: 'verified' as IconName, title: 'settings.requestVerification', sub: 'settings.requestVerificationSub', href: '/verify', words: 'verify verified blue tick badge id identity check request' } satisfies Item]),
       ],
     },
@@ -298,7 +303,7 @@ export default function Settings() {
           matches.length ? (
             <View style={{ paddingTop: 8 }}>{matches.map(row)}</View>
           ) : (
-            <Empty title={t('settings.noneFound')} body={t('settings.tryDifferentWord')} />
+            <Empty title={t('settings.noneFound')} />
           )
         ) : (
           <>
