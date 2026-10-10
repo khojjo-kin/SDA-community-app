@@ -256,6 +256,9 @@ export type Message = {
   audio_url: string;
   audio_seconds: number;
   post_id: string | null;
+  /** A voice or video call: the room both people join. Empty for ordinary messages. */
+  call_url: string;
+  call_kind: '' | 'voice' | 'video';
   created_at: string;
 };
 

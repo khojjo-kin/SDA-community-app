@@ -11,7 +11,7 @@ export async function pickFromLibrary(opts: { video?: boolean; multiple?: boolea
     orderedSelection: !!opts.multiple,
     allowsEditing: !!opts.square,
     aspect: [1, 1],
-    quality: 0.9,
+    quality: 1,
     videoMaxDuration: 60,
     videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
   });
@@ -23,7 +23,7 @@ export async function pickVideo(): Promise<Picked | null> {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['videos'],
     allowsMultipleSelection: false,
-    quality: 0.9,
+    quality: 1,
     videoMaxDuration: 60,
     videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
   });
@@ -39,7 +39,7 @@ export async function takePhoto(opts: { front?: boolean; video?: boolean; videoO
     // 640 x 480 keeps a one-minute recording well under the upload limit and looks sharper than "medium".
     videoQuality: ImagePicker.UIImagePickerControllerQualityType.VGA640x480,
     cameraType: opts.front ? ImagePicker.CameraType.front : ImagePicker.CameraType.back,
-    quality: 0.9,
+    quality: 1,
     videoMaxDuration: 60,
   });
   return res.canceled ? [] : res.assets;

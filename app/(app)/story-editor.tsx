@@ -3,11 +3,13 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, PanResponder, Platform,
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FilterStrip, useFilterExport } from '../../src/components/FilterStrip';
 import { HighlightPicker } from '../../src/components/HighlightPicker';
 import { Icon, IconName } from '../../src/components/Icon';
 import { DRAW_H, DRAW_W, fitFrame, overlayBox, OverlayLabel, STORY_BACKGROUNDS, STORY_COLORS, StoryCanvas } from '../../src/components/StoryCanvas';
 import { Avatar, Button, Empty, Loading, Radio, RoundButton, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { addStory, addToHighlight, countCloseFriends, coverOf, createHighlight, peopleToMessage, searchProfiles, sendToPeople, updateProfile, uploadImage, uploadVideo } from '../../src/lib/api';
+import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
@@ -15,7 +17,7 @@ import type { Audience, Overlay, Profile, StoryItem, StoryReplies, Stroke } from
 import type { StorySource } from './add-story';
 
 type Kind = 'image' | 'video' | 'text' | 'collage' | 'batch';
-type Tool = null | 'text' | 'draw' | 'sticker' | 'mention' | 'caption';
+type Tool = null | 'text' | 'draw' | 'sticker' | 'mention' | 'caption' | 'filter';
 type Frame = { w: number; h: number };
 
 const KINDS: Kind[] = ['image', 'video', 'text', 'collage', 'batch'];
@@ -140,6 +142,9 @@ export default function StoryEditor() {
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [caption, setCaption] = useState('');
   const [fit, setFit] = useState<'cover' | 'contain'>('cover');
+  // Photo stories only: the look chosen from the filter strip. Baked into the upload, not stored.
+  const [filter, setFilter] = useState<string>(NORMAL_FILTER);
+  const { exportFiltered, exporter } = useFilterExport();
   const [bg, setBg] = useState(0);
   const [tool, setTool] = useState<Tool>(kind === 'text' ? 'text' : null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -173,7 +178,7 @@ export default function StoryEditor() {
   const strokesRef = useRef(strokes);
   strokesRef.current = strokes;
   const batch = kind === 'batch';
-  const edited = overlays.length > 0 || strokes.length > 0 || caption.trim().length > 0;
+  const edited = overlays.length > 0 || strokes.length > 0 || caption.trim().length > 0 || !isNormal(filter);
 
   useFocusEffect(
     useCallback(() => {
@@ -311,8 +316,14 @@ export default function StoryEditor() {
       const m = await uploadVideo(me, s.uri, s.w, s.h);
       return [{ url: m.url, type: 'video', w: m.w, h: m.h, poster: m.poster, duration: s.duration, ...extras }];
     }
+    // A chosen filter is drawn into the photo first, so viewers get a plain picture with the look baked in.
+    let uri = s.uri;
+    if (!isNormal(filter)) {
+      setBusy('Applying the filter…');
+      uri = await exportFiltered(s.uri, filter, s.w, s.h);
+    }
     setBusy('Uploading…');
-    const m = await uploadImage(me, s.uri, s.w);
+    const m = await uploadImage(me, uri, s.w);
     return [{ url: m.url, type: 'image', w: m.w, h: m.h, ...(fit === 'contain' ? { fit } : {}), ...extras }];
   }
 
@@ -417,11 +428,12 @@ export default function StoryEditor() {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <View style={{ paddingTop: insets.top + 8, paddingBottom: 14, alignItems: 'center' }}>
-          <StoryCanvas item={{ ...item, overlays, caption: caption.trim() || undefined }} width={thumb.w} height={thumb.h} radius={12} />
+          <StoryCanvas item={{ ...item, overlays, caption: caption.trim() || undefined }} width={thumb.w} height={thumb.h} radius={12} filter={filter} />
           <View style={{ position: 'absolute', left: 16, top: insets.top + 6 }}>
             <RoundButton name="back" label="Back to editing" onPress={() => setStage('edit')} />
           </View>
         </View>
+        {exporter}
         <View style={{ flex: 1, backgroundColor: C.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}>
           <View style={{ alignItems: 'center', paddingTop: 12 }}>
             <View style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: C.fg2 }} />
@@ -492,7 +504,7 @@ export default function StoryEditor() {
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <View style={{ position: 'absolute', top: insets.top, left, width: frame.w, height: frame.h }}>
-        <StoryCanvas item={tool === 'draw' ? { ...item, overlays } : item} width={frame.w} height={frame.h} radius={18} hideOverlays={tool !== 'draw'} hideCaption />
+        <StoryCanvas item={tool === 'draw' ? { ...item, overlays } : item} width={frame.w} height={frame.h} radius={18} hideOverlays={tool !== 'draw'} hideCaption filter={filter} />
 
         {kind === 'text' && !overlays.length && !strokes.length && tool === null ? (
           <Pressable onPress={() => startText()} style={{ position: 'absolute', left: 0, right: 0, top: frame.h * 0.4, alignItems: 'center' }} accessibilityRole="button">
@@ -525,6 +537,7 @@ export default function StoryEditor() {
                 <ToolButton icon="sticker" label="Add a sticker" onPress={() => { setSelected(null); setTool('sticker'); }} />
                 <ToolButton icon="at" label="Mention someone" onPress={() => { setSelected(null); setQ(''); setPeople(null); setTool('mention'); }} />
                 <ToolButton icon="draw" label="Draw" onPress={() => { setSelected(null); setTool('draw'); }} />
+                {kind === 'image' ? <ToolButton icon="sparkle" label={tool === 'filter' ? 'Hide filters' : 'Filters'} active={tool === 'filter'} onPress={() => { setSelected(null); setTool(tool === 'filter' ? null : 'filter'); }} /> : null}
                 {kind === 'image' ? <ToolButton icon="expand" label={fit === 'cover' ? 'Show the whole photo' : 'Fill the frame'} active={fit === 'contain'} onPress={() => setFit(fit === 'cover' ? 'contain' : 'cover')} /> : null}
                 {kind === 'text' ? <Pressable onPress={() => setBg((bg + 1) % STORY_BACKGROUNDS.length)} accessibilityRole="button" accessibilityLabel="Change background" style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: '#fff', backgroundColor: STORY_BACKGROUNDS[(bg + 1) % STORY_BACKGROUNDS.length][0] }} /> : null}
               </View>
@@ -545,6 +558,10 @@ export default function StoryEditor() {
               <ToolButton icon="trash" label="Remove" onPress={() => { setOverlays((cur) => cur.filter((o) => o.id !== chosen.id)); setSelected(null); }} />
               <ToolButton icon="check" label="Done" onPress={() => setSelected(null)} />
             </View>
+          </View>
+        ) : tool === 'filter' && kind === 'image' ? (
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, overflow: 'hidden' }}>
+            <FilterStrip uri={current.uri} value={filter} onChange={setFilter} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} />
           </View>
         ) : batch ? (
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
@@ -646,6 +663,9 @@ export default function StoryEditor() {
           </ScrollView>
         )}
       </Sheet>
+
+      {/* Draws the filtered photo offscreen at share time. Takes no space. */}
+      {exporter}
     </View>
   );
 }

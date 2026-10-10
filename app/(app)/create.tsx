@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { FilteredImage, FilterStrip, useFilterExport } from '../../src/components/FilterStrip';
 import { Icon } from '../../src/components/Icon';
 import { Button, IconButton, Screen, useToast } from '../../src/components/ui';
 import { createPost, uploadImage, uploadVideo } from '../../src/lib/api';
+import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
 import { Picked, pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../../src/lib/pick';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
@@ -24,6 +27,11 @@ export default function Create() {
   const { width } = useWindowDimensions();
   const [mode, setMode] = useState<Mode>(params.mode === 'reel' ? 'reel' : 'post');
   const [items, setItems] = useState<Picked[]>([]);
+  // One filter per photo, in the same order as items. Missing entries mean Normal.
+  const [filters, setFilters] = useState<string[]>([]);
+  // Which photo the preview is showing, so the filter strip edits that one.
+  const [page, setPage] = useState(0);
+  const { exportFiltered, exporter } = useFilterExport();
   // A verse or a hymn line can arrive as a ready-made caption.
   const [caption, setCaption] = useState(typeof params.text === 'string' ? params.text.slice(0, 2200) : '');
   const [poster, setPoster] = useState('');
@@ -35,13 +43,20 @@ export default function Create() {
   useEffect(() => () => { alive.current = false; }, []);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const filterOf = (i: number) => filters[i] ?? NORMAL_FILTER;
+
+  function replaceItems(next: Picked[]) {
+    setItems(next);
+    setFilters(next.map(() => NORMAL_FILTER));
+    setPage(0);
+  }
 
   function acceptVideo(video: Picked) {
     const problem = videoProblem(video.duration, video.fileSize);
     if (problem) return setErr(problem);
     setPoster('');
     VideoThumbnails.getThumbnailAsync(video.uri, { time: 300, quality: 0.6 }).then((t) => setPoster(t.uri)).catch(() => {});
-    setItems([video]);
+    replaceItems([video]);
   }
 
   async function choose(camera: boolean) {
@@ -67,7 +82,7 @@ export default function Create() {
       }
       const picked = camera ? await takePhoto({ front: prefs.frontCamera }) : await pickFromLibrary({ multiple: true, limit: 10 });
       const photos = picked.filter((p) => p.type !== 'video').slice(0, 10);
-      if (photos.length) setItems(photos);
+      if (photos.length) replaceItems(photos);
     } catch (e) {
       setErr(errText(e));
     }
@@ -80,8 +95,20 @@ export default function Create() {
       const media: Media[] = [];
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
-        setBusy(items.length > 1 ? `Uploading ${i + 1} of ${items.length}…` : a.type === 'video' ? 'Uploading video…' : 'Uploading…');
-        media.push(a.type === 'video' ? await uploadVideo(me, a.uri, a.width, a.height) : await uploadImage(me, a.uri, a.width));
+        const which = items.length > 1 ? ` ${i + 1} of ${items.length}` : '';
+        if (a.type === 'video') {
+          setBusy('Uploading video…');
+          media.push(await uploadVideo(me, a.uri, a.width, a.height));
+          continue;
+        }
+        // A filtered photo is drawn and saved with the filter baked in, then uploaded like any other.
+        let uri = a.uri;
+        if (!isNormal(filterOf(i))) {
+          setBusy(`Applying the filter${which ? ' to' + which : ''}…`);
+          uri = await exportFiltered(a.uri, filterOf(i), a.width, a.height);
+        }
+        setBusy(`Uploading${which}…`);
+        media.push(await uploadImage(me, uri, a.width));
       }
       setBusy('Sharing…');
       await createPost(me, { caption, media });
@@ -99,6 +126,10 @@ export default function Create() {
 
   const box = width - 32;
   const tall = mode === 'reel' ? 1.5 : 1.25;
+  const pageIdx = Math.max(0, Math.min(page, items.length - 1));
+  const shown = items.length ? items[pageIdx] : null;
+  const onPageEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.max(0, Math.min(items.length - 1, Math.round(e.nativeEvent.contentOffset.x / box))));
+  const pickFilter = (id: string) => setFilters((cur) => items.map((_, i) => (i === pageIdx ? id : cur[i] ?? NORMAL_FILTER)));
 
   return (
     <Screen>
@@ -113,10 +144,14 @@ export default function Create() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           {items.length ? (
-            <ScrollView horizontal pagingEnabled={items.length > 1} showsHorizontalScrollIndicator={false} style={{ marginHorizontal: 16 }}>
+            <ScrollView horizontal pagingEnabled={items.length > 1} showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onPageEnd} style={{ marginHorizontal: 16 }}>
               {items.map((a, i) => (
                 <View key={a.uri + i} style={{ width: box, height: Math.round(box * tall), borderRadius: 14, overflow: 'hidden', backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
-                  {a.type !== 'video' || poster ? <Image source={{ uri: a.type === 'video' ? poster : a.uri }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" /> : null}
+                  {a.type !== 'video' ? (
+                    <FilteredImage uri={a.uri} filterId={filterOf(i)} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+                  ) : poster ? (
+                    <Image source={{ uri: poster }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" />
+                  ) : null}
                   {a.type === 'video' ? (
                     <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="play" size={32} />
@@ -137,9 +172,11 @@ export default function Create() {
             </View>
           )}
 
+          {shown && shown.type !== 'video' ? <FilterStrip uri={shown.uri} value={filterOf(pageIdx)} onChange={pickFilter} disabled={!!busy} style={{ marginTop: 6 }} /> : null}
+
           <View style={{ flexDirection: 'row', gap: 6, marginHorizontal: 16, marginTop: 14, padding: 4, borderRadius: 12, backgroundColor: C.surface }} accessibilityRole="tablist">
             {(['post', 'reel'] as Mode[]).map((m) => (
-              <Pressable key={m} onPress={() => { if (busy || m === mode) return; setMode(m); setItems([]); setPoster(''); setErr(''); }} accessibilityRole="tab" accessibilityState={{ selected: mode === m }} style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: mode === m ? C.surface2 : 'transparent' }}>
+              <Pressable key={m} onPress={() => { if (busy || m === mode) return; setMode(m); replaceItems([]); setPoster(''); setErr(''); }} accessibilityRole="tab" accessibilityState={{ selected: mode === m }} style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: mode === m ? C.surface2 : 'transparent' }}>
                 <Text style={{ color: mode === m ? C.fg : C.fg2, fontWeight: '600' }}>{m === 'post' ? 'Post' : 'Reel'}</Text>
               </Pressable>
             ))}
@@ -158,6 +195,8 @@ export default function Create() {
           {err ? <Text style={{ color: C.like, textAlign: 'center', marginTop: 16, marginHorizontal: 24, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* Draws filtered photos offscreen at share time. Takes no space. */}
+      {exporter}
     </Screen>
   );
 }

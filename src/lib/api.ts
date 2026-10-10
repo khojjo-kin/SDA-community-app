@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -445,8 +446,8 @@ export async function fetchMessages(threadId: string, hiddenBefore?: string | nu
   return rows.reverse();
 }
 
-export async function sendMessage(me: string, threadId: string, msg: { text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number }) {
-  const text = (msg.text ?? '').trim().slice(0, 5000) || (msg.post_id ? 'Sent a post' : '');
+export async function sendMessage(me: string, threadId: string, msg: { text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number; call_url?: string; call_kind?: 'voice' | 'video' }) {
+  const text = (msg.text ?? '').trim().slice(0, 5000) || (msg.post_id ? 'Sent a post' : msg.call_kind === 'video' ? 'Video call' : msg.call_kind === 'voice' ? 'Voice call' : '');
   ok(
     await supabase.from('community_messages').insert({
       thread_id: threadId,
@@ -456,9 +457,29 @@ export async function sendMessage(me: string, threadId: string, msg: { text?: st
       post_id: msg.post_id ?? null,
       audio_url: msg.audio_url ?? '',
       audio_seconds: Math.min(600, Math.max(0, Math.round(msg.audio_seconds ?? 0))),
+      call_url: msg.call_url ?? '',
+      call_kind: msg.call_kind ?? '',
     }),
   );
   announce('threads');
+}
+
+/**
+ * Starts a call from a chat: a private room on Jitsi Meet (free, no account, works in the
+ * browser sheet on both phones) sent as a message that either person taps to join. The room name
+ * is unguessable, so only the two people in the chat have it.
+ */
+export async function startCall(me: string, threadId: string, kind: 'voice' | 'video'): Promise<string> {
+  const token = Crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+  const url = `https://meet.jit.si/Community-${threadId.slice(0, 8)}-${token}#config.startWithVideoMuted=${kind === 'voice'}&config.prejoinConfig.enabled=false`;
+  await sendMessage(me, threadId, { call_url: url, call_kind: kind });
+  return url;
+}
+
+/** When the other person last read this chat, or null if never. Live through Realtime on community_thread_reads. */
+export async function fetchTheirLastRead(threadId: string, them: string): Promise<string | null> {
+  const row: { last_read_at: string } | null = ok(await supabase.from('community_thread_reads').select('last_read_at').eq('thread_id', threadId).eq('user_id', them).maybeSingle());
+  return row?.last_read_at ?? null;
 }
 
 export async function markThreadRead(me: string, threadId: string) {
@@ -591,9 +612,10 @@ async function put(me: string, uri: string, ext: string, contentType: string): P
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-export async function uploadImage(me: string, uri: string, width?: number, maxWidth = 1440): Promise<Media> {
+export async function uploadImage(me: string, uri: string, width?: number, maxWidth = 1600): Promise<Media> {
+  // Instagram serves 1080-wide JPEGs; 1600 at 0.9 keeps detail on today's screens without huge files.
   const actions = width && width > maxWidth ? [{ resize: { width: maxWidth } }] : [];
-  const out = await ImageManipulator.manipulateAsync(uri, actions, { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG });
+  const out = await ImageManipulator.manipulateAsync(uri, actions, { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG });
   const url = await put(me, out.uri, 'jpg', 'image/jpeg');
   return { url, type: 'image', w: out.width, h: out.height };
 }

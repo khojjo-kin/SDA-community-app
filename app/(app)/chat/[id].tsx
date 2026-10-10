@@ -7,11 +7,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { thumbOf } from '../../../src/components/Grid';
 import { Icon, IconName } from '../../../src/components/Icon';
+import { TypingDots } from '../../../src/components/TypingDots';
 import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { askFaq, fetchFaqs, fetchMessages, fetchSavedReplies, fetchThread, getProfile, hideThread, markThreadRead, report, sendMessage, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
+import { askFaq, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, markThreadRead, report, sendMessage, setBlock, setThreadMuted, startCall, uploadAudio, uploadImage } from '../../../src/lib/api';
 import { pickFromLibrary, takePhoto } from '../../../src/lib/pick';
 import { usePrefs } from '../../../src/lib/prefs';
 import { useSession } from '../../../src/lib/session';
@@ -20,15 +22,70 @@ import { supabase } from '../../../src/lib/supabase';
 import { BUBBLE, C, chatStamp, clock, errText } from '../../../src/lib/theme';
 import type { Faq, Message, SavedReply, Thread } from '../../../src/lib/types';
 
+/** `seen` marks the last thing you sent once the other person has read it. */
 type Row =
   | { key: string; kind: 'stamp'; label: string }
-  | { key: string; kind: 'text'; mine: boolean; m: Message; big: boolean }
-  | { key: string; kind: 'post'; mine: boolean; m: Message }
-  | { key: string; kind: 'photos'; mine: boolean; urls: string[]; at: number }
-  | { key: string; kind: 'voice'; mine: boolean; m: Message };
+  | { key: string; kind: 'text'; mine: boolean; m: Message; big: boolean; seen?: boolean }
+  | { key: string; kind: 'post'; mine: boolean; m: Message; seen?: boolean }
+  | { key: string; kind: 'photos'; mine: boolean; urls: string[]; at: number; seen?: boolean }
+  | { key: string; kind: 'voice'; mine: boolean; m: Message; seen?: boolean }
+  | { key: string; kind: 'call'; mine: boolean; m: Message; seen?: boolean };
+
+type Channel = ReturnType<typeof supabase.channel>;
 
 const QUICK = ['❤️', '😂', '😮', '😢', '😡', '👍', '🔥', '🙏', '🎉', '👏'];
 const VOICE_LIMIT_MS = 120000;
+/** How often "typing" is sent while you keep typing, and how long their bubble stays after the last one. */
+const TYPING_EVERY_MS = 2000;
+const TYPING_LINGER_MS = 4000;
+
+/** True when the moment `a` is at or after `b` (both ISO times from the database). */
+function atOrAfter(a: string, b: string): boolean {
+  return new Date(a).getTime() >= new Date(b).getTime();
+}
+
+/** "08:24" */
+function timeOf(iso: string): string {
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+/*
+ * One typing channel per chat. The Realtime client hands back the same channel object for the same name, so when
+ * the same chat is open twice (chat, profile, Message) the screens share it, and the last one to leave closes it.
+ * A screen opened while the previous one is still leaving waits for that, or it would be handed the closing channel.
+ */
+const typingRooms = new Map<string, { channel: Channel; users: number; closing: Promise<unknown> | null }>();
+
+/** `fresh` is true for the first screen on the channel, which is the one that subscribes it. */
+async function joinTypingRoom(threadId: string): Promise<{ channel: Channel; fresh: boolean }> {
+  let room = typingRooms.get(threadId);
+  if (room?.closing) {
+    await room.closing;
+    room = typingRooms.get(threadId);
+  }
+  if (room) {
+    room.users++;
+    return { channel: room.channel, fresh: false };
+  }
+  room = { channel: supabase.channel(`typing:${threadId}`, { config: { broadcast: { self: false } } }), users: 1, closing: null };
+  typingRooms.set(threadId, room);
+  return { channel: room.channel, fresh: true };
+}
+
+function leaveTypingRoom(threadId: string) {
+  const room = typingRooms.get(threadId);
+  if (!room || room.closing) return;
+  room.users--;
+  if (room.users > 0) return;
+  const gone = room;
+  gone.closing = supabase
+    .removeChannel(gone.channel)
+    .catch(() => {})
+    .finally(() => {
+      if (typingRooms.get(threadId) === gone) typingRooms.delete(threadId);
+    });
+}
 
 /** True for a message that is nothing but a few emoji, which is shown large and without a bubble. */
 function emojiOnly(text: string): boolean {
@@ -42,8 +99,11 @@ function emojiOnly(text: string): boolean {
   return true;
 }
 
-/** Turns messages (oldest first) into what the list draws: time stamps, bubbles, and photos gathered into stacks. */
-function buildRows(messages: Message[], me: string): Row[] {
+/**
+ * Turns messages (oldest first) into what the list draws: time stamps, bubbles, and photos gathered into stacks.
+ * `theirRead` is when the other person last read the chat: "Seen" goes under the last message you sent, once it is covered.
+ */
+function buildRows(messages: Message[], me: string, theirRead: string | null): Row[] {
   const rows: Row[] = [];
   let prevAt = 0;
   for (const m of messages) {
@@ -53,6 +113,10 @@ function buildRows(messages: Message[], me: string): Row[] {
     prevAt = at;
     const words = m.text.trim();
     const plain = words && !(m.post_id && words === 'Sent a post');
+    if (m.call_url) {
+      rows.push({ key: m.id, kind: 'call', mine, m });
+      continue;
+    }
     if (m.audio_url) {
       rows.push({ key: m.id, kind: 'voice', mine, m });
       continue;
@@ -68,6 +132,19 @@ function buildRows(messages: Message[], me: string): Row[] {
     }
     if (plain) rows.push({ key: m.id, kind: 'text', mine, m, big: emojiOnly(words) });
   }
+  // "Seen" only ever sits under the last message you sent: the last row of yours is that message's last piece.
+  if (theirRead) {
+    const last = [...messages].reverse().find((m) => m.sender_id === me);
+    if (last && atOrAfter(theirRead, last.created_at)) {
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const r = rows[i];
+        if (r.kind !== 'stamp' && r.mine) {
+          r.seen = true;
+          break;
+        }
+      }
+    }
+  }
   return rows;
 }
 
@@ -78,6 +155,33 @@ function Bubble({ mine, children }: { mine: boolean; children: React.ReactNode }
     <LinearGradient colors={[BUBBLE[0], BUBBLE[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={shape}>
       {children}
     </LinearGradient>
+  );
+}
+
+/** The small note under the last message you sent, once the other person has read it. */
+function SeenLabel() {
+  return <Text style={{ color: C.fg3, fontSize: 12, alignSelf: 'flex-end', paddingTop: 3, paddingRight: 6 }}>Seen</Text>;
+}
+
+/** A voice or video call in the chat: either person taps it to join the room. */
+function CallCard({ m, mine, onJoin }: { m: Message; mine: boolean; onJoin: () => void }) {
+  const video = m.call_kind === 'video';
+  const title = video ? 'Video call' : 'Voice call';
+  const ink = mine ? '#fff' : C.fg;
+  return (
+    <Pressable onPress={onJoin} accessibilityRole="button" accessibilityLabel={`${title} at ${timeOf(m.created_at)}. Tap to join`} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      <Bubble mine={mine}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, width: 196, paddingVertical: 2 }}>
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: mine ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.09)', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={video ? 'video' : 'phone'} size={22} color={ink} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: ink, fontSize: 16, fontWeight: '700' }}>{title}</Text>
+            <Text style={{ color: mine ? 'rgba(255,255,255,0.82)' : C.fg2, fontSize: 13, marginTop: 1 }}>Tap to join · {timeOf(m.created_at)}</Text>
+          </View>
+        </View>
+      </Bubble>
+    </Pressable>
   );
 }
 
@@ -239,8 +343,70 @@ export default function Chat() {
   const ready = useRef(false);
   const stopping = useRef(false);
   const micOn = useRef(false);
+  // The other person: when they last read the chat, and whether they are typing right now.
+  const them = useRef('');
+  const [theirRead, setTheirRead] = useState<string | null>(null);
+  const [theirTyping, setTheirTyping] = useState(false);
+  const [calling, setCalling] = useState(false);
+  const callStarting = useRef(false);
+  const typingRoom = useRef<Channel | null>(null);
+  const typingHide = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingSentAt = useRef(0);
+  const typingTold = useRef(false);
+  const lastTheirs = useRef('');
 
   const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, numberOfChannels: 1, bitRate: 64000 });
+
+  /* ----- seen and typing ----- */
+
+  // Their read marker only ever moves forward, whichever of the first load, Realtime or a refresh answers last.
+  const noteTheirRead = useCallback((at: string | null) => {
+    if (!at) return;
+    setTheirRead((cur) => (cur && atOrAfter(cur, at) ? cur : at));
+  }, []);
+
+  const refreshTheirRead = useCallback(() => {
+    if (!them.current) return;
+    fetchTheirLastRead(threadId, them.current).then(noteTheirRead).catch(() => {});
+  }, [threadId, noteTheirRead]);
+
+  const showTheirTyping = useCallback(() => {
+    setTheirTyping(true);
+    if (typingHide.current) clearTimeout(typingHide.current);
+    typingHide.current = setTimeout(() => {
+      typingHide.current = null;
+      setTheirTyping(false);
+    }, TYPING_LINGER_MS);
+  }, []);
+
+  const hideTheirTyping = useCallback(() => {
+    if (typingHide.current) clearTimeout(typingHide.current);
+    typingHide.current = null;
+    setTheirTyping(false);
+  }, []);
+
+  /** Tells the other person you are typing, at most once every couple of seconds while the text keeps changing. */
+  function tellTyping() {
+    const now = Date.now();
+    if (now - typingSentAt.current < TYPING_EVERY_MS) return;
+    typingSentAt.current = now;
+    typingTold.current = true;
+    typingRoom.current?.send({ type: 'broadcast', event: 'typing', payload: { user: me } }).catch(() => {});
+  }
+
+  /** Takes the typing bubble off their screen: on send, on clearing the box, on leaving it. */
+  function tellStopped() {
+    if (!typingTold.current) return;
+    typingTold.current = false;
+    typingSentAt.current = 0;
+    typingRoom.current?.send({ type: 'broadcast', event: 'stopped', payload: { user: me } }).catch(() => {});
+  }
+
+  function changeText(t: string) {
+    setText(t);
+    if (t.trim()) tellTyping();
+    else tellStopped();
+  }
 
   const load = useCallback(async () => {
     if (!ready.current) return;
@@ -252,8 +418,13 @@ export default function Chat() {
       shown.current = mine;
       setMessages(list);
       setStatus((s) => (s === 'missing' ? s : 'ready'));
-      // Mark as read when their newest message is one you have not been shown yet, and only while this chat is in front.
       const theirs = [...list].reverse().find((m) => m.sender_id !== me);
+      // Their message has arrived, so the typing bubble has done its job.
+      if (theirs && theirs.id !== lastTheirs.current) {
+        lastTheirs.current = theirs.id;
+        hideTheirTyping();
+      }
+      // Mark as read when their newest message is one you have not been shown yet, and only while this chat is in front.
       if (front.current && theirs && theirs.id !== seen.current) {
         seen.current = theirs.id;
         markThreadRead(me, threadId);
@@ -262,7 +433,7 @@ export default function Chat() {
       setError(errText(e));
       setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
     }
-  }, [threadId, me]);
+  }, [threadId, me, hideTheirTyping]);
 
   useEffect(() => {
     let live = true;
@@ -277,9 +448,11 @@ export default function Chat() {
         }
         setThread(t);
         hidden.current = t.hidden_before;
+        them.current = t.other_id;
         ready.current = true;
         load();
         markThreadRead(me, threadId);
+        refreshTheirRead();
         // Creators can offer ready-made questions at the top of the chat.
         getProfile(t.other_id)
           .then((p) => (p && p.faq_enabled ? fetchFaqs(p.id) : []))
@@ -295,7 +468,7 @@ export default function Chat() {
     const timer = setInterval(load, 6000);
     // Live updates. The sign-in token is handed over first, so the server knows whose messages these are.
     // Each screen gets its own channel: the same chat can be open twice (chat, profile, Message).
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let channel: Channel | null = null;
     supabase.realtime
       .setAuth()
       .catch(() => {})
@@ -304,6 +477,11 @@ export default function Chat() {
         channel = supabase
           .channel(`thread-${threadId}-${Date.now().toString(36)}`)
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { load(); })
+          // The other person's read marker, for "Seen". Both markers for the chat arrive here; only theirs matters.
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'community_thread_reads', filter: `thread_id=eq.${threadId}` }, (payload) => {
+            const row = payload.new as { user_id?: string; last_read_at?: string };
+            if (row.user_id && row.user_id === them.current && row.last_read_at) noteTheirRead(row.last_read_at);
+          })
           .subscribe();
       });
     return () => {
@@ -311,17 +489,57 @@ export default function Chat() {
       clearInterval(timer);
       if (channel) supabase.removeChannel(channel);
     };
-  }, [threadId, me, load, attempt]);
+  }, [threadId, me, load, attempt, refreshTheirRead, noteTheirRead]);
+
+  // Typing, both ways, over a broadcast channel the two phones share for this chat.
+  useEffect(() => {
+    let live = true;
+    let room: Channel | null = null;
+    (async () => {
+      // The sign-in token first, as for messages, so the socket is the same one and already signed in.
+      await supabase.realtime.setAuth().catch(() => {});
+      if (!live) return;
+      const joined = await joinTypingRoom(threadId);
+      if (!live) {
+        leaveTypingRoom(threadId);
+        return;
+      }
+      room = joined.channel;
+      joined.channel
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          if (live && payload?.user !== me) showTheirTyping();
+        })
+        .on('broadcast', { event: 'stopped' }, ({ payload }) => {
+          if (live && payload?.user !== me) hideTheirTyping();
+        });
+      if (joined.fresh) joined.channel.subscribe();
+      typingRoom.current = joined.channel;
+    })().catch(() => {});
+    return () => {
+      live = false;
+      // Leaving mid-sentence: take the bubble off their screen before the channel goes.
+      if (room && typingTold.current) room.send({ type: 'broadcast', event: 'stopped', payload: { user: me } }).catch(() => {});
+      typingTold.current = false;
+      typingSentAt.current = 0;
+      typingRoom.current = null;
+      if (room) leaveTypingRoom(threadId);
+      if (typingHide.current) clearTimeout(typingHide.current);
+      typingHide.current = null;
+      setTheirTyping(false);
+    };
+  }, [threadId, me, showTheirTyping, hideTheirTyping]);
 
   // Coming back to the chat refreshes it; while another screen covers it, nothing is marked as read.
   useFocusEffect(
     useCallback(() => {
       front.current = true;
       load();
+      // A read marker that changed while another screen was in front (or the connection was down) is picked up here.
+      refreshTheirRead();
       return () => {
         front.current = false;
       };
-    }, [load]),
+    }, [load, refreshTheirRead]),
   );
 
   useEffect(() => {
@@ -344,6 +562,7 @@ export default function Chat() {
   async function send(msg: { text?: string; media_url?: string }) {
     if (sending) return;
     setSending(true);
+    if (msg.text !== undefined) tellStopped();
     try {
       await sendMessage(me, threadId, msg);
       // Clear the box only if it still holds what was sent: you may have typed more in the meantime.
@@ -354,6 +573,34 @@ export default function Chat() {
     } finally {
       setSending(false);
     }
+  }
+
+  /* ----- calls ----- */
+
+  /** Opens the call room in the in-app browser sheet; Jitsi asks for the camera and microphone there. */
+  function joinCall(url: string) {
+    pauseVoice();
+    WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN }).catch((e) => toast(errText(e)));
+  }
+
+  /** Sends the call as a message, so the other person can tap it, then joins the room. */
+  async function call(kind: 'voice' | 'video') {
+    // A second tap before the first has been drawn must not open a second room.
+    if (callStarting.current || recording) return;
+    callStarting.current = true;
+    setCalling(true);
+    let url = '';
+    try {
+      url = await startCall(me, threadId, kind);
+    } catch (e) {
+      toast(errText(e));
+      return;
+    } finally {
+      callStarting.current = false;
+      setCalling(false);
+    }
+    load();
+    joinCall(url);
   }
 
   async function sendPhotos(fromCamera: boolean) {
@@ -528,25 +775,35 @@ export default function Chat() {
     }
   }
 
-  const rows = useMemo(() => buildRows(messages, me).reverse(), [messages, me]);
+  const rows = useMemo(() => buildRows(messages, me, theirRead).reverse(), [messages, me, theirRead]);
   const typing = text.trim().length > 0;
   const showFaqs = faqs.length > 0 && thread && thread.other_id !== me;
 
   return (
     <Screen>
-      <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 }}>
+      <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8 }}>
         <RoundButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/inbox'))} />
         {thread ? (
           <Pressable onPress={() => router.push(`/user/${thread.other_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${thread.full_name}'s profile`}>
             <Avatar uri={thread.avatar_url} name={thread.full_name} size={40} />
             <View style={{ flex: 1 }}>
               <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700' }}>{thread.full_name}</Text>
-              <Text numberOfLines={1} style={{ color: C.fg, fontSize: 13 }}>{thread.username}{thread.muted ? ' · muted' : ''}</Text>
+              {theirTyping ? (
+                <Text numberOfLines={1} style={{ color: C.accent2, fontSize: 13 }} accessibilityLiveRegion="polite">Typing…</Text>
+              ) : (
+                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 13 }}>{thread.username}{thread.muted ? ' · muted' : ''}</Text>
+              )}
             </View>
           </Pressable>
         ) : (
           <View style={{ flex: 1 }} />
         )}
+        {thread && status === 'ready' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', opacity: calling || recording ? 0.4 : 1 }}>
+            <IconButton name="phone" size={26} label="Voice call" onPress={() => call('voice')} />
+            <IconButton name="video" size={26} label="Video call" onPress={() => call('video')} />
+          </View>
+        ) : null}
         {thread ? <RoundButton name="info" label="Chat options" onPress={() => setSheet('options')} /> : null}
       </View>
 
@@ -568,44 +825,86 @@ export default function Chat() {
             renderItem={({ item: r }) => {
               if (r.kind === 'stamp') return <Text style={{ color: C.fg2, fontSize: 12.5, letterSpacing: 0.2, textAlign: 'center', paddingTop: 18, paddingBottom: 10 }}>{r.label}</Text>;
               const align = { alignSelf: r.mine ? ('flex-end' as const) : ('flex-start' as const), maxWidth: '82%' as const };
+              const seen = r.seen ? <SeenLabel /> : null;
               if (r.kind === 'photos') {
                 return (
-                  <View style={[align, { maxWidth: '100%', paddingVertical: 4 }]}>
-                    <PhotoStack urls={r.urls} mine={r.mine} onOpen={() => setViewer({ urls: r.urls, at: 0, note: '' })} onForward={() => forward(r.urls)} />
-                  </View>
+                  <>
+                    <View style={[align, { maxWidth: '100%', paddingVertical: 4 }]}>
+                      <PhotoStack urls={r.urls} mine={r.mine} onOpen={() => setViewer({ urls: r.urls, at: 0, note: '' })} onForward={() => forward(r.urls)} />
+                    </View>
+                    {seen}
+                  </>
                 );
               }
-              if (r.kind === 'voice') return <View style={align}><VoiceBubble m={r.m} mine={r.mine} locked={recording} /></View>;
+              if (r.kind === 'voice') {
+                return (
+                  <>
+                    <View style={align}><VoiceBubble m={r.m} mine={r.mine} locked={recording} /></View>
+                    {seen}
+                  </>
+                );
+              }
+              if (r.kind === 'call') {
+                return (
+                  <>
+                    <View style={align}><CallCard m={r.m} mine={r.mine} onJoin={() => joinCall(r.m.call_url)} /></View>
+                    {seen}
+                  </>
+                );
+              }
               if (r.kind === 'post') {
                 const post = r.m.post_id ? getPostNow(r.m.post_id) : undefined;
                 return (
-                  <View style={align}>
-                    {post ? (
-                      <Pressable onPress={() => router.push(post.kind === 'reel' ? `/watch/${post.id}` : `/post/${post.id}`)} accessibilityRole="button" accessibilityLabel={`Post by ${post.username}`} style={{ width: 210, borderRadius: 18, overflow: 'hidden', backgroundColor: C.surface }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9 }}>
-                          <Avatar uri={post.avatar_url} name={post.full_name} size={24} />
-                          <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13, flex: 1 }}>{post.username}</Text>
+                  <>
+                    <View style={align}>
+                      {post ? (
+                        <Pressable onPress={() => router.push(post.kind === 'reel' ? `/watch/${post.id}` : `/post/${post.id}`)} accessibilityRole="button" accessibilityLabel={`Post by ${post.username}`} style={{ width: 210, borderRadius: 18, overflow: 'hidden', backgroundColor: C.surface }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9 }}>
+                            <Avatar uri={post.avatar_url} name={post.full_name} size={24} />
+                            <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13, flex: 1 }}>{post.username}</Text>
+                          </View>
+                          <Image source={{ uri: thumbOf(post) }} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" />
+                          {post.caption ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, padding: 9 }}>{post.caption}</Text> : null}
+                        </Pressable>
+                      ) : (
+                        <View style={{ borderRadius: 18, backgroundColor: C.surface, paddingHorizontal: 13, paddingVertical: 9 }}>
+                          <Text style={{ color: C.fg2 }}>This post is no longer available</Text>
                         </View>
-                        <Image source={{ uri: thumbOf(post) }} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" />
-                        {post.caption ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, padding: 9 }}>{post.caption}</Text> : null}
-                      </Pressable>
-                    ) : (
-                      <View style={{ borderRadius: 18, backgroundColor: C.surface, paddingHorizontal: 13, paddingVertical: 9 }}>
-                        <Text style={{ color: C.fg2 }}>This post is no longer available</Text>
-                      </View>
-                    )}
-                  </View>
+                      )}
+                    </View>
+                    {seen}
+                  </>
                 );
               }
-              if (r.big) return <Text style={[align, { fontSize: 44, lineHeight: 54 }]}>{r.m.text.trim()}</Text>;
+              if (r.big) {
+                return (
+                  <>
+                    <Text style={[align, { fontSize: 44, lineHeight: 54 }]}>{r.m.text.trim()}</Text>
+                    {seen}
+                  </>
+                );
+              }
               return (
-                <Pressable style={align} onLongPress={() => { Clipboard.setStringAsync(r.m.text).then(() => toast('Copied')); }} delayLongPress={350} accessibilityHint="Touch and hold to copy">
-                  <Bubble mine={r.mine}>
-                    <Text style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }}>{r.m.text}</Text>
-                  </Bubble>
-                </Pressable>
+                <>
+                  <Pressable style={align} onLongPress={() => { Clipboard.setStringAsync(r.m.text).then(() => toast('Copied')); }} delayLongPress={350} accessibilityHint="Touch and hold to copy">
+                    <Bubble mine={r.mine}>
+                      <Text style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }}>{r.m.text}</Text>
+                    </Bubble>
+                  </Pressable>
+                  {seen}
+                </>
               );
             }}
+            // The list is upside down, so its header sits at the bottom: their typing bubble goes under the newest message.
+            ListHeaderComponent={
+              theirTyping ? (
+                <View style={{ alignSelf: 'flex-start', paddingTop: 4 }} accessibilityLabel={`${thread?.full_name ?? 'They'} is typing`} accessibilityLiveRegion="polite">
+                  <Bubble mine={false}>
+                    <TypingDots />
+                  </Bubble>
+                </View>
+              ) : null
+            }
             ListFooterComponent={
               showFaqs ? (
                 <View style={{ alignItems: 'center', paddingVertical: 14, gap: 8 }}>
@@ -653,7 +952,7 @@ export default function Chat() {
                 <Pressable onPress={() => sendPhotos(true)} disabled={sending} accessibilityRole="button" accessibilityLabel="Take a photo" style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: '#5454f0', alignItems: 'center', justifyContent: 'center', marginBottom: 6, opacity: pressed ? 0.7 : 1 })}>
                   {sending ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="camerafill" size={23} color="#fff" ink="#5454f0" />}
                 </Pressable>
-                <TextInput value={text} onChangeText={setText} onFocus={() => setTray(false)} placeholder="Message…" placeholderTextColor={C.fg2} multiline maxLength={5000} keyboardAppearance="dark" style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel="Message" />
+                <TextInput value={text} onChangeText={changeText} onFocus={() => setTray(false)} onBlur={tellStopped} placeholder="Message…" placeholderTextColor={C.fg2} multiline maxLength={5000} keyboardAppearance="dark" style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel="Message" />
                 {typing ? (
                   <Pressable onPress={() => send({ text })} disabled={sending} hitSlop={8} accessibilityRole="button" style={{ paddingHorizontal: 10, height: 52, justifyContent: 'center' }}>
                     <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5, opacity: sending ? 0.4 : 1 }}>Send</Text>

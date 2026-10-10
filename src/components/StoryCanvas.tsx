@@ -3,7 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
+import { isNormal } from '../lib/filters';
 import type { Overlay, StoryItem, Stroke } from '../lib/types';
+import { FilteredImage } from './FilterStrip';
 import { Icon } from './Icon';
 
 /** Backgrounds for text stories. */
@@ -120,6 +122,7 @@ export function StoryCanvas({
   onMention,
   hideOverlays,
   hideCaption,
+  filter,
 }: {
   item: StoryItem;
   width: number;
@@ -132,10 +135,16 @@ export function StoryCanvas({
   onMention?: (userId: string) => void;
   hideOverlays?: boolean;
   hideCaption?: boolean;
+  /**
+   * Editor preview only: a preset id from src/lib/filters drawn over the photo. The editor bakes the
+   * filter into the uploaded file, so saved stories never carry one and the player leaves this out.
+   */
+  filter?: string;
 }) {
   const bg = STORY_BACKGROUNDS[(item.bg ?? 0) % STORY_BACKGROUNDS.length];
   const full = { position: 'absolute' as const, left: 0, top: 0, width, height };
   const still = item.type === 'video' ? item.poster : item.url;
+  const look = filter && !isNormal(filter) ? filter : null;
 
   let media: React.ReactNode = null;
   if (item.type === 'text') {
@@ -148,6 +157,18 @@ export function StoryCanvas({
     );
   } else if (item.type === 'video' && video) {
     media = <View style={full}>{video}</View>;
+  } else if (still && look) {
+    // The filter runs in the native image view, so the photo goes through React Native's own Image here.
+    media =
+      item.fit === 'contain' ? (
+        <>
+          <FilteredImage uri={still} filterId={look} style={full} resizeMode="cover" blurRadius={36} />
+          <View style={[full, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+          <FilteredImage uri={still} filterId={look} style={full} resizeMode="contain" />
+        </>
+      ) : (
+        <FilteredImage uri={still} filterId={look} style={full} resizeMode="cover" />
+      );
   } else if (still) {
     media =
       item.fit === 'contain' ? (
