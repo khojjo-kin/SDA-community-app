@@ -1,0 +1,345 @@
+=== errors
+10:note: Using codesigning identity override: 
+1207:GatherProvisioningInputs
+8564:/Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/libdav1d/dav1d/src/decode.c:2654:32: warning: incompatible pointer types assigning to 'coef *' (aka 'short *') from 'uint8_t *' (aka 'unsigned char *') [-Wincompatible-pointer-types]
+14313:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/react-native-maps/ios/AirMaps/AIRMapWMSTile.m:38:26: warning: incompatible pointer types assigning to 'AIRMapUrlTileCachedOverlay *' from 'AIRMapWMSTileOverlay *' [-Wincompatible-pointer-types]
+14384:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/react-native-maps/ios/AirMaps/AIRMapUrlTile.m:142:26: warning: incompatible pointer types assigning to 'AIRMapUrlTileCachedOverlay *' from 'MKTileOverlay *' [-Wincompatible-pointer-types]
+14874:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/react-native-maps/ios/AirMaps/AIRMap.m:725:43: warning: incompatible pointer types assigning to 'MKCompassButton *' from 'UIView *' [-Wincompatible-pointer-types]
+28670:SwiftCompile normal arm64 Compiling\ PKAddPaymentPassRequest+Stripe_Error.swift,\ STPAPIClient+PushProvisioning.swift,\ STPEphemeralKey.swift,\ STPEphemeralKeyManager.swift,\ STPEphemeralKeyProvider.swift,\ STPFakeAddPaymentPassViewController.swift,\ STPPinManagementService.swift,\ STPPushProvisioningContext.swift,\ STPPushProvisioningDetails.swift,\ STPPushProvisioningDetailsParams.swift,\ StripeIssuing.swift,\ StripeIssuing+Import.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/PKAddPaymentPassRequest+Stripe_Error.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPAPIClient+PushProvisioning.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPEphemeralKey.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPEphemeralKeyManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPEphemeralKeyProvider.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPFakeAddPaymentPassViewController.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPPinManagementService.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPPushProvisioningContext.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPPushProvisioningDetails.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/STPPushProvisioningDetailsParams.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/StripeIssuing.swift /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/StripeIssuing/StripeIssuing/StripeIssuing/Source/StripeIssuing+Import.swift (in target 'StripeIssuing' from project 'Pods')
+28700:SwiftDriverJobDiscovery normal arm64 Compiling PKAddPaymentPassRequest+Stripe_Error.swift, STPAPIClient+PushProvisioning.swift, STPEphemeralKey.swift, STPEphemeralKeyManager.swift, STPEphemeralKeyProvider.swift, STPFakeAddPaymentPassViewController.swift, STPPinManagementService.swift, STPPushProvisioningContext.swift, STPPushProvisioningDetails.swift, STPPushProvisioningDetailsParams.swift, StripeIssuing.swift, StripeIssuing+Import.swift (in target 'StripeIssuing' from project 'Pods')
+31006:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:43:26: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+31009:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:44:20: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+31012:/Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm:45:28: warning: incompatible pointer types assigning to 'NSMutableDictionary *' from 'NSDictionary * _Nonnull' [-Wincompatible-pointer-types]
+45580:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45583:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45586:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45601:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45604:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45607:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45622:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45625:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+45628:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49033:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49036:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49040:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49044:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49047:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49051:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49055:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49058:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49062:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49241:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49244:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49248:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49252:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49255:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49259:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49263:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49266:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49270:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49575:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49578:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49582:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49586:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49589:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49593:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49597:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49600:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49604:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49791:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49794:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49798:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49802:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49805:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49809:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49813:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49816:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+49820:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50140:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50143:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50147:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50151:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50154:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50158:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50162:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50165:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50169:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50383:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50386:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50390:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50394:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50397:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50401:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50405:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50408:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+50412:   16 | - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+58507:ScanDependencies /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'EXApplication' from project 'Pods')
+58512:    builtin-ScanDependencies -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o.scan -- /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/EXApplication/EXApplication-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o
+58564:CompileC /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'EXApplication' from project 'Pods')
+58569:    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/EXApplication/EXApplication-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/expo-application/ios/EXApplication/EXProvisioningProfile.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/EXApplication.build/Objects-normal/arm64/EXProvisioningProfile.o
+60365:SwiftCompile normal arm64 Compiling\ AddressSheetUtils.swift,\ AddressSheetView.swift,\ AddressSheetViewManager.swift,\ AddToWalletButtonManager.swift,\ AddToWalletButtonView.swift,\ ApplePayButtonManager.swift,\ ApplePayButtonView.swift,\ ApplePayUtils.swift,\ ApplePayViewController.swift,\ AuBECSDebitFormManager.swift,\ AuBECSDebitFormView.swift,\ CardFieldManager.swift,\ CardFieldView.swift,\ CardFormManager.swift,\ CardFormView.swift,\ ConnectAccountOnboardingView.swift,\ ConnectAccountOnboardingViewController.swift,\ ConnectAccountOnboardingViewManager.swift,\ CurrencySelectorElementManager.swift,\ CurrencySelectorElementView.swift,\ CustomerSheetUtils.swift,\ EmbeddedPaymentElementView.swift,\ Errors.swift,\ FinancialConnections.swift,\ Mappers.swift,\ Mappers+Checkout.swift,\ NavigationBarManager.swift,\ NavigationBarView.swift,\ PaymentMethodFactory.swift,\ PaymentMethodMessagingElementConfig.swift,\ PaymentMethodMessagingElementView.swift,\ PaymentOptionDisplayData+ReactNative.swift,\ PaymentPassFinder.swift,\ PaymentSheetAppearance.swift,\ PushProvisioningUtils.swift,\ ReactNativeCustomerAdapter.swift,\ StripeContainerManager.swift,\ StripeContainerView.swift,\ StripeSdkEmitter.swift,\ StripeSdkImpl.swift,\ StripeSdkImpl+Checkout.swift,\ StripeSdkImpl+CustomerSheet.swift,\ StripeSdkImpl+Embedded.swift,\ StripeSdkImpl+PaymentSheet.swift,\ UIColorExtension.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/AddressSheet/AddressSheetUtils.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/AddressSheet/AddressSheetView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/AddressSheet/AddressSheetViewManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ApplePayButtonManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ApplePayButtonView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ApplePayUtils.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ApplePayViewController.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/AuBECSDebitFormManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/AuBECSDebitFormView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CardFieldManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CardFieldView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CardFormManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CardFormView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ConnectAccountOnboarding/ConnectAccountOnboardingView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ConnectAccountOnboarding/ConnectAccountOnboardingViewController.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/ConnectAccountOnboarding/ConnectAccountOnboardingViewManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CurrencySelectorElementManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CurrencySelectorElementView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CustomerSheet/CustomerSheetUtils.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/EmbeddedPaymentElementView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/Errors.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/FinancialConnections.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/Mappers.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/Mappers+Checkout.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/NavigationBarManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/NavigationBarView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentMethodFactory.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentMethodMessagingElementConfig.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentMethodMessagingElementView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentOptionDisplayData+ReactNative.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentPassFinder.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PaymentSheetAppearance.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/PushProvisioningUtils.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/CustomerSheet/ReactNativeCustomerAdapter.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeContainerManager.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeContainerView.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkEmitter.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkImpl.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkImpl+Checkout.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkImpl+CustomerSheet.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkImpl+Embedded.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/StripeSdkImpl+PaymentSheet.swift /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/UIColorExtension.swift (in target 'stripe-react-native' from project 'Pods')
+60464:SwiftDriverJobDiscovery normal arm64 Compiling AddressSheetUtils.swift, AddressSheetView.swift, AddressSheetViewManager.swift, AddToWalletButtonManager.swift, AddToWalletButtonView.swift, ApplePayButtonManager.swift, ApplePayButtonView.swift, ApplePayUtils.swift, ApplePayViewController.swift, AuBECSDebitFormManager.swift, AuBECSDebitFormView.swift, CardFieldManager.swift, CardFieldView.swift, CardFormManager.swift, CardFormView.swift, ConnectAccountOnboardingView.swift, ConnectAccountOnboardingViewController.swift, ConnectAccountOnboardingViewManager.swift, CurrencySelectorElementManager.swift, CurrencySelectorElementView.swift, CustomerSheetUtils.swift, EmbeddedPaymentElementView.swift, Errors.swift, FinancialConnections.swift, Mappers.swift, Mappers+Checkout.swift, NavigationBarManager.swift, NavigationBarView.swift, PaymentMethodFactory.swift, PaymentMethodMessagingElementConfig.swift, PaymentMethodMessagingElementView.swift, PaymentOptionDisplayData+ReactNative.swift, PaymentPassFinder.swift, PaymentSheetAppearance.swift, PushProvisioningUtils.swift, ReactNativeCustomerAdapter.swift, StripeContainerManager.swift, StripeContainerView.swift, StripeSdkEmitter.swift, StripeSdkImpl.swift, StripeSdkImpl+Checkout.swift, StripeSdkImpl+CustomerSheet.swift, StripeSdkImpl+Embedded.swift, StripeSdkImpl+PaymentSheet.swift, UIColorExtension.swift (in target 'stripe-react-native' from project 'Pods')
+61542:ScanDependencies /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonManager.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'stripe-react-native' from project 'Pods')
+61547:    builtin-ScanDependencies -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.o.scan -- /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -DRCT_NEW_ARCH_ENABLED\=1 -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/stripe-react-native/stripe-react-native-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonManager.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.o
+61570:CompileC /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.o /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonManager.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler (in target 'stripe-react-native' from project 'Pods')
+61575:    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x objective-c -ivfsstatcache /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Wno-implicit-atomic-properties -Werror\=deprecated-objc-isa-usage -Wno-objc-interface-ivars -Werror\=objc-root-class -Wno-arc-repeated-use-of-weak -Wimplicit-retain-self -Wduplicate-method-match -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-selector -Wno-strict-selector-match -Wundeclared-selector -Wdeprecated-implementations -Wno-implicit-fallthrough -fstrict-aliasing -Wprotocol -Wdeprecated-declarations -Wno-sign-conversion -Winfinite-recursion -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wno-semicolon-before-method-body -Wunguarded-availability @/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/e6072d4f65d7061329687fe24e3d63a7-common-args.resp -DRCT_NEW_ARCH_ENABLED\=1 -include /Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Target\ Support\ Files/stripe-react-native/stripe-react-native-prefix.pch -MMD -MT dependencies -MF /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.d --serialize-diagnostics /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.dia -c /Users/runner/work/SDA-community-app/SDA-community-app/node_modules/@stripe/stripe-react-native/ios/PushProvisioning/AddToWalletButtonManager.m -o /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/stripe-react-native.build/Objects-normal/arm64/AddToWalletButtonManager-c34456e427681b07831500d3baa6ef17.o
+65549:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65552:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65555:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65570:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65573:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65576:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65591:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65594:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+65597:- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error;
+=== tail
+StripePaymentsUIBundle.bundle/fr.lproj/
+StripePaymentsUIBundle.bundle/fr.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/hr.lproj/
+StripePaymentsUIBundle.bundle/hr.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/hu.lproj/
+StripePaymentsUIBundle.bundle/hu.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/id.lproj/
+StripePaymentsUIBundle.bundle/id.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/it.lproj/
+StripePaymentsUIBundle.bundle/it.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/ja.lproj/
+StripePaymentsUIBundle.bundle/ja.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/ko.lproj/
+StripePaymentsUIBundle.bundle/ko.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/lt-LT.lproj/
+StripePaymentsUIBundle.bundle/lt-LT.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/lv-LV.lproj/
+StripePaymentsUIBundle.bundle/lv-LV.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/ms-MY.lproj/
+StripePaymentsUIBundle.bundle/ms-MY.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/mt.lproj/
+StripePaymentsUIBundle.bundle/mt.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/nb.lproj/
+StripePaymentsUIBundle.bundle/nb.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/nl.lproj/
+StripePaymentsUIBundle.bundle/nl.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/pl-PL.lproj/
+StripePaymentsUIBundle.bundle/pl-PL.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/pt-BR.lproj/
+StripePaymentsUIBundle.bundle/pt-BR.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/pt-PT.lproj/
+StripePaymentsUIBundle.bundle/pt-PT.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/ro-RO.lproj/
+StripePaymentsUIBundle.bundle/ro-RO.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/ru.lproj/
+StripePaymentsUIBundle.bundle/ru.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/sk-SK.lproj/
+StripePaymentsUIBundle.bundle/sk-SK.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/sl-SI.lproj/
+StripePaymentsUIBundle.bundle/sl-SI.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/sv.lproj/
+StripePaymentsUIBundle.bundle/sv.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/th.lproj/
+StripePaymentsUIBundle.bundle/th.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/tk.lproj/
+StripePaymentsUIBundle.bundle/tk.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/tr.lproj/
+StripePaymentsUIBundle.bundle/tr.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/vi.lproj/
+StripePaymentsUIBundle.bundle/vi.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/zh-HK.lproj/
+StripePaymentsUIBundle.bundle/zh-HK.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/zh-Hans.lproj/
+StripePaymentsUIBundle.bundle/zh-Hans.lproj/Localizable.strings
+StripePaymentsUIBundle.bundle/zh-Hant.lproj/
+StripePaymentsUIBundle.bundle/zh-Hant.lproj/Localizable.strings
+StripeUICoreBundle.bundle/
+StripeUICoreBundle.bundle/Assets.car
+StripeUICoreBundle.bundle/Info.plist
+StripeUICoreBundle.bundle/au_becs_bsb.json
+StripeUICoreBundle.bundle/localized_address_data.json
+StripeUICoreBundle.bundle/bg-BG.lproj/
+StripeUICoreBundle.bundle/bg-BG.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ca-ES.lproj/
+StripeUICoreBundle.bundle/ca-ES.lproj/Localizable.strings
+StripeUICoreBundle.bundle/cs-CZ.lproj/
+StripeUICoreBundle.bundle/cs-CZ.lproj/Localizable.strings
+StripeUICoreBundle.bundle/da.lproj/
+StripeUICoreBundle.bundle/da.lproj/Localizable.strings
+StripeUICoreBundle.bundle/de.lproj/
+StripeUICoreBundle.bundle/de.lproj/Localizable.strings
+StripeUICoreBundle.bundle/el-GR.lproj/
+StripeUICoreBundle.bundle/el-GR.lproj/Localizable.strings
+StripeUICoreBundle.bundle/en-GB.lproj/
+StripeUICoreBundle.bundle/en-GB.lproj/Localizable.strings
+StripeUICoreBundle.bundle/en.lproj/
+StripeUICoreBundle.bundle/en.lproj/Localizable.strings
+StripeUICoreBundle.bundle/es-419.lproj/
+StripeUICoreBundle.bundle/es-419.lproj/Localizable.strings
+StripeUICoreBundle.bundle/es.lproj/
+StripeUICoreBundle.bundle/es.lproj/Localizable.strings
+StripeUICoreBundle.bundle/et-EE.lproj/
+StripeUICoreBundle.bundle/et-EE.lproj/Localizable.strings
+StripeUICoreBundle.bundle/fi.lproj/
+StripeUICoreBundle.bundle/fi.lproj/Localizable.strings
+StripeUICoreBundle.bundle/fil.lproj/
+StripeUICoreBundle.bundle/fil.lproj/Localizable.strings
+StripeUICoreBundle.bundle/fr-CA.lproj/
+StripeUICoreBundle.bundle/fr-CA.lproj/Localizable.strings
+StripeUICoreBundle.bundle/fr.lproj/
+StripeUICoreBundle.bundle/fr.lproj/Localizable.strings
+StripeUICoreBundle.bundle/hr.lproj/
+StripeUICoreBundle.bundle/hr.lproj/Localizable.strings
+StripeUICoreBundle.bundle/hu.lproj/
+StripeUICoreBundle.bundle/hu.lproj/Localizable.strings
+StripeUICoreBundle.bundle/id.lproj/
+StripeUICoreBundle.bundle/id.lproj/Localizable.strings
+StripeUICoreBundle.bundle/it.lproj/
+StripeUICoreBundle.bundle/it.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ja.lproj/
+StripeUICoreBundle.bundle/ja.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ko.lproj/
+StripeUICoreBundle.bundle/ko.lproj/Localizable.strings
+StripeUICoreBundle.bundle/lt-LT.lproj/
+StripeUICoreBundle.bundle/lt-LT.lproj/Localizable.strings
+StripeUICoreBundle.bundle/lv-LV.lproj/
+StripeUICoreBundle.bundle/lv-LV.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ms-MY.lproj/
+StripeUICoreBundle.bundle/ms-MY.lproj/Localizable.strings
+StripeUICoreBundle.bundle/mt.lproj/
+StripeUICoreBundle.bundle/mt.lproj/Localizable.strings
+StripeUICoreBundle.bundle/nb.lproj/
+StripeUICoreBundle.bundle/nb.lproj/Localizable.strings
+StripeUICoreBundle.bundle/nl.lproj/
+StripeUICoreBundle.bundle/nl.lproj/Localizable.strings
+StripeUICoreBundle.bundle/pl-PL.lproj/
+StripeUICoreBundle.bundle/pl-PL.lproj/Localizable.strings
+StripeUICoreBundle.bundle/pt-BR.lproj/
+StripeUICoreBundle.bundle/pt-BR.lproj/Localizable.strings
+StripeUICoreBundle.bundle/pt-PT.lproj/
+StripeUICoreBundle.bundle/pt-PT.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ro-RO.lproj/
+StripeUICoreBundle.bundle/ro-RO.lproj/Localizable.strings
+StripeUICoreBundle.bundle/ru.lproj/
+StripeUICoreBundle.bundle/ru.lproj/Localizable.strings
+StripeUICoreBundle.bundle/sk-SK.lproj/
+StripeUICoreBundle.bundle/sk-SK.lproj/Localizable.strings
+StripeUICoreBundle.bundle/sl-SI.lproj/
+StripeUICoreBundle.bundle/sl-SI.lproj/Localizable.strings
+StripeUICoreBundle.bundle/sv.lproj/
+StripeUICoreBundle.bundle/sv.lproj/Localizable.strings
+StripeUICoreBundle.bundle/th.lproj/
+StripeUICoreBundle.bundle/th.lproj/Localizable.strings
+StripeUICoreBundle.bundle/tr.lproj/
+StripeUICoreBundle.bundle/tr.lproj/Localizable.strings
+StripeUICoreBundle.bundle/vi.lproj/
+StripeUICoreBundle.bundle/vi.lproj/Localizable.strings
+StripeUICoreBundle.bundle/zh-HK.lproj/
+StripeUICoreBundle.bundle/zh-HK.lproj/Localizable.strings
+StripeUICoreBundle.bundle/zh-Hans.lproj/
+StripeUICoreBundle.bundle/zh-Hans.lproj/Localizable.strings
+StripeUICoreBundle.bundle/zh-Hant.lproj/
+StripeUICoreBundle.bundle/zh-Hant.lproj/Localizable.strings
+
+sent 3262405 bytes  received 9668 bytes  24769666 bytes/sec
+total size is 3196143  speedup is 0.98
+Transfer starting: 664 files
+
+sent 47962 bytes  received 20 bytes  2512146 bytes/sec
+total size is 3196143  speedup is 66.61
+
+PhaseScriptExecution [CP]\ Embed\ Pods\ Frameworks /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-E71FC932E478300E34E3078B.sh (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /bin/sh -c /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Script-E71FC932E478300E34E3078B.sh
+mkdir -p /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/Community.app/Frameworks
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/JitsiWebRTC/WebRTC.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 4 files
+WebRTC.framework/
+WebRTC.framework/Info.plist
+WebRTC.framework/PrivacyInfo.xcprivacy
+WebRTC.framework/WebRTC
+
+sent 10061527 bytes  received 92 bytes  130500894 bytes/sec
+total size is 10059798  speedup is 1.00
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/React-Core-prebuilt/React.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 3 files
+React.framework/
+React.framework/Info.plist
+React.framework/React
+
+sent 11268609 bytes  received 70 bytes  167938584 bytes/sec
+total size is 11266845  speedup is 1.00
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/ReactNativeDependencies/ReactNativeDependencies.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 12 files
+ReactNativeDependencies.framework/
+ReactNativeDependencies.framework/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_boost.bundle/PrivacyInfo.xcprivacy
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_folly.bundle/PrivacyInfo.xcprivacy
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/Info.plist
+ReactNativeDependencies.framework/ReactNativeDependencies_glog.bundle/PrivacyInfo.xcprivacy
+
+sent 1265535 bytes  received 220 bytes  89769858 bytes/sec
+total size is 1263674  speedup is 1.00
+rsync --delete -av --filter P .*.?????? --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/Release-iphoneos/XCFrameworkIntermediates/hermes-engine/Pre-built/hermes.framework" "/Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks"
+Transfer starting: 3 files
+hermes.framework/
+hermes.framework/Info.plist
+hermes.framework/hermes
+
+sent 4702235 bytes  received 70 bytes  156222757 bytes/sec
+total size is 4701267  speedup is 1.00
+
+CopySwiftLibs /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/PlugIns --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/SystemExtensions --scan-folder /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Extensions --platform iphoneos --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.WQOyge/Metal.xctoolchain --toolchain /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Frameworks --unsigned-destination /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/BuildProductsPath/SwiftSupport --strip-bitcode --strip-bitcode-tool /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.WQOyge/Metal.xctoolchain --module-name Community --sdk-root /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk --xcode-version 17C529 --platform-family iOS --deployment-target 15.1 --bundle-identifier Kojo.SDAAPPGEMINI --output /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app --target-triple arm64-apple-ios15.1 --binary-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community --dependency-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community_dependency_info.dat --stringsdata-file /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community.SwiftFileList --metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyMetadataFileList --static-metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyStaticMetadataFileList --swift-const-vals-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Objects-normal/arm64/Community.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-10 22:05:32.570 appintentsmetadataprocessor[18945:59382] Starting appintentsmetadataprocessor export
+2026-10-10 22:05:32.584 appintentsmetadataprocessor[18945:59382] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Info.plist --temp-dir-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/ssu --bundle-id Kojo.SDAAPPGEMINI --product-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app --extracted-metadata-path /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Metadata.appintents --deployment-postprocessing --metadata-file-list /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/IntermediateBuildFilesPath/Community.build/Release-iphoneos/Community.build/Community.DependencyMetadataFileList --archive-ssu-assets
+2026-10-10 22:05:32.609 appintentsnltrainingprocessor[18946:59383] Parsing options for appintentsnltrainingprocessor
+2026-10-10 22:05:32.610 appintentsnltrainingprocessor[18946:59383] No AppShortcuts found - Skipping.
+
+Strip /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -D /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app/Community
+
+SetOwnerAndGroup runner:staff /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /usr/sbin/chown -RH runner:staff /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+SetMode u+w,go-w,a+rX /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /bin/chmod -RH u+w,go-w,a+rX /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+RegisterExecutionPolicyException /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-RegisterExecutionPolicyException /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+Validate /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    builtin-validationUtility /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app -validate-for-store -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app (in target 'Community' from project 'Community')
+    cd /Users/runner/work/SDA-community-app/SDA-community-app/ios
+    /usr/bin/touch -c /Users/runner/Library/Developer/Xcode/DerivedData/Community-gfbevmzumkhjmgeinlaagzjblxyh/Build/Intermediates.noindex/ArchiveIntermediates/Community/InstallationBuildProductsLocation/Applications/Community.app
+
+warning: Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+note: Run script build phase '[CP-User] [RNDeps] Replace React Native Dependencies for the right configuration, if needed' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'ReactNativeDependencies' from project 'Pods')
+note: Run script build phase '[CP-User] [RN]Check FBReactNativeSpec' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'React-RCTFBReactNativeSpec' from project 'Pods')
+note: Run script build phase '[CP-User] [RNDeps] Replace React Native Core for the right configuration, if needed' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'React-Core-prebuilt' from project 'Pods')
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Community' from project 'Community')
+note: Run script build phase 'Bundle React Native code and images' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Community' from project 'Community')
+/Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.2.99. (in target 'react-native-maps-ReactNativeMapsPrivacy' from project 'Pods')
+/Users/runner/work/SDA-community-app/SDA-community-app/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 26.2.99. (in target 'SDWebImage-SDWebImage' from project 'Pods')
+note: Run script build phase '[CP-User] Generate app.config for prebuilt Constants.manifest' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'EXConstants' from project 'Pods')
+** ARCHIVE SUCCEEDED **
+
