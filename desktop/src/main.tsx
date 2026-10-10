@@ -12,6 +12,8 @@ import { nav, parts, useRoute } from './lib/router';
 import { applyAppearance } from './lib/appearance';
 import { touchSession } from './lib/admin';
 import { CallProvider } from 'shared/calls';
+import { LanguageWatch } from 'shared/i18n';
+import { t, useLanguage } from './lib/i18n';
 import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
 import { Explore, Home, PeopleToFollow } from './screens/browse';
 import { Shorts } from './screens/shorts';
@@ -49,6 +51,11 @@ declare const __DEMO__: boolean;
 
 function Boot() {
   const auth = useAuth();
+  // The app's language: when it changes, everything below is drawn again in the new one.
+  const lang = useLanguage();
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [error, setError] = useState('');
   const load = useCallback(() => {
@@ -66,13 +73,13 @@ function Boot() {
       <main className="onboard">
         <div className="login-card">
           <Wordmark />
-          <h2>Can't reach your account</h2>
+          <h2>{t('d.frame.cantReach')}</h2>
           <p className="muted-text">{error}</p>
           <button className="btn block" onClick={load}>
-            Try again
+            {t('common.tryAgain')}
           </button>
           <button className="link-btn" onClick={() => auth.signOut()}>
-            Log out
+            {t('d.frame.logOut')}
           </button>
         </div>
       </main>
@@ -87,7 +94,7 @@ function Boot() {
       {/* The same call code as the iPhone app: calls ring here wherever you are in the app. */}
       <CallProvider>
         <PlayerProvider>
-          <Shell />
+          <Shell key={lang} />
         </PlayerProvider>
       </CallProvider>
     </MeProvider>
@@ -235,12 +242,12 @@ function Shell() {
       screen = <Admin path={route} />;
       break;
     default:
-      screen = <Empty icon="compass" title="Sorry, this page isn't available." body="The link you followed may be broken, or the page may have been removed." />;
+      screen = <Empty icon="compass" title={t('d.frame.pageMissing')} body={t('d.frame.pageMissingBody')} />;
   }
 
   return (
     <div className={'shell' + (['direct', 'live'].includes(seg[0]) ? ' is-direct' : '') + (['shorts', 'reels'].includes(seg[0]) ? ' is-reels' : '')}>
-      {__DEMO__ ? <div className="demo-banner">Demo: sample people and photos. Nothing you do here is saved.</div> : null}
+      {__DEMO__ ? <div className="demo-banner">{t('d.frame.demoBanner')}</div> : null}
       <Sidebar panel={panel} setPanel={setPanel} onCreate={onCreate} />
       <main className="main">
         {seg[0] !== 'admin' ? <AnnouncementBar /> : null}
@@ -260,6 +267,7 @@ applyAppFont();
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>
+    <LanguageWatch />
     <Boot />
     <GlobalLayer />
   </AuthProvider>,
