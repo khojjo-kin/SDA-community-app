@@ -15,7 +15,13 @@ import { StoryTray, StoryViewer } from '../ui/stories';
 
 export function Home({ openPost, onCreate }: { openPost: (id: string) => void; onCreate: (m: 'post' | 'story') => void }) {
   const { me } = useMe();
-  const [kind, setKind] = useState<FeedKind>(() => (localStorage.getItem('community.feed') as FeedKind) || 'following');
+  const [kind, setKind] = useState<FeedKind>(() => {
+    try {
+      return (localStorage.getItem('community.feed') as FeedKind) || 'following';
+    } catch {
+      return 'following';
+    }
+  });
   const [ids, setIds] = useState<string[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [more, setMore] = useState(true);

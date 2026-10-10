@@ -17,6 +17,8 @@ const root = path.resolve(here, '..');
 const demo = process.argv.includes('--demo');
 // --wire: the real app (Clerk sign-in) with the stand-in database, for tests/wiring.test.cjs.
 const wire = process.argv.includes('--wire');
+// --single: one self-contained HTML page (pictures inlined), for previews.
+const single = process.argv.includes('--single');
 const watch = process.argv.includes('--watch');
 const outdir = path.join(here, process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : demo ? 'dist-demo' : wire ? 'dist-wire' : 'dist');
 
@@ -69,7 +71,7 @@ const options = {
   outdir,
   entryNames: 'app',
   assetNames: 'assets/[name]-[hash]',
-  loader: { '.png': 'file', '.jpg': 'file', '.svg': 'file', '.mp4': 'file' },
+  loader: single ? { '.png': 'dataurl', '.jpg': 'dataurl', '.svg': 'dataurl', '.mp4': 'dataurl' } : { '.png': 'file', '.jpg': 'file', '.svg': 'file', '.mp4': 'file' },
   jsx: 'automatic',
   target: ['chrome120', 'safari16'],
   minify: !watch,
@@ -92,4 +94,18 @@ if (watch) {
   await ctx.watch();
 } else {
   await esbuild.build(options);
+  if (single) {
+    // The page skeleton is added by the preview host, so this is the body only: title, style, app.
+    const js = fs.readFileSync(path.join(outdir, 'app.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
+    const css = fs.readFileSync(path.join(outdir, 'app.css'), 'utf8');
+    const page = [
+      '<title>Community for Mac</title>',
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@1,600;1,700&display=swap">',
+      '<style>' + css + '</style>',
+      '<div id="root"></div>',
+      '<script type="module">' + js + '</script>',
+    ].join('\n');
+    fs.writeFileSync(path.join(outdir, 'preview.html'), page);
+    console.log('preview.html', Math.round(page.length / 1024) + ' KB');
+  }
 }
