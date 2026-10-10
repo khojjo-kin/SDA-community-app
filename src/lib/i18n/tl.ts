@@ -130,7 +130,6 @@ export const tl: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Theme',
-  'theme.intro': 'Piliin kung ano ang itsura ng Community sa phone na ito. Laging naka-black ang background ng mga photo, video, camera at story, anuman ang piliin mo.',
   'theme.dark': 'Dark',
   'theme.darkSub': 'Magaan sa mata sa gabi. Ang orihinal na itsura.',
   'theme.white': 'White',
@@ -141,8 +140,6 @@ export const tl: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Wika',
-  'language.intro': 'Piliin ang wikang gagamitin ng Community sa phone na ito.',
-  'language.note': 'Maaaring English pa rin ang ilang screen habang tinatapos ang mga translation. Sa ngayon, ipinapakita ang Arabic mula kaliwa pakanan.',
   'language.search': 'Maghanap ng wika',
   'language.phone': 'Gamitin ang wika ng phone',
   'language.phoneSub': 'Ipinapakita ang Community sa {name}',
@@ -619,7 +616,6 @@ export const tl: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Nitong mga nakaraan, hilig mo ang {topics}.',
   'feed.summaryEmpty': 'Sabihin sa amin kung ano ang gusto mong makita.',
-  'feed.intro': 'Hinuhubog ng mga pinili mo ang Para sa iyo at Shorts. Laging lumalabas ang sarili mong mga post.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} at {last}',
   'feed.listMore': '{items} at {count} pa',
@@ -724,7 +720,6 @@ export const tl: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'View-once na photo',
   'snap.didNotLoad': 'Hindi nag-load ang photo na ito',
   'snap.didNotLoadBody': 'Huwag itong isara at subukan ulit. Kapag isinara mo, mawawala na ito.',
-  'snap.onlyOnce': 'Isang beses mo lang makikita ang photo na ito. Kapag isinara mo, mawawala na ito.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Talata ng araw',

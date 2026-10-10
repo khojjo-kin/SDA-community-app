@@ -131,7 +131,6 @@ export const yo: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Àwọ̀',
-  'theme.intro': 'Yan bí Community ṣe máa rí lórí fóònù yìí. Àwọn fọ́tò, fídíò, kámẹ́rà àti ìtàn máa ń hàn lórí dúdú nígbà gbogbo, èyíkéyìí tí o bá yàn.',
   'theme.dark': 'Dúdú',
   'theme.darkSub': 'Ó rọrùn fún ojú ní alẹ́. Ìrísí àkọ́kọ́.',
   'theme.white': 'Funfun',
@@ -143,8 +142,6 @@ export const yo: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Èdè',
-  'language.intro': 'Yan èdè tí Community máa lò lórí fóònù yìí.',
-  'language.note': 'Àwọn ojú-ìwé kan lè ṣì máa fi Gẹ̀ẹ́sì hàn títí a ó fi parí ìtumọ̀. Fún báyìí, a ń fi Lárúbáwá hàn láti òsì sí ọ̀tún.',
   'language.search': 'Wá èdè',
   'language.phone': 'Lo èdè fóònù',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const yo: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Láìpẹ́ yìí, o nífẹ̀ẹ́ sí {topics}.',
   'feed.summaryEmpty': 'Sọ ohun tí o fẹ́ rí fún wa.',
-  'feed.intro': 'Àwọn yíyàn wọ̀nyí ló ń ṣe Fún ọ àti Shorts. Àwọn àtẹ̀jáde tìrẹ máa ń hàn nígbà gbogbo.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} àti {last}',
   'feed.listMore': '{items} àti {count} mìíràn',
@@ -740,7 +736,6 @@ export const yo: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Fọ́tò tí a ń wò lẹ́ẹ̀kan',
   'snap.didNotLoad': 'Fọ́tò yìí kò ṣí',
   'snap.didNotLoadBody': 'Fi í sílẹ̀ ní ṣíṣí kí o sì gbìyànjú lẹ́ẹ̀kan sí i. Tí o bá pa á dé, yóò lọ.',
-  'snap.onlyOnce': 'O lè rí fọ́tò yìí lẹ́ẹ̀kan ṣoṣo. Tí o bá pa á dé, yóò lọ.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Ẹsẹ ti òní',

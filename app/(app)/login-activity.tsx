@@ -121,13 +121,6 @@ export default function LoginActivity() {
     <Screen>
       <ScreenHeader title="Login activity" />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}>
-        <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 8, padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
-          <Icon name="shield" size={22} color={C.accent2} />
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>
-            When someone logs in to your account on a new device or from a new place, they're asked for a code sent to your email or phone to prove it's you.
-          </Text>
-        </View>
-
         <SectionLabel>Where you're logged in</SectionLabel>
         {status === 'loading' || !user ? (
           <Loading />

@@ -24,7 +24,6 @@ export default function StorySettings() {
       <ScreenHeader title="Story" />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <SectionLabel strong>Allow replies</SectionLabel>
-        <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 6, lineHeight: 20 }}>Replies to your story arrive in your messages.</Text>
         <View accessibilityRole="radiogroup">
           {CHOICES.map((c) => (
             <Pressable key={c.value} onPress={() => { if (c.value !== current) updateProfile(me, { story_replies: c.value }).catch((e) => toast(errText(e))); }} accessibilityRole="radio" accessibilityState={{ checked: current === c.value }} accessibilityLabel={`${c.label}. ${c.sub}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>

@@ -130,7 +130,6 @@ export const sw: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Mandhari',
-  'theme.intro': 'Chagua jinsi Community inavyoonekana kwenye simu hii. Picha, video, kamera na hadithi huonyeshwa kila mara kwenye rangi nyeusi, chochote utakachochagua.',
   'theme.dark': 'Giza',
   'theme.darkSub': 'Rahisi kwa macho usiku. Mwonekano wa asili.',
   'theme.white': 'Nyeupe',
@@ -141,8 +140,6 @@ export const sw: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Lugha',
-  'language.intro': 'Chagua lugha ambayo Community inatumia kwenye simu hii.',
-  'language.note': 'Baadhi ya skrini bado zinaweza kuonyesha Kiingereza wakati tafsiri zinakamilishwa. Kwa sasa Kiarabu kinaonyeshwa kutoka kushoto kwenda kulia.',
   'language.search': 'Tafuta lugha',
   'language.phone': 'Tumia lugha ya simu',
   'language.phoneSub': 'Inaonyesha Community kwa {name}',
@@ -619,7 +616,6 @@ export const sw: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Siku hizi unapenda: {topics}.',
   'feed.summaryEmpty': 'Tuambie ungependa kuona nini.',
-  'feed.intro': 'Machaguo haya huunda Kwa ajili yako na Shorts. Machapisho yako mwenyewe huonekana kila wakati.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} na {last}',
   'feed.listMore': '{items} na {count} zaidi',
@@ -724,7 +720,6 @@ export const sw: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Picha ya kutazamwa mara moja',
   'snap.didNotLoad': 'Picha hii haikupakia',
   'snap.didNotLoadBody': 'Iache wazi na ujaribu tena. Ukiifunga, imeondoka.',
-  'snap.onlyOnce': 'Unaweza kuona picha hii mara moja tu. Ukiifunga, imeondoka.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Fungu la siku',

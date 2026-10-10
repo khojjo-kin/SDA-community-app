@@ -137,7 +137,6 @@ export const en = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Theme',
-  'theme.intro': 'Choose how Community looks on this phone. Photos, videos, the camera and stories always show on black, whatever you choose.',
   'theme.dark': 'Dark',
   'theme.darkSub': 'Easy on the eyes at night. The original look.',
   'theme.white': 'White',
@@ -149,8 +148,6 @@ export const en = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Language',
-  'language.intro': 'Choose the language Community uses on this phone.',
-  'language.note': 'Some screens may still show English while translations are finished. Arabic is shown left to right for now.',
   'language.search': 'Search languages',
   'language.phone': "Use the phone's language",
   // {name} is a language's own name, such as "Français".
@@ -645,7 +642,6 @@ export const en = {
   // {topics} is a short list of topics, such as "hymns, youth and health".
   'feed.summary': "Lately you're into {topics}.",
   'feed.summaryEmpty': "Tell us what you'd like to see.",
-  'feed.intro': 'These choices shape For you and Shorts. Your own posts always show.',
   // How a list is put together: "hymns, youth and health", or past four, "hymns, youth, health, family and 2 more". listComma goes between the items.
   'feed.listComma': ', ',
   'feed.listAnd': '{items} and {last}',
@@ -763,7 +759,6 @@ export const en = {
   'snap.viewOncePhoto': 'View-once photo',
   'snap.didNotLoad': "This photo didn't load",
   'snap.didNotLoadBody': "Keep this open and try again. Once you close it, it's gone.",
-  'snap.onlyOnce': "You can only see this photo once. When you close it, it's gone.",
 
   // ---------- Bible: the verse of the day ----------
   // Also shown in capitals at the top of the card.

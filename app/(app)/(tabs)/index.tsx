@@ -271,7 +271,7 @@ export default function Home() {
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 }}>
         <IconButton name="plus" size={24} label={t('common.create')} bg={C.surface} onPress={create} />
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <FeedSwitch value={kind} onChange={setKind} options={feeds} style={{ alignSelf: 'stretch', maxWidth: 320 }} />
+          <FeedSwitch value={kind} onChange={setKind} options={feeds} plain />
         </View>
         <IconButton name="heart" size={23} label={t('common.notifications')} bg={C.surface} badge={unread} onPress={() => { setUnread(false); router.push('/notifications'); }} />
       </View>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, BackHandler, Keyboard, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, BackHandler, Easing, Keyboard, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,16 +15,17 @@ import { ThinkingOrb } from './ThinkingOrb';
 /*
  * The floating church-apps button. A small frosted square that sits over every screen, like a phone's
  * own floating shortcut button but in our colours: drag it anywhere and it settles against the nearer
- * side; tap it and it opens into a panel of the church apps (Bible, Hymnal, Pod…), which used to live
- * deep in Settings. It keeps out of the way: it fades when left alone, and it isn't there over photos
- * and video (the Clips tab too), calls, the camera, or while the keyboard is up. Members can turn it
- * off in Settings, which then lists the church apps itself (CHURCH_APPS), so they are never out of reach.
+ * side; tap it and, like the iPhone's AssistiveTouch, a rounded dark see-through square grows out of it
+ * into the middle of the screen with the church apps (Bible, Hymnal, Pod…) in a three-by-three grid.
+ * Tapping outside the square closes it. This is the only way into the church apps, so it can't be
+ * turned off. It keeps out of the way: it fades when left alone, and it isn't there over photos and
+ * video (the Clips tab too), calls, the camera, or while the keyboard is up.
  */
 
 const SIZE = 56;
 /** The gap between the button and the side of the screen it rests on. */
 const EDGE = 6;
-const PANEL = 288;
+const PANEL = 300;
 /** How long the button stays bright after it was last touched. */
 const IDLE_MS = 3000;
 const IDLE_OPACITY = 0.55;
@@ -63,13 +64,10 @@ export function useKeyboardOpen(): boolean {
 
 /** One app in the panel. `label` is a key (src/lib/i18n/en.ts), looked up as the panel draws. */
 type App = { key: string; label: Key; icon: IconName | 'orb'; href: string };
-/** A church app: one with an icon of its own, so Settings can list it too. `words` are extra English search terms there. */
+/** A church app: one with an icon of its own. `words` are extra English terms for searching for it. */
 export type ChurchApp = App & { icon: IconName; words: string };
 
-/**
- * The church apps. The panel is their home; when a member turns the button off, Settings lists these
- * same lines instead (under Church apps), so turning it off never leaves them without a way in.
- */
+/** The church apps. The panel is their only home. */
 export const CHURCH_APPS: ChurchApp[] = [
   { key: 'bible', label: 'churchApps.bible', icon: 'bible', href: '/bible', words: 'bible scripture verse read kjv web chapter' },
   { key: 'hymnal', label: 'churchApps.hymnal', icon: 'hymnal', href: '/hymnal', words: 'hymnal hymns songs sing worship music' },
@@ -101,7 +99,8 @@ export function AssistiveButton() {
   const { inCall } = useCalls();
   const font = useAppFont();
   const t = useT();
-  const hidden = !prefs.assistive || keyboard || inCall || isMediaRoute(path);
+  // The church apps live only here, so the button can't be turned off.
+  const hidden = keyboard || inCall || isMediaRoute(path);
 
   // Where it may rest: inside the safe area, clear of the notch and the home indicator.
   const minY = insets.top + 8;
@@ -174,14 +173,14 @@ export function AssistiveButton() {
     setOrigin({ x: at.current.x + SIZE / 2, y: at.current.y + SIZE / 2 });
     setOpen(true);
     opening.stopAnimation();
-    Animated.spring(opening, { toValue: 1, friction: 8, tension: 70, useNativeDriver: true }).start();
+    Animated.spring(opening, { toValue: 1, damping: 20, stiffness: 240, mass: 0.8, useNativeDriver: true }).start();
   }, [opening, wake]);
 
   const closePanel = useCallback(
     (quiet?: boolean) => {
       if (!quiet) tap('light');
       opening.stopAnimation();
-      Animated.timing(opening, { toValue: 0, duration: 170, useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(opening, { toValue: 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (finished) setOpen(false);
       });
       restSoon();
@@ -249,7 +248,7 @@ export function AssistiveButton() {
     }),
   ).current;
 
-  // Hidden (a video opened, the keyboard came up, the switch was turned off): the panel goes too, and a
+  // Hidden (a video opened, the keyboard came up, a call started): the panel goes too, and a
   // drag cut off by it is forgotten, or the button would never take its saved spot again.
   useEffect(() => {
     if (!hidden) return;
@@ -292,15 +291,15 @@ export function AssistiveButton() {
 
   if (hidden) return null;
 
-  const cell = (PANEL - 28) / 3;
+  const cell = (PANEL - 24) / 3;
   const panelLeft = (W - PANEL) / 2;
   const panelTop = (H - PANEL) / 2;
   const grow = {
-    opacity: opening.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' }),
+    opacity: opening.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' }),
     transform: [
       { translateX: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.x - W / 2, 0] }) },
       { translateY: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.y - H / 2, 0] }) },
-      { scale: opening.interpolate({ inputRange: [0, 1], outputRange: [SIZE / PANEL, 1] }) },
+      { scale: opening.interpolate({ inputRange: [0, 1], outputRange: [SIZE / PANEL, 1], extrapolateLeft: 'clamp' }) },
     ],
   };
   // The button gives way to the panel as it opens.
@@ -311,24 +310,24 @@ export function AssistiveButton() {
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {open ? (
         <>
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.28)', opacity: opening.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)', opacity: opening.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => closePanel()} accessibilityRole="button" accessibilityLabel={t('churchApps.close')} />
           </Animated.View>
           <Animated.View accessibilityViewIsModal onAccessibilityEscape={() => closePanel()} style={[{ position: 'absolute', left: panelLeft, top: panelTop, width: PANEL, height: PANEL }, grow]}>
-            <BlurView intensity={70} tint={C.blurTint} style={{ flex: 1, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: C.hairline }}>
-              {/* The sheet colour, slightly see-through, over the blur: the page shows faintly behind. */}
-              <View style={{ flex: 1, padding: 14, backgroundColor: C.sheet + 'D9', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center' }}>
+            {/* Always dark and see-through, whatever the theme, like the phone's own panel. */}
+            <BlurView intensity={50} tint="dark" style={{ flex: 1, borderRadius: 36, overflow: 'hidden' }}>
+              <View style={{ flex: 1, padding: 12, backgroundColor: 'rgba(28,28,30,0.72)', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center' }}>
                 {APPS.map((app) => (
                   <Pressable
                     key={app.key}
                     onPress={() => go(app)}
                     accessibilityRole="button"
                     accessibilityLabel={t(app.label)}
-                    style={({ pressed }) => ({ width: cell, height: cell, alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 18, backgroundColor: pressed ? C.press : 'transparent' })}>
-                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: app.icon === 'orb' ? 'transparent' : C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-                      {app.icon === 'orb' ? <ThinkingOrb size={34} /> : <Icon name={app.icon} size={25} color={C.fg} />}
+                    style={({ pressed }) => ({ width: cell, height: cell, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 20, backgroundColor: pressed ? 'rgba(255,255,255,0.14)' : 'transparent' })}>
+                    <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                      {app.icon === 'orb' ? <ThinkingOrb size={34} /> : <Icon name={app.icon} size={30} color="#fff" />}
                     </View>
-                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.fg, fontSize: 12.5, fontWeight: '600', fontFamily: font, maxWidth: cell - 6, textAlign: 'center' }}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: '#fff', fontSize: 12, fontWeight: '500', fontFamily: font, maxWidth: cell - 6, textAlign: 'center' }}>
                       {t(app.label)}
                     </Text>
                   </Pressable>

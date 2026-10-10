@@ -131,7 +131,6 @@ export const tw: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Ahosuo',
-  'theme.intro': 'Paw sɛnea Community bɛyɛ wɔ fon yi so. Mfonini, video, kamera ne stories da adi wɔ tuntum so bere biara, sɛ wopaw deɛ ɛte sɛn ara a.',
   'theme.dark': 'Sum',
   'theme.darkSub': 'Ɛyɛ mmerɛw ma ani anadwo. Ne kan su no.',
   'theme.white': 'Fitaa',
@@ -143,8 +142,6 @@ export const tw: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Kasa',
-  'language.intro': 'Paw kasa a Community de bɛdi dwuma wɔ fon yi so.',
-  'language.note': 'Screen binom betumi akyerɛ Borɔfo kasa bere a yɛrewie nkyerɛaseɛ no. Seesei deɛ, Arab kasa da adi fi benkum kɔ nifa.',
   'language.search': 'Hwehwɛ kasa',
   'language.phone': 'Fa fon no kasa di dwuma',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const tw: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': "Nnansa yi, w'ani gye {topics} ho.",
   'feed.summaryEmpty': 'Ka nea wopɛ sɛ wohu kyerɛ yɛn.',
-  'feed.intro': 'Nea wopaw yi na ɛkyerɛ nea ɛda adi wɔ Ma wo ne Shorts mu. Wo ankasa wo posts da adi bere biara.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} ne {last}',
   'feed.listMore': '{items} ne {count} foforɔ',
@@ -740,7 +736,6 @@ export const tw: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Mfonini a wohwɛ prɛko pɛ',
   'snap.didNotLoad': 'Mfonini yi amma',
   'snap.didNotLoadBody': 'Ma ɛmmue na san sɔ hwɛ. Sɛ wode to mu a, ɛyera.',
-  'snap.onlyOnce': 'Wubetumi ahwɛ mfonini yi prɛko pɛ. Sɛ wode to mu a, ɛyera.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Ɛnnɛ Bible asɛm',

@@ -51,18 +51,22 @@ async function customerFor(ctx: Ctx): Promise<string> {
 
 type Plan = 'monthly' | 'yearly';
 
+/** The Community Plus product in Stripe. */
+const PLUS_PRODUCT = Deno.env.get('PLUS_PRODUCT_ID') ?? 'prod_VPsoenSqOWUdCz';
+
 /** A Plus price, made in Stripe the first time it is needed (looked up by its key after that, and remade if the amount changes). */
 async function priceId(plan: Plan = 'monthly'): Promise<string> {
   const lookup = plan === 'yearly' ? YEARLY_LOOKUP : PRICE_LOOKUP;
   const amount = plan === 'yearly' ? YEARLY_PENCE : PRICE_PENCE;
   const found = await stripe('GET', 'prices', { lookup_keys: [lookup], active: true, limit: 1 });
   const existing = found?.data?.[0];
-  if (existing && existing.unit_amount === amount && existing.currency === CURRENCY) return existing.id;
+  if (existing && existing.unit_amount === amount && existing.currency === CURRENCY && (!PLUS_PRODUCT || existing.product === PLUS_PRODUCT)) return existing.id;
   const price = await stripe('POST', 'prices', {
     currency: CURRENCY,
     unit_amount: amount,
     recurring: { interval: plan === 'yearly' ? 'year' : 'month' },
-    product_data: { name: plan === 'yearly' ? 'Community Plus (yearly)' : 'Community Plus' },
+    // The owner's Community Plus product in Stripe when set; otherwise one is made with the price.
+    ...(PLUS_PRODUCT ? { product: PLUS_PRODUCT } : { product_data: { name: plan === 'yearly' ? 'Community Plus (yearly)' : 'Community Plus' } }),
     lookup_key: lookup,
     transfer_lookup_key: true,
   });

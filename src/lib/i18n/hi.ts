@@ -130,7 +130,6 @@ export const hi: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'थीम',
-  'theme.intro': 'चुनें कि इस फ़ोन पर Community कैसा दिखे। आप कुछ भी चुनें, फ़ोटो, वीडियो, कैमरा और स्टोरीज़ हमेशा काले बैकग्राउंड पर दिखती हैं।',
   'theme.dark': 'डार्क',
   'theme.darkSub': 'रात में आँखों के लिए आरामदायक। ओरिजिनल लुक।',
   'theme.white': 'व्हाइट',
@@ -141,8 +140,6 @@ export const hi: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'भाषा',
-  'language.intro': 'चुनें कि इस फ़ोन पर Community किस भाषा में दिखे।',
-  'language.note': 'अनुवाद पूरे होने तक कुछ स्क्रीन पर अभी भी अंग्रेज़ी दिख सकती है। फ़िलहाल अरबी बाएँ से दाएँ दिखाई जाती है।',
   'language.search': 'भाषाएँ खोजें',
   'language.phone': 'फ़ोन की भाषा इस्तेमाल करें',
   'language.phoneSub': 'Community को {name} में दिखाता है',
@@ -619,7 +616,6 @@ export const hi: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'आजकल आपकी रुचि: {topics}।',
   'feed.summaryEmpty': 'हमें बताएँ कि आप क्या देखना चाहेंगे।',
-  'feed.intro': 'ये चुनाव आपके लिए और शॉर्ट्स को आकार देते हैं। आपकी अपनी पोस्ट हमेशा दिखती हैं।',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} और {last}',
   'feed.listMore': '{items} और {count} अन्य',
@@ -724,7 +720,6 @@ export const hi: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'एक बार देखी जाने वाली फ़ोटो',
   'snap.didNotLoad': 'यह फ़ोटो लोड नहीं हुई',
   'snap.didNotLoadBody': 'इसे खुला रखें और फिर से कोशिश करें। बंद करते ही यह चली जाएगी।',
-  'snap.onlyOnce': 'आप यह फ़ोटो सिर्फ़ एक बार देख सकते हैं। बंद करते ही यह चली जाएगी।',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'आज का वचन',

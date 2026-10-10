@@ -31,8 +31,6 @@ const AUDIENCES: { value: FriendLocation['audience']; label: string; sub: string
   { value: 'close_friends', label: 'Close friends', sub: 'Only the people on your close friends list' },
 ];
 
-const EXPLAIN = "Only the people you choose see where you are. Your location updates while you're using the app, never in the background, and disappears after 24 hours if you stop opening the app.";
-
 function firstName(l: { full_name: string; username: string }): string {
   return (l.full_name || '').trim().split(/\s+/)[0] || l.username;
 }
@@ -408,11 +406,6 @@ export default function FriendsMap() {
               }} accessibilityRole="link" style={({ pressed }) => ({ paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
               <Text style={{ color: C.accent2, fontSize: 14.5, fontWeight: '600', fontFamily: fontBold }}>Edit close friends</Text>
             </Pressable>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 14, backgroundColor: C.surface }}>
-            <Icon name="lock" size={20} color={C.fg2} />
-            <Text style={{ flex: 1, color: C.fg2, fontSize: 14, lineHeight: 20, fontFamily: font }}>{EXPLAIN}</Text>
           </View>
         </ScrollView>
       </Sheet>

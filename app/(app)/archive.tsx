@@ -54,7 +54,7 @@ export default function Archive() {
           numColumns={3}
           columnWrapperStyle={{ gap }}
           ItemSeparatorComponent={() => <View style={{ height: gap }} />}
-          ListHeaderComponent={list.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>Your stories are kept here after they disappear from your profile. Only you can see them.</Text> : null}
+          ListHeaderComponent={null}
           ListEmptyComponent={<Empty icon="archive" title="No stories yet" body="Stories you share are saved here automatically, so you can add them to memories later." action={<Button small label="Add to your story" onPress={() => router.push('/add-story')} style={{ marginTop: 8 }} />} />}
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}

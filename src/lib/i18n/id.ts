@@ -130,7 +130,6 @@ export const id: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Tema',
-  'theme.intro': 'Pilih tampilan Community di ponsel ini. Foto, video, kamera, dan cerita selalu tampil dengan latar hitam, apa pun pilihan Anda.',
   'theme.dark': 'Gelap',
   'theme.darkSub': 'Nyaman di mata saat malam. Tampilan asli.',
   'theme.white': 'Putih',
@@ -141,8 +140,6 @@ export const id: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Bahasa',
-  'language.intro': 'Pilih bahasa yang digunakan Community di ponsel ini.',
-  'language.note': 'Beberapa layar mungkin masih berbahasa Inggris selama terjemahan diselesaikan. Untuk saat ini, bahasa Arab ditampilkan dari kiri ke kanan.',
   'language.search': 'Cari bahasa',
   'language.phone': 'Gunakan bahasa ponsel',
   'language.phoneSub': 'Menampilkan Community dalam {name}',
@@ -619,7 +616,6 @@ export const id: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Belakangan ini Anda menyukai {topics}.',
   'feed.summaryEmpty': 'Beri tahu kami apa yang ingin Anda lihat.',
-  'feed.intro': 'Pilihan ini membentuk Untuk Anda dan Shorts. Postingan Anda sendiri selalu tampil.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} dan {last}',
   'feed.listMore': '{items}, dan {count} lainnya',
@@ -724,7 +720,6 @@ export const id: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Foto sekali lihat',
   'snap.didNotLoad': 'Foto ini tidak termuat',
   'snap.didNotLoadBody': 'Biarkan tetap terbuka dan coba lagi. Setelah ditutup, foto ini hilang.',
-  'snap.onlyOnce': 'Anda hanya bisa melihat foto ini satu kali. Setelah ditutup, foto ini hilang.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Ayat hari ini',

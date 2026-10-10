@@ -78,7 +78,6 @@ export default function CloseFriends() {
   return (
     <Screen>
       <ScreenHeader title="Close friends" />
-      <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>Only people on this list see the stories you share with close friends. Nobody is told when you add or remove them.</Text>
       <SearchField value={q} onChangeText={setQ} placeholder="Search" label="Search people" />
       {error ? (
         <ErrorNote message={error} onRetry={load} />

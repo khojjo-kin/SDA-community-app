@@ -83,7 +83,7 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
       ))}
       <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={{ width: 76, alignItems: 'center', gap: 5 }}>
         <View>
-          <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? 'seen' : null} />
+          <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? (mine.seen ? 'seen' : 'new') : null} />
           {!mine ? (
             <View style={{ position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="plus" size={14} color={C.bg} weight={3} />

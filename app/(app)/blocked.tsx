@@ -35,7 +35,7 @@ export default function Blocked() {
         <FlatList
           data={list}
           keyExtractor={(p) => p.id}
-          ListHeaderComponent={list.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 10, lineHeight: 20 }}>You don't see posts, stories or comments from these accounts. They are not told that you blocked them.</Text> : null}
+          ListHeaderComponent={null}
           renderItem={({ item: p }) => <PersonRow person={p} right={<Button small kind="ghost" label="Unblock" onPress={() => setBlock(me, p.id, false).then(() => { toast(`Unblocked ${p.username}`); load(); }).catch((e) => toast(errText(e)))} />} />}
           ListEmptyComponent={<Empty icon="block" title="You haven't blocked anyone" body="To block someone, open their profile and tap the three dots." />}
           contentContainerStyle={{ paddingBottom: 40 }}

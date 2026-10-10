@@ -131,7 +131,6 @@ export const ko: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': '테마',
-  'theme.intro': '이 휴대폰에서 Community가 어떻게 보일지 선택하세요. 어떤 테마를 선택해도 사진, 동영상, 카메라, 스토리는 항상 검은색 배경으로 표시돼요.',
   'theme.dark': '다크',
   'theme.darkSub': '밤에도 눈이 편안해요. 원래의 디자인이에요.',
   'theme.white': '화이트',
@@ -143,8 +142,6 @@ export const ko: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': '언어',
-  'language.intro': '이 휴대폰에서 Community에 사용할 언어를 선택하세요.',
-  'language.note': '번역이 완료될 때까지 일부 화면은 영어로 표시될 수 있어요. 아랍어는 당분간 왼쪽에서 오른쪽으로 표시돼요.',
   'language.search': '언어 검색',
   'language.phone': '휴대폰 언어 사용',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ko: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': '요즘 관심사: {topics}',
   'feed.summaryEmpty': '보고 싶은 것을 알려 주세요.',
-  'feed.intro': '이 선택은 추천과 쇼츠에 반영돼요. 내 게시물은 항상 표시돼요.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items}, {last}',
   'feed.listMore': '{items} 외 {count}개',
@@ -740,7 +736,6 @@ export const ko: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': '한 번만 볼 수 있는 사진',
   'snap.didNotLoad': '이 사진을 불러오지 못했어요',
   'snap.didNotLoadBody': '닫지 말고 다시 시도해 보세요. 닫으면 사라져요.',
-  'snap.onlyOnce': '이 사진은 한 번만 볼 수 있어요. 닫으면 사라져요.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': '오늘의 말씀',

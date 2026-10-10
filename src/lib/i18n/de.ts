@@ -130,7 +130,6 @@ export const de: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Design',
-  'theme.intro': 'Wähle, wie Community auf diesem Handy aussieht. Fotos, Videos, die Kamera und Storys werden immer auf Schwarz angezeigt, egal was du wählst.',
   'theme.dark': 'Dunkel',
   'theme.darkSub': 'Angenehm für die Augen bei Nacht. Der ursprüngliche Look.',
   'theme.white': 'Weiß',
@@ -141,8 +140,6 @@ export const de: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Sprache',
-  'language.intro': 'Wähle die Sprache, die Community auf diesem Handy verwendet.',
-  'language.note': 'Manche Bildschirme sind vielleicht noch auf Englisch, bis die Übersetzungen fertig sind. Arabisch wird vorerst von links nach rechts angezeigt.',
   'language.search': 'Sprachen suchen',
   'language.phone': 'Sprache des Handys verwenden',
   'language.phoneSub': 'Zeigt Community auf {name}',
@@ -619,7 +616,6 @@ export const de: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Gerade interessiert dich: {topics}.',
   'feed.summaryEmpty': 'Sag uns, was du gern sehen möchtest.',
-  'feed.intro': 'Diese Auswahl prägt Für dich und Shorts. Deine eigenen Beiträge werden immer angezeigt.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} und {last}',
   'feed.listMore': '{items} und {count} weitere',
@@ -724,7 +720,6 @@ export const de: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Foto zum einmaligen Ansehen',
   'snap.didNotLoad': 'Dieses Foto wurde nicht geladen',
   'snap.didNotLoadBody': 'Lass es offen und versuch es noch einmal. Sobald du es schließt, ist es weg.',
-  'snap.onlyOnce': 'Du kannst dieses Foto nur einmal ansehen. Sobald du es schließt, ist es weg.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Vers des Tages',

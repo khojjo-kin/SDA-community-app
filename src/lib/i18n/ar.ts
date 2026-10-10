@@ -130,7 +130,6 @@ export const ar: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'المظهر',
-  'theme.intro': 'اختر شكل Community على هذا الهاتف. الصور والفيديوهات والكاميرا والقصص تظهر دائمًا على خلفية سوداء، أيًّا كان اختيارك.',
   'theme.dark': 'داكن',
   'theme.darkSub': 'مريح للعينين ليلًا. المظهر الأصلي.',
   'theme.white': 'أبيض',
@@ -141,8 +140,6 @@ export const ar: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'اللغة',
-  'language.intro': 'اختر اللغة التي يستخدمها Community على هذا الهاتف.',
-  'language.note': 'قد تظهر بعض الشاشات باللغة الإنجليزية إلى أن تكتمل الترجمة. تُعرض العربية حاليًا من اليسار إلى اليمين.',
   'language.search': 'البحث عن لغة',
   'language.phone': 'استخدام لغة الهاتف',
   'language.phoneSub': 'يعرض Community باللغة {name}',
@@ -619,7 +616,6 @@ export const ar: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'مؤخرًا تهتم بـ: {topics}.',
   'feed.summaryEmpty': 'أخبرنا بما تحب أن تراه.',
-  'feed.intro': 'هذه الاختيارات تشكّل «لك» و«Shorts». منشوراتك تظهر دائمًا.',
   'feed.listComma': '، ',
   'feed.listAnd': '{items} و{last}',
   'feed.listMore': '{items} و{count} غيرها',
@@ -724,7 +720,6 @@ export const ar: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'صورة تُعرض مرة واحدة',
   'snap.didNotLoad': 'لم يتم تحميل هذه الصورة',
   'snap.didNotLoadBody': 'أبقها مفتوحة وحاول مرة أخرى. بمجرد إغلاقها، ستختفي.',
-  'snap.onlyOnce': 'يمكنك رؤية هذه الصورة مرة واحدة فقط. عندما تغلقها، ستختفي.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'آية اليوم',

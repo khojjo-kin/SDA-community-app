@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth, useSession as useClerkSession } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { CHURCH_APPS } from '../../src/components/AssistiveButton';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, Toggle, useToast } from '../../src/components/ui';
 import { countCloseFriends, listBlocked, setTickHidden, updateProfile } from '../../src/lib/api';
@@ -21,7 +20,7 @@ import { C, errText } from '../../src/lib/theme';
  */
 type Item = { icon: IconName; title: Key; sub?: Key; value?: string; href: string; words?: string; toggle?: ToggleKey; info?: boolean; plus?: boolean };
 /** Switches saved on the account (the first four) or only on this phone (the rest). */
-type ToggleKey = 'read_receipts' | 'streaks_enabled' | 'show_activity' | 'tick' | 'haptics' | 'assistive' | 'captions' | 'readQuietly';
+type ToggleKey = 'read_receipts' | 'streaks_enabled' | 'show_activity' | 'tick' | 'haptics' | 'captions' | 'readQuietly';
 type Section = { label: Key; items: Item[] };
 
 /** The small label on a line that is a Community Plus perk. */
@@ -165,16 +164,6 @@ export default function Settings() {
           } satisfies Section,
         ]
       : []),
-    // The church apps live in the floating button. With the button turned off, they are listed here
-    // instead (the same lines, opening the same screens), so turning it off doesn't lose them.
-    ...(prefs.assistive
-      ? []
-      : [
-          {
-            label: 'churchApps.title',
-            items: CHURCH_APPS.map((a): Item => ({ icon: a.icon, title: a.label, href: a.href, words: `church apps ${a.words}` })),
-          } satisfies Section,
-        ]),
     {
       label: 'settings.section.howYouUse',
       items: [
@@ -221,7 +210,6 @@ export default function Settings() {
         // Named by the same list as the Language screen and Your feed (i18n's LANGUAGES), so the names can't drift apart.
         { icon: 'globe', title: 'settings.captionLanguage', value: prefs.captionLang ? languageName(prefs.captionLang) : t('settings.appLanguage'), href: '/clips-settings', words: 'captions subtitles translate language shorts clips reels' },
         { icon: 'pulse', title: 'settings.haptics', sub: 'settings.hapticsSub', href: '#haptics', words: 'haptics vibration vibrate tap feel touch buzz', toggle: 'haptics' },
-        { icon: 'grid', title: 'settings.assistive', sub: 'settings.assistiveSub', href: '#assistive', words: 'floating button assistive shortcut bible hymnal pod sabbath school churches communities erha map', toggle: 'assistive' },
       ],
     },
     {
@@ -266,7 +254,6 @@ export default function Settings() {
     show_activity: { value: activity, set: setShowActivity },
     tick: { value: tick, set: setShowTick },
     haptics: { value: prefs.haptics, set: setHaptics },
-    assistive: { value: prefs.assistive, set: (next) => setPrefs({ assistive: next }) },
     captions: { value: prefs.captions, set: (next) => setPrefs({ captions: next }) },
     readQuietly: { value: prefs.readQuietly, set: (next) => setPrefs({ readQuietly: next }) },
   };

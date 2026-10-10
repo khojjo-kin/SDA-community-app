@@ -131,7 +131,6 @@ export const ee: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Amadede',
-  'theme.intro': 'Tia alesi Community anɔ le fon sia dzi. Fotowo, videowo, kamera kple storywo dzena le yibɔ dzi ɣesiaɣi, nu ka ke nètia o.',
   'theme.dark': 'Viviti',
   'theme.darkSub': 'Ebɔbɔ na ŋkuwo le zã me. Eƒe nɔnɔme gbãtɔ.',
   'theme.white': 'Ɣie',
@@ -143,8 +142,6 @@ export const ee: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Gbe',
-  'language.intro': 'Tia gbe si Community azã le fon sia dzi.',
-  'language.note': 'Screen aɖewo ate ŋu agafia Eŋlisigbe esime míele gbegɔmeɖeɖewo wum. Fifia la, Arabiagbe dzena tso miame yi ɖusime.',
   'language.search': 'Di gbewo',
   'language.phone': 'Zã fon la ƒe gbe',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ee: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Fifi laa, {topics} dzɔa dzi na wò.',
   'feed.summaryEmpty': 'Gblɔ nu si nèdi be yeakpɔ na mí.',
-  'feed.intro': 'Tiatia siawo naa Na wò kple Shorts ƒe nɔnɔme. Wò ŋutɔ wò posts dzena ɣesiaɣi.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} kple {last}',
   'feed.listMore': '{items} kple {count} bubuwo',
@@ -740,7 +736,6 @@ export const ee: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Foto si wokpɔna zi ɖeka',
   'snap.didNotLoad': 'Foto sia meva o',
   'snap.didNotLoadBody': 'Na wòanɔ ʋuʋu eye nàgbugbɔ ate kpɔ. Ne ètui la, ebuna.',
-  'snap.onlyOnce': 'Àte ŋu akpɔ foto sia zi ɖeka ko. Ne ètui la, ebuna.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Egbe ƒe kpukpui',

@@ -131,7 +131,6 @@ export const ha: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Launi',
-  'theme.intro': 'Zaɓi yadda Community zai yi kama a wannan wayar. Hotuna, bidiyoyi, kyamara da labarai kullum suna bayyana a kan baƙi, komai abin da kuka zaɓa.',
   'theme.dark': 'Duhu',
   'theme.darkSub': 'Mai sauƙi ga idanu da dare. Asalin kamanni.',
   'theme.white': 'Fari',
@@ -143,8 +142,6 @@ export const ha: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Harshe',
-  'language.intro': 'Zaɓi harshen da Community zai yi amfani da shi a wannan wayar.',
-  'language.note': 'Wasu shafuka na iya nuna Turanci har yanzu yayin da ake kammala fassara. A yanzu ana nuna Larabci daga hagu zuwa dama.',
   'language.search': 'Nemi harsuna',
   'language.phone': 'Yi amfani da harshen waya',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ha: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'Kwanan nan kuna son: {topics}.',
   'feed.summaryEmpty': 'Ku gaya mana abin da kuke son gani.',
-  'feed.intro': 'Waɗannan zaɓuɓɓuka ne ke tsara Domin ku da Shorts. Rubuce-rubucenku koyaushe suna bayyana.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} da {last}',
   'feed.listMore': '{items} da wasu {count}',
@@ -740,7 +736,6 @@ export const ha: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Hoton duba sau ɗaya',
   'snap.didNotLoad': 'Wannan hoton bai buɗe ba',
   'snap.didNotLoadBody': 'Ku bar shi a buɗe ku sake gwadawa. Da zarar kun rufe shi, ya tafi.',
-  'snap.onlyOnce': 'Kuna iya ganin wannan hoton sau ɗaya kawai. Idan kun rufe shi, ya tafi.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Ayar yau',

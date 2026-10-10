@@ -131,7 +131,6 @@ export const ja: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'テーマ',
-  'theme.intro': 'このスマートフォンでのCommunityの見た目を選んでください。どれを選んでも、写真、動画、カメラ、ストーリーズは常に黒い背景で表示されます。',
   'theme.dark': 'ダーク',
   'theme.darkSub': '夜でも目にやさしい、オリジナルの見た目です。',
   'theme.white': 'ホワイト',
@@ -143,8 +142,6 @@ export const ja: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': '言語',
-  'language.intro': 'このスマートフォンでCommunityが使う言語を選んでください。',
-  'language.note': '翻訳が完了するまで、一部の画面は英語で表示される場合があります。アラビア語は現在、左から右に表示されます。',
   'language.search': '言語を検索',
   'language.phone': 'スマートフォンの言語を使用',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ja: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': '最近の関心：{topics}',
   'feed.summaryEmpty': '見たいものを教えてください。',
-  'feed.intro': 'これらの選択は「おすすめ」と「ショート」に反映されます。自分の投稿は常に表示されます。',
   'feed.listComma': '、',
   'feed.listAnd': '{items}、{last}',
   'feed.listMore': '{items}、ほか{count}件',
@@ -740,7 +736,6 @@ export const ja: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': '1回だけ表示できる写真',
   'snap.didNotLoad': 'この写真を読み込めませんでした',
   'snap.didNotLoadBody': '開いたままもう一度お試しください。閉じると消えてしまいます。',
-  'snap.onlyOnce': 'この写真は1回だけ見られます。閉じると消えます。',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': '今日のみことば',

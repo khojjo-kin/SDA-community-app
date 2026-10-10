@@ -131,7 +131,6 @@ export const zh: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': '主题',
-  'theme.intro': '选择 Community 在这部手机上的外观。无论你选择哪种，照片、视频、相机和快拍始终以黑色背景显示。',
   'theme.dark': '深色',
   'theme.darkSub': '夜间更护眼。最初的外观。',
   'theme.white': '白色',
@@ -143,8 +142,6 @@ export const zh: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': '语言',
-  'language.intro': '选择 Community 在这部手机上使用的语言。',
-  'language.note': '翻译完成前，部分页面可能仍显示英文。阿拉伯语目前暂时从左到右显示。',
   'language.search': '搜索语言',
   'language.phone': '使用手机的语言',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const zh: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': '最近你喜欢：{topics}。',
   'feed.summaryEmpty': '告诉我们你想看什么。',
-  'feed.intro': '这些选择会影响“为你推荐”和“Shorts”。你自己的帖子总会显示。',
   'feed.listComma': '、',
   'feed.listAnd': '{items}和{last}',
   'feed.listMore': '{items}等另外 {count} 个',
@@ -740,7 +736,6 @@ export const zh: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': '仅看一次的照片',
   'snap.didNotLoad': '这张照片没有加载出来',
   'snap.didNotLoadBody': '请保持打开并重试。一旦关闭，它就会消失。',
-  'snap.onlyOnce': '这张照片只能看一次。关闭后它就会消失。',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': '每日经文',

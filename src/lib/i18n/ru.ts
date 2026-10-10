@@ -131,7 +131,6 @@ export const ru: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Тема',
-  'theme.intro': 'Выбери, как Community будет выглядеть на этом телефоне. Фото, видео, камера и истории всегда показываются на чёрном фоне, независимо от выбранной темы.',
   'theme.dark': 'Тёмная',
   'theme.darkSub': 'Бережёт глаза ночью. Оригинальный вид.',
   'theme.white': 'Белая',
@@ -143,8 +142,6 @@ export const ru: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Язык',
-  'language.intro': 'Выбери язык Community на этом телефоне.',
-  'language.note': 'Пока переводы не завершены, некоторые экраны могут отображаться на английском. Арабский пока отображается слева направо.',
   'language.search': 'Поиск языков',
   'language.phone': 'Язык телефона',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ru: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': 'В последнее время тебе интересно: {topics}.',
   'feed.summaryEmpty': 'Расскажи, что тебе хотелось бы видеть.',
-  'feed.intro': 'Этот выбор влияет на разделы «Для тебя» и «Shorts». Твои собственные публикации видны всегда.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} и {last}',
   'feed.listMore': '{items} и ещё {count}',
@@ -740,7 +736,6 @@ export const ru: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Фото для одного просмотра',
   'snap.didNotLoad': 'Это фото не загрузилось',
   'snap.didNotLoadBody': 'Не закрывай его и попробуй ещё раз. Как только закроешь, оно исчезнет.',
-  'snap.onlyOnce': 'Это фото можно посмотреть только один раз. Как только закроешь, оно исчезнет.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Стих дня',

@@ -10,7 +10,7 @@ import { ActionBar, afterSheet, BarButton, confirmAlert, PeopleSheet, REPORT_REA
 import { PlayerCtx, PlayerGroup, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { StoryReply } from '../../../src/components/StoryReply';
 import { Avatar, Empty, IconButton, Loading, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { addToHighlight, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewersDetailed, fetchStoryWatchList, fetchUserStories, markStorySeen, report, sendToPeople, setStoryWatch } from '../../../src/lib/api';
+import { addToHighlight, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewersDetailed, fetchStoryWatchList, fetchUserStories, markStorySeen, noteStorySeen, report, sendToPeople, setStoryWatch } from '../../../src/lib/api';
 import { COPYRIGHT_REASON, explainCopyrightReport } from '../../../src/lib/copyright-report';
 import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
@@ -266,7 +266,7 @@ export default function StoryScreen() {
         onClose={close}
         onOpenProfile={openProfile}
         onMention={openProfile}
-        onShow={(story) => { if (story.user_id !== me) markStorySeen(me, story.id, quiet).catch(() => {}); }}
+        onShow={(story) => { noteStorySeen(story.id, story.user_id === me); if (story.user_id !== me) markStorySeen(me, story.id, quiet).catch(() => {}); }}
         notice={quiet ? "Preview — they won't see you watched" : undefined}
         badge={(ctx) =>
           ctx.entry.audience === 'close_friends' ? (

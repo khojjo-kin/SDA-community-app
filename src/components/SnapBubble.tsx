@@ -156,9 +156,6 @@ export function SnapViewer({ url, onClose }: { url: string | null; onClose: () =
                 <IconButton name="close" size={28} color="#fff" label={t('common.close')} onPress={onClose} />
               </View>
             </View>
-            <Text style={{ position: 'absolute', left: 24, right: 24, bottom: insets.bottom + 22, color: 'rgba(255,255,255,0.75)', fontSize: 13.5, textAlign: 'center' }}>
-              {t('snap.onlyOnce')}
-            </Text>
           </>
         ) : null}
       </View>

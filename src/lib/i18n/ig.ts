@@ -131,7 +131,6 @@ export const ig: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Theme ----------
   'theme.title': 'Agba',
-  'theme.intro': "Họrọ otú Community ga-adị na ekwentị a. Foto, vidiyo, igwefoto na akụkọ na-egosi na oji mgbe niile, n'agbanyeghị ihe ị họọrọ.",
   'theme.dark': 'Ọchịchịrị',
   'theme.darkSub': "Ọ dị mfe n'anya n'abalị. Ọdịdị mbụ ya.",
   'theme.white': 'Ọcha',
@@ -143,8 +142,6 @@ export const ig: Partial<Record<Key, string>> = {
 
   // ---------- Settings → Language ----------
   'language.title': 'Asụsụ',
-  'language.intro': 'Họrọ asụsụ Community ga-eji na ekwentị a.',
-  'language.note': "Ụfọdụ ihuenyo nwere ike ka na-egosi Bekee ka a na-emecha ntụgharị. Ugbu a, a na-egosi Arabik site n'aka ekpe gaa n'aka nri.",
   'language.search': 'Chọọ asụsụ',
   'language.phone': 'Jiri asụsụ ekwentị',
   // {name} is a language's own name, such as "Français".
@@ -635,7 +632,6 @@ export const ig: Partial<Record<Key, string>> = {
   // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   'feed.summary': "N'oge na-adịbeghị anya, ị na-enwe mmasị na {topics}.",
   'feed.summaryEmpty': 'Gwa anyị ihe ị ga-achọ ịhụ.',
-  'feed.intro': 'Nhọrọ ndị a na-ahazi Maka gị na Shorts. Post nke gị na-apụta mgbe niile.',
   'feed.listComma': ', ',
   'feed.listAnd': '{items} na {last}',
   'feed.listMore': '{items} na {count} ndị ọzọ',
@@ -740,7 +736,6 @@ export const ig: Partial<Record<Key, string>> = {
   'snap.viewOncePhoto': 'Foto a na-ele otu ugboro',
   'snap.didNotLoad': 'Foto a ebughị',
   'snap.didNotLoadBody': 'Hapụ ya ka ọ dị mepere emepe ma nwaa ọzọ. Ozugbo i mechiri ya, ọ ga-apụ.',
-  'snap.onlyOnce': 'Ị nwere ike ịhụ foto a naanị otu ugboro. Mgbe i mechiri ya, ọ ga-apụ.',
 
   // ---------- Bible: the verse of the day ----------
   'bible.verseOfDay': 'Amaokwu nke taa',

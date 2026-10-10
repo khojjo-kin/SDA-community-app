@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -568,6 +569,50 @@ export async function setCommentLike(me: string, commentId: string, next: boolea
 
 /* ---------- stories ---------- */
 
+/*
+ * Stories watched on this phone. The server already knows which of other people's stories I have
+ * seen, but only once its write lands, so the rings drop straight away from this list instead. My
+ * own stories are never recorded as views, so the ones I have watched are kept here (and on the
+ * phone, so the ring stays grey after a restart).
+ */
+const seenHere = new Set<string>();
+const OWN_SEEN_KEY = 'community.ownStoriesSeen';
+let ownSeenLoaded: Promise<void> | null = null;
+let seenAnnounce: ReturnType<typeof setTimeout> | null = null;
+
+function loadOwnSeen() {
+  if (!ownSeenLoaded) {
+    ownSeenLoaded = AsyncStorage.getItem(OWN_SEEN_KEY)
+      .then((raw) => { for (const id of raw ? (JSON.parse(raw) as string[]) : []) seenHere.add(id); })
+      .catch(() => {});
+  }
+  return ownSeenLoaded;
+}
+
+/** Notes on this phone that a story was watched, and tells the tray and profiles (once, shortly after). */
+export function noteStorySeen(storyId: string, own: boolean) {
+  if (seenHere.has(storyId)) return;
+  seenHere.add(storyId);
+  if (own) {
+    loadOwnSeen().then(() => {
+      AsyncStorage.getItem(OWN_SEEN_KEY)
+        .then((raw) => {
+          // Only the latest few are kept: stories are gone after a day anyway.
+          const ids = [...new Set([...(raw ? (JSON.parse(raw) as string[]) : []), storyId])].slice(-200);
+          return AsyncStorage.setItem(OWN_SEEN_KEY, JSON.stringify(ids));
+        })
+        .catch(() => {});
+    });
+  }
+  if (seenAnnounce) clearTimeout(seenAnnounce);
+  seenAnnounce = setTimeout(() => { seenAnnounce = null; announce('stories'); }, 400);
+}
+
+/** Whether every story in a list has been watched (from the server or on this phone). */
+export function allStoriesSeen(stories: Story[], me: string) {
+  return stories.every((s) => (s.user_id === me ? seenHere.has(s.id) : s.seen || seenHere.has(s.id)));
+}
+
 function group(stories: Story[], me: string): StoryGroup[] {
   const map = new Map<string, StoryGroup>();
   for (const s of stories) {
@@ -577,7 +622,7 @@ function group(stories: Story[], me: string): StoryGroup[] {
       map.set(s.user_id, g);
     }
     g.stories.push(s);
-    if (!s.seen && s.user_id !== me) g.seen = false;
+    if (s.user_id === me ? !seenHere.has(s.id) : !s.seen && !seenHere.has(s.id)) g.seen = false;
     if (s.audience === 'close_friends') g.close = true;
   }
   const all = [...map.values()];
@@ -589,11 +634,13 @@ function group(stories: Story[], me: string): StoryGroup[] {
 }
 
 export async function fetchStoryTray(me: string): Promise<StoryGroup[]> {
+  await loadOwnSeen();
   const rows: Story[] = ok(await supabase.from('community_story_cards').select('*').eq('in_tray', true).order('created_at', { ascending: true }).limit(300)) ?? [];
   return group(rows, me);
 }
 
 export async function fetchUserStories(userId: string, me: string): Promise<StoryGroup[]> {
+  await loadOwnSeen();
   const rows: Story[] = ok(await supabase.from('community_story_cards').select('*').eq('user_id', userId).order('created_at', { ascending: true })) ?? [];
   return group(rows, me);
 }

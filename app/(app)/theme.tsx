@@ -38,7 +38,6 @@ export default function ThemeScreen() {
     <Screen>
       <ScreenHeader title={t('theme.title')} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }}>
-        <Text style={{ color: C.fg2, lineHeight: 20, marginBottom: 4 }}>{t('theme.intro')}</Text>
         {CHOICES.map((c) => {
           const on = theme === c.id;
           const label = t(c.label);

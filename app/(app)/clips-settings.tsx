@@ -326,7 +326,6 @@ export default function ClipsSettings() {
         <View style={{ marginHorizontal: 16, marginTop: 4, padding: 18, borderRadius: 20, backgroundColor: C.surface, gap: 8 }}>
           <Icon name="sparkle" size={24} color={C.accent2} />
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>{summary}</Text>
-          <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{t('feed.intro')}</Text>
         </View>
 
         <TopicSection title={t('feed.moreTitle')} sub={t('feed.moreSub')} addLabel={t('feed.addMore')} topics={more} onRemove={(topic) => remove('more', topic)} onAdd={() => setAdding('more')} />

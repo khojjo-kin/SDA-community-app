@@ -7,7 +7,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { explainCopyrightReport } from '../lib/copyright-report';
-import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts } from '../lib/api';
+import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { en, type Key, tSplit, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
@@ -325,6 +325,18 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   );
   useEffect(() => listen('profile', () => { load(); }), [load]);
 
+  // Whether every story of theirs (or mine) has been watched: the ring turns grey as soon as it has.
+  const [storiesSeen, setStoriesSeen] = useState(false);
+  const hasStory = !!profile?.has_story;
+  const checkStories = useCallback(() => {
+    if (!hasStory) return;
+    fetchUserStories(userId, me)
+      .then((groups) => setStoriesSeen(allStoriesSeen(groups.flatMap((g) => g.stories), me)))
+      .catch(() => {});
+  }, [userId, me, hasStory]);
+  useFocusEffect(checkStories);
+  useEffect(() => listen('stories', checkStories), [checkStories]);
+
   // The bell goes when you stop following; its menu mustn't spring back open if you follow again.
   useEffect(() => {
     if (profile && (!profile.is_following || profile.is_blocked)) setAlertsAt(null);
@@ -491,7 +503,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             disabled={!liveId && !profile.has_story && !mine}
             accessibilityRole={liveId || profile.has_story || mine ? 'button' : 'image'}
             accessibilityLabel={liveId ? t('profile.watchLive') : profile.has_story ? t('profile.viewStory') : mine ? t('profile.addToStory') : t('profile.photo')}>
-            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 82 : 88} ring={profile.has_story ? 'new' : null} ringColors={ringColors(profile.ring_color)} online={!mine && isOnline(profile.active_at)} />
+            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 82 : 88} ring={profile.has_story ? (storiesSeen ? 'seen' : 'new') : null} ringColors={ringColors(profile.ring_color)} online={!mine && isOnline(profile.active_at)} />
             {mine && !profile.has_story && !profile.is_live ? (
               <View style={{ position: 'absolute', right: -2, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="plus" size={14} color={C.bg} weight={3} />
@@ -684,9 +696,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const lockedCard =
     tab === 'grid' && subscriberOnly > 0 ? (
       <Pressable
-        onPress={profile.sub_price_pence ? () => router.push(`/subscribe/${userId}`) : undefined}
-        disabled={!profile.sub_price_pence}
-        accessibilityRole={profile.sub_price_pence ? 'button' : 'text'}
+        onPress={() => router.push(`/subscribe/${userId}`)}
+        accessibilityRole="button"
         accessibilityLabel={`${subOnlyCount}. ${subOnlyHow}`}
         style={({ pressed }) => ({ marginHorizontal: 16, marginTop: list.length ? 14 : 0, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, opacity: pressed ? 0.8 : 1 })}>
         <LinearGradient colors={[C.accentSoft, C.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 16 }}>
@@ -697,7 +708,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>{subOnlyCount}</Text>
             <Text style={{ color: C.fg2, fontSize: 14, marginTop: 2 }}>{subOnlyHow}</Text>
           </View>
-          {profile.sub_price_pence ? <Icon name="right" size={18} color={C.fg2} weight={2} /> : null}
+          <Icon name="right" size={18} color={C.fg2} weight={2} />
         </LinearGradient>
       </Pressable>
     ) : null;

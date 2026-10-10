@@ -42,8 +42,6 @@ export default function LanguageScreen() {
         <SearchField value={q} onChangeText={setQ} label={t('language.search')} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ color: C.fg2, lineHeight: 20 }}>{t('language.intro')}</Text>
-        <Text style={{ color: C.fg3, fontSize: 13.5, lineHeight: 19, marginBottom: 4 }}>{t('language.note')}</Text>
         {/* Following the phone stays at the top while searching: it is never what the search hides. */}
         <View style={{ borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>
           <Choice first title={t('language.phone')} sub={t('language.phoneSub', { name: languageName(phoneLanguage()) })} on={language === ''} onPress={() => chooseLanguage('', '/language')} />
