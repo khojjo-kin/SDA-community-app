@@ -11,6 +11,7 @@ import { allStoriesSeen, coverOf, deleteStory, fetchStoryViewersDetailed, markSt
 import { announce, listen } from 'shared/store';
 import { ago, fmt } from 'shared/theme';
 import type { LiveCard, Overlay, Story, StoryGroup, StoryItem, StoryViewer as Viewer } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import '../styles/stories.css';
@@ -184,44 +185,44 @@ export function StoryTray({ groups, lives = [], onOpen, onAdd, loading }: { grou
 
   return (
     <div className="tray-wrap sv-tray-wrap">
-      <div className="tray sv-tray" ref={strip} onScroll={measure} role="list" aria-label="Stories">
+      <div className="tray sv-tray" ref={strip} onScroll={measure} role="list" aria-label={t('profile.alertsStories')}>
         {myLive ? (
           <div className="tray-item is-live" role="listitem">
-            <button className="sv-circle" onClick={() => nav('/live/new')} aria-label="Your live broadcast">
+            <button className="sv-circle" onClick={() => nav('/live/new')} aria-label={t('d.stories.yourLive')}>
               <Avatar src={me.avatar_url} name={me.username} size={RING_SIZE} ring="live" />
-              <span className="live-badge">LIVE</span>
+              <span className="live-badge">{t('common.live')}</span>
             </button>
-            <span className="tray-name">You</span>
+            <span className="tray-name">{t('support.you')}</span>
           </div>
         ) : null}
         {otherLives.map((l) => (
           <div className="tray-item is-live" role="listitem" key={'live-' + l.id}>
-            <button className="sv-circle" onClick={() => nav('/live/' + l.id)} aria-label={l.username + ' is live'}>
+            <button className="sv-circle" onClick={() => nav('/live/' + l.id)} aria-label={t('d.stories.isLive', { username: l.username })}>
               <Avatar src={l.avatar_url} name={l.username} size={RING_SIZE} ring="live" />
-              <span className="live-badge">LIVE</span>
+              <span className="live-badge">{t('common.live')}</span>
             </button>
             <span className="tray-name">{l.username}</span>
           </div>
         ))}
         <div className="tray-item is-me" role="listitem">
           <span className="tray-me">
-            <button className="sv-circle" style={ringStyle(me.plus ? { ring: me.ring_color, plus: true, verified: false } : undefined)} onClick={() => (mine ? onOpen(groups.indexOf(mine)) : onAdd())} aria-label={mine ? 'Your story' : 'Add to your story'}>
+            <button className="sv-circle" style={ringStyle(me.plus ? { ring: me.ring_color, plus: true, verified: false } : undefined)} onClick={() => (mine ? onOpen(groups.indexOf(mine)) : onAdd())} aria-label={mine ? t('d.stories.yourStory') : t('profile.addToStory')}>
               <Avatar src={me.avatar_url} name={me.username} size={mine ? RING_SIZE : RING_SIZE + 10} ring={mine ? (mineSeen ? 'seen' : mine.close ? 'close' : 'new') : null} />
             </button>
             {!mine ? (
-              <button className="tray-plus sv-plus" aria-label="Add to your story" onClick={onAdd}>
+              <button className="tray-plus sv-plus" aria-label={t('profile.addToStory')} onClick={onAdd}>
                 <Icon name="plus" size={13} color="var(--bg)" stroke={3} />
               </button>
             ) : null}
           </span>
-          <span className="tray-name">Your story</span>
+          <span className="tray-name">{t('d.stories.yourStory')}</span>
         </div>
         {loaded
           ? ordered.map((g) => {
               const done = seen(g);
               return (
                 <div className={'tray-item' + (muted.includes(g.user_id) ? ' is-muted' : '')} role="listitem" key={g.user_id}>
-                  <button className="sv-circle" style={ringStyle(looks.get(g.user_id))} onClick={() => onOpen(groups.indexOf(g))} aria-label={'Story by ' + g.username + (done ? ', seen' : '')}>
+                  <button className="sv-circle" style={ringStyle(looks.get(g.user_id))} onClick={() => onOpen(groups.indexOf(g))} aria-label={t(done ? 'd.stories.storyBySeen' : 'd.stories.storyBy', { username: g.username })}>
                     <Avatar src={g.avatar_url} name={g.username} size={RING_SIZE} ring={done ? 'seen' : g.close ? 'close' : 'new'} />
                   </button>
                   <span className={'tray-name' + (done ? ' seen' : '')}>{g.username}</span>
@@ -235,14 +236,14 @@ export function StoryTray({ groups, lives = [], onOpen, onAdd, loading }: { grou
               </div>
             ))}
       </div>
-      {loaded ? null : <span className="sv-sr" role="status">Loading stories</span>}
+      {loaded ? null : <span className="sv-sr" role="status">{t('d.stories.loading')}</span>}
       {edges.left ? (
-        <button className="tray-arrow sv-arrow left" aria-label="Scroll left" onClick={() => strip.current?.scrollBy({ left: -330, behavior: 'smooth' })}>
+        <button className="tray-arrow sv-arrow left" aria-label={t('d.stories.scrollLeft')} onClick={() => strip.current?.scrollBy({ left: -330, behavior: 'smooth' })}>
           <Icon name="back" size={14} color="#262626" stroke={2.6} />
         </button>
       ) : null}
       {edges.right ? (
-        <button className="tray-arrow sv-arrow right" aria-label="Scroll right" onClick={() => strip.current?.scrollBy({ left: 330, behavior: 'smooth' })}>
+        <button className="tray-arrow sv-arrow right" aria-label={t('d.stories.scrollRight')} onClick={() => strip.current?.scrollBy({ left: 330, behavior: 'smooth' })}>
           <Icon name="right" size={14} color="#262626" stroke={2.6} />
         </button>
       ) : null}
@@ -446,7 +447,7 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
         setReply('');
         (document.activeElement as HTMLElement | null)?.blur?.();
       }
-      toast(heart ? 'Sent' : 'Reply sent');
+      toast(heart ? t('d.stories.sent') : t('d.stories.replySent'));
     } catch (e) {
       if (heart) setHearted('');
       toastError(e);
@@ -455,10 +456,10 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
 
   const remove = async () => {
     setSheet('confirm');
-    if (!(await ask('Delete this story?', 'It stays in any highlight you added it to.', 'Delete'))) return setSheet(null);
+    if (!(await ask(t('d.stories.deleteQuestion'), t('d.stories.deleteKeepsHighlights'), t('common.delete')))) return setSheet(null);
     try {
       await deleteStory(story.id);
-      toast('Story deleted');
+      toast(t('d.stories.deleted'));
       onChanged?.();
       const rest = group.stories.filter((s) => s.id !== story.id);
       if (!rest.length) return onClose();
@@ -481,7 +482,7 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
     const pic = coverOf(s.item);
     const seen = isHighlight || allStoriesSeen(g.stories, me.id);
     return (
-      <button key={offset} className="sv-peek story-peek" style={box} onClick={() => go(at, firstToShow(g))} aria-label={'Story by ' + g.username}>
+      <button key={offset} className="sv-peek story-peek" style={box} onClick={() => go(at, firstToShow(g))} aria-label={t('d.stories.storyBy', { username: g.username })}>
         {pic ? <img src={pic} alt="" /> : <span className="sv-peek-fill" style={{ background: textBackground(s.item) }} />}
         <span className="sv-peek-who">
           <span className="sv-circle" style={ringStyle(looks.get(g.user_id))}>
@@ -518,22 +519,22 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
   });
 
   return createPortal(
-    <div className="sv-stage story-stage" role="dialog" aria-modal="true" aria-label={(isHighlight ? 'Highlight by ' : 'Stories by ') + group.username}>
-      <button className="sv-brand" aria-label="Community, close stories" onClick={() => { onClose(); nav('/'); }}>
+    <div className="sv-stage story-stage" role="dialog" aria-modal="true" aria-label={t(isHighlight ? 'd.stories.highlightBy' : 'd.stories.storiesBy', { username: group.username })}>
+      <button className="sv-brand" aria-label={t('d.stories.closeStories')} onClick={() => { onClose(); nav('/'); }}>
         <Wordmark />
       </button>
-      <button className="sv-x" aria-label="Close" onClick={onClose}>
+      <button className="sv-x" aria-label={t('common.close')} onClick={onClose}>
         <Icon name="close" size={30} color="#fff" stroke={2} />
       </button>
       <div className="sv-row">
         {side(left)}
         <div className="sv-center" style={{ marginLeft: left.length ? size.near : 0, marginRight: right.length ? size.near : 0 }}>
           {gi > 0 || si > 0 ? (
-            <button className="sv-nav left" style={{ left: -Math.round(size.near / 2) - 13 }} aria-label="Previous" onClick={prev}>
+            <button className="sv-nav left" style={{ left: -Math.round(size.near / 2) - 13 }} aria-label={t('d.stories.previous')} onClick={prev}>
               <Icon name="back" size={14} color="#1a1a1a" stroke={2.6} />
             </button>
           ) : null}
-          <button className="sv-nav right" style={{ right: -Math.round(size.near / 2) - 13 }} aria-label="Next" onClick={next}>
+          <button className="sv-nav right" style={{ right: -Math.round(size.near / 2) - 13 }} aria-label={t('d.stories.next')} onClick={next}>
             <Icon name="right" size={14} color="#1a1a1a" stroke={2.6} />
           </button>
           <div className="sv-card" ref={card} key={group.user_id} style={{ width: size.w, height: size.h }}>
@@ -555,8 +556,8 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
             />
             <span className="sv-shade top" />
             <span className="sv-shade bottom" />
-            <button className="sv-tap left" aria-label="Previous story" {...tap(-1)} />
-            <button className="sv-tap right" aria-label="Next story" {...tap(1)} />
+            <button className="sv-tap left" aria-label={t('d.stories.previousStory')} {...tap(-1)} />
+            <button className="sv-tap right" aria-label={t('d.stories.nextStory')} {...tap(1)} />
             <div className="sv-top">
               <div className="bars sv-bars">
                 {group.stories.map((s, i) => (
@@ -566,7 +567,7 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
                 ))}
               </div>
               <div className="sv-who">
-                <button className="sv-who-link" onClick={openProfile} aria-label={group.username + "'s profile"}>
+                <button className="sv-who-link" onClick={openProfile} aria-label={t('d.stories.profileOf', { username: group.username })}>
                   <Avatar src={group.avatar_url} name={group.username} size={32} />
                   <span className="sv-names">
                     <span className="sv-line">
@@ -578,20 +579,20 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
                   </span>
                 </button>
                 {story.audience === 'close_friends' ? (
-                  <span className="sv-close-friends" title="Close friends" aria-label="Shared with close friends">
+                  <span className="sv-close-friends" title={t('settings.closeFriends')} aria-label={t('d.stories.sharedWithCloseFriends')}>
                     <Icon name="star" size={11} color="#fff" fill="#fff" stroke={0} />
                   </span>
                 ) : null}
                 <span className="grow" />
                 {isVideo ? (
-                  <button className="icon-btn" aria-label={muted ? 'Turn sound on' : 'Mute'} onClick={() => setMuted(!muted)}>
+                  <button className="icon-btn" aria-label={muted ? t('d.stories.soundOn') : t('d.stories.muteSound')} onClick={() => setMuted(!muted)}>
                     <Icon name={muted ? 'mute' : 'sound'} size={20} color="#fff" />
                   </button>
                 ) : null}
-                <button className="icon-btn" aria-label={paused ? 'Play' : 'Pause'} onClick={() => setPaused(!paused)}>
+                <button className="icon-btn" aria-label={paused ? t('d.stories.play') : t('d.stories.pause')} onClick={() => setPaused(!paused)}>
                   <Icon name={paused ? 'play' : 'pause'} size={18} color="#fff" fill="#fff" stroke={0} />
                 </button>
-                <button className="icon-btn" aria-label="More options" onClick={() => setSheet('menu')}>
+                <button className="icon-btn" aria-label={t('profile.moreOptions')} onClick={() => setSheet('menu')}>
                   <Icon name="more" size={22} color="#fff" stroke={2.4} />
                 </button>
               </div>
@@ -610,16 +611,16 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
                       ) : (
                         <Icon name="eye" size={18} color="#fff" />
                       )}
-                      <span>{story.view_count ? `Seen by ${fmt(story.view_count)}` : 'No viewers yet'}</span>
+                      <span>{story.view_count ? t('d.stories.seenBy', { count: fmt(story.view_count) }) : t('d.stories.noViewersYet')}</span>
                     </button>
                   )}
                   <span className="grow" />
-                  <button className="icon-btn" aria-label="Send to people" onClick={() => setSheet('send')}>
+                  <button className="icon-btn" aria-label={t('d.stories.sendToPeople')} onClick={() => setSheet('send')}>
                     <Icon name="send" size={22} color="#fff" />
                   </button>
                 </div>
               ) : isHighlight ? null : !allowed ? (
-                <p className="sv-replies-off">Replies are off</p>
+                <p className="sv-replies-off">{t('d.stories.repliesOff')}</p>
               ) : (
                 <form
                   className="story-reply sv-reply"
@@ -628,15 +629,15 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
                     send(reply);
                   }}
                 >
-                  <input placeholder={`Reply to ${group.username}…`} aria-label={`Reply to ${group.username}`} value={reply} maxLength={300} onChange={(e) => setReply(e.target.value)} onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                  <input placeholder={t('d.stories.replyToHint', { username: group.username })} aria-label={t('d.stories.replyTo', { username: group.username })} value={reply} maxLength={300} onChange={(e) => setReply(e.target.value)} onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
                   {reply.trim() ? (
-                    <button className="sv-send">Send</button>
+                    <button className="sv-send">{t('common.send')}</button>
                   ) : (
                     <>
-                      <button type="button" className={'icon-btn' + (hearted === story.id ? ' sv-hearted' : '')} aria-label={hearted === story.id ? 'Heart sent' : 'Send a heart'} onClick={() => hearted !== story.id && send('❤️', true)}>
+                      <button type="button" className={'icon-btn' + (hearted === story.id ? ' sv-hearted' : '')} aria-label={hearted === story.id ? t('d.stories.heartSent') : t('live.sendHeart')} onClick={() => hearted !== story.id && send('❤️', true)}>
                         <Icon name="heart" size={24} color={hearted === story.id ? '#ff3040' : '#fff'} fill={hearted === story.id ? '#ff3040' : 'none'} />
                       </button>
-                      <button type="button" className="icon-btn" aria-label="Share" onClick={() => setSheet('send')}>
+                      <button type="button" className="icon-btn" aria-label={t('common.share')} onClick={() => setSheet('send')}>
                         <Icon name="send" size={24} color="#fff" />
                       </button>
                     </>
@@ -657,7 +658,7 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
           onClose={() => setSheet(null)}
           onDelete={remove}
           onAddToHighlight={() => {
-            if (story.audience === 'close_friends') return toast('Close friends stories stay out of highlights, because highlights are for everyone.');
+            if (story.audience === 'close_friends') return toast(t('d.stories.closeFriendsNoHighlight'));
             setSheet('highlight');
           }}
           onSettings={() => setSheet('settings')}
@@ -665,7 +666,7 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
           onAbout={() => setSheet('about')}
           onMuted={(on) => {
             setStoriesMuted(group.user_id, on);
-            toast(on ? `${group.username}'s stories moved to the end of your tray` : `${group.username}'s stories are back in your tray`);
+            toast(t(on ? 'd.stories.mutedToEnd' : 'd.stories.unmutedBack', { username: group.username }));
             if (on) next();
           }}
         />

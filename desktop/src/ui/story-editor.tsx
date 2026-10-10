@@ -9,6 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { searchProfiles } from 'shared/api';
 import { FILTERS, isNormal } from 'shared/filters';
 import type { Overlay, Profile, Stroke } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import '../styles/stories.css';
 import { Avatar, Icon, type IconName, Spinner, toast } from './kit';
@@ -50,7 +51,7 @@ function Swatches({ value, onPick, label }: { value: string; onPick: (c: string)
   return (
     <div className="stc-swatches" role="radiogroup" aria-label={label}>
       {STORY_COLORS.map((c) => (
-        <button key={c} role="radio" aria-checked={value === c} aria-label={'Colour ' + c} className={'stc-swatch' + (value === c ? ' on' : '')} style={{ background: c }} onMouseDown={(e) => e.preventDefault()} onClick={() => onPick(c)} />
+        <button key={c} role="radio" aria-checked={value === c} aria-label={t('d.stories.colourSwatch', { colour: c })} className={'stc-swatch' + (value === c ? ' on' : '')} style={{ background: c }} onMouseDown={(e) => e.preventDefault()} onClick={() => onPick(c)} />
       ))}
     </div>
   );
@@ -151,7 +152,7 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
     if (!path) return;
     const used = strokes.current.reduce((n, s) => n + s.d.length, 0);
     if (strokes.current.length >= MAX_STROKES || used + path.length > MAX_DRAWING) {
-      toast('That is as much drawing as one story can hold. Undo a line to draw more.');
+      toast(t('d.stories.drawingFull'));
       return;
     }
     changeStrokes([...strokes.current, { color: pen.color, width: pen.width, d: path }]);
@@ -296,19 +297,17 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
       {/* left: the pages of a batch */}
       <div className="stc-left">
         {batch ? (
-          <div className="stc-strip" aria-label="Stories in this batch">
-            <p>
-              {d.sources.length} stories · each is shared on its own
-            </p>
+          <div className="stc-strip" aria-label={t('d.stories.inThisBatch')}>
+            <p>{t('d.stories.batchNote', { count: d.sources.length })}</p>
             {d.sources.map((s, i) => (
               <div key={s.url} className={'stc-thumb' + (i === page ? ' on' : '')}>
-                <button className="stc-thumb-pic" aria-label={`Story ${i + 1} of ${d.sources.length}`} aria-current={i === page} onClick={() => setPage(i)}>
+                <button className="stc-thumb-pic" aria-label={t('d.stories.storyNOfTotal', { n: i + 1, total: d.sources.length })} aria-current={i === page} onClick={() => setPage(i)}>
                   {s.type === 'video' && !s.poster ? <video src={s.url} muted preload="metadata" /> : <img src={s.poster ?? s.url} alt="" />}
                   {s.type === 'video' ? <Icon name="video" size={14} color="#fff" className="stc-thumb-kind" /> : null}
                 </button>
                 <button
                   className="stc-thumb-x"
-                  aria-label={`Remove story ${i + 1}`}
+                  aria-label={t('d.stories.removeStoryN', { n: i + 1 })}
                   onClick={() => {
                     const rest = d.sources.filter((_, j) => j !== i);
                     // One left: it is an ordinary photo or video story again, with every tool.
@@ -321,17 +320,17 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
               </div>
             ))}
             {d.sources.length < MAX_FILES ? (
-              <button className="stc-thumb stc-thumb-add" aria-label="Add photos or videos" onClick={() => moreInput.current?.click()}>
+              <button className="stc-thumb stc-thumb-add" aria-label={t('d.stories.addPhotosOrVideos')} onClick={() => moreInput.current?.click()}>
                 <Icon name="plus" size={22} color="#fff" />
               </button>
             ) : null}
             <input ref={moreInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { onMore(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
           </div>
         ) : (
-          <ul className="stc-tips" aria-label="Tips">
-            <li>Drag text, stickers and mentions to move them.</li>
-            <li>Click one to resize it. Delete removes it.</li>
-            <li>Double-click text to change the words.</li>
+          <ul className="stc-tips" aria-label={t('d.stories.tips')}>
+            <li>{t('d.stories.tipDrag')}</li>
+            <li>{t('d.stories.tipResize')}</li>
+            <li>{t('d.stories.tipDoubleClick')}</li>
           </ul>
         )}
       </div>
@@ -365,13 +364,13 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
           {d.kind === 'text' && !d.overlays.length && !d.strokes.length && !editing && !drawing ? (
             <button className="stc-type-here" onClick={() => startText()}>
-              Click to type
+              {t('d.stories.clickToType')}
             </button>
           ) : null}
 
           {!batch && !drawing && !editing && !chosen && !d.caption.trim() && tool !== 'caption' ? (
             <button className="stc-caption-hint" onClick={() => setTool('caption')}>
-              Add a caption…
+              {t('createFlow.captionPlaceholder')}
             </button>
           ) : null}
 
@@ -384,7 +383,7 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
                       className={'stc-ov' + (selected === o.id ? ' on' : '') + (drawing ? ' still' : '')}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${o.kind === 'mention' ? 'Mention' : o.kind === 'emoji' ? 'Sticker' : 'Text'}: ${o.text}. Drag to move, click for options.`}
+                      aria-label={t('d.stories.overlayLabel', { kind: t(o.kind === 'mention' ? 'd.stories.mention' : o.kind === 'emoji' ? 'd.stories.sticker' : 'd.stories.text'), text: o.text })}
                       aria-pressed={selected === o.id}
                       data-kind={o.kind}
                       {...overlayHandlers(o)}
@@ -397,14 +396,14 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
           {editing ? (
             <div className="stc-box" style={boxStyle(editing.x, editing.y, w, h)}>
-              <div className="stc-grow story-text" data-value={editing.text || 'Type something'} style={{ ...textStyle(editing, fs), textShadow: editing.bg ? 'none' : '0 1px 4px rgba(0,0,0,.35)' }}>
+              <div className="stc-grow story-text" data-value={editing.text || t('d.stories.typeSomething')} style={{ ...textStyle(editing, fs), textShadow: editing.bg ? 'none' : '0 1px 4px rgba(0,0,0,.35)' }}>
                 <textarea
                   ref={textBox}
                   value={editing.text}
                   maxLength={160}
                   rows={1}
-                  placeholder="Type something"
-                  aria-label="Story text"
+                  placeholder={t('d.stories.typeSomething')}
+                  aria-label={t('d.stories.storyText')}
                   spellCheck
                   style={{ color: ink, caretColor: ink }}
                   onChange={(e) => setEditing({ ...editing, text: e.target.value })}
@@ -419,7 +418,7 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
           {drawing ? (
             <div
               className="stc-drawpad"
-              aria-label="Drawing area. Drag with the mouse to draw."
+              aria-label={t('d.stories.drawingArea')}
               onPointerDown={(e) => {
                 if (e.button !== 0) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -446,54 +445,52 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
           ) : null}
 
           {chosen && !drawing && !editing ? (
-            <div className="stc-selbar" role="toolbar" aria-label="Selected">
-              <RoundButton glyph="A−" label="Smaller" onClick={() => patch(chosen.id, { size: clamp(Math.round(chosen.size / 1.18), 12, 140) })} />
-              <RoundButton glyph="A+" label="Bigger" onClick={() => patch(chosen.id, { size: clamp(Math.round(chosen.size * 1.18), 12, 140) })} />
-              {chosen.kind === 'text' ? <RoundButton icon="compose" label="Edit text" onClick={() => startText(chosen)} /> : null}
-              <RoundButton icon="trash" label="Remove" onClick={() => remove(chosen.id)} />
-              <RoundButton icon="check" label="Done" onClick={() => setSelected(null)} />
+            <div className="stc-selbar" role="toolbar" aria-label={t('d.stories.selected')}>
+              <RoundButton glyph="A−" label={t('d.stories.smaller')} onClick={() => patch(chosen.id, { size: clamp(Math.round(chosen.size / 1.18), 12, 140) })} />
+              <RoundButton glyph="A+" label={t('d.stories.bigger')} onClick={() => patch(chosen.id, { size: clamp(Math.round(chosen.size * 1.18), 12, 140) })} />
+              {chosen.kind === 'text' ? <RoundButton icon="compose" label={t('d.stories.editText')} onClick={() => startText(chosen)} /> : null}
+              <RoundButton icon="trash" label={t('live.remove')} onClick={() => remove(chosen.id)} />
+              <RoundButton icon="check" label={t('createFlow.done')} onClick={() => setSelected(null)} />
             </div>
           ) : null}
 
           {batch ? (
             <>
               {page > 0 ? (
-                <button className="stc-page left" aria-label="Previous story" onClick={() => setPage(page - 1)}>
+                <button className="stc-page left" aria-label={t('d.stories.previousStory')} onClick={() => setPage(page - 1)}>
                   <Icon name="back" size={16} color="#000" stroke={2.4} />
                 </button>
               ) : null}
               {page < d.sources.length - 1 ? (
-                <button className="stc-page right" aria-label="Next story" onClick={() => setPage(page + 1)}>
+                <button className="stc-page right" aria-label={t('d.stories.nextStory')} onClick={() => setPage(page + 1)}>
                   <Icon name="right" size={16} color="#000" stroke={2.4} />
                 </button>
               ) : null}
-              <span className="stc-count">
-                {page + 1} of {d.sources.length}
-              </span>
+              <span className="stc-count">{t('d.stories.nOfTotal', { n: page + 1, total: d.sources.length })}</span>
             </>
           ) : null}
         </div>
-        {drawing || editing ? <div className="stc-bottom stc-bottom-note">{drawing ? 'Drag with the mouse to draw.' : 'Type on the story. Press Esc or Done when you are finished.'}</div> : bottom}
+        {drawing || editing ? <div className="stc-bottom stc-bottom-note">{drawing ? t('d.stories.dragToDraw') : t('d.stories.typeOnStory')}</div> : bottom}
       </div>
 
       {/* right: the tools, and the open tool's options */}
       <div className="stc-right">
-        <div className="stc-tools" role="toolbar" aria-label="Story tools" aria-orientation="vertical">
+        <div className="stc-tools" role="toolbar" aria-label={t('d.stories.tools')} aria-orientation="vertical">
           {batch ? null : (
             <>
-              <ToolButton glyph="Aa" label="Text" active={tool === 'text'} onClick={() => (tool === 'text' ? commitText() : startText())} />
-              <ToolButton icon="sticker" label="Stickers" active={tool === 'sticker'} onClick={() => { if (editing) commitText(); setTool(tool === 'sticker' ? null : 'sticker'); }} />
-              <ToolButton icon="at" label="Mention" active={tool === 'mention'} onClick={() => { if (editing) commitText(); setQ(''); setPeople(null); setTool(tool === 'mention' ? null : 'mention'); }} />
-              <ToolButton icon="draw" label="Draw" active={drawing} onClick={() => { if (editing) commitText(); setTool(drawing ? null : 'draw'); }} />
-              <ToolButton icon="compose" label="Caption" active={tool === 'caption'} onClick={() => { if (editing) commitText(); setTool(tool === 'caption' ? null : 'caption'); }} />
-              {d.kind === 'image' ? <ToolButton icon="sparkle" label="Filters" active={tool === 'filter'} onClick={() => { if (editing) commitText(); setTool(tool === 'filter' ? null : 'filter'); }} /> : null}
-              {d.kind === 'text' ? <ToolButton label="Background" swatch={gradientOf(d.bg)} active={tool === 'background'} onClick={() => { if (editing) commitText(); setTool(tool === 'background' ? null : 'background'); }} /> : null}
+              <ToolButton glyph="Aa" label={t('d.stories.text')} active={tool === 'text'} onClick={() => (tool === 'text' ? commitText() : startText())} />
+              <ToolButton icon="sticker" label={t('d.stories.stickers')} active={tool === 'sticker'} onClick={() => { if (editing) commitText(); setTool(tool === 'sticker' ? null : 'sticker'); }} />
+              <ToolButton icon="at" label={t('d.stories.mention')} active={tool === 'mention'} onClick={() => { if (editing) commitText(); setQ(''); setPeople(null); setTool(tool === 'mention' ? null : 'mention'); }} />
+              <ToolButton icon="draw" label={t('d.stories.draw')} active={drawing} onClick={() => { if (editing) commitText(); setTool(drawing ? null : 'draw'); }} />
+              <ToolButton icon="compose" label={t('create.caption')} active={tool === 'caption'} onClick={() => { if (editing) commitText(); setTool(tool === 'caption' ? null : 'caption'); }} />
+              {d.kind === 'image' ? <ToolButton icon="sparkle" label={t('d.stories.filters')} active={tool === 'filter'} onClick={() => { if (editing) commitText(); setTool(tool === 'filter' ? null : 'filter'); }} /> : null}
+              {d.kind === 'text' ? <ToolButton label={t('d.stories.background')} swatch={gradientOf(d.bg)} active={tool === 'background'} onClick={() => { if (editing) commitText(); setTool(tool === 'background' ? null : 'background'); }} /> : null}
             </>
           )}
           {canFit && current ? (
             <ToolButton
               icon="expand"
-              label={current.fit === 'contain' ? 'Fill the frame' : 'Show it whole'}
+              label={current.fit === 'contain' ? t('d.stories.fillFrame') : t('d.stories.showWhole')}
               active={current.fit === 'contain'}
               onClick={() => set((x) => ({ ...x, sources: x.sources.map((s, i) => (i === page ? { ...s, fit: s.fit === 'contain' ? 'cover' : 'contain' } : s)) }))}
             />
@@ -501,49 +498,47 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
         </div>
 
         {tool && tool !== 'text' ? (
-          <div className="stc-panel" role="region" aria-label={PANEL_TITLES[tool]}>
+          <div className="stc-panel" role="region" aria-label={t(PANEL_TITLES[tool])}>
             <div className="stc-panel-head">
-              <h3>{PANEL_TITLES[tool]}</h3>
+              <h3>{t(PANEL_TITLES[tool])}</h3>
               <button className="link-btn" onClick={() => setTool(null)}>
-                Done
+                {t('createFlow.done')}
               </button>
             </div>
 
             {tool === 'draw' ? (
               <div className="stc-panel-body">
-                <h4>Colour</h4>
-                <Swatches value={pen.color} label="Pen colour" onPick={(color) => setPen({ ...pen, color })} />
-                <h4>Pen</h4>
-                <div className="stc-pens" role="radiogroup" aria-label="Pen size">
+                <h4>{t('d.stories.colour')}</h4>
+                <Swatches value={pen.color} label={t('d.stories.penColour')} onPick={(color) => setPen({ ...pen, color })} />
+                <h4>{t('d.stories.pen')}</h4>
+                <div className="stc-pens" role="radiogroup" aria-label={t('d.stories.penSize')}>
                   {PEN_WIDTHS.map((p) => (
                     <button key={p.id} role="radio" aria-checked={pen.width === p.id} className={'stc-pen' + (pen.width === p.id ? ' on' : '')} onClick={() => setPen({ ...pen, width: p.id })}>
                       <i style={{ width: Math.max(4, (p.id * w) / DRAW_W + 2), height: Math.max(4, (p.id * w) / DRAW_W + 2), background: pen.color }} />
-                      {p.label}
+                      {t(p.label)}
                     </button>
                   ))}
                 </div>
                 <div className="stc-row-btns">
                   <button className="btn quiet" disabled={!d.strokes.length && !history.current.length} onClick={undo}>
-                    <Icon name="undo" size={16} /> Undo
+                    <Icon name="undo" size={16} /> {t('d.stories.undo')}
                   </button>
                   <button className="btn quiet" disabled={!d.strokes.length} onClick={() => changeStrokes([])}>
-                    <Icon name="trash" size={16} /> Clear
+                    <Icon name="trash" size={16} /> {t('createFlow.clear')}
                   </button>
                 </div>
-                <p className="stc-note">
-                  {d.strokes.length === 1 ? '1 line' : `${d.strokes.length} lines`} · {navigator.platform.includes('Mac') ? '⌘Z' : 'Ctrl+Z'} undoes the last one.
-                </p>
+                <p className="stc-note">{tn('d.stories.linesNote', d.strokes.length, { shortcut: navigator.platform.includes('Mac') ? '⌘Z' : 'Ctrl+Z' })}</p>
               </div>
             ) : null}
 
             {tool === 'sticker' ? (
               <div className="stc-panel-body">
-                <p className="stc-note">Click a sticker to add it, or drag it onto the story.</p>
+                <p className="stc-note">{t('d.stories.stickerHint')}</p>
                 <div className="stc-emoji">
                   {EMOJI.map((e) => (
                     <button
                       key={e}
-                      aria-label={'Sticker ' + e}
+                      aria-label={t('d.stories.stickerValue', { emoji: e })}
                       draggable
                       onDragStart={(ev) => {
                         ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: 'emoji', text: e }));
@@ -560,14 +555,14 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
             {tool === 'mention' ? (
               <div className="stc-panel-body stc-people">
-                <input className="stc-search" autoFocus placeholder="Search people" aria-label="Search people" value={q} onChange={(e) => setQ(e.target.value)} />
+                <input className="stc-search" autoFocus placeholder={t('createFlow.searchPeople')} aria-label={t('createFlow.searchPeople')} value={q} onChange={(e) => setQ(e.target.value)} />
                 {people === null ? <Spinner size={22} /> : null}
-                {people && !people.length ? <p className="stc-note">No one found. Try another name.</p> : null}
+                {people && !people.length ? <p className="stc-note">{t('d.stories.noOneFoundTry')}</p> : null}
                 {(people ?? []).map((p) => (
                   <button
                     key={p.id}
                     className="row full hover stc-person"
-                    aria-label={'Mention ' + p.username}
+                    aria-label={t('d.stories.mentionUser', { username: p.username })}
                     draggable
                     onDragStart={(ev) => {
                       ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: 'mention', username: p.username, id: p.id }));
@@ -590,7 +585,7 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
             {tool === 'caption' ? (
               <div className="stc-panel-body">
-                <textarea className="stc-caption-input" autoFocus maxLength={200} rows={4} placeholder="Add a caption…" aria-label="Caption" value={d.caption} onChange={(e) => set((x) => ({ ...x, caption: e.target.value }))} />
+                <textarea className="stc-caption-input" autoFocus maxLength={200} rows={4} placeholder={t('createFlow.captionPlaceholder')} aria-label={t('create.caption')} value={d.caption} onChange={(e) => set((x) => ({ ...x, caption: e.target.value }))} />
                 <p className="stc-note right">{d.caption.length}/200</p>
               </div>
             ) : null}
@@ -610,9 +605,9 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
             {tool === 'background' ? (
               <div className="stc-panel-body">
-                <div className="stc-backgrounds" role="radiogroup" aria-label="Background">
+                <div className="stc-backgrounds" role="radiogroup" aria-label={t('d.stories.background')}>
                   {STORY_BACKGROUNDS.map((_, i) => (
-                    <button key={i} role="radio" aria-checked={d.bg === i} aria-label={'Background ' + (i + 1)} className={'stc-bgchoice' + (d.bg === i ? ' on' : '')} style={{ background: gradientOf(i) }} onClick={() => set((x) => ({ ...x, bg: i }))} />
+                    <button key={i} role="radio" aria-checked={d.bg === i} aria-label={t('d.stories.backgroundN', { n: i + 1 })} className={'stc-bgchoice' + (d.bg === i ? ' on' : '')} style={{ background: gradientOf(i) }} onClick={() => set((x) => ({ ...x, bg: i }))} />
                   ))}
                 </div>
               </div>
@@ -621,30 +616,30 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
         ) : null}
 
         {editing ? (
-          <div className="stc-panel" role="region" aria-label="Text">
+          <div className="stc-panel" role="region" aria-label={t('d.stories.text')}>
             <div className="stc-panel-head">
-              <h3>Text</h3>
+              <h3>{t('d.stories.text')}</h3>
               <button className="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={commitText}>
-                Done
+                {t('createFlow.done')}
               </button>
             </div>
             <div className="stc-panel-body">
-              <h4>Colour</h4>
-              <Swatches value={editing.color} label="Text colour" onPick={(color) => setEditing({ ...editing, color })} />
-              <h4>Style</h4>
-              <div className="stc-styles" role="radiogroup" aria-label="Text style">
+              <h4>{t('d.stories.colour')}</h4>
+              <Swatches value={editing.color} label={t('d.stories.textColour')} onPick={(color) => setEditing({ ...editing, color })} />
+              <h4>{t('d.stories.style')}</h4>
+              <div className="stc-styles" role="radiogroup" aria-label={t('d.stories.textStyle')}>
                 <button role="radio" aria-checked={!editing.bg} className={'stc-style' + (!editing.bg ? ' on' : '')} onMouseDown={(e) => e.preventDefault()} onClick={() => setEditing({ ...editing, bg: false })}>
-                  <b className="plain">A</b> Plain
+                  <b className="plain">A</b> {t('d.stories.plain')}
                 </button>
                 <button role="radio" aria-checked={editing.bg} className={'stc-style' + (editing.bg ? ' on' : '')} onMouseDown={(e) => e.preventDefault()} onClick={() => setEditing({ ...editing, bg: true })}>
-                  <b className="label">A</b> Label
+                  <b className="label">A</b> {t('d.stories.label')}
                 </button>
               </div>
-              <h4>Size</h4>
-              <input type="range" className="stc-size" min={14} max={80} aria-label="Text size" value={editing.size ?? autoSize(editing.text)} onChange={(e) => setEditing({ ...editing, size: Number(e.target.value) })} onPointerUp={() => textBox.current?.focus()} />
+              <h4>{t('d.stories.size')}</h4>
+              <input type="range" className="stc-size" min={14} max={80} aria-label={t('d.stories.textSize')} value={editing.size ?? autoSize(editing.text)} onChange={(e) => setEditing({ ...editing, size: Number(e.target.value) })} onPointerUp={() => textBox.current?.focus()} />
               {editing.id ? (
                 <button className="btn danger-outline block stc-remove" onMouseDown={(e) => e.preventDefault()} onClick={() => { remove(editing.id!); setEditing(null); setToolState(null); }}>
-                  Remove this text
+                  {t('d.stories.removeText')}
                 </button>
               ) : null}
             </div>
@@ -655,4 +650,5 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
   );
 }
 
-const PANEL_TITLES: Record<Exclude<Tool, null>, string> = { text: 'Text', draw: 'Draw', sticker: 'Stickers', mention: 'Mention someone', caption: 'Caption', filter: 'Filters', background: 'Background' };
+// Keys: t(PANEL_TITLES[tool]) where the panel is drawn.
+const PANEL_TITLES: Record<Exclude<Tool, null>, string> = { text: 'd.stories.text', draw: 'd.stories.draw', sticker: 'd.stories.stickers', mention: 'd.stories.mentionSomeone', caption: 'create.caption', filter: 'd.stories.filters', background: 'd.stories.background' };

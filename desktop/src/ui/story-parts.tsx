@@ -10,6 +10,7 @@ import { uploadImage, uploadVideo } from 'shared/api';
 import { FILTERS, isNormal, lookMatrix } from 'shared/filters';
 import type { Audience, Overlay, StoryItem, Stroke } from 'shared/types';
 import type { CreateRequest } from '../lib/create';
+import { t } from '../lib/i18n';
 import { rememberSize } from '../shims/expo-file-system';
 
 /**
@@ -34,8 +35,8 @@ export const STORY_COLORS = ['#ffffff', '#000000', '#ff3040', '#ff8a3d', '#ffd23
 /** The iPhone editor's stickers. */
 export const EMOJI = ['😀', '😂', '🥹', '😍', '😎', '🥳', '😭', '😡', '🤯', '🫶', '❤️', '🔥', '✨', '💯', '👏', '🙌', '👍', '🙏', '💪', '🎉', '🎂', '🌹', '🌈', '☀️', '🌙', '⭐', '⚡', '☕', '🍕', '🍔', '🍩', '🍉', '⚽', '🏀', '🎧', '🎬', '📍', '✈️', '🏝️', '🏠', '🐶', '🐱', '🦋', '🌸', '💤', '👀', '💬', '✅'];
 
-/** Pen widths, in the drawing space (the iPhone draws at 14). */
-export const PEN_WIDTHS = [{ id: 6, label: 'Thin' }, { id: 14, label: 'Medium' }, { id: 28, label: 'Thick' }];
+/** Pen widths, in the drawing space (the iPhone draws at 14). The labels are keys, drawn with t(). */
+export const PEN_WIDTHS = [{ id: 6, label: 'd.stories.penThin' }, { id: 14, label: 'd.stories.penMedium' }, { id: 28, label: 'd.stories.penThick' }];
 
 /** Drawings are stored in this space so they look the same on every screen size. */
 export const DRAW_W = 1000;
@@ -136,8 +137,8 @@ const PICTURE = /^image\/(jpeg|png|webp|heic|heif|gif)$/;
 /** Reads a chosen file: its size, and a video's length. Refuses what a story can't take. */
 export async function readFile(file: File): Promise<Source> {
   const isVideo = file.type.startsWith('video/');
-  if (!isVideo && !PICTURE.test(file.type)) throw new Error(file.name + ' is not a photo or a video.');
-  if (isVideo && file.size > MAX_VIDEO_BYTES) throw new Error('That video is too large to upload. Choose a shorter one.');
+  if (!isVideo && !PICTURE.test(file.type)) throw new Error(t('d.stories.notPhotoOrVideo', { name: file.name }));
+  if (isVideo && file.size > MAX_VIDEO_BYTES) throw new Error(t('d.stories.videoTooLarge'));
   const url = URL.createObjectURL(file);
   rememberSize(url, file.size);
   if (isVideo) {
@@ -149,7 +150,7 @@ export async function readFile(file: File): Promise<Source> {
       v.onloadedmetadata = () => ok();
       v.onerror = () => {
         URL.revokeObjectURL(url);
-        bad(new Error(file.name + ' could not be opened as a video.'));
+        bad(new Error(t('d.stories.badVideo', { name: file.name })));
       };
     });
     // Some recordings don't say how long they are until the end has been read: jump there to find out.
@@ -162,7 +163,7 @@ export async function readFile(file: File): Promise<Source> {
     }
     if (isFinite(v.duration) && v.duration > MAX_VIDEO_SECONDS + 0.5) {
       URL.revokeObjectURL(url);
-      throw new Error('Videos can be up to 60 seconds. Trim it first, then choose it again.');
+      throw new Error(t('d.stories.videoTooLong'));
     }
     return { url, type: 'video', w: v.videoWidth, h: v.videoHeight, duration: isFinite(v.duration) ? Math.round(v.duration * 10) / 10 : undefined, size: file.size };
   }
@@ -172,7 +173,7 @@ export async function readFile(file: File): Promise<Source> {
     img.onload = () => ok();
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      bad(new Error(file.name + ' could not be opened as a picture.'));
+      bad(new Error(t('d.stories.badPicture', { name: file.name })));
     };
   });
   return { url, type: 'image', w: img.naturalWidth, h: img.naturalHeight, fit: fitFor(img.naturalWidth, img.naturalHeight), size: file.size };
@@ -221,7 +222,7 @@ export async function applyLook(url: string, filter: string): Promise<{ url: str
     d[i + 2] = 255 * (m[10] * r + m[11] * g + m[12] * b + m[13] * a + m[14]);
   }
   ctx.putImageData(data, 0, 0);
-  const blob: Blob = await new Promise((r, bad) => canvas.toBlob((x) => (x ? r(x) : bad(new Error('The filter could not be applied.'))), 'image/jpeg', 0.95));
+  const blob: Blob = await new Promise((r, bad) => canvas.toBlob((x) => (x ? r(x) : bad(new Error(t('d.stories.filterFailed')))), 'image/jpeg', 0.95));
   const out = URL.createObjectURL(blob);
   rememberSize(out, blob.size);
   return { url: out, w: canvas.width, h: canvas.height };
@@ -291,7 +292,7 @@ export async function buildItems(me: string, d: Draft, progress: (text: string, 
 
   // One photo or video as it will be saved (a batch item has no text or drawing of its own).
   const one = async (s: Source, i: number, filter = 'normal'): Promise<StoryItem> => {
-    progress(total > 1 ? `Uploading ${i + 1} of ${total}…` : s.type === 'video' ? 'Uploading video…' : 'Uploading…', i, total);
+    progress(total > 1 ? t('create.uploadingN', { n: i + 1, total }) : s.type === 'video' ? t('create.uploadingVideo') : t('create.uploading'), i, total);
     if (s.type === 'video') {
       if (s.hosted) return { url: s.url, type: 'video', w: s.w || undefined, h: s.h || undefined, poster: s.poster, duration: s.duration };
       const m = await uploadVideo(me, s.url, s.w, s.h);
@@ -302,10 +303,10 @@ export async function buildItems(me: string, d: Draft, progress: (text: string, 
     let h = s.h;
     // A chosen filter is drawn into the photo first, so viewers get a plain picture with the look baked in.
     if (!isNormal(filter)) {
-      progress('Applying the filter…', i, total);
+      progress(t('d.stories.applyingFilter'), i, total);
       ({ url, w, h } = await applyLook(s.url, filter));
     } else if (s.hosted) return { url: s.url, type: 'image', ...(s.w ? { w: s.w, h: s.h } : {}), ...fitOf(s) };
-    progress(total > 1 ? `Uploading ${i + 1} of ${total}…` : 'Uploading…', i, total);
+    progress(total > 1 ? t('create.uploadingN', { n: i + 1, total }) : t('create.uploading'), i, total);
     const m = await uploadImage(me, url, w);
     return { url: m.url, type: 'image', w: m.w, h: m.h, ...fitOf(s) };
   };
@@ -320,7 +321,7 @@ export async function buildItems(me: string, d: Draft, progress: (text: string, 
     const urls: string[] = [];
     for (let i = 0; i < d.sources.length; i++) {
       const s = d.sources[i];
-      progress(`Uploading ${i + 1} of ${d.sources.length}…`, i, d.sources.length);
+      progress(t('create.uploadingN', { n: i + 1, total: d.sources.length }), i, d.sources.length);
       urls.push(s.hosted ? s.url : (await uploadImage(me, s.url, s.w, 1080)).url);
     }
     return [{ url: '', type: 'collage', urls, ...extras }];

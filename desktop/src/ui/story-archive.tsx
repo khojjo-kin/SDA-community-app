@@ -5,15 +5,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteStory } from 'shared/api';
-import { dayLabel } from 'shared/theme';
 import type { ArchivedStory, StoryItem } from 'shared/types';
 import { openCreate } from '../lib/create';
+import { t } from '../lib/i18n';
 import { nav } from '../lib/router';
 import '../styles/stories.css';
 import { Icon, type IconName, ask, toast, toastError } from './kit';
 import { Wordmark } from './sidebar';
 import { StoryCanvas } from './stories';
-import { HighlightPicker } from './story-extras';
+import { HighlightPicker, shortDay } from './story-extras';
 import type { StoryRequest } from './story-parts';
 import { CLOSE_FRIENDS_HIGHLIGHT } from './story-share';
 
@@ -92,10 +92,10 @@ export function ArchiveViewer({ entries, start, onClose, onDeleted }: { entries:
   };
 
   const remove = async () => {
-    if (!(await ask('Delete this story?', 'It is removed from your archive, and from your story if it is still showing. Highlights keep their copy.', 'Delete'))) return;
+    if (!(await ask(t('d.stories.deleteQuestion'), t('d.stories.deleteArchivedBody'), t('common.delete')))) return;
     try {
       await deleteStory(s.id);
-      toast('Story deleted');
+      toast(t('d.stories.deleted'));
       if (entries.length <= 1) onClose();
       else setAt((a) => Math.min(a, entries.length - 2));
       onDeleted(s.id);
@@ -105,22 +105,22 @@ export function ArchiveViewer({ entries, start, onClose, onDeleted }: { entries:
   };
 
   return createPortal(
-    <div className="sar-stage" role="dialog" aria-modal="true" aria-label="Archived story">
+    <div className="sar-stage" role="dialog" aria-modal="true" aria-label={t('d.stories.archivedStory')}>
       <span className="stc-brand">
         <Wordmark />
       </span>
-      <button className="stc-x" aria-label="Close" onClick={onClose}>
+      <button className="stc-x" aria-label={t('common.close')} onClick={onClose}>
         <Icon name="close" size={28} color="#fff" stroke={2} />
       </button>
       <div className="sar-center">
         <div className="sar-wrap">
           {at > 0 ? (
-            <button className="sar-nav left" aria-label="Newer story" onClick={() => setAt(at - 1)}>
+            <button className="sar-nav left" aria-label={t('d.stories.newerStory')} onClick={() => setAt(at - 1)}>
               <Icon name="back" size={16} color="#000" stroke={2.4} />
             </button>
           ) : null}
           {at < entries.length - 1 ? (
-            <button className="sar-nav right" aria-label="Older story" onClick={() => setAt(at + 1)}>
+            <button className="sar-nav right" aria-label={t('d.stories.olderStory')} onClick={() => setAt(at + 1)}>
               <Icon name="right" size={16} color="#000" stroke={2.4} />
             </button>
           ) : null}
@@ -128,36 +128,34 @@ export function ArchiveViewer({ entries, start, onClose, onDeleted }: { entries:
             <StoryCanvas item={s.item} width={size.w} height={size.h} muted={muted} onBlocked={() => setMuted(true)} onMention={openMention} />
             <span className="sv-shade top" />
             <div className="sar-top">
-              <b>{dayLabel(new Date(s.created_at))}</b>
+              <b>{shortDay(new Date(s.created_at))}</b>
               {friendsOnly ? (
-                <span className="sv-close-friends" title="Close friends" aria-label="Shared with close friends">
+                <span className="sv-close-friends" title={t('settings.closeFriends')} aria-label={t('d.stories.sharedWithCloseFriends')}>
                   <Icon name="star" size={11} color="#fff" fill="#fff" stroke={0} />
                 </span>
               ) : null}
-              {isLive(s) ? <span className="sar-live">On your story now</span> : null}
+              {isLive(s) ? <span className="sar-live">{t('d.stories.onStoryNow')}</span> : null}
               <span className="grow" />
               {s.item.type === 'video' ? (
-                <button className="icon-btn" aria-label={muted ? 'Turn sound on' : 'Mute'} onClick={() => setMuted(!muted)}>
+                <button className="icon-btn" aria-label={muted ? t('d.stories.soundOn') : t('d.stories.muteSound')} onClick={() => setMuted(!muted)}>
                   <Icon name={muted ? 'mute' : 'sound'} size={20} color="#fff" />
                 </button>
               ) : null}
-              <span className="sar-pos">
-                {at + 1} of {entries.length}
-              </span>
+              <span className="sar-pos">{t('d.stories.nOfTotal', { n: at + 1, total: entries.length })}</span>
             </div>
           </div>
         </div>
         <div className="sar-actions">
-          <Action icon="highlight" label="Highlight" onClick={() => (friendsOnly ? toast(CLOSE_FRIENDS_HIGHLIGHT) : setPicking(true))} />
+          <Action icon="highlight" label={t('d.stories.highlight')} onClick={() => (friendsOnly ? toast(t(CLOSE_FRIENDS_HIGHLIGHT)) : setPicking(true))} />
           <Action
             icon="story"
-            label="Share again"
+            label={t('d.stories.shareAgain')}
             onClick={() => {
               onClose();
               openCreate({ mode: 'story', storyItem: s.item, audience: s.audience } as StoryRequest);
             }}
           />
-          <Action icon="trash" label="Delete" onClick={remove} />
+          <Action icon="trash" label={t('common.delete')} onClick={remove} />
         </div>
       </div>
       {picking ? <HighlightPicker item={s.item} onClose={() => setPicking(false)} /> : null}

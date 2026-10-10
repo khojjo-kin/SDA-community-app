@@ -13,6 +13,7 @@ import { addStory, addToHighlight, countCloseFriends, coverOf, createHighlight, 
 import { errText } from 'shared/theme';
 import type { Audience, Profile, StoryItem } from 'shared/types';
 import type { CreateRequest } from '../lib/create';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import '../styles/stories.css';
@@ -90,7 +91,7 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
         if (!alive) return;
         const m = post?.media[0];
         if (!m) {
-          toast('That post is no longer available.');
+          toast(t('d.stories.postGone'));
           return onClose();
         }
         const source: Source = m.type === 'video' ? { url: m.url, type: 'video', w: m.w ?? 0, h: m.h ?? 0, poster: m.poster, hosted: true } : { url: m.url, type: 'image', w: m.w ?? 0, h: m.h ?? 0, hosted: true, fit: fitFor(m.w ?? 0, m.h ?? 0) };
@@ -116,11 +117,11 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
     let problem = '';
     for (const f of files) {
       if (out.length >= room) {
-        problem ||= only ? 'A collage holds up to 4 photos.' : 'You can share up to 10 at once.';
+        problem ||= only ? t('d.stories.collageMax') : t('d.stories.shareMax');
         break;
       }
       if (only && !f.type.startsWith('image/')) {
-        problem ||= 'Collages are made from photos.';
+        problem ||= t('d.stories.collagePhotosOnly');
         continue;
       }
       try {
@@ -151,7 +152,7 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
   const close = async () => {
     if (busy) return;
     const work = hasWork(d) || collage.length > 0;
-    if (work && !(await ask('Discard this story?', 'Your photos, text and drawing will be lost.', 'Discard'))) return;
+    if (work && !(await ask(t('d.stories.discardQuestion'), t('d.stories.discardBody'), t('d.stories.discard')))) return;
     onClose();
   };
 
@@ -175,17 +176,17 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
   /** Uploads and shares, as the iPhone editor's share(): the stories first, then the highlight and the messages. */
   async function share(to: Audience, withExtras: boolean) {
     if (busy) return;
-    if (d.kind === 'text' && !d.overlays.length && !d.strokes.length) return toast('Write or draw something first.');
+    if (d.kind === 'text' && !d.overlays.length && !d.strokes.length) return toast(t('d.stories.writeFirst'));
     if (to === 'close_friends' && friends === 0) {
-      if (await ask('Your close friends list is empty', 'Add people to it first. Only they will see stories you share with close friends.', 'Add people', false)) setFriendsSheet(true);
+      if (await ask(t('d.stories.closeFriendsEmpty'), t('d.stories.closeFriendsEmptyBody'), t('d.stories.addPeople'), false)) setFriendsSheet(true);
       return;
     }
-    setBusy({ text: 'Uploading…', done: 0, total: 1 });
+    setBusy({ text: t('create.uploading'), done: 0, total: 1 });
     let items: StoryItem[] = [];
     let posted = 0;
     try {
       items = await buildItems(me.id, d, (text, done, total) => setBusy({ text, done, total }));
-      setBusy({ text: 'Sharing…', done: items.length, total: items.length });
+      setBusy({ text: t('create.sharingNow'), done: items.length, total: items.length });
       for (const item of items) {
         await addStory(me.id, item, to);
         posted++;
@@ -204,11 +205,11 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
           extrasFailed = true;
         }
       }
-      toast(extrasFailed ? 'Added to your story. The highlight or message did not go through.' : to === 'close_friends' ? 'Shared with your close friends' : items.length > 1 ? `${items.length} stories added` : 'Added to your story');
+      toast(extrasFailed ? t('d.stories.addedExtrasFailed') : to === 'close_friends' ? t('d.stories.sharedWithFriends') : items.length > 1 ? t('d.stories.storiesAdded', { count: items.length }) : t('d.stories.added'));
       finish();
     } catch (e) {
       if (posted > 0) {
-        toast(`${posted} of ${items.length} were added to your story. The rest did not upload.`);
+        toast(t('d.stories.someAdded', { n: posted, total: items.length }));
         finish();
         return;
       }
@@ -225,17 +226,17 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
 
   const bottom = (
     <div className={'stc-bottom' + (size.w < 380 ? ' narrow' : '')}>
-      <button className="stc-pill" aria-label="Share to your story" disabled={!!busy} onClick={() => share('everyone', false)}>
+      <button className="stc-pill" aria-label={t('d.stories.shareToStory')} disabled={!!busy} onClick={() => share('everyone', false)}>
         <Avatar src={me.avatar_url} name={me.username} size={28} />
-        <span>Your story</span>
+        <span>{t('d.stories.yourStory')}</span>
       </button>
-      <button className="stc-pill" aria-label="Share with close friends" disabled={!!busy} onClick={() => share('close_friends', false)}>
+      <button className="stc-pill" aria-label={t('noteNew.shareWithClose')} disabled={!!busy} onClick={() => share('close_friends', false)}>
         <span className="stc-star">
           <Icon name="star" size={14} color="#fff" fill="#fff" stroke={0} />
         </span>
-        <span>Close friends</span>
+        <span>{t('settings.closeFriends')}</span>
       </button>
-      <button className="stc-next" aria-label="More ways to share" title="More ways to share" disabled={!!busy} onClick={() => setStep('share')}>
+      <button className="stc-next" aria-label={t('d.stories.moreWays')} title={t('d.stories.moreWays')} disabled={!!busy} onClick={() => setStep('share')}>
         <Icon name="arrow" size={22} color="#fff" stroke={2.4} />
       </button>
     </div>
@@ -245,14 +246,14 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
   const look = d.kind === 'image' && d.filter !== 'normal' ? d.filter : '';
 
   return createPortal(
-    <div className="stc-stage" role="dialog" aria-modal="true" aria-label="Add to your story">
+    <div className="stc-stage" role="dialog" aria-modal="true" aria-label={t('profile.addToStory')}>
       <LookFilters />
       <div className="stc-top">
         <span className="stc-brand">
           <Wordmark />
         </span>
-        <span className="stc-title">{step === 'share' ? 'Share' : step === 'edit' ? (d.kind === 'batch' ? `${d.sources.length} stories` : 'Your story') : ''}</span>
-        <button className="stc-x" aria-label="Close" disabled={!!busy} onClick={close}>
+        <span className="stc-title">{step === 'share' ? t('common.share') : step === 'edit' ? (d.kind === 'batch' ? t('d.stories.nStories', { count: d.sources.length }) : t('d.stories.yourStory')) : ''}</span>
+        <button className="stc-x" aria-label={t('common.close')} disabled={!!busy} onClick={close}>
           <Icon name="close" size={28} color="#fff" stroke={2} />
         </button>
       </div>
@@ -299,14 +300,14 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
             <div className={'stc-canvas stc-preview' + (look ? ' stc-filtered' : '')} style={{ width: size.w, height: size.h, ...(look ? ({ ['--stc-look' as any]: `url(#stc-look-${look})` } as React.CSSProperties) : {}) }}>
               <StoryCanvas item={preview} width={size.w} height={size.h} muted />
             </div>
-            {d.kind === 'batch' ? <p className="stc-bottom stc-bottom-note">{d.sources.length} stories, shared one after another.</p> : null}
+            {d.kind === 'batch' ? <p className="stc-bottom stc-bottom-note">{t('d.stories.batchShareNote', { count: d.sources.length })}</p> : null}
           </div>
           <div className="stc-right">
             <SharePanel
               audience={audience}
               setAudience={(a) => {
                 setAudience(a);
-                if (a === 'close_friends' && highlight) toast(CLOSE_FRIENDS_HIGHLIGHT);
+                if (a === 'close_friends' && highlight) toast(t(CLOSE_FRIENDS_HIGHLIGHT));
               }}
               friends={friends}
               highlight={highlight}
