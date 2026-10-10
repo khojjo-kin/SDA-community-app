@@ -12,6 +12,7 @@ import { listen } from 'shared/store';
 import { fmt } from 'shared/theme';
 import type { Group } from 'shared/types';
 import type { CreateRequest } from '../lib/create';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, parts } from '../lib/router';
 import { Empty, Failed, Icon, Link, Spinner, toast, toastError, useLoad } from '../ui/kit';
@@ -32,9 +33,9 @@ export function Groups({ id, path, openPost }: { id?: string; path?: string; ope
 
 /** What the button on a group you are not in says. A ghost button opens the group, where Leave lives behind a confirm. */
 function pillOf(g: Group): { label: string; ghost: boolean } {
-  if (!g.my_standing) return { label: g.kind === 'page' ? 'Follow' : g.privacy === 'private' ? 'Request to join' : 'Join', ghost: false };
-  if (g.my_standing === 'pending') return { label: 'Requested', ghost: true };
-  return { label: g.kind === 'page' ? 'Following' : 'Joined', ghost: true };
+  if (!g.my_standing) return { label: g.kind === 'page' ? t('common.follow') : g.privacy === 'private' ? t('d.community.requestToJoin') : t('d.community.join'), ghost: false };
+  if (g.my_standing === 'pending') return { label: t('profile.requested'), ghost: true };
+  return { label: g.kind === 'page' ? t('common.following') : t('d.community.joined'), ghost: true };
 }
 
 function GroupCard({ g, action }: { g: Group; action?: React.ReactNode }) {
@@ -46,21 +47,21 @@ function GroupCard({ g, action }: { g: Group; action?: React.ReactNode }) {
         <span className="cm-card-name">
           <b>{g.name}</b>
           {g.privacy === 'private' ? (
-            <span className="cm-card-mark" title="Private">
+            <span className="cm-card-mark" title={t('d.community.private')}>
               <Icon name="lock" size={13} stroke={2.2} />
             </span>
           ) : null}
           {g.my_standing === 'owner' ? (
-            <span className="cm-card-mark accent" title="You own it">
+            <span className="cm-card-mark accent" title={t('d.community.youOwnIt')}>
               <Icon name="crown" size={15} stroke={2.2} />
             </span>
           ) : g.my_standing === 'admin' ? (
-            <span className="cm-tag small">Admin</span>
+            <span className="cm-tag small">{t('common.admin')}</span>
           ) : null}
         </span>
         <span className="muted-text">
           {groupSub(g)}
-          {runs && g.pending_count > 0 ? <em className="cm-waiting">{` · ${fmt(g.pending_count)} waiting`}</em> : null}
+          {runs && g.pending_count > 0 ? <em className="cm-waiting">{` · ${t('d.community.waiting', { count: fmt(g.pending_count) })}`}</em> : null}
         </span>
       </Link>
       {action}
@@ -75,8 +76,8 @@ function GroupsHome() {
   const [kind, setKind] = useState<'all' | 'community' | 'page'>('all');
   // Discover searches a moment after the last key.
   useEffect(() => {
-    const t = setTimeout(() => setNeedle(q.trim()), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setNeedle(q.trim()), 250);
+    return () => clearTimeout(timer);
   }, [q]);
   const mine = useLoad(() => fetchMyGroups(me.id), [me.id]);
   const found = useLoad(() => fetchGroups(needle), [needle]);
@@ -97,7 +98,7 @@ function GroupsHome() {
     patch({ my_standing: pending ? 'pending' : 'member', member_count: g.member_count + (pending ? 0 : 1) });
     try {
       await joinGroup(me.id, g);
-      toast(pending ? 'Request sent' : g.kind === 'page' ? `Following ${g.name}` : `Joined ${g.name}`);
+      toast(pending ? t('ssPub.sent') : g.kind === 'page' ? t('d.community.followingName', { name: g.name }) : t('d.community.joinedName', { name: g.name }));
     } catch (e) {
       patch({ my_standing: g.my_standing, member_count: g.member_count });
       toastError(e);
@@ -127,26 +128,26 @@ function GroupsHome() {
   return (
     <div className="page cm-groups">
       <div className="cm-head">
-        <h1 className="page-title">Communities and pages</h1>
+        <h1 className="page-title">{t('d.community.groupsTitle')}</h1>
         <button className="btn" onClick={() => nav('/groups/new')}>
-          <Icon name="plus" size={18} stroke={2.2} /> Create
+          <Icon name="plus" size={18} stroke={2.2} /> {t('common.create')}
         </button>
       </div>
       <div className="panel-search flat cm-search">
-        <input placeholder="Name or @handle" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search communities and pages" />
+        <input placeholder={t('d.community.groupSearchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.community.searchGroups')} />
       </div>
 
-      <h3 className="section-h">Yours</h3>
+      <h3 className="section-h">{t('d.community.yours')}</h3>
       {mine.loading && !mine.data ? <Spinner /> : mine.error && !mine.data ? <Failed error={mine.error} retry={mine.reload} /> : null}
-      {mine.data && !yours.length ? <p className="muted-text cm-none">{needle ? 'None of yours match.' : "You're not in any yet. Join one below, or create your own."}</p> : null}
+      {mine.data && !yours.length ? <p className="muted-text cm-none">{needle ? t('d.community.noneOfYours') : t('d.community.notInAny')}</p> : null}
       <div className="group-grid cm-grid-cards">{yours.map((g) => <GroupCard key={g.id} g={g} />)}</div>
 
       <div className="cm-section-head">
-        <h3 className="section-h">Discover</h3>
-        <div className="cm-chips" role="group" aria-label="Show">
+        <h3 className="section-h">{t('d.community.discover')}</h3>
+        <div className="cm-chips" role="group" aria-label={t('d.community.show')}>
           {(['all', 'community', 'page'] as const).map((k) => (
             <button key={k} className={'filter-chip' + (kind === k ? ' on' : '')} aria-pressed={kind === k} onClick={() => setKind(k)}>
-              {k === 'all' ? 'All' : k === 'community' ? 'Communities' : 'Pages'}
+              {k === 'all' ? t('bibleMarks.all') : k === 'community' ? t('churchApps.communities') : t('d.community.pages')}
             </button>
           ))}
         </div>
@@ -154,15 +155,15 @@ function GroupsHome() {
       {found.loading && !found.data ? <Spinner /> : found.error && !found.data ? <Failed error={found.error} retry={found.reload} /> : null}
       {found.data && !shown.length ? (
         needle && yours.length ? (
-          <p className="muted-text cm-none">Nothing else matches.</p>
+          <p className="muted-text cm-none">{t('d.community.nothingElse')}</p>
         ) : needle ? (
-          <Empty icon="search" title="Nothing matches" body="Try another name or @handle." />
+          <Empty icon="search" title={t('d.community.nothingMatches')} body={t('d.community.tryAnotherName')} />
         ) : kind !== 'all' ? (
-          <p className="muted-text cm-none">{kind === 'page' ? 'No pages to discover yet.' : 'No communities to discover yet.'}</p>
+          <p className="muted-text cm-none">{kind === 'page' ? t('d.community.noPagesToDiscover') : t('d.community.noCommunitiesToDiscover')}</p>
         ) : (
-          <Empty icon="users" title="Nothing here yet" body="Start a community for your ministry or club, or a page for your church.">
+          <Empty icon="users" title={t('bibleMarks.emptyFilter')} body={t('d.community.startOne')}>
             <button className="btn" onClick={() => nav('/groups/new')}>
-              Create
+              {t('common.create')}
             </button>
           </Empty>
         )

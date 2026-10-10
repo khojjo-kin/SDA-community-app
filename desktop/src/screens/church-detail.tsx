@@ -4,8 +4,9 @@
 import React, { useState } from 'react';
 import { decideChurch, deleteChurch, fetchChurchMembers, updateChurch, updateProfile } from 'shared/api';
 import { announce } from 'shared/store';
-import { agoLong, errText, fmt } from 'shared/theme';
+import { ago, errText, fmt } from 'shared/theme';
 import type { Church } from 'shared/types';
+import { t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { ChoiceMenu, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
@@ -13,6 +14,14 @@ import { profileOnce } from '../ui/post-data';
 import { type ChurchForm, ChurchFields, cleanSite, mapsUrl, placeOf, siteOf } from './church-parts';
 import { PersonRow } from './group-parts';
 import '../styles/community.css';
+
+/** "2 days ago", "just now": when a church was suggested, in the app's language. */
+function agoWords(iso: string): string {
+  const a = ago(iso);
+  if (a === 'now') return t('d.community.justNow');
+  const unit = ({ m: 'd.community.minutesAgo', h: 'd.community.hoursAgo', d: 'd.community.daysAgo', w: 'd.community.weeksAgo' } as Record<string, string>)[a.slice(-1)];
+  return tn(unit, parseInt(a, 10));
+}
 
 export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => void }) {
   const { me, refresh } = useMe();
@@ -31,6 +40,8 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
   const place = placeOf(c);
   const site = siteOf(c);
   const times = (c.service_times ?? '').trim();
+  // "Suggested by <name> · 2 days ago", with the name drawn as a link.
+  const suggested = tSplit('d.community.suggestedBy', 'username', { when: agoWords(c.created_at) });
 
   /** Join or leave: the church on my profile. The profile reloads so the button flips straight away. */
   async function setMembership(next: string | null) {
@@ -39,7 +50,7 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
       await updateProfile(me.id, { church_id: next });
       await refresh();
       members.reload();
-      toast(next ? 'This is your church now' : 'You have left this church');
+      toast(next ? t('d.community.nowYourChurch') : t('d.community.leftChurch'));
     } catch (e) {
       toastError(e);
     } finally {
@@ -47,10 +58,10 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
     }
   }
   const join = async () => {
-    if (await ask(`Make ${c.name} your church?`, 'It shows on your profile, and you appear in its members list.', 'This is my church', false)) setMembership(c.id);
+    if (await ask(t('d.community.makeYourChurch', { name: c.name }), t('d.community.makeYourChurchBody'), t('d.community.thisIsMyChurch'), false)) setMembership(c.id);
   };
   const leave = async () => {
-    if (await ask('Leave this church?', 'It comes off your profile. You can choose a church again any time.', 'Leave')) setMembership(null);
+    if (await ask(t('d.community.leaveChurchQuestion'), t('d.community.leaveChurchBody'), t('live.leave'))) setMembership(null);
   };
 
   /** Admins: approve a suggested church (it then lists for everyone) or turn it down. */
@@ -60,7 +71,7 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
     try {
       await decideChurch(me.id, c.id, approve);
       onChanged();
-      toast(approve ? 'Church approved' : 'Church not approved');
+      toast(approve ? t('d.community.churchApproved') : t('d.community.churchNotApproved'));
     } catch (e) {
       toastError(e);
     } finally {
@@ -68,15 +79,15 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
     }
   }
   const reject = async () => {
-    if (await ask('Turn this church down?', "It won't be listed for anyone. The member who suggested it sees it marked Not approved.", 'Reject')) decide(false);
+    if (await ask(t('d.community.rejectQuestion'), t('d.community.rejectBody'), t('d.community.reject'))) decide(false);
   };
 
   async function remove() {
-    if (!(await ask('Delete this church?', "It disappears from the list and from every member's profile. This cannot be undone.", 'Delete'))) return;
+    if (!(await ask(t('d.community.deleteChurchQuestion'), t('d.community.deleteChurchBody'), t('common.delete')))) return;
     try {
       await deleteChurch(c.id);
       announce('profile'); // members, maybe you, just lost their church
-      toast('Church deleted');
+      toast(t('d.community.churchDeleted'));
       onChanged();
       nav('/churches', true);
     } catch (e) {
@@ -90,23 +101,25 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
         <div className={'cm-banner ' + c.status} role="status">
           <Icon name={rejected ? 'info' : 'clock'} size={20} stroke={2} />
           <div className="cm-banner-text">
-            <b>{rejected ? 'An admin did not approve this church' : 'Waiting for an admin to approve this church'}</b>
+            <b>{rejected ? t('d.community.notApprovedBanner') : t('d.community.waitingBanner')}</b>
             {admin && author.data ? (
               <span>
-                Suggested by <Link to={'/u/' + author.data.username}>{author.data.username}</Link> · {agoLong(c.created_at).toLowerCase()}
+                {suggested[0]}
+                <Link to={'/u/' + author.data.username}>{author.data.username}</Link>
+                {suggested[1]}
               </span>
             ) : !admin && pending ? (
-              <span>It shows for you meanwhile. Everyone else sees it once it is approved.</span>
+              <span>{t('d.community.pendingForYou')}</span>
             ) : null}
           </div>
           {admin ? (
             <div className="cm-banner-actions">
               <button className="btn small" disabled={deciding} onClick={() => decide(true)}>
-                {rejected ? 'Approve after all' : 'Approve'}
+                {rejected ? t('d.community.approveAfterAll') : t('adminPub.approve')}
               </button>
               {pending ? (
                 <button className="btn small quiet" disabled={deciding} onClick={reject}>
-                  Reject
+                  {t('d.community.reject')}
                 </button>
               ) : null}
             </div>
@@ -122,56 +135,56 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
         <div className="cm-church-title">
           <h1>{c.name}</h1>
           {place ? <p className="muted-text">{place}</p> : null}
-          {mine ? <p className="cm-mine-text">Your church</p> : null}
+          {mine ? <p className="cm-mine-text">{t('d.community.yourChurch')}</p> : null}
           <div className="cm-church-actions">
             {/* A church that was turned down can be left, but not newly chosen. */}
             {mine ? (
               <button className="btn quiet" disabled={busy} onClick={leave}>
-                Leave this church
+                {t('d.community.leaveThisChurch')}
               </button>
             ) : rejected ? null : (
               <button className="btn" disabled={busy} onClick={join}>
-                This is my church
+                {t('d.community.thisIsMyChurch')}
               </button>
             )}
             <a className="btn quiet" href={mapsUrl(c)} target="_blank" rel="noreferrer">
-              <Icon name="location" size={16} stroke={2} /> Directions
+              <Icon name="location" size={16} stroke={2} /> {t('d.community.directions')}
             </a>
             {site ? (
               <a className="btn quiet" href={site} target="_blank" rel="noreferrer">
-                <Icon name="link" size={16} stroke={2} /> Website
+                <Icon name="link" size={16} stroke={2} /> {t('d.community.website')}
               </a>
             ) : null}
           </div>
         </div>
         {admin ? (
-          <button className="icon-btn cm-more" aria-label="More options" onClick={() => setMenu(true)}>
+          <button className="icon-btn cm-more" aria-label={t('profile.moreOptions')} onClick={() => setMenu(true)}>
             <Icon name="more" size={24} />
           </button>
         ) : null}
       </header>
 
-      <h3 className="cm-h">About</h3>
+      <h3 className="cm-h">{t('d.community.about')}</h3>
       <div className="cm-about">
         <div className="cm-about-row">
           <Icon name="clock" size={20} />
           <div>
-            <b>Service times</b>
-            <span>{times || 'Not given yet'}</span>
+            <b>{t('d.community.serviceTimes')}</b>
+            <span>{times || t('d.community.notGiven')}</span>
           </div>
         </div>
         <div className="cm-about-row">
           <Icon name="location" size={20} />
           <div>
-            <b>Address</b>
-            <span>{place || 'No address yet'}</span>
+            <b>{t('d.community.address')}</b>
+            <span>{place || t('d.community.noAddress')}</span>
           </div>
         </div>
         {site ? (
           <div className="cm-about-row">
             <Icon name="link" size={20} />
             <div>
-              <b>Website</b>
+              <b>{t('d.community.website')}</b>
               <a href={site} target="_blank" rel="noreferrer">
                 {site.replace(/^https?:\/\//i, '').replace(/\/.*$/, '')}
               </a>
@@ -180,12 +193,12 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
         ) : null}
       </div>
 
-      <h3 className="cm-h">{`Members · ${fmt(members.data?.length ?? 0)}`}</h3>
+      <h3 className="cm-h">{t('d.community.churchMembersCount', { count: fmt(members.data?.length ?? 0) })}</h3>
       {members.loading && !members.data ? <Spinner /> : null}
-      {members.data && !members.data.length ? <p className="muted-text">Nobody has chosen this church yet.</p> : null}
+      {members.data && !members.data.length ? <p className="muted-text">{t('d.community.noChurchMembers')}</p> : null}
       <div className="cm-people">
         {(members.data ?? []).map((p) => (
-          <PersonRow key={p.id} p={p} right={p.id === me.id ? <span className="cm-you">You</span> : null} />
+          <PersonRow key={p.id} p={p} right={p.id === me.id ? <span className="cm-you">{t('support.you')}</span> : null} />
         ))}
       </div>
 
@@ -193,8 +206,8 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
         <ChoiceMenu
           onClose={() => setMenu(false)}
           items={[
-            { label: 'Edit church', onClick: () => setEditing(true) },
-            { label: 'Delete church', danger: true, onClick: remove },
+            { label: t('d.community.editChurch'), onClick: () => setEditing(true) },
+            { label: t('d.community.deleteChurch'), danger: true, onClick: remove },
           ]}
         />
       ) : null}
@@ -205,7 +218,7 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
           onSaved={() => {
             setEditing(false);
             onChanged();
-            toast('Church updated');
+            toast(t('d.community.churchUpdated'));
             if (mine) announce('profile'); // the church's name on my profile comes from this row
           }}
         />
@@ -226,8 +239,8 @@ function ChurchEdit({ c, onClose, onSaved }: { c: Church; onClose: () => void; o
     const name = form.name.trim();
     const site = cleanSite(form.website);
     const errs: typeof errors = {};
-    if (!name) errs.name = "Add the church's name.";
-    if (site === null) errs.website = 'That website address does not look right.';
+    if (!name) errs.name = t('d.community.needName');
+    if (site === null) errs.website = t('d.community.badWebsite');
     setErrors(errs);
     if (errs.name || errs.website) return;
     setSaving(true);
@@ -241,7 +254,7 @@ function ChurchEdit({ c, onClose, onSaved }: { c: Church; onClose: () => void; o
   }
 
   return (
-    <Modal title="Edit church" onClose={onClose} wide className="cm-modal" closeOutside={!saving}>
+    <Modal title={t('d.community.editChurch')} onClose={onClose} wide className="cm-modal" closeOutside={!saving}>
       <form
         className="cm-modal-body cm-form"
         onSubmit={(e) => {
@@ -252,7 +265,7 @@ function ChurchEdit({ c, onClose, onSaved }: { c: Church; onClose: () => void; o
         <ChurchFields form={form} set={set} errors={errors} />
         {errors.form ? <p className="form-error">{errors.form}</p> : null}
         <button className="btn big block" type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('d.community.saving') : t('ssPub.save')}
         </button>
       </form>
     </Modal>

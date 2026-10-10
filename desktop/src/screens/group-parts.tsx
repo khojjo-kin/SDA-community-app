@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import { fetchChurches } from 'shared/api';
 import { fmt } from 'shared/theme';
 import type { Group, Profile } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Link, Verified, toast, useLoad } from '../ui/kit';
 import { townOf } from './church-parts';
@@ -23,9 +24,15 @@ export function isTakenHandle(e: unknown): boolean {
 
 /** "Community · 240 members" or "Page · 1.2K followers". */
 export function groupSub(g: Pick<Group, 'kind' | 'member_count'>): string {
-  const word = g.kind === 'page' ? 'follower' : 'member';
-  return `${g.kind === 'page' ? 'Page' : 'Community'} · ${fmt(g.member_count)} ${word}${g.member_count === 1 ? '' : 's'}`;
+  return `${kindWord(g)} · ${peopleCount(g)}`;
 }
+
+/** "Community" or "Page". */
+export const kindWord = (g: Pick<Group, 'kind'>) => t(g.kind === 'page' ? 'create.page' : 'create.community');
+
+/** "240 members" or "1.2K followers" (the number written short, as everywhere in the app). */
+export const peopleCount = (g: Pick<Group, 'kind' | 'member_count'>) =>
+  tn(g.kind === 'page' ? 'd.community.followersN' : 'd.community.membersN', g.member_count, { count: fmt(g.member_count) });
 
 /** Whether I run this group (or, as an app admin, may run any). */
 export const manages = (g: Pick<Group, 'my_standing'>, appAdmin: boolean) => g.my_standing === 'owner' || g.my_standing === 'admin' || appAdmin;
@@ -47,11 +54,11 @@ export function CoverPicker({ shown, onPick, onRemove, busy }: { shown: string; 
   const input = useRef<HTMLInputElement>(null);
   const choose = (file?: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return toast('Choose a photo (JPG or PNG).');
+    if (!file.type.startsWith('image/')) return toast(t('d.community.choosePhoto'));
     const uri = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => onPick({ uri, width: img.naturalWidth });
-    img.onerror = () => toast('That picture could not be opened. Choose another.');
+    img.onerror = () => toast(t('d.community.pictureFailed'));
     img.src = uri;
   };
   return (
@@ -61,7 +68,7 @@ export function CoverPicker({ shown, onPick, onRemove, busy }: { shown: string; 
         className={'cm-cover-pick' + (shown ? ' has' : '')}
         onClick={() => input.current?.click()}
         disabled={busy}
-        aria-label={shown ? 'Change cover photo' : 'Add a cover photo'}
+        aria-label={shown ? t('d.community.changeCoverPhoto') : t('d.community.addCoverPhoto')}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
@@ -70,13 +77,13 @@ export function CoverPicker({ shown, onPick, onRemove, busy }: { shown: string; 
       >
         {shown ? <img src={shown} alt="" /> : null}
         <span className="cm-cover-label">
-          <Icon name="image" size={20} /> {shown ? 'Change cover' : 'Add a cover photo'}
+          <Icon name="image" size={20} /> {shown ? t('d.community.changeCover') : t('d.community.addCoverPhoto')}
         </span>
-        {shown ? null : <span className="cm-hint">Optional · click or drop a picture</span>}
+        {shown ? null : <span className="cm-hint">{t('d.community.coverHint')}</span>}
       </button>
       {shown && onRemove ? (
         <button type="button" className="link-btn muted cm-cover-remove" disabled={busy} onClick={onRemove}>
-          Remove cover
+          {t('d.community.removeCover')}
         </button>
       ) : null}
       <input
@@ -84,7 +91,7 @@ export function CoverPicker({ shown, onPick, onRemove, busy }: { shown: string; 
         type="file"
         accept="image/*"
         hidden
-        aria-label="Cover photo"
+        aria-label={t('d.community.coverPhoto')}
         onChange={(e) => {
           choose(e.target.files?.[0]);
           e.target.value = '';
@@ -100,14 +107,14 @@ export function ChurchSelect({ value, onChange, disabled }: { value: string; onC
   const churches = (list.data ?? []).filter((c) => c.status !== 'rejected' || c.id === value);
   return (
     <label className="form-row">
-      <span>Church</span>
+      <span>{t('d.community.church')}</span>
       <select
         className="cm-select"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value, churches.find((c) => c.id === e.target.value)?.name ?? null)}
       >
-        <option value="">No church</option>
+        <option value="">{t('d.community.noChurch')}</option>
         {churches.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -115,7 +122,7 @@ export function ChurchSelect({ value, onChange, disabled }: { value: string; onC
           </option>
         ))}
       </select>
-      <span className="cm-hint">Optional: the church it belongs to.</span>
+      <span className="cm-hint">{t('d.community.churchHint')}</span>
     </label>
   );
 }
@@ -144,7 +151,7 @@ export function RoleTag({ role }: { role: 'owner' | 'admin' }) {
   return (
     <span className="cm-tag">
       {role === 'owner' ? <Icon name="crown" size={13} stroke={2.2} /> : null}
-      {role === 'owner' ? 'Owner' : 'Admin'}
+      {role === 'owner' ? t('d.community.owner') : t('common.admin')}
     </span>
   );
 }

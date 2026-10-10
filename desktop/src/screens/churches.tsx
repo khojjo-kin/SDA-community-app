@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { distanceKm, fetchChurches } from 'shared/api';
 import type { Church } from 'shared/types';
+import { dateLocale, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Empty, Failed, Icon, Link, Spinner, useLoad } from '../ui/kit';
@@ -15,10 +16,10 @@ import '../styles/community.css';
 type Point = { lat: number; lng: number };
 type Entry = { church: Church; km: number | null };
 
-/** Why the list could not be sorted by distance: location refused, or no position came back. */
+/** Why the list could not be sorted by distance: location refused, or no position came back. Keys: say them with t(). */
 const NOTE = {
-  settings: 'Location is off for Community. Allow it for this site in your browser settings to see the nearest churches first.',
-  nofix: "Couldn't find where you are, so this is sorted A to Z.",
+  settings: 'd.community.locationOffSort',
+  nofix: 'd.community.noFixSort',
 };
 
 export function Churches({ id }: { id?: string; path?: string }) {
@@ -69,20 +70,23 @@ export function Churches({ id }: { id?: string; path?: string }) {
   const church = (list.data ?? []).find((c) => c.id === id) ?? null;
   let detail: React.ReactNode;
   if (id === 'new') detail = <ChurchNew onAdded={list.reload} />;
-  else if (!id) detail = <Empty icon="church" title="Choose a church" body="Service times, address and members. Make one your church, or add yours." />;
+  else if (!id) detail = <Empty icon="church" title={t('d.community.chooseChurch')} body={t('d.community.chooseChurchBody')} />;
   else if (church) detail = <ChurchDetail key={church.id} c={church} onChanged={list.reload} />;
   else if (list.loading || !list.data) detail = list.error ? <Failed error={list.error} retry={list.reload} /> : <Spinner />;
-  else detail = <Empty icon="church" title="This church isn't listed any more" body="It may have been removed by an admin." />;
+  else detail = <Empty icon="church" title={t('d.community.churchGone')} body={t('d.community.churchGoneBody')} />;
 
   const row = ({ church: c, km }: Entry, isMine = false) => {
     const town = townOf(c);
-    const dist = km === null ? '' : `${km.toFixed(1)} km`;
+    // "1.2 km", with the decimal point the language uses.
+    const distance = km === null ? '' : km.toLocaleString(dateLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
+    const dist = km === null ? '' : t('d.community.km', { distance });
+    const status = STATUS_LABEL[c.status];
     return (
       <Link
         key={c.id}
         to={'/churches/' + c.id}
         className={'hymn-row cm-church-row' + (c.id === id ? ' on' : '')}
-        title={[c.name, STATUS_LABEL[c.status], town, dist && `${dist} away`, isMine && 'your church'].filter(Boolean).join(', ')}
+        title={[c.name, status && t(status), town, dist && t('d.community.kmAway', { distance }), isMine && t('d.community.yourChurchLower')].filter(Boolean).join(', ')}
       >
         <span className={'hymn-no cm-church-icon' + (isMine ? ' mine' : '')}>
           <Icon name="church" size={22} />
@@ -92,7 +96,7 @@ export function Churches({ id }: { id?: string; path?: string }) {
             <b>{c.name}</b>
             <StatusPill status={c.status} />
           </span>
-          <span className={isMine ? 'cm-mine-text' : ''}>{isMine ? `Your church${town ? ' · ' + town : ''}` : town || 'No address yet'}</span>
+          <span className={isMine ? 'cm-mine-text' : ''}>{isMine ? (town ? t('d.community.yourChurchTown', { town }) : t('d.community.yourChurch')) : town || t('d.community.noAddress')}</span>
         </span>
         {dist ? <span className="cm-km">{dist}</span> : null}
       </Link>
@@ -104,27 +108,27 @@ export function Churches({ id }: { id?: string; path?: string }) {
       <section className="split-list">
         <header>
           <div className="cm-list-head">
-            <h1>Churches</h1>
+            <h1>{t('churchApps.churches')}</h1>
             <button className={'btn small' + (id === 'new' ? '' : ' quiet')} onClick={() => nav('/churches/new')}>
-              <Icon name="plus" size={16} stroke={2.2} /> Add a church
+              <Icon name="plus" size={16} stroke={2.2} /> {t('d.community.addAChurch')}
             </button>
           </div>
           <div className="panel-search in-modal">
-            <input placeholder="Name, city or country" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search churches" />
+            <input placeholder={t('d.community.churchSearchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.community.searchChurches')} />
           </div>
-          <div className="cm-sort" role="group" aria-label="Sort churches">
+          <div className="cm-sort" role="group" aria-label={t('d.community.sortChurches')}>
             <button aria-pressed={!near} className={!near ? 'on' : ''} onClick={() => setSort('name')}>
-              A to Z
+              {t('d.community.aToZ')}
             </button>
             <button aria-pressed={near} className={near ? 'on' : ''} onClick={nearMe} disabled={locating}>
-              <Icon name="location" size={15} stroke={2} /> {locating ? 'Finding you…' : 'Near me'}
+              <Icon name="location" size={15} stroke={2} /> {locating ? t('d.community.findingYou') : t('d.community.nearMe')}
             </button>
           </div>
           {note ? (
             <div className="cm-note" role="status">
-              <span>{NOTE[note]}</span>
+              <span>{t(NOTE[note])}</span>
               <button className="link-btn" onClick={nearMe}>
-                Try again
+                {t('common.tryAgain')}
               </button>
             </div>
           ) : null}
@@ -133,20 +137,20 @@ export function Churches({ id }: { id?: string; path?: string }) {
           {list.loading && !list.data ? <Spinner /> : list.error && !list.data ? <Failed error={list.error} retry={list.reload} /> : null}
           {mine ? (
             <>
-              <h3 className="list-h">My church</h3>
+              <h3 className="list-h">{t('d.community.myChurch')}</h3>
               {row(mine, true)}
             </>
           ) : null}
-          {rest.length ? <h3 className="list-h">{near ? 'Nearest first' : 'All churches'}</h3> : null}
+          {rest.length ? <h3 className="list-h">{near ? t('d.community.nearestFirst') : t('d.community.allChurches')}</h3> : null}
           {rest.map((e) => row(e))}
           {list.data && !mine && !rest.length ? (
             needle ? (
-              <p className="muted-text cm-list-empty">No churches match. Try another name, city or country.</p>
+              <p className="muted-text cm-list-empty">{t('d.community.noChurchMatch')}</p>
             ) : (
               <div className="cm-list-empty">
-                <p className="muted-text">No churches are listed yet.</p>
+                <p className="muted-text">{t('d.community.noChurches')}</p>
                 <button className="btn small" onClick={() => nav('/churches/new')}>
-                  Add a church
+                  {t('d.community.addAChurch')}
                 </button>
               </div>
             )

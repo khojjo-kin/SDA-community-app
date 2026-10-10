@@ -6,12 +6,13 @@ import React, { useState } from 'react';
 import { approveMember, fetchGroup, fetchGroupMembers, removeMember, setMemberRole } from 'shared/api';
 import { fmt } from 'shared/theme';
 import type { GroupMember } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { Avatar, ChoiceMenu, Empty, Failed, Icon, Link, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { PersonRow, RoleTag, manages } from './group-parts';
 import '../styles/community.css';
 
-const nameOf = (m: GroupMember) => m.profile?.username ?? 'this account';
+const nameOf = (m: GroupMember) => m.profile?.username ?? t('d.community.thisAccount');
 
 export function GroupMembers({ id }: { id: string }) {
   const { me } = useMe();
@@ -31,10 +32,10 @@ export function GroupMembers({ id }: { id: string }) {
   if (data.loading && !data.data) return <Spinner />;
   if (data.error && !data.data) return <Failed error={data.error} retry={data.reload} />;
   const { g, manage, people, waiting } = data.data!;
-  if (!g) return <Empty icon="users" title="This one isn't here any more" body="It may have been deleted by its owner." />;
+  if (!g) return <Empty icon="users" title={t('d.community.groupGone')} body={t('d.community.groupGoneBody')} />;
 
   const page = g.kind === 'page';
-  const word = page ? 'Followers' : 'Members';
+  const word = page ? t('liveSetup.followers') : t('d.community.members');
   const needle = q.trim().toLowerCase();
   const match = (m: GroupMember) => !needle || [m.profile?.username, m.profile?.full_name].some((s) => (s ?? '').toLowerCase().includes(needle));
 
@@ -49,30 +50,30 @@ export function GroupMembers({ id }: { id: string }) {
     );
   function decide(m: GroupMember, approve: boolean) {
     setDeciding(m.user_id);
-    run(approve ? approveMember(id, m.user_id) : removeMember(id, m.user_id), approve ? `${nameOf(m)} is in` : 'Request declined').finally(() => setDeciding(''));
+    run(approve ? approveMember(id, m.user_id) : removeMember(id, m.user_id), approve ? t('d.community.isIn', { name: nameOf(m) }) : t('adminPub.declinedToast')).finally(() => setDeciding(''));
   }
-  const toggleAdmin = (m: GroupMember) => run(setMemberRole(id, m.user_id, m.role === 'admin' ? 'member' : 'admin'), m.role === 'admin' ? `${nameOf(m)} is no longer an admin` : `${nameOf(m)} is now an admin`);
+  const toggleAdmin = (m: GroupMember) => run(setMemberRole(id, m.user_id, m.role === 'admin' ? 'member' : 'admin'), m.role === 'admin' ? t('d.community.noLongerAdmin', { name: nameOf(m) }) : t('d.community.nowAdmin', { name: nameOf(m) }));
   async function remove(m: GroupMember) {
-    const ok = await ask(`Remove ${nameOf(m)}?`, page ? 'They stop following this page. They can follow again later.' : 'They leave the community. They can ask to join again later.', 'Remove');
-    if (ok) run(removeMember(id, m.user_id), `Removed ${nameOf(m)}`);
+    const ok = await ask(t('d.community.removeQuestion', { name: nameOf(m) }), page ? t('d.community.removeFollowerBody') : t('d.community.removeMemberBody'), t('noteNew.removePlace'));
+    if (ok) run(removeMember(id, m.user_id), t('d.community.removed', { name: nameOf(m) }));
   }
 
   function row(m: GroupMember, isRequest: boolean) {
     const right = isRequest ? (
       <div className="cm-row-actions">
         <button className="btn small" disabled={deciding === m.user_id} onClick={() => decide(m, true)}>
-          Approve
+          {t('adminPub.approve')}
         </button>
         <button className="btn small quiet" disabled={deciding === m.user_id} onClick={() => decide(m, false)}>
-          Decline
+          {t('common.decline')}
         </button>
       </div>
     ) : (
       <div className="cm-row-actions">
         {m.role !== 'member' ? <RoleTag role={m.role} /> : null}
-        {m.user_id === me.id ? <span className="cm-you">You</span> : null}
+        {m.user_id === me.id ? <span className="cm-you">{t('support.you')}</span> : null}
         {manage && m.role !== 'owner' && m.user_id !== me.id ? (
-          <button className="icon-btn" aria-label={`Options for ${nameOf(m)}`} onClick={() => setTarget(m)}>
+          <button className="icon-btn" aria-label={t('d.community.optionsFor', { name: nameOf(m) })} onClick={() => setTarget(m)}>
             <Icon name="more" size={20} />
           </button>
         ) : null}
@@ -84,7 +85,7 @@ export function GroupMembers({ id }: { id: string }) {
         <div key={m.status + m.user_id} className="cm-person">
           <Avatar name="?" size={44} />
           <div className="cm-person-text">
-            <span className="cm-person-sub">Account unavailable</span>
+            <span className="cm-person-sub">{t('creatorSubs.accountUnavailable')}</span>
           </div>
           {right}
         </div>
@@ -102,21 +103,19 @@ export function GroupMembers({ id }: { id: string }) {
       </Link>
       <h1 className="page-title">{word}</h1>
       <div className="panel-search flat">
-        <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label={'Search ' + word.toLowerCase()} />
+        <input placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={page ? t('d.community.searchFollowers') : t('d.community.searchMembers')} />
       </div>
       {waiting.length ? (
-        <section className="cm-section" aria-label="Requests">
-          <h3 className="cm-h">{`Requests · ${fmt(waiting.length)}`}</h3>
-          <p className="muted-text cm-section-note">{page ? 'They asked to follow this page.' : 'They asked to join. Approve to let them in and see what members share.'}</p>
+        <section className="cm-section" aria-label={t('adminPub.requests')}>
+          <h3 className="cm-h">{t('d.community.requestsCount', { count: fmt(waiting.length) })}</h3>
+          <p className="muted-text cm-section-note">{page ? t('d.community.askedToFollow') : t('d.community.askedToJoin')}</p>
           {shownWaiting.map((m) => row(m, true))}
         </section>
       ) : null}
       <section className="cm-section" aria-label={word}>
-        <h3 className="cm-h">
-          {`${word} · ${fmt(people.length)}`}
-        </h3>
-        {!people.length ? <Empty icon="people" title={page ? 'No followers yet' : 'No members yet'} /> : null}
-        {people.length && !shownPeople.length ? <p className="muted-text">Nobody here matches.</p> : null}
+        <h3 className="cm-h">{t(page ? 'd.community.followersCount' : 'd.community.membersCount', { count: fmt(people.length) })}</h3>
+        {!people.length ? <Empty icon="people" title={page ? t('d.community.noFollowers') : t('d.community.noMembers')} /> : null}
+        {people.length && !shownPeople.length ? <p className="muted-text">{t('d.community.nobodyMatches')}</p> : null}
         {shownPeople.map((m) => row(m, false))}
       </section>
 
@@ -124,8 +123,8 @@ export function GroupMembers({ id }: { id: string }) {
         <ChoiceMenu
           onClose={() => setTarget(null)}
           items={[
-            { label: target.role === 'admin' ? 'Remove admin' : 'Make admin', onClick: () => toggleAdmin(target) },
-            { label: page ? 'Remove follower' : 'Remove from community', danger: true, onClick: () => remove(target) },
+            { label: target.role === 'admin' ? t('d.community.removeAdmin') : t('d.community.makeAdmin'), onClick: () => toggleAdmin(target) },
+            { label: page ? t('d.community.removeFollower') : t('d.community.removeFromCommunity'), danger: true, onClick: () => remove(target) },
           ]}
         />
       ) : null}

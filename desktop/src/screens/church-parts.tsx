@@ -2,6 +2,7 @@
 // the "Pending review" pill, and the form fields for adding or correcting a church.
 import React from 'react';
 import type { Church } from 'shared/types';
+import { t } from '../lib/i18n';
 import '../styles/community.css';
 
 /** "12 Hill Road, Sample Town, Demo": the parts that are filled in. */
@@ -33,13 +34,13 @@ export function mapsUrl(c: Church) {
   return `https://maps.apple.com/?q=${encodeURIComponent(placeOf(c) || c.name)}`;
 }
 
-/** Churches not yet approved carry a pill. Members only see their own; admins see every pending one. */
-export const STATUS_LABEL: Partial<Record<Church['status'], string>> = { pending: 'Pending review', rejected: 'Not approved' };
+/** Churches not yet approved carry a pill. Members only see their own; admins see every pending one. Keys: say them with t(). */
+export const STATUS_LABEL: Partial<Record<Church['status'], string>> = { pending: 'd.community.pendingReview', rejected: 'ssPub.rejected' };
 
 export function StatusPill({ status }: { status: Church['status'] }) {
   const label = STATUS_LABEL[status];
   if (!label) return null;
-  return <span className={'cm-status ' + status}>{label}</span>;
+  return <span className={'cm-status ' + status}>{t(label)}</span>;
 }
 
 /** The fields a church has, as the add and edit forms show them. */
@@ -50,30 +51,30 @@ export function ChurchFields({ form, set, errors, autoFocus }: { form: ChurchFor
   return (
     <>
       <label className="form-row">
-        <span>Church name</span>
-        <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Ebenezer SDA Church" maxLength={120} autoFocus={autoFocus} />
+        <span>{t('d.community.churchName')}</span>
+        <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder={t('d.community.churchNamePlaceholder')} maxLength={120} autoFocus={autoFocus} />
         {errors.name ? <span className="form-error">{errors.name}</span> : null}
       </label>
       <label className="form-row">
-        <span>Address</span>
-        <input value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder="Street and number" maxLength={200} />
+        <span>{t('d.community.address')}</span>
+        <input value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder={t('d.community.addressPlaceholder')} maxLength={200} />
       </label>
       <div className="form-2 cm-form-2">
         <label className="form-row">
-          <span>City</span>
-          <input value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="City" maxLength={80} />
+          <span>{t('d.community.city')}</span>
+          <input value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder={t('d.community.city')} maxLength={80} />
         </label>
         <label className="form-row">
-          <span>Country</span>
-          <input value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder="Country" maxLength={80} />
+          <span>{t('d.community.country')}</span>
+          <input value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder={t('d.community.country')} maxLength={80} />
         </label>
       </div>
       <label className="form-row">
-        <span>Service times</span>
-        <input value={form.service_times} onChange={(e) => set({ service_times: e.target.value })} placeholder="Sabbath School 9:30 · Divine Service 11:00" maxLength={200} />
+        <span>{t('d.community.serviceTimes')}</span>
+        <input value={form.service_times} onChange={(e) => set({ service_times: e.target.value })} placeholder={t('d.community.serviceTimesPlaceholder')} maxLength={200} />
       </label>
       <label className="form-row">
-        <span>Website</span>
+        <span>{t('d.community.website')}</span>
         <input value={form.website} onChange={(e) => set({ website: e.target.value })} placeholder="https://" maxLength={500} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" />
         {errors.website ? <span className="form-error">{errors.website}</span> : null}
       </label>
