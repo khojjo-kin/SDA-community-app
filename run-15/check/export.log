@@ -1,0 +1,11 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+Starting Metro Bundler
+iOS ./index.js ▓▓▓░░░░░░░░░░░░░ 19.1% ( 51/357)
+iOS ./index.js ▓▓▓░░░░░░░░░░░░░ 19.1% (188/526)
+iOS ./index.js ▓▓▓░░░░░░░░░░░░░ 19.1% (229/554)
+iOS ./index.js ▓▓▓░░░░░░░░░░░░░ 22.9% (274/572)
+iOS ./index.js ▓▓▓▓▓░░░░░░░░░░░ 34.1% (480/822)
+iOS ./index.js ▓▓▓▓▓░░░░░░░░░░░ 36.4% (551/937)
+iOS ./index.js ▓▓▓▓▓▓░░░░░░░░░░ 43.1% ( 756/1151)
+iOS ./index.js ▓▓▓▓▓▓▓▓░░░░░░░░ 52.4% ( 962/1329)
