@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "bundle:check": "expo export --platform ios --output-dir .export-check",
     "release:ios": "eas build --platform ios --profile production --auto-submit",
-    "android": "expo run:android"
+    "android": "expo run:android",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@clerk/clerk-expo": "2.20.0",
@@ -67,6 +68,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   }
 }
