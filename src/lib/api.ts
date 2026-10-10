@@ -4,7 +4,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { AdminStats, ArchivedStory, Audience, Church, Comment, ErhaMessage, Faq, Highlight, HighlightItem, Hymn, Media, MemberCard, Message, Notice, PlusRequest, Post, Profile, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, Thread } from './types';
+import type { AdminStats, ArchivedStory, Audience, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, Media, MemberCard, Message, Notice, PlusRequest, Post, Profile, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, Thread } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -177,7 +177,8 @@ function keep(list: Post[] | null): Post[] {
 }
 
 export async function fetchFeed(me: string, before?: string): Promise<Post[]> {
-  let q = supabase.from('community_post_cards').select('*').or(`following_author.eq.true,user_id.eq.${me}`).order('created_at', { ascending: false }).limit(PAGE);
+  // People I follow, my own posts, and posts in the communities and pages I belong to.
+  let q = supabase.from('community_post_cards').select('*').or(`following_author.eq.true,user_id.eq.${me},in_my_group.eq.true`).order('created_at', { ascending: false }).limit(PAGE);
   if (before) q = q.lt('created_at', before);
   return keep(ok(await q));
 }
@@ -222,9 +223,9 @@ export const fetchSaved = (me: string) => fetchVia('community_saves', me);
 export const fetchLiked = (me: string) => fetchVia('community_likes', me);
 export const fetchReposts = (userId: string) => fetchVia('community_reposts', userId);
 
-export async function createPost(me: string, input: { caption: string; media: Media[] }): Promise<void> {
+export async function createPost(me: string, input: { caption: string; media: Media[]; group_id?: string | null }): Promise<void> {
   const kind = input.media[0]?.type === 'video' ? 'reel' : 'post';
-  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind }));
+  ok(await supabase.from('community_posts').insert({ user_id: me, caption: input.caption.trim().slice(0, 2200), media: input.media, kind, group_id: input.group_id ?? null }));
   announce('feed');
   announce('profile');
 }
@@ -815,4 +816,88 @@ export async function askErha(text: string): Promise<{ reply: string; remaining:
     throw error;
   }
   return data as { reply: string; remaining: number | null };
+}
+
+/* ---------- communities and pages ---------- */
+
+export async function fetchMyGroups(me: string): Promise<Group[]> {
+  const rows: { group_id: string }[] = ok(await supabase.from('community_group_members').select('group_id').eq('user_id', me).eq('status', 'member')) ?? [];
+  if (!rows.length) return [];
+  return ok(await supabase.from('community_group_cards').select('*').in('id', rows.map((r) => r.group_id)).order('name')) ?? [];
+}
+
+export async function fetchGroups(q = '', kind?: 'community' | 'page'): Promise<Group[]> {
+  let query = supabase.from('community_group_cards').select('*').order('member_count', { ascending: false }).limit(100);
+  if (kind) query = query.eq('kind', kind);
+  const needle = q.trim().replace(/[%,().]/g, ' ').trim();
+  if (needle) query = query.or(`name.ilike.%${needle}%,handle.ilike.%${needle}%,description.ilike.%${needle}%`);
+  return ok(await query) ?? [];
+}
+
+export async function fetchGroup(id: string): Promise<Group | null> {
+  return ok(await supabase.from('community_group_cards').select('*').eq('id', id).maybeSingle());
+}
+
+/** Makes a handle from a name: letters, digits, dots and underscores, 3–30 long. */
+export function handleFrom(name: string): string {
+  const h = name.toLowerCase().replace(/[^a-z0-9_.]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30);
+  return h.length >= 3 ? h : (h + '___').slice(0, 3);
+}
+
+export async function createGroup(input: { kind: 'community' | 'page'; name: string; handle: string; description: string; privacy: 'public' | 'private'; cover_url: string; church_id: string | null }): Promise<string> {
+  const id: string = ok(await supabase.rpc('community_create_group', { p_kind: input.kind, p_name: input.name.trim(), p_handle: input.handle.trim().toLowerCase(), p_description: input.description.trim(), p_privacy: input.privacy, p_cover_url: input.cover_url, p_church_id: input.church_id }));
+  announce('feed');
+  return id;
+}
+
+export async function updateGroup(id: string, patch: Partial<Pick<Group, 'name' | 'description' | 'cover_url' | 'privacy' | 'church_id'>>) {
+  ok(await supabase.from('community_groups').update(patch).eq('id', id));
+}
+
+export async function deleteGroup(id: string) {
+  ok(await supabase.from('community_groups').delete().eq('id', id));
+  announce('feed');
+}
+
+/** Joins a public group at once, or asks to join a private one. */
+export async function joinGroup(me: string, group: Pick<Group, 'id' | 'privacy'>) {
+  ok(await supabase.from('community_group_members').insert({ group_id: group.id, user_id: me, role: 'member', status: group.privacy === 'private' ? 'pending' : 'member' }));
+  announce('feed');
+}
+
+export async function leaveGroup(me: string, groupId: string) {
+  ok(await supabase.from('community_group_members').delete().eq('group_id', groupId).eq('user_id', me));
+  announce('feed');
+}
+
+export async function fetchGroupMembers(groupId: string, status: 'member' | 'pending' = 'member'): Promise<GroupMember[]> {
+  const rows: Omit<GroupMember, 'profile'>[] = ok(await supabase.from('community_group_members').select('*').eq('group_id', groupId).eq('status', status).order('created_at')) ?? [];
+  if (!rows.length) return [];
+  const people = await profilesInOrder(rows.map((r) => r.user_id));
+  const order = { owner: 0, admin: 1, member: 2 } as const;
+  return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.user_id) ?? null })).sort((a, b) => order[a.role] - order[b.role]);
+}
+
+export async function approveMember(groupId: string, userId: string) {
+  ok(await supabase.from('community_group_members').update({ status: 'member' }).eq('group_id', groupId).eq('user_id', userId));
+}
+
+export async function setMemberRole(groupId: string, userId: string, role: 'admin' | 'member') {
+  ok(await supabase.from('community_group_members').update({ role }).eq('group_id', groupId).eq('user_id', userId));
+}
+
+export async function removeMember(groupId: string, userId: string) {
+  ok(await supabase.from('community_group_members').delete().eq('group_id', groupId).eq('user_id', userId));
+}
+
+export async function fetchGroupPosts(groupId: string, before?: string): Promise<Post[]> {
+  let q = supabase.from('community_post_cards').select('*').eq('group_id', groupId).order('created_at', { ascending: false }).limit(PAGE);
+  if (before) q = q.lt('created_at', before);
+  return keep(ok(await q));
+}
+
+/** Whether I may post in this group: any member of a community, owner and admins of a page. */
+export function canPostIn(g: Pick<Group, 'kind' | 'my_standing'>): boolean {
+  if (!g.my_standing || g.my_standing === 'pending') return false;
+  return g.kind === 'community' || g.my_standing === 'owner' || g.my_standing === 'admin';
 }

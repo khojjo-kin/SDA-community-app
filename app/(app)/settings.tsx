@@ -49,6 +49,7 @@ export default function Settings() {
         { icon: 'hymnal', title: 'Hymnal', sub: 'The Seventh-day Adventist Hymnal', href: '/hymnal', words: 'hymns songs sing worship music' },
         { icon: 'lesson', title: 'Sabbath School', sub: "This week's lesson", href: '/sabbath-school', words: 'lesson quarterly study guide' },
         { icon: 'church', title: 'Churches', sub: 'Find churches near you and their members', value: profile?.church_name ?? undefined, href: '/churches', words: 'church near me members find location' },
+        { icon: 'users', title: 'Communities and pages', sub: 'Join groups, follow ministries, or start your own', href: '/groups', words: 'groups community page ministry choir youth join create follow' },
         { icon: 'sparkle', title: 'Erha', sub: 'Your church assistant', href: '/erha', words: 'ai assistant help chat ask' },
       ],
     },

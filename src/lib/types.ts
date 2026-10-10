@@ -61,6 +61,12 @@ export type Post = {
   view_count: number | null;
   /** The author has the tick. */
   verified: boolean;
+  /** Set when the post was made in a community or page. */
+  group_id: string | null;
+  group_name: string | null;
+  group_kind: 'community' | 'page' | null;
+  /** The post is in a group I belong to, so it belongs in my home feed. */
+  in_my_group: boolean;
 };
 
 export type StoryReplies = 'everyone' | 'following' | 'off';
@@ -299,4 +305,33 @@ export type Stats = {
   reposts: number;
   days: StatsDay[];
   top: StatsTop[];
+};
+
+/** A community (anyone joins and posts) or a page (its owner and admins post, everyone follows). */
+export type Group = {
+  id: string;
+  kind: 'community' | 'page';
+  name: string;
+  handle: string;
+  description: string;
+  cover_url: string;
+  privacy: 'public' | 'private';
+  church_id: string | null;
+  created_by: string;
+  created_at: string;
+  church_name: string | null;
+  member_count: number;
+  pending_count: number;
+  posts_count: number;
+  /** Mine: 'owner' | 'admin' | 'member' | 'pending', or null when I am not in it. */
+  my_standing: 'owner' | 'admin' | 'member' | 'pending' | null;
+};
+
+export type GroupMember = {
+  group_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'member';
+  status: 'member' | 'pending';
+  created_at: string;
+  profile: Profile | null;
 };

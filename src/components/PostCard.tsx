@@ -141,10 +141,16 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
               <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{post.username}</Text>
               {post.verified ? <VerifiedTick size={14} /> : null}
             </View>
-            {!mine && !post.following_author ? <Text style={{ color: C.fg2, fontSize: 12.5 }}>Suggested for you</Text> : null}
+            {post.group_id && post.group_name ? (
+              <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5 }} onPress={() => router.push({ pathname: '/group/[id]', params: { id: post.group_id } } as any)} accessibilityRole="link" accessibilityLabel={`In ${post.group_name}`}>
+                in <Text style={{ color: C.fg, fontWeight: '600' }}>{post.group_name}</Text>
+              </Text>
+            ) : !mine && !post.following_author ? (
+              <Text style={{ color: C.fg2, fontSize: 12.5 }}>Suggested for you</Text>
+            ) : null}
           </View>
         </Pressable>
-        {!mine && !post.following_author ? <Button small label="Follow" onPress={() => safe(() => setFollow(me, post.user_id, true))} /> : null}
+        {!mine && !post.following_author && !post.in_my_group ? <Button small label="Follow" onPress={() => safe(() => setFollow(me, post.user_id, true))} /> : null}
         <IconButton name="more" label="More options" onPress={() => setMenu(true)} />
       </View>
 

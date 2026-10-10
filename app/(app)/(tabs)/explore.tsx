@@ -99,6 +99,16 @@ export default function Explore() {
       ) : (
         <PostGrid
           posts={posts}
+          header={
+            <Pressable onPress={() => router.push('/groups' as any)} accessibilityRole="button" accessibilityLabel="Communities and pages" style={({ pressed }) => ({ marginHorizontal: 14, marginBottom: 10, paddingHorizontal: 14, minHeight: 56, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
+              <Icon name="users" size={24} color={C.accent2} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Communities and pages</Text>
+                <Text style={{ color: C.fg2, fontSize: 13 }}>Join a group, follow a ministry, or start your own</Text>
+              </View>
+              <Icon name="right" size={18} color={C.fg2} weight={2} />
+            </Pressable>
+          }
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(true); }}
           onEnd={() => { if (posts.length) load(false, posts[posts.length - 1].created_at); }}

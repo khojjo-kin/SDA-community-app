@@ -82,6 +82,8 @@ export default function AppLayout() {
       <Stack.Screen name="story-editor" options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="highlight/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
       <Stack.Screen name="story-archive/[id]" options={{ animation: 'fade', gestureDirection: 'vertical' }} />
+      <Stack.Screen name="group-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+      <Stack.Screen name="church-new" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
     </Stack>
   );
 }

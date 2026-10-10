@@ -6,20 +6,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { FilteredImage, FilterStrip, useFilterExport } from '../../src/components/FilterStrip';
 import { Icon } from '../../src/components/Icon';
-import { Button, IconButton, Screen, useToast } from '../../src/components/ui';
-import { createPost, uploadImage, uploadVideo } from '../../src/lib/api';
+import { Button, IconButton, Radio, Screen, Sheet, useToast } from '../../src/components/ui';
+import { canPostIn, createPost, fetchMyGroups, uploadImage, uploadVideo } from '../../src/lib/api';
 import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
 import { Picked, pickFromLibrary, pickVideo, takePhoto, videoProblem } from '../../src/lib/pick';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
-import type { Media } from '../../src/lib/types';
+import type { Group, Media } from '../../src/lib/types';
 
 type Mode = 'post' | 'reel';
 
 /** Share a post (up to 10 photos) or a reel (one video up to 60 seconds). Stories have their own screen. */
 export default function Create() {
-  const params = useLocalSearchParams<{ mode?: string; text?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; text?: string; group?: string }>();
   const { me } = useSession();
   const prefs = usePrefs();
   const router = useRouter();
@@ -37,6 +37,15 @@ export default function Create() {
   const [poster, setPoster] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  // Where the post goes: your profile, or one of the communities and pages you can post in.
+  // A group id can arrive from a group's own Post button.
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupId, setGroupId] = useState<string | null>(typeof params.group === 'string' && params.group ? params.group : null);
+  const [choosingGroup, setChoosingGroup] = useState(false);
+  useEffect(() => {
+    fetchMyGroups(me).then((all) => setGroups(all.filter(canPostIn))).catch(() => setGroups([]));
+  }, [me]);
+  const group = groups.find((g) => g.id === groupId) ?? null;
 
   // The upload carries on if this screen is closed part-way; it must not then close whatever is open instead.
   const alive = useRef(true);
@@ -111,7 +120,7 @@ export default function Create() {
         media.push(await uploadImage(me, uri, a.width));
       }
       setBusy('Sharing…');
-      await createPost(me, { caption, media });
+      await createPost(me, { caption, media, group_id: groupId });
       toast(media[0].type === 'video' ? 'Your reel is live' : 'Your post is live');
       if (alive.current) close();
     } catch (e) {
@@ -191,10 +200,32 @@ export default function Create() {
             <TextInput value={caption} onChangeText={setCaption} placeholder="Write a caption…" placeholderTextColor={C.fg3} multiline maxLength={2200} keyboardAppearance="dark" style={{ marginHorizontal: 16, marginTop: 14, minHeight: 90, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
           ) : null}
 
+          {items.length && (groups.length || groupId) ? (
+            <Pressable onPress={() => setChoosingGroup(true)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={`Post to ${group ? group.name : 'your profile'}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 10, paddingHorizontal: 14, minHeight: 50, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 })}>
+              <Icon name={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} size={20} color={C.accent2} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.fg2, fontSize: 12.5 }}>Post to</Text>
+                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{group ? group.name : 'Your profile'}</Text>
+              </View>
+              <Icon name="down" size={18} color={C.fg2} weight={2.2} />
+            </Pressable>
+          ) : null}
+
           {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginTop: 16 }} accessibilityLiveRegion="polite">{busy}</Text> : null}
           {err ? <Text style={{ color: C.like, textAlign: 'center', marginTop: 16, marginHorizontal: 24, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <Sheet visible={choosingGroup} onClose={() => setChoosingGroup(false)} title="Post to">
+        {[{ id: null as string | null, name: 'Your profile', sub: 'Everyone who follows you' }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: g.kind === 'page' ? 'Page' : g.privacy === 'private' ? 'Private community' : 'Community' }))].map((o) => (
+          <Pressable key={o.id ?? 'me'} onPress={() => { setGroupId(o.id); setChoosingGroup(false); }} accessibilityRole="radio" accessibilityState={{ checked: groupId === o.id }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 54 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.fg, fontSize: 16.5 }} numberOfLines={1}>{o.name}</Text>
+              <Text style={{ color: C.fg2, fontSize: 13 }}>{o.sub}</Text>
+            </View>
+            <Radio on={groupId === o.id} />
+          </Pressable>
+        ))}
+      </Sheet>
       {/* Draws filtered photos offscreen at share time. Takes no space. */}
       {exporter}
     </Screen>
