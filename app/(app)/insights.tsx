@@ -6,6 +6,7 @@ import { GridCell, useOpenFromGrid } from '../../src/components/Grid';
 import { PersonRow } from '../../src/components/PersonRow';
 import { Divider, Empty, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
 import { fetchStats, fetchUserPosts, listNewFollowers } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { useSession } from '../../src/lib/session';
 import { C, count, dayLabel, dayLabelISO, errText, fmt } from '../../src/lib/theme';
 import type { Post, Profile, Stats, StatsDay } from '../../src/lib/types';
@@ -14,11 +15,13 @@ type Kind = 'views' | 'followers' | 'content';
 const TITLES: Record<Kind, string> = { views: 'Views', followers: 'Followers', content: 'Content you shared' };
 const RANGES = [7, 30, 90];
 
-function Bars({ days, pick, what }: { days: StatsDay[]; pick: (d: StatsDay) => number; what: string }) {
-  const values = days.map(pick);
-  const max = Math.max(1, ...values);
-  const best = values.indexOf(Math.max(...values));
-  const summary = values.some((v) => v > 0) ? `${what} by day. The most was ${values[best]} on ${dayLabelISO(days[best].d)}.` : `${what} by day. None in this period.`;
+/** One bar a day, in the accent colour; days with none show as a thin line. Memoised: it only changes with its numbers. */
+const Bars = React.memo(function Bars({ days, pick, what }: { days: StatsDay[]; pick: 'views' | 'followers'; what: string }) {
+  const values = days.map((d) => Number(d[pick]) || 0);
+  const most = values.length ? Math.max(...values) : 0;
+  const max = Math.max(1, most);
+  const best = values.indexOf(most);
+  const summary = most > 0 ? `${what} by day. The most was ${fmt(most)} on ${dayLabelISO(days[best].d)}.` : `${what} by day. None in this period.`;
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={summary} style={{ paddingHorizontal: 16, paddingTop: 8 }}>
       <View style={{ height: 120, flexDirection: 'row', alignItems: 'flex-end', gap: days.length > 45 ? 1 : 2 }}>
@@ -27,24 +30,27 @@ function Bars({ days, pick, what }: { days: StatsDay[]; pick: (d: StatsDay) => n
         ))}
       </View>
       {days.length ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingTop: 6 }}>
           <Text style={{ color: C.fg3, fontSize: 12.5 }}>{dayLabelISO(days[0].d)}</Text>
-          <Text style={{ color: C.fg3, fontSize: 12.5 }}>Most in a day: {fmt(max === 1 && !values.some((v) => v > 0) ? 0 : max)}</Text>
+          <Text numberOfLines={1} style={{ flexShrink: 1, color: C.fg3, fontSize: 12.5 }}>Most in a day: {fmt(most)}</Text>
           <Text style={{ color: C.fg3, fontSize: 12.5 }}>{dayLabelISO(days[days.length - 1].d)}</Text>
         </View>
       ) : null}
     </View>
   );
-}
+});
 
 function Line({ label, value }: { label: string; value: number }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 44 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 44 }}>
       <Text style={{ flex: 1, color: C.fg, fontSize: 17 }}>{label}</Text>
       <Text style={{ color: C.fg, fontSize: 17, fontVariant: ['tabular-nums'] }}>{fmt(value)}</Text>
     </View>
   );
 }
+
+/** What is on screen, with the number of days it covers (the tab may already be on another while that loads). */
+type Shown = { stats: Stats; days: number; people: Profile[]; posts: Post[] };
 
 export default function Insights() {
   const params = useLocalSearchParams<{ kind?: string }>();
@@ -54,11 +60,17 @@ export default function Insights() {
   const { width } = useWindowDimensions();
   const cell = Math.floor((width - 4) / 3);
   const [days, setDays] = useState(30);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [people, setPeople] = useState<Profile[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const openPost = useOpenFromGrid(posts);
+  const openPost = useOpenFromGrid(shown?.posts ?? []);
+  // One screen per tap, however quickly a post is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
 
   const asked = useRef(0);
   const load = useCallback(async () => {
@@ -67,30 +79,33 @@ export default function Insights() {
     const to = new Date();
     const from = new Date(to.getTime() - days * 86400e3);
     setError('');
-    setStats(null);
+    setLoading(true);
     try {
-      const s = await fetchStats(from, to);
+      // What was there stays (dimmed) until the new period has all arrived, so the page doesn't jump.
+      const [stats, people, posts] = await Promise.all([
+        fetchStats(from, to),
+        kind === 'followers' ? listNewFollowers(me, from) : Promise.resolve([] as Profile[]),
+        kind === 'content' ? fetchUserPosts(me).then((list) => list.filter((p) => new Date(p.created_at).getTime() >= from.getTime())) : Promise.resolve([] as Post[]),
+      ]);
       if (mine !== asked.current) return;
-      setStats(s);
-      if (kind === 'followers') {
-        const list = await listNewFollowers(me, from);
-        if (mine === asked.current) setPeople(list);
-      }
-      if (kind === 'content') {
-        const list = (await fetchUserPosts(me)).filter((p) => new Date(p.created_at).getTime() >= from.getTime());
-        if (mine === asked.current) setPosts(list);
-      }
+      setShown({ stats: { ...stats, days: stats.days ?? [], top: stats.top ?? [] }, days, people, posts });
     } catch (e) {
       if (mine === asked.current) setError(errText(e));
+    } finally {
+      if (mine === asked.current) setLoading(false);
     }
   }, [days, kind, me]);
 
   useEffect(() => {
     load();
   }, [load]);
+  // Nothing more is drawn once the screen has gone.
+  useEffect(() => () => { asked.current++; }, []);
 
+  const stats = shown?.stats ?? null;
   const headline = !stats ? 0 : kind === 'views' ? stats.views : kind === 'followers' ? stats.new_followers : stats.posts + stats.reels + stats.stories;
   const caption = kind === 'views' ? 'views' : kind === 'followers' ? (headline === 1 ? 'new follower' : 'new followers') : headline === 1 ? 'thing shared' : 'things shared';
+  const viewed = stats ? stats.top.filter((x) => x.views > 0) : [];
 
   return (
     <Screen>
@@ -98,7 +113,16 @@ export default function Insights() {
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 4 }} accessibilityRole="tablist">
           {RANGES.map((r) => (
-            <Pressable key={r} onPress={() => setDays(r)} accessibilityRole="tab" accessibilityState={{ selected: days === r }} style={{ height: 34, paddingHorizontal: 14, borderRadius: 17, justifyContent: 'center', backgroundColor: days === r ? C.fg : C.surface2 }}>
+            <Pressable
+              key={r}
+              onPress={() => {
+                if (r === days) return;
+                tap('select');
+                setDays(r);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: days === r }}
+              style={({ pressed }) => ({ height: 34, paddingHorizontal: 14, borderRadius: 17, justifyContent: 'center', backgroundColor: days === r ? C.fg : C.surface2, opacity: pressed && days !== r ? 0.7 : 1 })}>
               <Text style={{ color: days === r ? C.bg : C.fg, fontWeight: '600' }}>Last {r} days</Text>
             </Pressable>
           ))}
@@ -106,18 +130,18 @@ export default function Insights() {
 
         {error ? (
           <ErrorNote message={error} onRetry={load} />
-        ) : !stats ? (
+        ) : !stats || !shown ? (
           <Loading />
         ) : (
-          <>
+          <View style={{ opacity: loading ? 0.45 : 1 }} accessibilityState={{ busy: loading }}>
             <View style={{ paddingHorizontal: 16, paddingTop: 22, paddingBottom: 6 }}>
               <Text style={{ color: C.fg, fontSize: 44, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{fmt(headline)}</Text>
-              <Text style={{ color: C.fg2, fontSize: 16 }}>{caption} in the last {days} days</Text>
+              <Text style={{ color: C.fg2, fontSize: 16 }}>{caption} in the last {shown.days} days</Text>
             </View>
 
             {kind === 'views' ? (
               <>
-                <Bars days={stats.days} pick={(d) => d.views} what="Views" />
+                <Bars days={stats.days} pick="views" what="Views" />
                 <View style={{ height: 10 }} />
                 <Divider thin />
                 <SectionLabel strong>Where they came from</SectionLabel>
@@ -126,36 +150,34 @@ export default function Insights() {
                 <Line label="Different people who saw you" value={stats.accounts} />
                 <Divider thin />
                 <SectionLabel strong>Most viewed</SectionLabel>
-                {stats.top.filter((t) => t.views > 0).length === 0 ? (
+                {viewed.length === 0 ? (
                   <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>No views yet.</Text>
                 ) : (
-                  stats.top
-                    .filter((t) => t.views > 0)
-                    .map((t) => {
-                      const thumb = t.media ? (t.media.type === 'video' ? t.media.poster : t.media.url) : undefined;
-                      return (
-                        <Pressable key={t.id} onPress={() => router.push(t.kind === 'reel' ? `/watch/${t.id}` : `/post/${t.id}`)} accessibilityRole="button" accessibilityLabel={`${t.kind === 'reel' ? 'Short' : 'Post'} with ${t.views} views`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
-                          <Image source={thumb ? { uri: thumb } : undefined} style={{ width: 54, height: 72, borderRadius: 8, backgroundColor: C.surface2 }} contentFit="cover" />
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: C.fg, fontSize: 17, fontWeight: '600' }}>{count(t.views, 'view')}</Text>
-                            <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2 }}>{count(t.likes, 'like')} · {count(t.comments, 'comment')} · {dayLabel(new Date(t.created_at))}</Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })
+                  viewed.map((x) => {
+                    const thumb = x.media ? (x.media.type === 'video' ? x.media.poster : x.media.url) : undefined;
+                    return (
+                      <Pressable key={x.id} onPress={() => open(x.kind === 'reel' ? `/watch/${x.id}` : `/post/${x.id}`)} accessibilityRole="button" accessibilityLabel={`${x.kind === 'reel' ? 'Short' : 'Post'} with ${count(x.views, 'view')}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
+                        <Image source={thumb ? { uri: thumb } : undefined} style={{ width: 54, height: 72, borderRadius: 8, backgroundColor: C.surface2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.fg, fontSize: 17, fontWeight: '600' }}>{count(x.views, 'view')}</Text>
+                          <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, marginTop: 2 }}>{count(x.likes, 'like')} · {count(x.comments, 'comment')} · {dayLabel(new Date(x.created_at))}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })
                 )}
               </>
             ) : null}
 
             {kind === 'followers' ? (
               <>
-                <Bars days={stats.days} pick={(d) => d.followers} what="New followers" />
+                <Bars days={stats.days} pick="followers" what="New followers" />
                 <View style={{ height: 10 }} />
                 <Divider thin />
                 <Line label="Followers in total" value={stats.followers} />
                 <Divider thin />
                 <SectionLabel strong>New followers</SectionLabel>
-                {people.length ? people.map((p) => <PersonRow key={p.id} person={p} />) : <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>Nobody new followed you in this period.</Text>}
+                {shown.people.length ? shown.people.map((p) => <PersonRow key={p.id} person={p} />) : <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>Nobody new followed you in this period.</Text>}
               </>
             ) : null}
 
@@ -172,12 +194,12 @@ export default function Insights() {
                 <Line label="Likes" value={stats.likes} />
                 <Line label="Comments" value={stats.comments} />
                 <Line label="Reposts" value={stats.reposts} />
-                {posts.length ? (
+                {shown.posts.length ? (
                   <>
                     <Divider thin />
                     <SectionLabel strong>Posts and shorts from this period</SectionLabel>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2 }}>
-                      {posts.map((p) => (
+                      {shown.posts.map((p) => (
                         <GridCell key={p.id} post={p} size={cell} onOpen={openPost} />
                       ))}
                     </View>
@@ -187,7 +209,7 @@ export default function Insights() {
                 )}
               </>
             ) : null}
-          </>
+          </View>
         )}
       </ScrollView>
     </Screen>

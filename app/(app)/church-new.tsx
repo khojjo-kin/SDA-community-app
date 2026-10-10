@@ -4,14 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Button, Field, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { addChurch, updateProfile } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { t } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { announce } from '../../src/lib/store';
 import { C, errText } from '../../src/lib/theme';
 
 type Errors = { name?: string; website?: string; form?: string };
-
-/** Said when a member's church goes in as 'pending'. */
-const PENDING_NOTE = 'An admin will check this church before it appears for everyone. You can see it in your list meanwhile.';
 
 /** Accepts "example.org" or "https://example.org". Empty stays empty; anything that does not look like a site is null. */
 function siteOf(raw: string): string | null {
@@ -24,7 +23,7 @@ function siteOf(raw: string): string | null {
 export default function ChurchNew() {
   const router = useRouter();
   const toast = useToast();
-  const { me, profile, refresh } = useSession();
+  const { me, refresh } = useSession();
   const params = useLocalSearchParams<{ pick?: string }>();
   // Opened from Edit profile (through the church list): hand the new church straight back instead of asking.
   const picking = params.pick === '1';
@@ -36,21 +35,29 @@ export default function ChurchNew() {
   const [website, setWebsite] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  // Set the moment Add is tapped: finding the address on the map takes a moment, and a second tap must not add the church twice.
+  const busyNow = useRef(false);
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   // Replace this form in the stack, so Back from the church goes to the list rather than an empty form.
   const open = (id: string) => (picking ? router.dismissTo({ pathname: '/edit-profile', params: { church: id } } as any) : router.replace({ pathname: '/church/[id]', params: { id } } as any));
 
   async function save() {
-    if (busy) return;
+    if (busyNow.current) return;
     const n = name.trim();
     const site = siteOf(website);
     const errs: Errors = {};
-    if (!n) errs.name = "Add the church's name.";
+    if (n.length < 2) errs.name = "Add the church's name.";
     if (site === null) errs.website = 'That website address does not look right.';
     setErrors(errs);
     if (errs.name || errs.website) return;
+    busyNow.current = true;
     setBusy(true);
 
     // Try to pin the church so the list can sort by distance. Nothing here is fatal: a church without a pin still lists, just without a distance.
@@ -73,23 +80,27 @@ export default function ChurchNew() {
     try {
       const church = await addChurch(me, { name: n, address: address.trim(), city: city.trim(), country: country.trim(), lat, lng, website: site ?? '', service_times: times.trim() });
       if (!alive.current) return;
-      // A member's church waits for an admin (the database decides; an admin's goes straight in), so say so before anything else.
+      tap('success');
+      // A member's church waits for an admin (the database decides; an admin's goes straight in).
       const pending = church.status === 'pending';
       if (picking) {
         if (!pending) return open(church.id);
-        Alert.alert('Thanks!', PENDING_NOTE, [{ text: 'OK', onPress: () => open(church.id) }], { cancelable: false });
+        Alert.alert('Thanks!', t('churches.pendingNote'), [{ text: 'OK', onPress: () => open(church.id) }], { cancelable: false });
         return;
       }
       Alert.alert(
-        pending ? 'Thanks!' : 'Make this your church?',
-        pending ? `${PENDING_NOTE}\n\nMake ${church.name} your church as well? You would appear in its members list.` : `${church.name} would show on your profile, and you would appear in its members list.`,
+        pending ? t('churches.thanksMakeYours') : 'Make this your church?',
+        pending ? t('churches.pendingNote') : undefined,
         [
           { text: 'Not now', style: 'cancel', onPress: () => open(church.id) },
           {
             text: 'Yes',
             onPress: () => {
               updateProfile(me, { church_id: church.id })
-                .then(async () => { announce('profile'); await refresh(); })
+                .then(async () => {
+                  announce('profile');
+                  await refresh();
+                })
                 .catch((e) => toast(errText(e)))
                 .finally(() => open(church.id));
             },
@@ -98,6 +109,8 @@ export default function ChurchNew() {
         { cancelable: false }, // tapping outside would otherwise leave the form stuck on busy
       );
     } catch (e) {
+      busyNow.current = false;
+      if (!alive.current) return;
       setErrors({ form: errText(e) });
       setBusy(false);
     }
@@ -105,23 +118,17 @@ export default function ChurchNew() {
 
   return (
     <Screen>
-      <ScreenHeader title="Add a church" />
+      <ScreenHeader title="Add a church" close />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 12 }} keyboardShouldPersistTaps="handled">
-          <Text style={{ color: C.fg2, lineHeight: 20, paddingBottom: 4 }}>
-            {profile?.admin_role
-              ? 'List a church so the family can find it. As an admin, yours goes straight into the list.'
-              : 'List your church so the family can find it. An admin checks each new church before it appears for everyone, and can correct the details later.'}
-          </Text>
-          <Field label="Church name" value={name} onChangeText={setName} placeholder="e.g. Ebenezer SDA Church" maxLength={120} error={errors.name} autoFocus />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 12 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+          <Field label="Church name" value={name} onChangeText={(v) => { setName(v); if (errors.name) setErrors((e) => ({ ...e, name: undefined })); }} placeholder="e.g. Ebenezer SDA Church" maxLength={120} error={errors.name} autoFocus />
           <Field label="Address" value={address} onChangeText={setAddress} placeholder="Street and number" maxLength={200} />
           <Field label="City" value={city} onChangeText={setCity} placeholder="City" maxLength={80} />
           <Field label="Country" value={country} onChangeText={setCountry} placeholder="Country" maxLength={80} />
           <Field label="Service times" value={times} onChangeText={setTimes} placeholder="Sabbath School 9:30 · Divine Service 11:00" maxLength={200} />
-          <Field label="Website" value={website} onChangeText={setWebsite} placeholder="https://" autoCapitalize="none" autoCorrect={false} keyboardType="url" maxLength={500} error={errors.website} />
+          <Field label="Website" value={website} onChangeText={(v) => { setWebsite(v); if (errors.website) setErrors((e) => ({ ...e, website: undefined })); }} placeholder="https://" autoCapitalize="none" autoCorrect={false} keyboardType="url" maxLength={300} error={errors.website} />
           {errors.form ? <Text style={{ color: C.like, lineHeight: 19 }}>{errors.form}</Text> : null}
           <Button label="Add church" busy={busy} onPress={save} style={{ marginTop: 6 }} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center' }}>The address places the church on the map and sorts the list by distance.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

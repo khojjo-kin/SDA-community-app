@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Field, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { openSupportTicket } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
-import { C, errText } from '../../src/lib/theme';
+import { errText } from '../../src/lib/theme';
 
 /** A message to the admins. The reply comes back under Help and support. */
 export default function SupportTicket() {
   const { me } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
@@ -22,7 +25,8 @@ export default function SupportTicket() {
     setBusy(true);
     try {
       await openSupportTicket(me, subject, body);
-      toast('Sent. An admin will reply here.');
+      tap('success');
+      toast(t('support.ticketSent'));
       if (router.canGoBack()) router.back();
       else router.replace('/help');
     } catch (e) {
@@ -35,8 +39,7 @@ export default function SupportTicket() {
     <Screen>
       <ScreenHeader title="Message support" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>Tell the admins what is wrong or what you need. They reply inside the app: look under Help and support, then Your tickets.</Text>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
           <Field label="Subject" value={subject} onChangeText={setSubject} placeholder="What is it about?" maxLength={140} autoFocus returnKeyType="next" />
           <Field label="Message" value={body} onChangeText={setBody} placeholder="What happened, and what you expected" multiline maxLength={4000} style={{ minHeight: 160, textAlignVertical: 'top' }} />
           <View style={{ paddingTop: 4 }}>

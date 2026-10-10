@@ -65,7 +65,8 @@ export function DarkErrorNote({ message, onRetry }: { message: string; onRetry?:
     <View style={{ padding: 28, alignItems: 'center', gap: 12 }}>
       <Text style={{ color: DARK.fg, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>This didn't load</Text>
       <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{message}</Text>
-      {onRetry ? <Button label="Try again" kind="ghost" small onPress={onRetry} /> : null}
+      {/* Dark colours whatever the theme: a ghost button would be a pale pill on black in White. */}
+      {onRetry ? <Button label="Try again" kind="ghost" small onPress={onRetry} style={{ backgroundColor: DARK.surface2 }} textColor={DARK.fg} /> : null}
     </View>
   );
 }

@@ -1,13 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName } from '../../src/components/Icon';
-import { Row, RoundButton, Screen, ScreenHeader, SearchField, SectionLabel, Sheet, SheetRow, Toggle, useToast } from '../../src/components/ui';
+import { Skeleton, SkeletonFrame } from '../../src/components/Skeleton';
+import { Empty, Row, RoundButton, Screen, ScreenHeader, SearchField, SectionLabel, Sheet, SheetRow, Toggle, useToast } from '../../src/components/ui';
 import { BOOKS, fetchChapter, loadBibleSettings, parseReference, type TranslationId } from '../../src/lib/bible';
 import { useT } from '../../src/lib/i18n';
 import { setPrefs, usePrefs } from '../../src/lib/prefs';
 import { C } from '../../src/lib/theme';
+
+/** When a screen was last opened from this page, so a quick second tap doesn't open it twice. */
+let openedAt = 0;
+const once = (go: () => void) => {
+  const now = Date.now();
+  if (now - openedAt < 700) return;
+  openedAt = now;
+  go();
+};
 
 /* ---------- verse of the day ---------- */
 
@@ -95,6 +105,7 @@ const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'seri
 function VerseCard({ onOpen }: { onOpen: (book: string, chapter: number) => void }) {
   const toast = useToast();
   const t = useT();
+  const { width } = useWindowDimensions();
   // Worked out each time the page is shown, so coming back the next day brings the next verse, and a
   // translation chosen in the reader meanwhile is picked up.
   const [shownAt, setShownAt] = useState(() => Date.now());
@@ -174,9 +185,18 @@ function VerseCard({ onOpen }: { onOpen: (book: string, chapter: number) => void
             <Icon name="more" size={20} color="rgba(255,255,255,0.85)" />
           </Pressable>
         </View>
-        <Text selectable style={{ color: '#ffffff', fontFamily: SERIF, fontSize: 20.5, lineHeight: 30 }}>
-          {ready ? `“${ready.text}”` : failed ? t('bible.openToRead') : '…'}
-        </Text>
+        {ready || failed ? (
+          <Text selectable style={{ color: '#ffffff', fontFamily: SERIF, fontSize: 20.5, lineHeight: 30 }}>
+            {ready ? `“${ready.text}”` : t('bible.openToRead')}
+          </Text>
+        ) : (
+          // Pale lines where the verse will be, on the card's own dark green.
+          <SkeletonFrame style={{ gap: 12, paddingVertical: 7 }}>
+            {[0.94, 0.86, 0.52].map((f, i) => (
+              <Skeleton key={i} dark width={Math.round((width - 68) * f)} height={15} radius={7} x={34} />
+            ))}
+          </SkeletonFrame>
+        )}
         <Text style={{ color: 'rgba(255,255,255,0.86)', fontSize: 14.5, fontWeight: '700' }}>
           {verse.ref}
           {ready ? <Text style={{ fontWeight: '500', color: 'rgba(255,255,255,0.65)' }}>{`  ${ready.translation.toUpperCase()}`}</Text> : null}
@@ -210,7 +230,8 @@ export default function Bible() {
     }, []),
   );
 
-  const open = (book: string, chapter = 1) => router.push({ pathname: '/bible/[book]', params: { book, c: String(chapter) } } as any);
+  const open = (book: string, chapter = 1) => once(() => router.push({ pathname: '/bible/[book]', params: { book, c: String(chapter) } } as any));
+  const openMarks = () => once(() => router.push('/bible-marks' as any));
   const needle = q.trim().toLowerCase();
   const ref = needle ? parseReference(q) : null;
   const matches = needle ? BOOKS.filter((b) => b.name.toLowerCase().includes(needle)) : [];
@@ -231,7 +252,7 @@ export default function Bible() {
       <View style={{ paddingBottom: 6 }}>
         <SearchField value={q} onChangeText={setQ} placeholder="Book, or a reference like John 3" label="Search the Bible" />
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {needle ? (
           <View style={{ paddingTop: 8 }}>
             {ref ? (
@@ -247,7 +268,7 @@ export default function Bible() {
                 <Text style={{ color: C.fg2, fontSize: 13 }}>{b.chapters} chapters</Text>
               </Pressable>
             ))}
-            {!ref && !matches.length ? <Text style={{ color: C.fg2, textAlign: 'center', padding: 24 }}>Try a book name, or a reference like Psalm 23.</Text> : null}
+            {!ref && !matches.length ? <Empty icon="search" title={t('bible.noMatch')} /> : null}
           </View>
         ) : (
           <>
@@ -262,7 +283,7 @@ export default function Bible() {
                 <Icon name="right" size={18} color={C.fg2} weight={2} />
               </Pressable>
             ) : null}
-            <Pressable onPress={() => router.push('/bible-marks' as any)} accessibilityRole="button" style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, height: 52, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
+            <Pressable onPress={openMarks} accessibilityRole="button" style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, height: 52, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
               <Icon name="compose" size={22} color={C.accent2} />
               <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600', flex: 1 }}>{t('bibleMarks.title')}</Text>
               <Icon name="right" size={18} color={C.fg2} weight={2} />
@@ -271,7 +292,7 @@ export default function Bible() {
             {list('old')}
             <SectionLabel>New Testament</SectionLabel>
             {list('new')}
-            <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24, lineHeight: 17 }}>King James Version and World English Bible, both public domain. Chapters stay on your phone once you have opened them.</Text>
+            <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24, lineHeight: 17 }}>King James Version and World English Bible, both public domain.</Text>
           </>
         )}
       </ScrollView>
@@ -279,7 +300,7 @@ export default function Bible() {
       {/* The page's menu: for now, the verse of the day, so a hidden card can be brought back. */}
       <Sheet visible={menu} onClose={() => setMenu(false)} title={t('churchApps.bible')}>
         <Row icon="sparkle" title={t('bible.verseOfDay')} right={<Toggle value={dailyVerse} onChange={(next) => setPrefs({ dailyVerse: next })} label={t('bible.verseOfDay')} />} />
-        <Row icon="compose" title={t('bibleMarks.title')} onPress={() => { setMenu(false); router.push('/bible-marks' as any); }} />
+        <Row icon="compose" title={t('bibleMarks.title')} onPress={() => { setMenu(false); openMarks(); }} />
       </Sheet>
     </Screen>
   );

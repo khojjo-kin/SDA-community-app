@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, Alert, Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -9,8 +9,37 @@ import { tap } from '../lib/haptics';
 // Plain t(), not useT(): these pieces are on every screen, and every screen is drawn again from the
 // root when the language changes, so they needn't each listen for it.
 import { t } from '../lib/i18n';
+import { reduceMotionNow } from '../lib/motion';
 import { C, CLOSE_RING, RING } from '../lib/theme';
 import { Icon, IconName } from './Icon';
+
+/* ---------- the floating tab bar's size, for anything that must sit clear of it ---------- */
+
+export const TAB_BAR_HEIGHT = 64;
+/** How far the tab bar sits above the bottom of the screen, given the safe-area inset there. */
+export const tabBarBottom = (insetBottom: number) => Math.max(insetBottom - 8, 10);
+
+/* ---------- one tap at a time ---------- */
+
+/** A second tap this soon after the first is the same tap, not a new one (a double tap on a row). */
+const ONE_TAP_MS = 320;
+
+/**
+ * The press handler, ignoring a repeat within a third of a second, so a quick double tap on a row or
+ * button opens one screen, sends one request, not two.
+ */
+function useOneTap(fn: (() => void) | undefined): (() => void) | undefined {
+  const last = useRef(0);
+  const ref = useRef(fn);
+  ref.current = fn;
+  const handler = useCallback(() => {
+    const now = Date.now();
+    if (now - last.current < ONE_TAP_MS) return;
+    last.current = now;
+    ref.current?.();
+  }, []);
+  return fn ? handler : undefined;
+}
 
 /* ---------- avatar ---------- */
 
@@ -59,10 +88,11 @@ export function Button({ label, onPress, kind = 'primary', small, busy, disabled
   // Ghost buttons sit on the page colour, so their words follow the theme; the others are on a strong colour.
   const fg = textColor ?? (kind === 'primary' ? C.onAccent : kind === 'danger' ? '#ffffff' : C.fg);
   const font = useAppFont('bold');
+  const press = useOneTap(onPress ? () => { tap('light'); onPress(); } : undefined);
   return (
     <Pressable
       // A light tap under the finger (if the member has haptics on); nothing while the button can't be pressed.
-      onPress={busy || disabled || !onPress ? undefined : () => { tap('light'); onPress(); }}
+      onPress={busy || disabled ? undefined : press}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
@@ -73,7 +103,7 @@ export function Button({ label, onPress, kind = 'primary', small, busy, disabled
   );
 }
 
-export function Field({ label, error, style, ...rest }: TextInputProps & { label?: string; error?: string }) {
+export function Field({ label, error, style, ...rest }: TextInputProps & { label?: string; error?: string; ref?: React.Ref<TextInput> }) {
   const font = useAppFont();
   return (
     <View style={{ gap: 6 }}>
@@ -85,8 +115,9 @@ export function Field({ label, error, style, ...rest }: TextInputProps & { label
 }
 
 export function IconButton({ name, onPress, size = 24, color = C.fg, label, fill, badge, bg }: { name: IconName; onPress?: () => void; size?: number; color?: string; label: string; fill?: boolean; badge?: boolean; bg?: string }) {
+  const press = useOneTap(onPress ? () => { tap('light'); onPress(); } : undefined);
   return (
-    <Pressable onPress={onPress ? () => { tap('light'); onPress(); } : undefined} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, backgroundColor: bg })}>
+    <Pressable onPress={press} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, backgroundColor: bg })}>
       <Icon name={name} size={size} color={color} fill={fill} />
       {badge ? <View style={{ position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: C.like, borderWidth: 2, borderColor: C.bg }} /> : null}
     </Pressable>
@@ -95,9 +126,10 @@ export function IconButton({ name, onPress, size = 24, color = C.fg, label, fill
 
 /** The round button used in screen headers. */
 export function RoundButton({ name, onPress, label, size = 44, bg = C.round, color = C.fg, iconSize = 24 }: { name: IconName; onPress?: () => void; label: string; size?: number; bg?: string; color?: string; iconSize?: number }) {
+  const press = useOneTap(onPress ? () => { tap('light'); onPress(); } : undefined);
   return (
     <Pressable
-      onPress={onPress ? () => { tap('light'); onPress(); } : undefined}
+      onPress={press}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -162,15 +194,18 @@ export function Header({ title, left, right, center }: { title?: string; left?: 
   );
 }
 
-/** Settings-style header: a round back button, the title in the middle, and room for one round button on the right. */
-export function ScreenHeader({ title, right, onBack, noBack }: { title: string; right?: React.ReactNode; onBack?: () => void; noBack?: boolean }) {
+/**
+ * Settings-style header: a round back button, the title in the middle, and room for one round button
+ * on the right. `close` shows an X instead of the arrow, for screens that slide up from the bottom.
+ */
+export function ScreenHeader({ title, right, onBack, noBack, close }: { title: string; right?: React.ReactNode; onBack?: () => void; noBack?: boolean; close?: boolean }) {
   const router = useRouter();
   const font = useAppFont('bold');
   const back = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
       {/* Both sides take the same room, so the title stays centred; neither squeezes a word like "Done" onto two lines. */}
-      <View style={{ minWidth: 64, flexShrink: 0 }}>{noBack ? null : <RoundButton name="back" label={t('common.back')} onPress={back} />}</View>
+      <View style={{ minWidth: 64, flexShrink: 0 }}>{noBack ? null : <RoundButton name={close ? 'close' : 'back'} label={t(close ? 'common.close' : 'common.back')} onPress={back} />}</View>
       <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8, fontFamily: font }}>
         {title}
       </Text>
@@ -184,10 +219,12 @@ export function Screen({ children, edges = true, style }: { children: React.Reac
   return <View style={[{ flex: 1, backgroundColor: C.bg, paddingTop: edges ? insets.top : 0 }, style]}>{children}</View>;
 }
 
-/** One line in a settings list. */
-export function Row({ icon, title, sub, value, onPress, right, color, chevron = true, bold }: { icon?: IconName; title: string; sub?: string; value?: string; onPress?: () => void; right?: React.ReactNode; color?: string; chevron?: boolean; bold?: boolean }) {
+/** One line in a settings list. `badge` shows a red count (things waiting), read out with the title. */
+export function Row({ icon, title, sub, value, onPress, right, color, chevron = true, bold, badge }: { icon?: IconName; title: string; sub?: string; value?: string; onPress?: () => void; right?: React.ReactNode; color?: string; chevron?: boolean; bold?: boolean; badge?: number }) {
   const font = useAppFont();
   const fontBold = useAppFont('bold');
+  const press = useOneTap(onPress);
+  const count = badge && badge > 0 ? (badge > 99 ? '99+' : String(badge)) : '';
   const body = (
     <>
       {icon ? <Icon name={icon} size={26} color={color ?? C.fg} /> : null}
@@ -196,14 +233,20 @@ export function Row({ icon, title, sub, value, onPress, right, color, chevron = 
         {sub ? <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
       </View>
       {value ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 16.5, fontFamily: font, flexShrink: 1, maxWidth: '50%' }}>{value}</Text> : null}
+      {count ? (
+        <View style={{ minWidth: 22, height: 22, paddingHorizontal: 7, borderRadius: 11, backgroundColor: C.like, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#ffffff', fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{count}</Text>
+        </View>
+      ) : null}
       {right}
       {onPress && chevron ? <Icon name="right" size={18} color={C.fg2} weight={2} /> : null}
     </>
   );
   const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14, paddingHorizontal: 16, minHeight: 48 };
-  if (!onPress) return <View style={style}>{body}</View>;
+  const spoken = [title, value, count].filter(Boolean).join(', ');
+  if (!onPress) return <View style={style} accessible={!!count} accessibilityLabel={count ? spoken : undefined}>{body}</View>;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${title}, ${value}` : title} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
+    <Pressable onPress={press} accessibilityRole="button" accessibilityLabel={spoken} style={({ pressed }) => [style, { backgroundColor: pressed ? C.press : 'transparent' }]}>
       {body}
     </Pressable>
   );
@@ -259,24 +302,89 @@ export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () 
 
 /* ---------- bottom sheet ---------- */
 
+/**
+ * A panel that slides up from the bottom over a dimmed screen, as on Instagram: the dim fades in while
+ * the panel rises, and the panel can be dragged down by its top to close. While it slides away it
+ * keeps showing what it showed, rather than going blank as the screen behind tidies up.
+ *
+ * Closing takes the same time as before (the dim fades out over about a third of a second), so
+ * anything that waits for a sheet to go before showing an alert (afterSheet) still works.
+ */
 export function Sheet({ visible, onClose, title, children, tall, footer }: { visible: boolean; onClose: () => void; title?: string; children: React.ReactNode; tall?: boolean; footer?: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
+  // 1 = below the screen, 0 = in place. The drag is how far a finger has pulled it down.
+  const slide = useRef(new Animated.Value(1)).current;
+  const drag = useRef(new Animated.Value(0)).current;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const kept = useRef({ title, children, footer });
+  if (visible) kept.current = { title, children, footer };
+  const shown = visible ? { title, children, footer } : kept.current;
+  const slot = useSheetSlot(visible);
+
+  useEffect(() => {
+    if (visible) {
+      drag.setValue(0);
+      if (reduceMotionNow() === true) {
+        slide.setValue(0);
+        return;
+      }
+      Animated.timing(slide, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    } else {
+      Animated.timing(slide, { toValue: 1, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start();
+    }
+  }, [visible, slide, drag]);
+
+  const pan = useRef(
+    PanResponder.create({
+      // The Modal takes every touch no view inside claims as it starts, and a touch taken can't move to
+      // a view inside it, so a drag asked for only once moving would never reach the handle.
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
+      onPanResponderRelease: (_, g) => {
+        const back = () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 18 }).start();
+        if (g.dy > 110 || (g.vy > 0.8 && g.dy > 24)) {
+          closeRef.current();
+          // A sheet that can't close just now (something is saving) settles back into place.
+          setTimeout(() => { if (visibleRef.current) back(); }, 80);
+        } else {
+          back();
+        }
+      },
+      onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 18 }).start(),
+    }),
+  ).current;
+
+  const translateY = React.useMemo(() => Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [0, screenH] }), drag), [slide, drag, screenH]);
+  const dim = React.useMemo(() => drag.interpolate({ inputRange: [0, 320], outputRange: [1, 0.35], extrapolate: 'clamp' }), [drag]);
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: C.scrim }]} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <View style={{ backgroundColor: C.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingBottom: insets.bottom + 12, maxHeight: '88%', height: tall ? '78%' : undefined }}>
-          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: title ? 0 : 10 }}>
-            <View style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: C.fg2 }} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents={visible ? 'auto' : 'none'}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: dim }]}>
+          <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: C.scrim }]} onPress={onClose} accessibilityLabel={t('common.close')} />
+        </Animated.View>
+        <Animated.View style={{ backgroundColor: C.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingBottom: insets.bottom + 12, maxHeight: '88%', height: tall ? '78%' : undefined, transform: [{ translateY }] }}>
+          {/* The top of the panel is its handle: drag it down to close. */}
+          <View {...pan.panHandlers}>
+            <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: shown.title ? 0 : 10 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.fg3 }} />
+            </View>
+            {shown.title ? (
+              <Text accessibilityRole="header" numberOfLines={2} style={{ color: C.fg, fontSize: 20, fontWeight: '700', textAlign: 'center', paddingTop: 20, paddingBottom: 20, paddingHorizontal: 24 }}>
+                {shown.title}
+              </Text>
+            ) : null}
           </View>
-          {title ? (
-            <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 20, fontWeight: '700', textAlign: 'center', paddingTop: 22, paddingBottom: 22 }}>
-              {title}
-            </Text>
-          ) : null}
-          {children}
-          {footer}
-        </View>
+          {shown.children}
+          {shown.footer}
+        </Animated.View>
+        {/* A message shown while the sheet is open appears over it, not hidden behind it. */}
+        <ToastOutlet sheet={slot} />
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -285,10 +393,11 @@ export function Sheet({ visible, onClose, title, children, tall, footer }: { vis
 export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { icon: IconName; label: string; sub?: string; onPress: () => void; danger?: boolean; right?: React.ReactNode; first?: boolean }) {
   const color = danger ? C.like : C.fg;
   const font = useAppFont();
+  const press = useOneTap(() => { tap('light'); onPress(); });
   return (
-    <Pressable onPress={() => { tap('light'); onPress(); }} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 46, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable onPress={press} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 16, minHeight: 48, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Icon name={icon} size={26} color={color} />
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.line }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingRight: 16, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: C.line }}>
         <View style={{ flex: 1, paddingVertical: sub ? 8 : 0 }}>
           <Text style={{ color, fontSize: 18, fontFamily: font }}>{label}</Text>
           {sub ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1, fontFamily: font }}>{sub}</Text> : null}
@@ -346,49 +455,108 @@ export function useChoices() {
 
 /* ---------- toast ---------- */
 
-const ToastCtx = createContext<(msg: string) => void>(() => {});
+/*
+ * One short message at a time, at the bottom of the screen. Messages are kept here rather than in
+ * one screen's state, so the open sheet (a separate window on iPhone, drawn over everything) can show
+ * them too: before, a message shown while a sheet was open was hidden underneath it.
+ */
+type ToastNow = { id: number; msg: string };
+let toastNow: ToastNow = { id: 0, msg: '' };
+/** Sheets open now, newest last: the newest shows the messages. */
+let sheetsOpen: readonly number[] = [];
+let nextSheet = 1;
+const toastListeners = new Set<() => void>();
+const subscribeToast = (l: () => void) => {
+  toastListeners.add(l);
+  return () => {
+    toastListeners.delete(l);
+  };
+};
+const emitToast = () => toastListeners.forEach((l) => l());
+const toastSnapshot = () => toastNow;
+const sheetsSnapshot = () => sheetsOpen;
+
+function showToast(msg: string) {
+  toastNow = { id: toastNow.id + 1, msg };
+  emitToast();
+}
+
+/** Counts a sheet as open while it is visible, so messages go to it. */
+function useSheetSlot(open: boolean): number {
+  const id = useRef(0);
+  if (!id.current) id.current = nextSheet++;
+  useEffect(() => {
+    if (!open) return;
+    const mine = id.current;
+    sheetsOpen = [...sheetsOpen, mine];
+    emitToast();
+    return () => {
+      sheetsOpen = sheetsOpen.filter((x) => x !== mine);
+      emitToast();
+    };
+  }, [open]);
+  return id.current;
+}
+
+const ToastCtx = createContext<(msg: string) => void>(showToast);
 export const useToast = () => useContext(ToastCtx);
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [msg, setMsg] = useState('');
-  const fade = useRef(new Animated.Value(0)).current;
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+/** Where messages appear: on the screen (no `sheet`), or over the open sheet with this number. */
+function ToastOutlet({ sheet }: { sheet?: number }) {
+  const now = useSyncExternalStore(subscribeToast, toastSnapshot);
+  const open = useSyncExternalStore(subscribeToast, sheetsSnapshot);
   const insets = useSafeAreaInsets();
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(8)).current;
+  const [msg, setMsg] = useState('');
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Only messages from now on: a sheet opening doesn't replay the last one.
+  const seen = useRef(now.id);
   // The keyboard is drawn over the app, so a message has to sit above it to be seen.
   const [keyboard, setKeyboard] = useState(0);
   useEffect(() => {
-    const up = Keyboard.addListener('keyboardWillShow', (e) => setKeyboard(e.endCoordinates.height));
-    const down = Keyboard.addListener('keyboardWillHide', () => setKeyboard(0));
+    const ios = Platform.OS === 'ios';
+    const up = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboard(e.endCoordinates.height));
+    const down = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(0));
     return () => {
       up.remove();
       down.remove();
     };
   }, []);
-  const show = useCallback(
-    (m: string) => {
-      setMsg(m);
-      if (timer.current) clearTimeout(timer.current);
-      Animated.timing(fade, { toValue: 1, duration: 160, useNativeDriver: true }).start();
-      timer.current = setTimeout(() => {
-        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }).start(({ finished }) => {
-          if (finished) setMsg('');
-        });
-      }, 2300);
-    },
-    [fade],
-  );
+  useEffect(() => {
+    if (now.id === seen.current) return;
+    seen.current = now.id;
+    setMsg(now.msg);
+    if (timer.current) clearTimeout(timer.current);
+    lift.setValue(8);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.timing(lift, { toValue: 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+    timer.current = setTimeout(() => {
+      Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setMsg('');
+      });
+    }, 2300);
+  }, [now, fade, lift]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const mine = sheet === undefined ? open.length === 0 : open[open.length - 1] === sheet;
+  if (!msg || !mine) return null;
   return (
-    <ToastCtx.Provider value={show}>
+    <Animated.View pointerEvents="none" accessibilityLiveRegion="polite" style={{ position: 'absolute', left: 24, right: 24, bottom: keyboard ? keyboard + 16 : insets.bottom + 96, alignItems: 'center', opacity: fade, transform: [{ translateY: lift }] }}>
+      {/* The opposite of the page: light on dark themes, dark on White. */}
+      <View style={{ backgroundColor: C.fg, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
+        <Text style={{ color: C.bg, fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <ToastCtx.Provider value={showToast}>
       {children}
-      {msg ? (
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 24, right: 24, bottom: keyboard ? keyboard + 16 : insets.bottom + 96, alignItems: 'center', opacity: fade }}>
-          {/* The opposite of the page: light on dark themes, dark on White. */}
-          <View style={{ backgroundColor: C.fg, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 }}>
-            <Text style={{ color: C.bg, fontWeight: '600', textAlign: 'center' }}>{msg}</Text>
-          </View>
-        </Animated.View>
-      ) : null}
+      <ToastOutlet />
     </ToastCtx.Provider>
   );
 }

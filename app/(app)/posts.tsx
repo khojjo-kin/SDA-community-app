@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, View, ViewToken } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PostCard } from '../../src/components/PostCard';
 import { FeedSkeleton } from '../../src/components/Skeleton';
-import { Empty, ErrorNote, IconButton, Screen } from '../../src/components/ui';
+import { Button, Empty, ErrorNote, IconButton, Screen } from '../../src/components/ui';
 import { fetchPost, fetchUserPosts, recordView } from '../../src/lib/api';
-import { getActivePost, setActivePost } from '../../src/lib/autoplay';
+import { useFeedAutoplay } from '../../src/lib/autoplay';
 import { fetchMoreLike, type GridSource, recallGrid } from '../../src/lib/grid-open';
 import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
@@ -40,6 +40,8 @@ export default function GridPosts() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>(() => (opened || getPostNow(startId) ? 'ready' : 'loading'));
   const [error, setError] = useState('');
   const [paging, setPaging] = useState(false);
+  // The next page didn't come: the end of the list offers to try again.
+  const [pageFailed, setPageFailed] = useState(false);
   const startPost = usePost(startId);
   const subtitle = opened?.subtitle ?? (source.from === 'user' ? startPost?.username : undefined);
 
@@ -121,6 +123,7 @@ export default function GridPosts() {
     if (busy.current || done.current || !cursor.current) return;
     busy.current = true;
     setPaging(true);
+    setPageFailed(false);
     try {
       const page = await fetchMoreLike(source, cursor.current, false);
       if (!alive.current) return;
@@ -132,7 +135,8 @@ export default function GridPosts() {
       // Explore keeps to the member's sensitive-content choice, as its grid does.
       append(source.from === 'explore' ? tuneFeed(page, me, tasteRef.current, false) : page);
     } catch {
-      // Offline for a moment: the next scroll to the end tries again.
+      // Offline for a moment: the end of the list offers to try again.
+      if (alive.current) setPageFailed(true);
     } finally {
       busy.current = false;
       if (alive.current) setPaging(false);
@@ -143,34 +147,10 @@ export default function GridPosts() {
   // post most in view plays its video, only while this screen is the one showing.
   const meRef = useRef(me);
   meRef.current = me;
-  const onSeen = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    for (const v of viewableItems) {
-      const post = typeof v.item === 'string' ? getPostNow(v.item) : undefined;
-      if (post) recordView(meRef.current, post);
-    }
-  }).current;
-  const inView = useRef<string | null>(null);
-  const focused = useRef(false);
-  const onActive = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const top = viewableItems.find((v) => v.isViewable && typeof v.item === 'string');
-    inView.current = top ? (top.item as string) : null;
-    if (focused.current) setActivePost(inView.current);
-  }).current;
-  const viewabilityPairs = useRef([
-    { viewabilityConfig: { itemVisiblePercentThreshold: 50, minimumViewTime: 500 }, onViewableItemsChanged: onSeen },
-    { viewabilityConfig: { itemVisiblePercentThreshold: 60 }, onViewableItemsChanged: onActive },
-  ]).current;
-  useFocusEffect(
-    useCallback(() => {
-      focused.current = true;
-      setActivePost(inView.current);
-      return () => {
-        focused.current = false;
-        // Stop this screen's video, unless the next screen has already chosen its own.
-        if (getActivePost() === inView.current) setActivePost(null);
-      };
-    }, []),
-  );
+  const viewabilityPairs = useFeedAutoplay((id) => {
+    const post = getPostNow(id);
+    if (post) recordView(meRef.current, post);
+  });
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -202,7 +182,15 @@ export default function GridPosts() {
           onContentSizeChange={onContentSize}
           onEndReached={loadMore}
           onEndReachedThreshold={1.2}
-          ListFooterComponent={paging ? <ActivityIndicator color={C.fg2} style={{ paddingVertical: 20 }} /> : null}
+          ListFooterComponent={
+            paging ? (
+              <ActivityIndicator color={C.fg2} style={{ paddingVertical: 20 }} />
+            ) : pageFailed ? (
+              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                <Button small kind="ghost" label={t('common.tryAgain')} onPress={loadMore} />
+              </View>
+            ) : null
+          }
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           windowSize={7}

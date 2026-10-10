@@ -1192,4 +1192,93 @@ export const zh: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': '笔记已保存',
   'bibleMarks.noteDeleted': '笔记已删除',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': '打开设置',
+  'createFlow.cameraOff': '相机权限已关闭',
+  'createFlow.choosePhotos': '选择照片和视频',
+  'createFlow.recents': '最近项目',
+  'createFlow.albums': '相册',
+  'goLive.endedAway': '你离开期间，直播已结束',
+  'live.paused': '已暂停',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': '该设置链接已过期。',
+  'payouts.country': '国家/地区',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': '你的账户是私密账户。设为公开后即可推广此帖子。',
+  'promote.profileOnly': '此帖子仅发布在你的主页上，因此无法推广。',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': '暂未开放捐款',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': '无法删除此筹款活动。你可以改为结束它。',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': '此曲目未能加载。请重试。',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': '没有匹配的书卷',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': '正在发布…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': '今天',
+  'notifications.sectionYesterday': '昨天',
+  'notifications.sectionThisWeek': '本周',
+  'notifications.sectionThisMonth': '本月',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '要取消关注 {username} 吗？',
+  'profile.unfollow': '取消关注',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '退出 {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': '申请已发送',
+  'verify.pending': '审核中',
+  'verify.sentOn': '发送于 {date}',
+  'verify.notSent': '你的申请未能发送。请重试。',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': '正在发送…',
+  'chat.sent': '已发送',
+  'chat.seen': '已读',
+  'chat.notSent': '未发送 · 点按重试',
+  'chat.notSentTitle': '消息未发送',
+  'chat.copied': '已复制',
+  'chat.deleted': '聊天已删除',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': '最新消息',
+  'chat.viewProfile': '查看主页',
+  'chat.noSavedReplies': '还没有快捷回复',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': '一次最多可选 10 人',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': '消息已发送',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': '目前无法获取你的位置。请检查定位服务是否已开启。',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': '头像环颜色',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': '从归档中添加',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': '申请已发送',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': '你需要重新申请加入。',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': '添加简介',
+  // A community with no church chosen.
+  'groups.none': '无',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': '使用我的位置',
+  'churches.openSettings': '打开设置',
+  'churches.openSettingsLabel': '打开设置以使用你的位置',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': '待审核',
+  'churches.notApproved': '未通过审核',
+  'churches.noMembers': '还没有成员',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': '管理员批准后，所有人都能看到它。',
+  'churches.thanksMakeYours': '谢谢！要把它设为你的教会吗？',
+  // ======== end of v22 ========
 };

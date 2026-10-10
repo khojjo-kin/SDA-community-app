@@ -10,6 +10,7 @@ import { useSession } from '../lib/session';
 import { C, errText, fmt } from '../lib/theme';
 import type { Highlight, Profile, StoryItem } from '../lib/types';
 import { Icon, IconName, VerifiedTick } from './Icon';
+import { RowsSkeleton } from './Skeleton';
 import { Avatar, Button, Empty, Loading, SearchField, Sheet, useToast } from './ui';
 
 /*
@@ -220,9 +221,9 @@ export function PeopleSheet({
         </View>
       }>
       {people === null ? (
-        <Loading />
+        <RowsSkeleton count={6} avatar={46} />
       ) : people.length === 0 ? (
-        <Empty icon="people" title={which === 'following' ? 'You are not following anyone yet' : 'No one to send to yet'} body="Follow people or start a chat, and they will appear here." />
+        <Empty icon="people" title={which === 'following' ? 'You are not following anyone yet' : 'No one to send to yet'} />
       ) : (
         <>
           <SearchField value={q} onChangeText={setQ} label="Search people" />
@@ -263,7 +264,7 @@ export function HighlightCover({ uri, size, ring, gap }: { uri?: string | null; 
   const coloured = !!ring && ring.length >= 2;
   const inner = coloured ? size - 10 : size - 8;
   const pic = uri ? (
-    <Image source={{ uri }} style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
+    <Image source={{ uri }} style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
   ) : (
     <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name="highlight" size={Math.round(inner * 0.4)} color={C.fg2} />

@@ -1192,4 +1192,93 @@ export const ko: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': '노트를 저장했어요',
   'bibleMarks.noteDeleted': '노트를 삭제했어요',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': '설정 열기',
+  'createFlow.cameraOff': '카메라 접근 권한이 꺼져 있어요',
+  'createFlow.choosePhotos': '사진 및 동영상 선택',
+  'createFlow.recents': '최근 항목',
+  'createFlow.albums': '앨범',
+  'goLive.endedAway': '자리를 비운 사이에 라이브가 끝났어요',
+  'live.paused': '일시정지됨',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': '설정 링크가 만료되었어요.',
+  'payouts.country': '국가',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': '비공개 계정이에요. 이 게시물을 홍보하려면 계정을 공개로 전환하세요.',
+  'promote.profileOnly': '이 게시물은 프로필에만 게시되어 있어서 홍보할 수 없어요.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': '아직 기부를 받지 않아요',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': '이 모금 활동을 삭제하지 못했어요. 대신 종료할 수 있어요.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': '이 트랙을 불러오지 못했어요. 다시 시도해 주세요.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': '일치하는 책이 없어요',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': '게시 중…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': '오늘',
+  'notifications.sectionYesterday': '어제',
+  'notifications.sectionThisWeek': '이번 주',
+  'notifications.sectionThisMonth': '이번 달',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '{username}님 팔로우를 취소할까요?',
+  'profile.unfollow': '팔로우 취소',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '{name} 계정에서 로그아웃',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': '요청을 보냈어요',
+  'verify.pending': '검토 중',
+  'verify.sentOn': '{date}에 보냄',
+  'verify.notSent': '요청을 보내지 못했어요. 다시 시도해 주세요.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': '전송 중…',
+  'chat.sent': '전송됨',
+  'chat.seen': '읽음',
+  'chat.notSent': '전송 실패 · 눌러서 다시 시도',
+  'chat.notSentTitle': '메시지를 보내지 못했어요',
+  'chat.copied': '복사했어요',
+  'chat.deleted': '채팅을 삭제했어요',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': '최신 메시지',
+  'chat.viewProfile': '프로필 보기',
+  'chat.noSavedReplies': '아직 저장된 답장이 없어요',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': '한 번에 최대 10명까지 선택할 수 있어요',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': '메시지를 보냈어요',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': '지금은 위치를 확인할 수 없어요. 위치 서비스가 켜져 있는지 확인해 주세요.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': '링 색상',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': '보관함에서 추가',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': '요청을 보냈어요',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': '다시 가입을 요청해야 해요.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': '설명 추가',
+  // A community with no church chosen.
+  'groups.none': '없음',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': '내 위치 사용',
+  'churches.openSettings': '설정 열기',
+  'churches.openSettingsLabel': '위치를 사용하려면 설정을 여세요',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': '검토 대기 중',
+  'churches.notApproved': '승인되지 않음',
+  'churches.noMembers': '아직 교인이 없어요',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': '관리자가 승인하면 모든 사람에게 표시돼요.',
+  'churches.thanksMakeYours': '감사해요! 내 교회로 설정할까요?',
+  // ======== end of v22 ========
 };

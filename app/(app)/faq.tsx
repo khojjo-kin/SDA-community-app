@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Icon } from '../../src/components/Icon';
 import { Button, Divider, ErrorNote, Field, Loading, Screen, ScreenHeader, SectionLabel, Sheet, Toggle, useToast } from '../../src/components/ui';
@@ -16,8 +16,35 @@ export default function FaqScreen() {
   const [list, setList] = useState<Faq[] | null>(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<{ id?: string; question: string; answer: string } | null>(null);
+  // Whether the sheet is up. What is being edited stays while it slides away, so it doesn't empty as it goes.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const on = profile?.faq_enabled ?? false;
+  // The switch moves at once and stays put while it saves (the profile catches up a moment later);
+  // saves go one after another, so quick taps land in order. A failed save puts it back and says why.
+  const saved = profile?.faq_enabled ?? false;
+  const [wanted, setWanted] = useState<boolean | null>(null);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  // Saves still on their way. Until the last has gone through, the profile can show an older answer
+  // that happens to match (on, then straight back off): the switch keeps what was asked meanwhile.
+  const pending = useRef(0);
+  useEffect(() => {
+    if (wanted !== null && saved === wanted && !pending.current) setWanted(null);
+  }, [saved, wanted]);
+  const on = wanted ?? saved;
+
+  function setOn(next: boolean) {
+    setWanted(next);
+    pending.current++;
+    queue.current = queue.current
+      .then(() => updateProfile(me, { faq_enabled: next }))
+      .catch((e) => {
+        setWanted(null);
+        toast(errText(e));
+      })
+      .finally(() => {
+        pending.current--;
+      });
+  }
 
   const load = useCallback(() => {
     setError('');
@@ -31,11 +58,11 @@ export default function FaqScreen() {
   useEffect(load, [load]);
 
   async function save() {
-    if (!editing || busy || !editing.question.trim()) return;
+    if (!editing || !sheetOpen || busy || !editing.question.trim()) return;
     setBusy(true);
     try {
       await saveFaq(me, { ...editing, position: list?.length ?? 0 });
-      setEditing(null);
+      setSheetOpen(false);
       load();
     } catch (e) {
       Alert.alert('That did not save', errText(e));
@@ -47,7 +74,7 @@ export default function FaqScreen() {
   function remove() {
     if (!editing?.id) return;
     const id = editing.id;
-    setEditing(null);
+    setSheetOpen(false);
     deleteFaq(id).then(load).catch((e) => toast(errText(e)));
   }
 
@@ -55,12 +82,9 @@ export default function FaqScreen() {
     <Screen>
       <ScreenHeader title="Frequently asked questions" />
       <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 60 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, gap: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg, fontSize: 17.5 }}>Show questions</Text>
-            <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 4 }}>People see these questions when they open a chat with you. Tapping one sends it as their message, and your answer is sent back straight away.</Text>
-          </View>
-          <Toggle value={on} onChange={(v) => updateProfile(me, { faq_enabled: v }).catch((e) => toast(errText(e)))} label="Show frequently asked questions in chats" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 16, minHeight: 48 }}>
+          <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>Show questions</Text>
+          <Toggle value={on} onChange={setOn} label="Show frequently asked questions in chats" />
         </View>
         <Divider thin />
 
@@ -72,27 +96,26 @@ export default function FaqScreen() {
         ) : (
           <>
             {list.map((f) => (
-              <Pressable key={f.id} onPress={() => setEditing({ id: f.id, question: f.question, answer: f.answer })} accessibilityRole="button" accessibilityLabel={`Edit question: ${f.question}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, backgroundColor: pressed ? C.press : 'transparent' })}>
+              <Pressable key={f.id} onPress={() => { setEditing({ id: f.id, question: f.question, answer: f.answer }); setSheetOpen(true); }} accessibilityRole="button" accessibilityLabel={`Edit question: ${f.question}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, backgroundColor: pressed ? C.press : 'transparent' })}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: C.fg, fontSize: 17 }}>{f.question}</Text>
-                  <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 2 }}>{f.answer || 'No automatic answer. You reply yourself.'}</Text>
+                  <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 2 }}>{f.answer || 'No automatic answer'}</Text>
                 </View>
                 <Icon name="right" size={18} color={C.fg2} weight={2} />
               </Pressable>
             ))}
             {list.length < LIMIT ? (
               <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
-                <Button kind="ghost" label={list.length ? 'Add another question' : 'Add a question'} onPress={() => setEditing({ question: '', answer: '' })} />
+                <Button kind="ghost" label={list.length ? 'Add another question' : 'Add a question'} onPress={() => { setEditing({ question: '', answer: '' }); setSheetOpen(true); }} />
               </View>
             ) : (
               <Text style={{ color: C.fg3, paddingHorizontal: 16, paddingTop: 10 }}>You can have up to {LIMIT} questions.</Text>
             )}
-            {on && !list.length ? <Text style={{ color: C.fg2, paddingHorizontal: 16, paddingTop: 12, lineHeight: 20 }}>Questions are on, but there are none yet, so nothing shows in your chats.</Text> : null}
           </>
         )}
       </ScrollView>
 
-      <Sheet visible={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Edit question' : 'New question'}>
+      <Sheet visible={sheetOpen && !!editing} onClose={() => setSheetOpen(false)} title={editing?.id ? 'Edit question' : 'New question'}>
         {editing ? (
           <View style={{ paddingHorizontal: 16, gap: 12 }}>
             <Field label="Question" value={editing.question} onChangeText={(question) => setEditing({ ...editing, question })} placeholder="For example: Do you take commissions?" maxLength={120} style={{ backgroundColor: C.field }} />

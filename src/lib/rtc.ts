@@ -81,12 +81,13 @@ export function setCameraEnabled(stream: MediaStream | null | undefined, on: boo
 }
 
 /**
- * Speakerphone. Routing audio to the loudspeaker needs react-native-incall-manager, which this app
- * does not ship yet, so for now this records the choice and does nothing else: iOS puts a video call
- * on the loudspeaker by itself and a voice call on the earpiece.
+ * Speakerphone. Routing a call's sound to the loudspeaker needs a native module this app doesn't
+ * ship yet (react-native-incall-manager, or a small one of our own that overrides the audio route),
+ * so this does nothing and the call screen offers no speaker button. WebRTC sets the phone up for a
+ * voice chat, which on iPhone plays through the earpiece, video calls included.
  */
 export function enableSpeaker(_on: boolean) {
-  // No-op until react-native-incall-manager is added.
+  // No-op until a native module for the audio route is added.
 }
 
 /* ---------- peers ---------- */

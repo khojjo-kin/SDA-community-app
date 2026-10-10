@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import { useSignInWithApple, useSSO } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
+import { tap } from '../lib/haptics';
 import { DARK, errText } from '../lib/theme';
 
 // Finishes a sign-in that came back to the app through its link, if one did.
@@ -27,6 +28,8 @@ export function SsoButtons({ onError, disabled = false, onStart }: { onError: (m
   const { startAppleAuthenticationFlow } = useSignInWithApple();
   const router = useRouter();
   const [busy, setBusy] = useState<Strategy | null>(null);
+  // A ref as well: a quick second tap arrives before `busy` has drawn, and would open a second sheet.
+  const busyRef = useRef(false);
 
   // Lets the browser sheet open faster on Android; a no-op on iOS.
   useEffect(() => {
@@ -39,7 +42,9 @@ export function SsoButtons({ onError, disabled = false, onStart }: { onError: (m
   async function go(strategy: Strategy) {
     // Sign-up keeps these off until its consent box is ticked, since they can make an account too.
     // The log-in page doesn't, so an account made there is asked for consent in onboarding instead.
-    if (busy || disabled) return;
+    if (busyRef.current || disabled) return;
+    busyRef.current = true;
+    tap('light');
     onStart?.();
     setBusy(strategy);
     try {
@@ -62,6 +67,7 @@ export function SsoButtons({ onError, disabled = false, onStart }: { onError: (m
       // errText keeps technical wording off screen.
       if (!/cancel|dismiss/i.test(`${text} ${String((e as any)?.message ?? '')}`)) onError(text);
     } finally {
+      busyRef.current = false;
       setBusy(null);
     }
   }

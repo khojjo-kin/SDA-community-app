@@ -1128,4 +1128,93 @@ export const fr: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Note enregistrée',
   'bibleMarks.noteDeleted': 'Note supprimée',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Ouvrir les réglages',
+  'createFlow.cameraOff': "L'accès à la caméra est désactivé",
+  'createFlow.choosePhotos': 'Choisir des photos et des vidéos',
+  'createFlow.recents': 'Récents',
+  'createFlow.albums': 'Albums',
+  'goLive.endedAway': "Ton direct s'est terminé pendant ton absence",
+  'live.paused': 'En pause',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Ce lien de configuration a expiré.',
+  'payouts.country': 'Pays',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Ton compte est privé. Rends-le public pour promouvoir cette publication.',
+  'promote.profileOnly': 'Cette publication est uniquement sur ton profil, elle ne peut donc pas être promue.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': "N'accepte pas encore de dons",
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': "Cette collecte de fonds n'a pas pu être supprimée. Tu peux plutôt y mettre fin.",
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': "Ce titre n'a pas chargé. Réessaie.",
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Aucun livre ne correspond',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Publication en cours…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': "Aujourd'hui",
+  'notifications.sectionYesterday': 'Hier',
+  'notifications.sectionThisWeek': 'Cette semaine',
+  'notifications.sectionThisMonth': 'Ce mois-ci',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Ne plus suivre {username} ?',
+  'profile.unfollow': 'Ne plus suivre',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Se déconnecter de {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Demande envoyée',
+  'verify.pending': 'En attente',
+  'verify.sentOn': 'Envoyée le {date}',
+  'verify.notSent': "Ta demande n'a pas été envoyée. Réessaie.",
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Envoi…',
+  'chat.sent': 'Envoyé',
+  'chat.seen': 'Vu',
+  'chat.notSent': 'Non envoyé · Touche pour réessayer',
+  'chat.notSentTitle': 'Message non envoyé',
+  'chat.copied': 'Copié',
+  'chat.deleted': 'Discussion supprimée',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Derniers messages',
+  'chat.viewProfile': 'Voir le profil',
+  'chat.noSavedReplies': 'Aucune réponse enregistrée pour le moment',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': "Jusqu'à 10 personnes à la fois",
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Message envoyé',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': "Ta position n'est pas disponible pour le moment. Vérifie que les services de localisation sont activés.",
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': "Couleur de l'anneau",
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Ajouter depuis les archives',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Demande envoyée',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Pour revenir, tu devras refaire une demande.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Ajouter une description',
+  // A community with no church chosen.
+  'groups.none': 'Aucune',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Utiliser ma position',
+  'churches.openSettings': 'Ouvrir les réglages',
+  'churches.openSettingsLabel': 'Ouvrir les réglages pour utiliser ta position',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'En attente de validation',
+  'churches.notApproved': 'Non approuvée',
+  'churches.noMembers': 'Aucun membre pour le moment',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': "Elle sera visible pour tout le monde dès qu'un admin l'aura approuvée.",
+  'churches.thanksMakeYours': 'Merci ! En faire ton église ?',
+  // ======== end of v22 ========
 };

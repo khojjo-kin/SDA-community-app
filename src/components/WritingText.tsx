@@ -10,8 +10,11 @@ import { C } from '../lib/theme';
  *
  * The whole text is laid out from the first frame, the letters not yet written in a clear colour, so
  * nothing moves or re-wraps as they appear; the cursor is a thin bar in the same line of text. With
- * Reduce Motion on, the words are simply there.
+ * Reduce Motion on, the words are simply there, with no bar beside them, so they sit exactly centred.
  */
+
+/** How long to wait for the phone to say whether it wants less motion before simply showing the words. */
+const ASK_MOTION_MS = 700;
 
 /** How long one letter takes; a space or a stop takes a little longer, like a hand lifting off. */
 const LETTER_MS = 52;
@@ -53,6 +56,16 @@ export function WritingText({ text, size = 20, bold = true, center = true, color
   // The cursor's opacity; 0 hides it. It keeps its place in the line either way, so nothing moves when it goes.
   const [cursor, setCursor] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // The phone answers within a few milliseconds. Should it never answer, the words show rather than stay unwritten.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (reduce !== null) return;
+    const timer = setTimeout(() => setGaveUp(true), ASK_MOTION_MS);
+    return () => clearTimeout(timer);
+  }, [reduce]);
+  // Once shown still, they stay still: a late answer never takes the words away to write them again.
+  const writing = reduce === false && !gaveUp;
+  const still = reduce === true || gaveUp;
 
   useEffect(() => {
     const later = (fn: () => void, ms: number) => {
@@ -63,14 +76,10 @@ export function WritingText({ text, size = 20, bold = true, center = true, color
       timers.current = [];
     };
     stop();
-    // Until the phone has said whether it wants less motion, keep the words unwritten rather than start and stop.
-    if (reduce === null) {
-      setShown(0);
-      setCursor(0);
-      return stop;
-    }
-    if (reduce) {
-      setShown(letters.length);
+    // Until the phone has said whether it wants less motion, keep the words unwritten rather than start and
+    // stop; with less motion (or no answer), they are simply there.
+    if (!writing) {
+      setShown(still ? letters.length : 0);
       setCursor(0);
       return stop;
     }
@@ -108,7 +117,7 @@ export function WritingText({ text, size = 20, bold = true, center = true, color
     return stop;
     // `letters` follows `text`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, reduce, again]);
+  }, [text, writing, still, again]);
 
   const base: TextStyle = { fontSize: size, lineHeight: Math.round(size * 1.3), fontFamily: font, fontWeight: bold ? '800' : '600', textAlign: center ? 'center' : undefined };
   const written = letters.slice(0, shown).join('');
@@ -116,8 +125,8 @@ export function WritingText({ text, size = 20, bold = true, center = true, color
   return (
     <Text style={[base, style]} accessibilityRole="text" accessibilityLabel={text}>
       <Text style={{ color: ink }}>{written}</Text>
-      {/* A thin bar, drawn lighter than the letters. */}
-      <Text style={{ color: withAlpha(ink, cursor), fontWeight: '300' }}>|</Text>
+      {/* A thin bar, drawn lighter than the letters; only while the words are being written. */}
+      {writing ? <Text style={{ color: withAlpha(ink, cursor), fontWeight: '300' }}>|</Text> : null}
       <Text style={{ color: 'transparent' }}>{rest}</Text>
     </Text>
   );

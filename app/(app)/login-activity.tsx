@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSession as useClerkSession, useUser } from '@clerk/clerk-expo';
 import { Icon } from '../../src/components/Icon';
-import { Button, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Button, ErrorNote, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
 import { agoLong, C, errText } from '../../src/lib/theme';
 
 /** One place this account is logged in, as Clerk keeps it (one session per device). */
@@ -123,7 +124,8 @@ export default function LoginActivity() {
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}>
         <SectionLabel>Where you're logged in</SectionLabel>
         {status === 'loading' || !user ? (
-          <Loading />
+          // The shape of the device rows: an icon, the device and where it is, and a Log out button.
+          <RowsSkeleton count={3} avatar={28} gap={14} padY={12} trailing="button" />
         ) : status === 'error' ? (
           <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} />
         ) : (

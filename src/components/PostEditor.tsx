@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image as RNImage, KeyboardAvoidingView, PanResponder, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AppState, Image as RNImage, KeyboardAvoidingView, PanResponder, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder } from 'expo-audio';
 import { Image } from 'expo-image';
@@ -21,15 +21,22 @@ import type { PickedItem } from './MediaPicker';
 import { DarkEmpty, DarkLoading } from './OnDark';
 import { overlayBox, OverlayLabel } from './StoryCanvas';
 import { Empty, Loading, SearchField, Sheet, useToast } from './ui';
+import { markRecording } from '../lib/player';
 
 /* ---------- what an edited photo carries ---------- */
 
-/** Everything done to one photo in the editor. Baked into the uploaded file at share time. */
-export type PhotoEdit = { filter: string; adjust: Adjust; overlays: Overlay[] };
+/**
+ * Everything done to one photo in the editor. The look and the overlays are baked into the uploaded
+ * file at share time; `alt` (alt text) goes with the uploaded photo as words.
+ */
+export type PhotoEdit = { filter: string; adjust: Adjust; overlays: Overlay[]; alt?: string };
 
 export const PLAIN_EDIT: PhotoEdit = { filter: NORMAL_FILTER, adjust: DEFAULT_ADJUST, overlays: [] };
 
-/** True when the photo can be uploaded exactly as it came from the library. */
+/** The longest alt text kept for one photo. */
+export const ALT_MAX = 300;
+
+/** True when the photo can be uploaded exactly as it came from the library (alt text changes nothing in the file). */
 export function isPlainEdit(e: PhotoEdit | null | undefined): boolean {
   return !e || (isPlainLook(e.filter, e.adjust) && e.overlays.length === 0);
 }
@@ -333,7 +340,21 @@ export function PostEditor({
   const [selected, setSelected] = useState<string | null>(null);
   const [editTab, setEditTab] = useState<'filters' | 'adjust'>('filters');
   const [draft, setDraft] = useState<{ id?: string; text: string; color: string; bg: boolean; size: number }>({ text: '', color: '#ffffff', bg: false, size: 30 });
-  const [alt, setAlt] = useState('');
+  // Whether this screen is the one showing: the song and the video stop while another is on top (Plus, say).
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+  // And while the app is in the background: the sound is set to keep playing there (for Pod), so the
+  // song of a half-made post would otherwise go on over other apps.
+  const [awake, setAwake] = useState(() => AppState.currentState !== 'background');
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => setAwake(s !== 'background'));
+    return () => sub.remove();
+  }, []);
   // Audio sheet.
   const [q, setQ] = useState('');
   const [songs, setSongs] = useState<PodItem[] | null>(null);
@@ -344,10 +365,29 @@ export function PostEditor({
   const [bars, setBars] = useState<number[]>([]);
   const [voice, setVoice] = useState<{ uri: string; ms: number } | null>(null);
   const micOn = useRef(false);
+  // Pod leaves the sound's setup alone while this screen records (src/lib/player.tsx markRecording).
+  const podHeld = useRef(false);
+  const holdPodAudio = useCallback((on: boolean) => {
+    if (podHeld.current === on) return;
+    podHeld.current = on;
+    markRecording(on);
+  }, []);
+  useEffect(
+    () => () => {
+      if (podHeld.current) {
+        podHeld.current = false;
+        markRecording(false);
+      }
+    },
+    [],
+  );
   const stopping = useRef(false);
   // Video cover.
   const [covers, setCovers] = useState<string[] | null>(null);
+  const makingCovers = useRef(false);
   const [paused, setPaused] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
 
   const pageIdx = clamp(page, 0, Math.max(0, items.length - 1));
   const item = items[pageIdx];
@@ -361,12 +401,14 @@ export function PostEditor({
   /* ----- sound: the chosen song plays while editing, the video plays on the canvas ----- */
 
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false, shouldPlayInBackground: true }).catch(() => {});
   }, []);
 
+  // The song rests while a voice note is being made, while another screen is on top, and in the background.
+  const songOn = !!audio?.audio_url && focused && awake && tool !== 'voice';
   const song = useAudioPlayer(audio?.audio_url ? { uri: audio.audio_url } : null);
   useEffect(() => {
-    if (!audio?.audio_url) return;
+    if (!songOn) return;
     try {
       song.loop = true;
       song.play();
@@ -380,7 +422,7 @@ export function PostEditor({
         // already gone
       }
     };
-  }, [song, audio?.audio_url]);
+  }, [song, songOn]);
 
   const video = useVideoPlayer(isVideo ? { uri: items[0].uri } : null, (p) => {
     p.loop = true;
@@ -389,12 +431,12 @@ export function PostEditor({
     if (!isVideo) return;
     try {
       video.muted = !!audio;
-      if (paused || tool === 'voice' || tool === 'cover') video.pause();
+      if (paused || !focused || !awake || tool === 'voice' || tool === 'cover') video.pause();
       else video.play();
     } catch {
       // the player was released
     }
-  }, [video, isVideo, paused, audio, tool]);
+  }, [video, isVideo, paused, focused, awake, audio, tool]);
 
   /* ----- songs from Pod ----- */
 
@@ -427,7 +469,8 @@ export function PostEditor({
       } catch {
         // nothing playing
       }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      holdPodAudio(true);
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       micOn.current = true;
@@ -437,8 +480,9 @@ export function PostEditor({
       setVoice(null);
       setRecording(true);
     } catch (e) {
-      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
       toast(errText(e));
+      holdPodAudio(false);
     }
   }
 
@@ -456,7 +500,8 @@ export function PostEditor({
       setRecording(false);
       try {
         await recorder.stop();
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
+        holdPodAudio(false);
         const uri = recorder.uri;
         if (!keep) return;
         if (!uri || ms < 800) {
@@ -465,6 +510,7 @@ export function PostEditor({
         }
         setVoice({ uri, ms });
       } catch (e) {
+        holdPodAudio(false);
         if (keep) toast(errText(e));
       }
     },
@@ -515,7 +561,9 @@ export function PostEditor({
 
   async function openCover() {
     setTool('cover');
-    if (covers || !item) return;
+    // Made once, even if the panel is closed and opened again while they are still being made.
+    if (covers || !item || makingCovers.current) return;
+    makingCovers.current = true;
     try {
       const total = Math.max(0.5, item.duration ?? 1) * 1000;
       const out: string[] = [];
@@ -523,10 +571,13 @@ export function PostEditor({
         const t = await VideoThumbnails.getThumbnailAsync(item.uri, { time: Math.round((total * (i + 0.5)) / COVER_COUNT), quality: 0.5 });
         out.push(t.uri);
       }
-      setCovers(out);
+      if (alive.current) setCovers(out);
     } catch (e) {
+      if (!alive.current) return;
       setCovers([]);
       toast(errText(e));
+    } finally {
+      makingCovers.current = false;
     }
   }
 
@@ -580,11 +631,23 @@ export function PostEditor({
   };
   const frame = item ? frameFor(item) : canvas;
   const panel = tool === 'edit' || tool === 'cover';
+  const openEdit = () => (isVideo ? openCover() : setTool('edit'));
+  const openEditRef = useRef(openEdit);
+  openEditRef.current = openEdit;
+  // "Swipe up to edit": an upward swipe over the tools opens the edit panel (a tap on the words does too).
+  const swipeUp = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+      onPanResponderRelease: (_e, g) => {
+        if (g.dy < -30) openEditRef.current();
+      },
+    }),
+  ).current;
 
   if (!item) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-        <DarkEmpty title="Nothing to edit" body="Go back and choose a photo or video." />
+        <DarkEmpty title="Nothing to edit" />
       </View>
     );
   }
@@ -634,12 +697,9 @@ export function PostEditor({
 
         {/* the song */}
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 10, left: 64, right: 64, alignItems: 'center' }}>
-          <Pressable onPress={() => { setSelected(null); setTool('audio'); }} accessibilityRole="button" accessibilityLabel={audio ? `Audio: ${audio.title} by ${audio.artist}. Tap to change` : 'Add audio. Choose a song from Pod'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 9, height: 42, paddingHorizontal: 14, borderRadius: 21, backgroundColor: 'rgba(38,38,40,0.9)', maxWidth: '100%', opacity: pressed ? 0.7 : 1 })}>
-            <Icon name="music" size={18} color="#fff" />
-            <View style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>{audio ? `${audio.title} · ${audio.artist}` : 'Add audio'}</Text>
-              <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11.5 }}>{audio ? 'Tap to change' : 'Choose a song from Pod'}</Text>
-            </View>
+          <Pressable onPress={() => { setSelected(null); setTool('audio'); }} accessibilityRole="button" accessibilityLabel={audio ? `Audio: ${audio.title} by ${audio.artist}` : 'Add audio'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(38,38,40,0.9)', maxWidth: '100%', opacity: pressed ? 0.7 : 1 })}>
+            <Icon name="music" size={17} color="#fff" />
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: '#fff', fontWeight: '700', fontSize: 14 }}>{audio ? `${audio.title} · ${audio.artist}` : 'Add audio'}</Text>
           </Pressable>
         </View>
 
@@ -696,8 +756,8 @@ export function PostEditor({
           )}
         </View>
       ) : (
-        <View style={{ paddingBottom: insets.bottom + 10 }}>
-          <Pressable onPress={() => (isVideo ? openCover() : setTool('edit'))} accessibilityRole="button" accessibilityLabel={isVideo ? 'Edit video' : 'Edit'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 7, opacity: pressed ? 0.6 : 1 })}>
+        <View {...swipeUp.panHandlers} style={{ paddingBottom: insets.bottom + 10 }}>
+          <Pressable onPress={openEdit} accessibilityRole="button" accessibilityLabel={isVideo ? 'Edit video' : 'Edit'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 7, opacity: pressed ? 0.6 : 1 })}>
             <View style={{ transform: [{ rotate: '180deg' }] }}>
               <Icon name="down" size={14} color={DARK.fg2} weight={2.4} />
             </View>
@@ -711,7 +771,7 @@ export function PostEditor({
             <Tool icon="sticker" label="Overlay" dim={isVideo} onPress={() => { if (photoOnly('Text and stickers')) return; setSelected(null); setTool('overlay'); }} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16 }}>
-            <Pill label={isVideo ? 'Edit video' : 'Edit'} icon="sliders" onPress={() => (isVideo ? openCover() : setTool('edit'))} />
+            <Pill label={isVideo ? 'Edit video' : 'Edit'} icon="sliders" onPress={openEdit} />
             <Pill label="Next" icon="arrow" primary onPress={next} />
           </View>
         </View>
@@ -746,7 +806,7 @@ export function PostEditor({
         {songs === null ? (
           <Loading />
         ) : songs.length === 0 ? (
-          <Empty icon="music" title="No songs found" body={q ? 'Try another title or artist.' : 'Songs added to Pod will appear here.'} />
+          <Empty icon="music" title="No songs found" />
         ) : (
           <ScrollView style={{ flex: 1, marginTop: 8 }} keyboardShouldPersistTaps="handled">
             {audio ? (
@@ -784,8 +844,8 @@ export function PostEditor({
       <Sheet visible={tool === 'caption'} onClose={() => setTool(null)} title="Captions">
         <View style={{ paddingHorizontal: 16, gap: 12 }}>
           <TextInput value={caption} onChangeText={onCaption} autoFocus multiline maxLength={2200} placeholder="Write a caption…" placeholderTextColor={C.fg3} keyboardAppearance={C.blurTint} style={{ minHeight: 110, maxHeight: 200, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
-          <TextInput value={alt} onChangeText={setAlt} maxLength={300} placeholder="Alt text" placeholderTextColor={C.fg3} keyboardAppearance={C.blurTint} style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16 }} accessibilityLabel="Alt text" />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17 }}>Alt text describes the photo for people who cannot see it.</Text>
+          {/* For the photo on screen; each photo in a post has its own. */}
+          <TextInput value={edit.alt ?? ''} onChangeText={(text) => patchEdit(pageIdx, { alt: text })} maxLength={ALT_MAX} placeholder={items.length > 1 ? `Alt text · ${pageIdx + 1}/${items.length}` : 'Alt text'} placeholderTextColor={C.fg3} keyboardAppearance={C.blurTint} selectionColor={C.accent2} style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16 }} accessibilityLabel="Alt text" />
           <Pressable onPress={() => setTool(null)} accessibilityRole="button" accessibilityLabel="Done" style={({ pressed }) => ({ height: 46, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
             <Text style={{ color: C.onAccent, fontWeight: '600', fontSize: 15.5 }}>Done</Text>
           </Pressable>
@@ -796,7 +856,7 @@ export function PostEditor({
       <Sheet visible={tool === 'overlay'} onClose={() => setTool(null)} title="Overlay">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 14 }}>
           {WORDS.map((w) => (
-            <Pressable key={w} onPress={() => addSticker({ kind: 'text', text: w, size: 34, color: '#ffffff', bg: true })} accessibilityRole="button" accessibilityLabel={`Sticker ${w}`} style={({ pressed }) => ({ height: 38, paddingHorizontal: 16, borderRadius: 19, backgroundColor: '#fff', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+            <Pressable key={w} onPress={() => addSticker({ kind: 'text', text: w, size: 34, color: '#ffffff', bg: true })} accessibilityRole="button" accessibilityLabel={`Sticker ${w}`} style={({ pressed }) => ({ height: 38, paddingHorizontal: 16, borderRadius: 19, backgroundColor: '#fff', borderWidth: StyleSheet.hairlineWidth, borderColor: C.line, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
               <Text style={{ color: '#000', fontWeight: '800', fontSize: 16 }}>{w}</Text>
             </Pressable>
           ))}
@@ -817,7 +877,6 @@ export function PostEditor({
             {(recording ? bars : voice ? Array.from({ length: 40 }, (_, i) => 0.25 + 0.5 * Math.abs(Math.sin(i * 0.7))) : []).map((v, i) => (
               <View key={i} style={{ width: 4, height: Math.max(4, Math.round(v * 52)), borderRadius: 2, backgroundColor: recording ? C.like : C.accent2 }} />
             ))}
-            {!recording && !voice ? <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>Record up to 60 seconds. You can listen back before you share.</Text> : null}
           </View>
           <Text style={{ color: C.fg, fontSize: 16, fontVariant: ['tabular-nums'] }} accessibilityLiveRegion="polite">{recording ? `Recording ${clock(recordedMs / 1000)}` : voice ? clock(voice.ms / 1000) : '0:00'}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>

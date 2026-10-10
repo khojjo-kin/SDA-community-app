@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NowPlayingBar, PodMenu, PodRow } from '../../src/components/NowPlayingBar';
-import { Empty, ErrorNote, Loading, Screen, ScreenHeader, SearchField } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Empty, ErrorNote, Screen, ScreenHeader, SearchField } from '../../src/components/ui';
 import { fetchPod, fetchPopularPod } from '../../src/lib/api';
-import { play, usePlayer } from '../../src/lib/player';
+import { play, useHasTrack } from '../../src/lib/player';
 import { errText } from '../../src/lib/theme';
 import type { PodItem } from '../../src/lib/types';
 
@@ -18,7 +19,7 @@ export default function PodList() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ kind?: string }>();
   const kind: Kind = params.kind === 'song' || params.kind === 'podcast' || params.kind === 'popular' ? params.kind : 'popular';
-  const { current } = usePlayer();
+  const hasTrack = useHasTrack();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<PodItem[] | null>(null);
   const [error, setError] = useState('');
@@ -40,7 +41,13 @@ export default function PodList() {
   }, [load]);
 
   const needle = q.trim().toLowerCase();
-  const shown = items ? (needle ? items.filter((i) => i.title.toLowerCase().includes(needle) || i.artist.toLowerCase().includes(needle)) : items) : null;
+  const shown = useMemo(() => (items ? (needle ? items.filter((i) => i.title.toLowerCase().includes(needle) || i.artist.toLowerCase().includes(needle)) : items) : null), [items, needle]);
+
+  // The same callbacks from one draw to the next, so a row draws again only when its own track changes.
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const playRow = useCallback((_: PodItem, index: number) => play(shownRef.current ?? [], index), []);
+  const renderRow = useCallback(({ item, index }: { item: PodItem; index: number }) => <PodRow item={item} index={index} onPress={playRow} onMore={setMenuItem} />, [playRow]);
 
   return (
     <Screen>
@@ -51,19 +58,21 @@ export default function PodList() {
       {error && items === null ? (
         <ErrorNote message={error} onRetry={load} />
       ) : shown === null ? (
-        <Loading />
+        <RowsSkeleton count={9} avatar={56} padY={7} />
       ) : (
         <FlatList
           data={shown}
           keyExtractor={(i) => i.id}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentContainerStyle={{ paddingTop: 4, paddingBottom: (current ? 80 : 20) + insets.bottom + 20 }}
-          ListEmptyComponent={needle ? <Empty icon="search" title="Nothing matches" body="Try another title or artist." /> : <Empty icon={kind === 'podcast' ? 'podcast' : 'music'} title="Nothing here yet" />}
-          renderItem={({ item, index }) => <PodRow item={item} onPress={() => play(shown, index)} onMore={() => setMenuItem(item)} />}
+          initialNumToRender={12}
+          windowSize={9}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: (hasTrack ? 80 : 20) + insets.bottom + 20 }}
+          ListEmptyComponent={needle ? <Empty icon="search" title="Nothing matches" /> : <Empty icon={kind === 'podcast' ? 'podcast' : 'music'} title="Nothing here yet" />}
+          renderItem={renderRow}
         />
       )}
-      <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 12), alignItems: 'center', backgroundColor: 'transparent' }}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 12), alignItems: 'center' }}>
         <NowPlayingBar />
       </View>
       <PodMenu

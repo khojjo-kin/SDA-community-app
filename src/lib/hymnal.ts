@@ -1,7 +1,70 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import type { Hymn } from './types';
 
 /** The Seventh-day Adventist Hymnal (1985): hymns 1–695, where 660–695 are sentences and responses. */
 export const HYMN_COUNT = 695;
+
+/* ---------- kept on the phone, so the hymnal opens at once and works in church with no signal ---------- */
+
+export type HymnRow = Pick<Hymn, 'number' | 'title' | 'section'>;
+
+const LIST = 'community.hymnal.list';
+const hymnKey = (n: number) => `community.hymnal.hymn.${n}`;
+
+let listNow: HymnRow[] | null = null;
+/** Hymns opened in this session; null is one not in the hymnal's table (it shows from hymnary.org). */
+const hymnsNow = new Map<number, Hymn | null>();
+
+/** The list of hymns already read in this session, straight away. */
+export function peekHymnList(): HymnRow[] | null {
+  return listNow;
+}
+
+/** The list of hymns as last kept on this phone, or null. */
+export async function cachedHymnList(): Promise<HymnRow[] | null> {
+  if (listNow) return listNow;
+  try {
+    const raw = await AsyncStorage.getItem(LIST);
+    const list: unknown = raw ? JSON.parse(raw) : null;
+    if (!Array.isArray(list) || !list.length) return null;
+    const rows = list.filter((h): h is HymnRow => !!h && typeof h.number === 'number' && typeof h.title === 'string').map((h) => ({ number: h.number, title: h.title, section: typeof h.section === 'string' ? h.section : '' }));
+    listNow = rows.length ? rows : null;
+    return listNow;
+  } catch {
+    return null;
+  }
+}
+
+export function keepHymnList(rows: HymnRow[]) {
+  listNow = rows;
+  AsyncStorage.setItem(LIST, JSON.stringify(rows)).catch(() => {});
+}
+
+/** A hymn already opened in this session: the hymn, null when the table hasn't got it, undefined when not known. */
+export function peekHymn(n: number): Hymn | null | undefined {
+  return hymnsNow.get(n);
+}
+
+/** A hymn as last kept on this phone, or undefined. */
+export async function cachedHymn(n: number): Promise<Hymn | null | undefined> {
+  if (hymnsNow.has(n)) return hymnsNow.get(n);
+  try {
+    const raw = await AsyncStorage.getItem(hymnKey(n));
+    if (!raw) return undefined;
+    const h = JSON.parse(raw) as Hymn | null;
+    if (h !== null && (typeof h !== 'object' || h.number !== n || typeof h.lyrics !== 'string')) return undefined;
+    hymnsNow.set(n, h);
+    return h;
+  } catch {
+    return undefined;
+  }
+}
+
+export function keepHymn(n: number, h: Hymn | null) {
+  hymnsNow.set(n, h);
+  AsyncStorage.setItem(hymnKey(n), JSON.stringify(h)).catch(() => {});
+}
 
 const FAVOURITES = 'community.hymnal.favourites';
 const SETTINGS = 'community.hymnal';
@@ -21,16 +84,25 @@ export async function loadFavourites(): Promise<number[]> {
   }
 }
 
-/** Adds or removes one hymn and returns the new list. */
-export async function toggleFavourite(n: number): Promise<number[]> {
-  const current = await loadFavourites();
-  const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n].sort((a, b) => a - b);
-  try {
-    await SecureStore.setItemAsync(FAVOURITES, JSON.stringify(next));
-  } catch {
-    // The heart still works for this session; it just won't be remembered.
-  }
-  return next;
+let favouriteQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Adds or removes one hymn and returns the new list. Changes go one after another, so two quick
+ * taps on the heart can't both read the old list and leave it the wrong way round.
+ */
+export function toggleFavourite(n: number): Promise<number[]> {
+  const run = favouriteQueue.then(async () => {
+    const current = await loadFavourites();
+    const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n].sort((a, b) => a - b);
+    try {
+      await SecureStore.setItemAsync(FAVOURITES, JSON.stringify(next));
+    } catch {
+      // The heart still works for this session; it just won't be remembered.
+    }
+    return next;
+  });
+  favouriteQueue = run.catch(() => {});
+  return run;
 }
 
 export async function loadHymnalSettings(): Promise<HymnalSettings> {

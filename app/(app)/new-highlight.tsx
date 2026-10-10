@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markMemoryJustMade } from '../../src/components/HighlightsRow';
 import { Icon } from '../../src/components/Icon';
-import { StoryCanvas } from '../../src/components/StoryCanvas';
-import { Button, Empty, ErrorNote, IconButton, Loading, Screen, useToast } from '../../src/components/ui';
+import { StoryCanvas, StoryGridSkeleton } from '../../src/components/StoryCanvas';
+import { Button, Empty, ErrorNote, IconButton, Screen, useToast } from '../../src/components/ui';
 import { createHighlight, fetchArchive } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { ArchivedStory } from '../../src/lib/types';
+
+const GAP = 2;
+const RowGap = () => <View style={{ height: GAP }} />;
 
 /** Make a memory (stored as a highlight): pick stories from your archive and give them a name. */
 export default function NewHighlight() {
@@ -23,17 +27,28 @@ export default function NewHighlight() {
   const [picked, setPicked] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
-  const load = () => {
+  const load = useCallback(() => {
     setError('');
+    setList(null);
     fetchArchive(me)
-      .then(setList)
+      .then((stories) => {
+        if (alive.current) setList(stories);
+      })
       .catch((e) => {
+        if (!alive.current) return;
         setError(errText(e));
         setList([]);
       });
-  };
-  useEffect(load, [me]);
+  }, [me]);
+  useEffect(load, [load]);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -42,6 +57,7 @@ export default function NewHighlight() {
       toast('Close friends stories stay out of memories, because memories are for everyone.');
       return;
     }
+    tap('select');
     setPicked((cur) => {
       if (cur.includes(id)) return cur.filter((x) => x !== id);
       if (cur.length >= 20) {
@@ -71,8 +87,7 @@ export default function NewHighlight() {
     }
   }
 
-  const gap = 2;
-  const cw = Math.floor((width - gap * 2) / 3);
+  const cw = Math.floor((width - GAP * 2) / 3);
   const ch = Math.round((cw * 16) / 9);
 
   return (
@@ -83,7 +98,7 @@ export default function NewHighlight() {
         <View style={{ width: 40 }} />
       </View>
       {list === null ? (
-        <Loading />
+        <StoryGridSkeleton gap={GAP} />
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : !list.length ? (
@@ -94,10 +109,10 @@ export default function NewHighlight() {
             data={list}
             keyExtractor={(s) => s.id}
             numColumns={3}
-            columnWrapperStyle={{ gap }}
-            ItemSeparatorComponent={() => <View style={{ height: gap }} />}
+            columnWrapperStyle={{ gap: GAP }}
+            ItemSeparatorComponent={RowGap}
             keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>Choose the stories to keep on your profile. Memories stay until you remove them.</Text>}
+            keyboardDismissMode="on-drag"
             contentContainerStyle={{ paddingBottom: 16 }}
             renderItem={({ item: s }) => {
               const order = picked.indexOf(s.id);
@@ -107,7 +122,7 @@ export default function NewHighlight() {
                   <View style={{ opacity: friendsOnly ? 0.4 : 1 }}>
                     <StoryCanvas item={s.item} width={cw} height={ch} />
                   </View>
-                  {order >= 0 ? <View style={{ position: 'absolute', left: 0, top: 0, width: cw, height: ch, backgroundColor: 'rgba(74,93,246,0.28)' }} /> : null}
+                  {order >= 0 ? <View style={{ position: 'absolute', left: 0, top: 0, width: cw, height: ch, backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 2, borderColor: C.accent }} /> : null}
                   {friendsOnly ? (
                     <View style={{ position: 'absolute', top: 7, right: 7, width: 24, height: 24, borderRadius: 12, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="star" size={14} color="#fff" fill />

@@ -1128,4 +1128,93 @@ export const hi: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'नोट सेव हो गया',
   'bibleMarks.noteDeleted': 'नोट हटा दिया गया',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'सेटिंग्स खोलें',
+  'createFlow.cameraOff': 'कैमरा ऐक्सेस बंद है',
+  'createFlow.choosePhotos': 'फ़ोटो और वीडियो चुनें',
+  'createFlow.recents': 'हालिया',
+  'createFlow.albums': 'एल्बम',
+  'goLive.endedAway': 'जब आप दूर थे, तब आपका लाइव ख़त्म हो गया',
+  'live.paused': 'रुका हुआ',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'यह सेटअप लिंक एक्सपायर हो गया है।',
+  'payouts.country': 'देश',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'आपका अकाउंट प्राइवेट है। इस पोस्ट को प्रमोट करने के लिए इसे पब्लिक करें।',
+  'promote.profileOnly': 'यह पोस्ट सिर्फ़ आपकी प्रोफ़ाइल पर है, इसलिए इसे प्रमोट नहीं किया जा सकता।',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'अभी दान स्वीकार नहीं किए जा रहे',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'यह फ़ंडरेज़र डिलीट नहीं हो सका। इसके बजाय आप इसे ख़त्म कर सकते हैं।',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'यह ट्रैक लोड नहीं हुआ। फिर से कोशिश करें।',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'कोई मेल खाती पुस्तक नहीं मिली',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'पोस्ट हो रहा है…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'आज',
+  'notifications.sectionYesterday': 'कल',
+  'notifications.sectionThisWeek': 'इस हफ़्ते',
+  'notifications.sectionThisMonth': 'इस महीने',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '{username} को अनफ़ॉलो करें?',
+  'profile.unfollow': 'अनफ़ॉलो करें',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '{name} से लॉग आउट करें',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'अनुरोध भेजा गया',
+  'verify.pending': 'पेंडिंग',
+  'verify.sentOn': '{date} को भेजा गया',
+  'verify.notSent': 'आपका अनुरोध नहीं भेजा जा सका। फिर से कोशिश करें।',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'भेजा जा रहा है…',
+  'chat.sent': 'भेजा गया',
+  'chat.seen': 'देखा गया',
+  'chat.notSent': 'नहीं भेजा गया · दोबारा भेजने के लिए टैप करें',
+  'chat.notSentTitle': 'मैसेज नहीं भेजा गया',
+  'chat.copied': 'कॉपी हो गया',
+  'chat.deleted': 'चैट डिलीट हो गई',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'सबसे नए मैसेज',
+  'chat.viewProfile': 'प्रोफ़ाइल देखें',
+  'chat.noSavedReplies': 'अभी कोई सेव किया गया जवाब नहीं',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'एक बार में ज़्यादा से ज़्यादा 10 लोग',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'मैसेज भेज दिया गया',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'आपकी लोकेशन अभी उपलब्ध नहीं है। जाँच लें कि लोकेशन सर्विसेज़ चालू हैं।',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'रिंग का रंग',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'आर्काइव से जोड़ें',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'रिक्वेस्ट भेजी गई',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'आपको फिर से जुड़ने की रिक्वेस्ट भेजनी होगी।',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'विवरण जोड़ें',
+  // A community with no church chosen.
+  'groups.none': 'कोई नहीं',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'मेरी लोकेशन इस्तेमाल करें',
+  'churches.openSettings': 'सेटिंग्स खोलें',
+  'churches.openSettingsLabel': 'अपनी लोकेशन इस्तेमाल करने के लिए सेटिंग्स खोलें',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'समीक्षा बाकी है',
+  'churches.notApproved': 'मंज़ूरी नहीं मिली',
+  'churches.noMembers': 'अभी कोई सदस्य नहीं',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'किसी एडमिन की मंज़ूरी के बाद यह सभी को दिखेगा।',
+  'churches.thanksMakeYours': 'धन्यवाद! इसे अपना चर्च बनाएँ?',
+  // ======== end of v22 ========
 };

@@ -1,12 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
+import { useReduceMotion } from '../lib/motion';
 import { C } from '../lib/theme';
 
 /** Three dots that rise and settle one after another: the other person is typing. Sits inside a chat bubble. */
 export function TypingDots({ color = C.fg2, size = 7 }: { color?: string; size?: number }) {
   const dots = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
+  // With Reduce Motion on, the dots stay still: the bubble itself says they are typing.
+  const moving = useReduceMotion() === false;
 
   useEffect(() => {
+    if (!moving) {
+      dots.forEach((v) => v.setValue(0.5));
+      return;
+    }
     const loops = dots.map((v, i) =>
       Animated.loop(
         Animated.sequence([
@@ -22,7 +29,7 @@ export function TypingDots({ color = C.fg2, size = 7 }: { color?: string; size?:
     return () => {
       loops.forEach((l) => l.stop());
     };
-  }, [dots]);
+  }, [dots, moving]);
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 23 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

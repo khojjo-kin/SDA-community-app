@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Radio, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { FONTS } from '../../src/lib/fonts';
+import { tap } from '../../src/lib/haptics';
 import { setPrefs, usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C } from '../../src/lib/theme';
@@ -22,6 +23,7 @@ export default function PlusFont() {
       return;
     }
     if (id === appFont) return;
+    tap('select');
     setPrefs({ appFont: id });
     toast('Font changed');
   }

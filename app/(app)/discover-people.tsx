@@ -3,7 +3,8 @@ import { FlatList, Pressable, RefreshControl, Share, Text, View } from 'react-na
 import { useRouter } from 'expo-router';
 import { followedBy, followLabel, hideSuggestion, isHidden, peekSuggestions, useSuggestionFollows } from '../../src/components/DiscoverCarousel';
 import { Icon, VerifiedTick } from '../../src/components/Icon';
-import { Avatar, Button, Empty, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
 import { acceptFollowRequest, fetchFollowRequests, fetchSuggestedPeople, removeFollowRequest } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
@@ -133,14 +134,11 @@ export default function DiscoverPeople() {
 
   const header = (
     <View>
-      <Pressable onPress={invite} accessibilityRole="button" accessibilityLabel="Invite friends" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.surface : 'transparent' })}>
+      <Pressable onPress={invite} accessibilityRole="button" accessibilityLabel="Invite friends" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>
         <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="share" size={22} color={C.fg} weight={2} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>Invite friends</Text>
-          <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>Share a link to Community with people from church</Text>
-        </View>
+        <Text style={{ flex: 1, color: C.fg, fontWeight: '700', fontSize: 15.5 }}>Invite friends</Text>
         <Icon name="right" size={18} color={C.fg2} weight={2} />
       </Pressable>
 
@@ -179,7 +177,7 @@ export default function DiscoverPeople() {
         ListHeaderComponent={header}
         ListEmptyComponent={
           visible === null ? (
-            error ? <ErrorNote message={error} onRetry={() => { setError(''); load(); }} /> : <Loading />
+            error ? <ErrorNote message={error} onRetry={() => { setError(''); load(); }} /> : <RowsSkeleton count={8} avatar={52} trailing="button" />
           ) : error ? (
             <ErrorNote message={error} onRetry={() => { setError(''); load(); }} />
           ) : (

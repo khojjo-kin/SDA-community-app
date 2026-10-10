@@ -1192,4 +1192,93 @@ export const yo: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'A ti fi àkọsílẹ̀ pamọ́',
   'bibleMarks.noteDeleted': 'A ti pa àkọsílẹ̀ rẹ́',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Ṣí ètò fóònù rẹ',
+  'createFlow.cameraOff': 'Community kò ní àyè sí kámẹ́rà',
+  'createFlow.choosePhotos': 'Yan fọ́tò àti fídíò',
+  'createFlow.recents': 'Láìpẹ́ yìí',
+  'createFlow.albums': 'Àkójọ fọ́tò',
+  'goLive.endedAway': 'Ìgbéjáde tààràtà rẹ parí nígbà tí o kò sí níbẹ̀',
+  'live.paused': 'Ó dúró díẹ̀',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Àkókò ìjápọ̀ ìṣètò yẹn ti kọjá.',
+  'payouts.country': 'Orílẹ̀-èdè',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Àkáǹtì rẹ wà ní ìkọ̀kọ̀. Sọ ọ́ di gbangba láti polongo àtẹ̀jáde yìí.',
+  'promote.profileOnly': 'Àtẹ̀jáde yìí wà lórí profaili rẹ nìkan, nítorí náà a kò lè polongo rẹ̀.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Kò tíì bẹ̀rẹ̀ sí í gba ọrẹ',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'A kò lè pa ìkówójọ yìí rẹ́. O lè parí rẹ̀ dípò bẹ́ẹ̀.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Orin yìí kò ṣí. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Kò sí ìwé tí ó bá ìyẹn mu',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'À ń fi síta…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Òní',
+  'notifications.sectionYesterday': 'Àná',
+  'notifications.sectionThisWeek': 'Ọ̀sẹ̀ yìí',
+  'notifications.sectionThisMonth': 'Oṣù yìí',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Dẹ́kun títẹ̀lé {username}?',
+  'profile.unfollow': 'Dẹ́kun títẹ̀lé',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Jáde kúrò ní {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'A ti fi ìbéèrè ránṣẹ́',
+  'verify.pending': 'Ó ń dúró',
+  'verify.sentOn': 'A fi ránṣẹ́ ní {date}',
+  'verify.notSent': 'A kò lè fi ìbéèrè rẹ ránṣẹ́. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'À ń fi ránṣẹ́…',
+  'chat.sent': 'A ti fi ránṣẹ́',
+  'chat.seen': 'Wọ́n ti rí i',
+  'chat.notSent': 'Kò lọ · Tẹ̀ ẹ́ láti tún gbìyànjú',
+  'chat.notSentTitle': 'Ìfiránṣẹ́ kò lọ',
+  'chat.copied': 'A ti dà á kọ',
+  'chat.deleted': 'A ti pa ìjíròrò náà rẹ́',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Àwọn ìfiránṣẹ́ tuntun jù lọ',
+  'chat.viewProfile': 'Wo profaili',
+  'chat.noSavedReplies': 'Kò sí èsì tí a fi pamọ́ síbẹ̀',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Títí dé ènìyàn 10 lẹ́ẹ̀kan náà',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'A ti fi ìfiránṣẹ́ rẹ ránṣẹ́',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'A kò rí ibi tí o wà báyìí. Ṣàyẹ̀wò pé Location Services wà ní títàn.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Àwọ̀ òrùka',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Fi kún un láti Ibi ìpamọ́',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'A ti fi ìbéèrè ránṣẹ́',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'O máa ní láti tún béèrè kí o tó lè darapọ̀.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Fi àpèjúwe kún un',
+  // A community with no church chosen.
+  'groups.none': 'Kò sí',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Lo ibi tí mo wà',
+  'churches.openSettings': 'Ṣí ètò fóònù rẹ',
+  'churches.openSettingsLabel': 'Ṣí ètò fóònù rẹ láti lo ibi tí o wà',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ó ń dúró de àyẹ̀wò',
+  'churches.notApproved': 'A kò fọwọ́ sí i',
+  'churches.noMembers': 'Kò sí ọmọ ìjọ kankan síbẹ̀',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Yóò hàn fún gbogbo ènìyàn nígbà tí alábòójútó kan bá fọwọ́ sí i.',
+  'churches.thanksMakeYours': 'A dúpẹ́! Ṣé o fẹ́ kí ó jẹ́ ìjọ rẹ?',
+  // ======== end of v22 ========
 };

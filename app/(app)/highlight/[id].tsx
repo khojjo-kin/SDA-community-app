@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markMemoryOpened } from '../../../src/components/HighlightsRow';
 import { useLegalSheet } from '../../../src/components/LegalDocument';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
@@ -24,8 +25,11 @@ export default function HighlightScreen() {
   const highlightId = String(id);
   const { me } = useSession();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const hold = useStoryHold();
+  // A profile or another memory is opening: a second tap doesn't open it twice.
+  const leaving = useRef(false);
   // The Copyright policy, offered after a copyright report. The memory stays paused while it is open.
   const legal = useLegalSheet();
   const [data, setData] = useState<Data | null | 'missing'>(null);
@@ -90,6 +94,8 @@ export default function HighlightScreen() {
   );
 
   function openProfile(uid: string) {
+    if (leaving.current) return;
+    leaving.current = true;
     router.replace(`/user/${uid}`);
   }
 
@@ -165,15 +171,11 @@ export default function HighlightScreen() {
 
   if (data === null) return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}><DarkStatusBar /><DarkLoading /></View>;
   if (data === 'missing' || !data.items.length) {
-    const mineEmpty = data !== 'missing' && data.highlight.user_id === me;
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
-        <DarkEmpty
-          title={data === 'missing' ? "This memory isn't available" : 'This memory is empty'}
-          body={data === 'missing' ? 'It may have been deleted.' : mineEmpty ? 'Add stories to it from your archive.' : undefined}
-        />
-        <View style={{ position: 'absolute', top: 60, right: 8 }}>
+        <DarkEmpty icon="highlight" title={data === 'missing' ? "This memory isn't available" : 'This memory is empty'} />
+        <View style={{ position: 'absolute', top: insets.top + 8, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
       </View>

@@ -15,11 +15,11 @@ export function QuarterHero({ quarterly, total, done }: { quarterly: Quarterly; 
   const bg = quarterly.color_primary || '#1f3d35';
   return (
     <View style={{ marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: bg }}>
-      {quarterly.splash ? <Image source={{ uri: quarterly.splash }} contentFit="cover" transition={200} style={[StyleSheet.absoluteFill, { opacity: 0.4 }]} accessibilityIgnoresInvertColors /> : null}
+      {quarterly.splash ? <Image source={{ uri: quarterly.splash }} contentFit="cover" transition={200} cachePolicy="memory-disk" style={[StyleSheet.absoluteFill, { opacity: 0.4 }]} accessibilityIgnoresInvertColors /> : null}
       {/* Darkens whatever the quarter's colour is, so the white text always reads. */}
       <LinearGradient colors={['rgba(0,0,0,0.20)', 'rgba(0,0,0,0.55)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={{ flexDirection: 'row', padding: 16, gap: 16, alignItems: 'center' }}>
-        <Image source={{ uri: quarterly.cover }} contentFit="cover" transition={150} accessibilityLabel={`Cover of ${quarterly.title}`} style={{ width: 88, height: 124, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <Image source={{ uri: quarterly.cover }} contentFit="cover" transition={150} cachePolicy="memory-disk" accessibilityLabel={`Cover of ${quarterly.title}`} style={{ width: 88, height: 124, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)' }} />
         <View style={{ flex: 1, gap: 4 }}>
           {group ? <Text style={{ color: 'rgba(255,255,255,0.78)', fontSize: 13, fontWeight: '600' }}>{group}</Text> : null}
           <Text accessibilityRole="header" numberOfLines={3} style={{ color: '#ffffff', fontSize: 19, fontWeight: '800', lineHeight: 24, fontFamily: font }}>{quarterly.title}</Text>

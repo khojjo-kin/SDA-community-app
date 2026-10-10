@@ -1,17 +1,37 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
-import { kindLabel, PostTags } from '../../../src/components/sabbath/publishers';
+import { kindLabel, openOnce, PostTags, sabbathPostsChanged } from '../../../src/components/sabbath/publishers';
+import { Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
 import { afterSheet } from '../../../src/components/StoryChrome';
-import { Avatar, Empty, ErrorNote, Loading, RoundButton, Screen, ScreenHeader, Sheet, SheetRow, useToast } from '../../../src/components/ui';
+import { Avatar, Empty, ErrorNote, RoundButton, Screen, ScreenHeader, Sheet, SheetRow, useToast } from '../../../src/components/ui';
 import { deleteSabbathPost, fetchSabbathPost, updateSabbathPost } from '../../../src/lib/api';
 import { useAppFont } from '../../../src/lib/fonts';
 import { useT } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { agoLong, C, errText } from '../../../src/lib/theme';
 import type { SabbathPost } from '../../../src/lib/types';
+
+/** The post's shape while it is on its way: its labels, title, author and a few lines. */
+function PostSkeleton() {
+  const { width } = useWindowDimensions();
+  const w = width - 40;
+  return (
+    <SkeletonFrame style={{ paddingHorizontal: 20, paddingTop: 6, gap: 12 }}>
+      <Skeleton width={74} height={22} radius={11} x={20} />
+      <Skeleton width={Math.round(w * 0.85)} height={26} radius={8} x={20} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <Skeleton width={38} height={38} radius={19} x={20} />
+        <Skeleton width={120} height={12} x={68} />
+      </View>
+      {[0.96, 0.92, 0.98, 0.6].map((f, i) => (
+        <Skeleton key={i} width={Math.round(w * f)} height={14} x={20} />
+      ))}
+    </SkeletonFrame>
+  );
+}
 
 /** One post from a Sabbath School publisher, in full. Its author and the admins can edit or delete it; admins pin it. */
 export default function SabbathPostScreen() {
@@ -41,6 +61,7 @@ export default function SabbathPostScreen() {
     setMenu(false);
     try {
       await updateSabbathPost(p.id, { pinned: !p.pinned });
+      sabbathPostsChanged();
       setPost({ ...p, pinned: !p.pinned });
       toast(p.pinned ? t('ssPub.unpinned') : t('ssPub.pinnedToast'));
     } catch (e) {
@@ -65,6 +86,7 @@ export default function SabbathPostScreen() {
         onPress: async () => {
           try {
             await deleteSabbathPost(p.id);
+            sabbathPostsChanged();
             toast(t('ssPub.deleted'));
             if (router.canGoBack()) router.back();
             else router.replace('/sabbath-school' as any);
@@ -79,7 +101,7 @@ export default function SabbathPostScreen() {
   const openLink = (url: string) => Linking.openURL(url).catch(() => toast(t('ssPub.couldNotOpen')));
 
   let body: React.ReactNode;
-  if (post === undefined) body = error ? <ErrorNote message={error} onRetry={load} /> : <Loading />;
+  if (post === undefined) body = error ? <ErrorNote message={error} onRetry={load} /> : <PostSkeleton />;
   else if (post === null) body = <Empty icon="lesson" title={t('ssPub.notFound')} />;
   else {
     const name = post.full_name || post.username;
@@ -92,7 +114,7 @@ export default function SabbathPostScreen() {
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 26, fontWeight: '800', lineHeight: 32, letterSpacing: -0.3, fontFamily: font }}>
             {post.title}
           </Text>
-          <Pressable onPress={() => router.push(`/user/${post.author_id}` as any)} accessibilityRole="button" accessibilityLabel={name} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
+          <Pressable onPress={() => openOnce(() => router.push(`/user/${post.author_id}` as any))} accessibilityRole="button" accessibilityLabel={name} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
             <Avatar uri={post.avatar_url} name={name} size={38} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -104,8 +126,8 @@ export default function SabbathPostScreen() {
           </Pressable>
         </View>
 
-        {post.media.filter((m) => m.type === 'image').map((m, i) => (
-          <Image key={`${m.url}${i}`} source={{ uri: m.url }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors style={{ marginHorizontal: 16, marginTop: 16, borderRadius: 16, aspectRatio: m.w && m.h ? Math.min(2, Math.max(0.6, m.w / m.h)) : 4 / 3, backgroundColor: C.surface }} />
+        {(post.media ?? []).filter((m) => m.type === 'image').map((m, i) => (
+          <Image key={`${m.url}${i}`} source={{ uri: m.url }} contentFit="cover" transition={150} cachePolicy="memory-disk" accessibilityIgnoresInvertColors style={{ marginHorizontal: 16, marginTop: 16, borderRadius: 16, aspectRatio: m.w && m.h ? Math.min(2, Math.max(0.6, m.w / m.h)) : 4 / 3, backgroundColor: C.surface }} />
         ))}
 
         <View style={{ paddingHorizontal: 20, paddingTop: 18, gap: 14 }}>
@@ -146,7 +168,7 @@ export default function SabbathPostScreen() {
 
       {post ? (
         <Sheet visible={menu} onClose={() => setMenu(false)}>
-          <SheetRow first icon="compose" label={t('ssPub.edit')} onPress={() => { setMenu(false); router.push({ pathname: '/sabbath-post-edit', params: { id: post.id } } as any); }} />
+          <SheetRow first icon="compose" label={t('ssPub.edit')} onPress={() => { setMenu(false); openOnce(() => router.push({ pathname: '/sabbath-post-edit', params: { id: post.id } } as any)); }} />
           {admin ? <SheetRow icon="bookmark" label={post.pinned ? t('ssPub.unpin') : t('ssPub.pin')} onPress={() => pin(post)} /> : null}
           <SheetRow icon="share" label={t('common.share')} onPress={() => afterMenu(() => share(post))} />
           <SheetRow icon="trash" label={t('common.delete')} danger onPress={() => afterMenu(() => remove(post))} />

@@ -1128,4 +1128,93 @@ export const sw: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Dokezo limehifadhiwa',
   'bibleMarks.noteDeleted': 'Dokezo limefutwa',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Fungua mipangilio',
+  'createFlow.cameraOff': 'Ruhusa ya kamera imezimwa',
+  'createFlow.choosePhotos': 'Chagua picha na video',
+  'createFlow.recents': 'Za hivi karibuni',
+  'createFlow.albums': 'Albamu',
+  'goLive.endedAway': 'Matangazo yako ya mubashara yaliisha ulipokuwa mbali',
+  'live.paused': 'Imesitishwa',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Muda wa kiungo hicho cha kuweka malipo umeisha.',
+  'payouts.country': 'Nchi',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Akaunti yako ni ya faragha. Ifanye iwe ya umma ili kutangaza chapisho hili.',
+  'promote.profileOnly': 'Chapisho hili liko kwenye wasifu wako pekee, kwa hivyo haliwezi kutangazwa.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Michango bado haipokelewi',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Uchangishaji huu haukuweza kufutwa. Badala yake, unaweza kuumaliza.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Sauti hii haikupakia. Jaribu tena.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Hakuna kitabu kinacholingana',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Inachapisha…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Leo',
+  'notifications.sectionYesterday': 'Jana',
+  'notifications.sectionThisWeek': 'Wiki hii',
+  'notifications.sectionThisMonth': 'Mwezi huu',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Ungependa kuacha kumfuata {username}?',
+  'profile.unfollow': 'Acha kufuata',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Toka kwenye akaunti ya {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Ombi limetumwa',
+  'verify.pending': 'Linasubiri',
+  'verify.sentOn': 'Lilitumwa tarehe {date}',
+  'verify.notSent': 'Ombi lako halikutumwa. Jaribu tena.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Inatuma…',
+  'chat.sent': 'Imetumwa',
+  'chat.seen': 'Imeonekana',
+  'chat.notSent': 'Haikutumwa · Gusa ili ujaribu tena',
+  'chat.notSentTitle': 'Ujumbe haukutumwa',
+  'chat.copied': 'Imenakiliwa',
+  'chat.deleted': 'Gumzo limefutwa',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Jumbe mpya zaidi',
+  'chat.viewProfile': 'Tazama wasifu',
+  'chat.noSavedReplies': 'Bado hakuna majibu yaliyohifadhiwa',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Hadi watu 10 kwa wakati mmoja',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Ujumbe umetumwa',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Mahali ulipo hapapatikani kwa sasa. Hakikisha huduma za mahali zimewashwa.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Rangi ya pete',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Ongeza kutoka kwenye hifadhi ya zamani',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Ombi limetumwa',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Utahitaji kuomba kujiunga tena.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Ongeza maelezo',
+  // A community with no church chosen.
+  'groups.none': 'Hakuna',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Tumia mahali nilipo',
+  'churches.openSettings': 'Fungua mipangilio',
+  'churches.openSettingsLabel': 'Fungua mipangilio ili kutumia mahali ulipo',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Linasubiri ukaguzi',
+  'churches.notApproved': 'Halikuidhinishwa',
+  'churches.noMembers': 'Bado hakuna washiriki',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Litaonekana kwa kila mtu msimamizi atakapoliidhinisha.',
+  'churches.thanksMakeYours': 'Asante! Ungependa liwe kanisa lako?',
+  // ======== end of v22 ========
 };

@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useToast } from '../components/ui';
 import { recordPodPlay } from './api';
+import { useCalls } from './calls';
+import { t } from './i18n';
 import type { PodItem } from './types';
 
 /*
@@ -90,7 +94,8 @@ function identity(count: number): number[] {
 export function play(items: PodItem[], index: number) {
   const target = items[index];
   if (!target) return;
-  const same = currentItem()?.id === target.id;
+  // The same track resumes, unless it never loaded (it timed out): then it is loaded again.
+  const same = currentItem()?.id === target.id && (state.playing || progress.loaded);
   const order = state.shuffle ? shuffled(items.length, index) : identity(items.length);
   const cursor = order.indexOf(index);
   setState({ queue: items, order, cursor, playing: true, loadToken: same ? state.loadToken : state.loadToken + 1 });
@@ -99,6 +104,12 @@ export function play(items: PodItem[], index: number) {
 
 export function toggle() {
   if (!currentItem()) return;
+  // A track that never loaded (it timed out, or the connection dropped): Play loads it again.
+  if (!state.playing && !progress.loaded) {
+    setState({ playing: true, loadToken: state.loadToken + 1 });
+    setProgress({ position: 0, buffering: true });
+    return;
+  }
   setState({ playing: !state.playing });
 }
 
@@ -258,6 +269,31 @@ export function useBuffering(): boolean {
   return useSyncExternalStore(subscribeProgress, () => progress.buffering, () => progress.buffering);
 }
 
+const trackState = (id: string): 'playing' | 'paused' | null => (currentItem()?.id === id ? (state.playing ? 'playing' : 'paused') : null);
+
+/**
+ * 'playing' or 'paused' when `id` is the track loaded now, null for any other. For rows in a list:
+ * each draws again only when its own track starts, stops or changes, not whenever anything does.
+ */
+export function useTrackState(id: string): 'playing' | 'paused' | null {
+  return useSyncExternalStore(subscribeState, () => trackState(id), () => trackState(id));
+}
+
+const hasTrack = () => !!currentItem();
+
+/** Whether a track is loaded, so the player bar is showing. Changes only when that does. */
+export function useHasTrack(): boolean {
+  return useSyncExternalStore(subscribeState, hasTrack, hasTrack);
+}
+
+/** Room to leave at the foot of a tab's list for the player bar over the tab bar: its height and the gap above it. */
+export const PLAYER_BAR_SPACE = 68;
+
+/** Room at the foot of a tab screen's list so its last row clears the tab bar, and the player bar when it shows. */
+export function useTabListBottom(): number {
+  return 110 + (useHasTrack() ? PLAYER_BAR_SPACE : 0);
+}
+
 /* ---------- engine ---------- */
 
 let engines = 0;
@@ -286,34 +322,92 @@ export function PlayerEngine() {
   return primary ? <Engine /> : null;
 }
 
+/**
+ * How Pod's sound is set up: heard with the ring switch off, like any music app, and carrying on with
+ * the screen locked or another app open (the app may play audio in the background). Other apps' sound
+ * may still play alongside, as before.
+ */
+const AUDIO_MODE = { playsInSilentMode: true, shouldPlayInBackground: true, allowsRecording: false } as const;
+
+/** Whether a call is on (or ringing), kept by the engine. */
+let callOn = false;
+/** How many voice recordings are going on now (a voice message, a voice-over in the post editor). */
+let recordings = 0;
+
+/**
+ * Says a recording has started (true) or ended (false). While one goes on, Pod leaves the sound's setup
+ * alone: switching recording off, as Pod's setup does, would stop the recording half-way.
+ */
+export function markRecording(on: boolean) {
+  recordings = Math.max(0, recordings + (on ? 1 : -1));
+}
+
+/**
+ * Sets Pod's sound up again. Other screens set their own (voice messages, a post's music), and any
+ * setting they leave out goes back to its default, background play included, so this is repeated
+ * whenever Pod starts to play and as the app goes into the background while it plays.
+ */
+function claimAudio() {
+  // A call has the sound set up for talking (the microphone on): Pod leaves it alone until the call is
+  // over, when the call puts the same setup back. Otherwise a track moving on, or the phone being locked,
+  // mid-call would cut the microphone off.
+  if (callOn || recordings > 0) return;
+  setAudioModeAsync(AUDIO_MODE).catch(() => {});
+}
+
+/**
+ * When the app last told the sound what to do. The sound's own reports trail a command by a moment,
+ * so one isn't taken for the phone's doing (see the engine) until this long after it.
+ */
+let commandAt = 0;
+const SETTLE_MS = 1500;
+/** A pause or a start the phone made by itself, passed on to the store; the engine doesn't send it back as a command. */
+let phoneSaid: { playing: boolean; at: number } | null = null;
+/** How long a track may take to start playing before the spinner gives way and the member is told. */
+const LOAD_TIMEOUT_MS = 25000;
+
 function Engine() {
+  const toast = useToast();
+  const { inCall } = useCalls();
+  useEffect(() => {
+    callOn = inCall;
+  }, [inCall]);
   const player = useAudioPlayer(null, { updateInterval: 500 });
   const status = useAudioPlayerStatus(player);
   const snap = usePlayer();
   const current = snap.current;
   const playingRef = useRef(snap.playing);
   playingRef.current = snap.playing;
+  const statusRef = useRef(status);
+  statusRef.current = status;
   /** Which track the native player holds, so a status from the old file is not read as the new one's. */
   const loadedId = useRef<string | null>(null);
   const loadedAt = useRef(0);
   /** Set after a remount: where to put the track back to once the file is in, before it may play. */
   const resumeAt = useRef<number | null>(null);
 
-  // Songs should be heard with the ring switch off, like any music app.
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    claimAudio();
+    // Going to the background (or the screen locking) while a track plays: make sure it may carry on.
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' && state.playing && currentItem()) claimAudio();
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
     engine = {
       play: () => {
+        commandAt = Date.now();
         try {
+          claimAudio();
           player.play();
         } catch {
           // released
         }
       },
       pause: () => {
+        commandAt = Date.now();
         try {
           player.pause();
         } catch {
@@ -321,6 +415,7 @@ function Engine() {
         }
       },
       seekTo: (s) => {
+        commandAt = Date.now();
         try {
           player.seekTo(s).catch(() => {});
         } catch {
@@ -335,6 +430,7 @@ function Engine() {
 
   // Load whenever the store asks for a fresh start on the current track.
   useEffect(() => {
+    commandAt = Date.now();
     try {
       if (!current) {
         engineTrack = null;
@@ -358,7 +454,10 @@ function Engine() {
         return;
       }
       resumeAt.current = null;
-      if (playingRef.current) player.play();
+      if (playingRef.current) {
+        claimAudio();
+        player.play();
+      }
       recordPodPlay(current.id);
     } catch {
       // the player was released
@@ -368,16 +467,71 @@ function Engine() {
 
   // Follow the play/pause intent.
   useEffect(() => {
+    // The phone did this itself (see below), so the sound is already that way.
+    const said = phoneSaid;
+    phoneSaid = null;
+    if (said && said.playing === snap.playing && Date.now() - said.at < 1000) return;
     // While a remount puts the track back in place, playing waits for that (the effect below starts it).
     if (!current || resumeAt.current !== null) return;
+    commandAt = Date.now();
     try {
-      if (snap.playing) player.play();
-      else player.pause();
+      if (snap.playing) {
+        claimAudio();
+        player.play();
+      } else player.pause();
     } catch {
       // released
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap.playing, player]);
+
+  // The phone paused or restarted the sound by itself: headphones taken out, a call coming in or
+  // ending, the headphones' own button. The buttons on every screen follow, so they never show Pause
+  // over silence. Reports just after the app's own command are left alone until it has settled.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = () => {
+      timer = null;
+      const s = statusRef.current;
+      const item = currentItem();
+      if (!item || loadedId.current !== item.id || resumeAt.current !== null || !s.isLoaded) return;
+      const wait = SETTLE_MS - (Date.now() - commandAt);
+      if (wait > 0) {
+        timer = setTimeout(check, wait + 50);
+        return;
+      }
+      // The end of a track stops the sound too; the track moving on handles that. (When the file doesn't
+      // say how long it is, the length saved with the track stands in, so its end isn't taken for a pause.)
+      const length = s.duration > 0 && Number.isFinite(s.duration) ? s.duration : item.duration_seconds || 0;
+      const ending = s.didJustFinish || (length > 0 && s.currentTime >= length - 1);
+      if (state.playing && !s.playing && !s.isBuffering && s.timeControlStatus !== 'waitingToPlayAtSpecifiedRate' && !ending) {
+        phoneSaid = { playing: false, at: Date.now() };
+        setState({ playing: false });
+      } else if (!state.playing && s.playing) {
+        phoneSaid = { playing: true, at: Date.now() };
+        setState({ playing: true });
+      }
+    };
+    check();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [status.playing, status.isBuffering, status.timeControlStatus, status.isLoaded]);
+
+  // A track that never arrives (a broken link, no connection): stop waiting after a while and say so,
+  // rather than spinning for ever. Play tries again.
+  useEffect(() => {
+    if (!current || !snap.playing || status.isLoaded) return;
+    const token = snap.loadToken;
+    const timer = setTimeout(() => {
+      if (state.loadToken !== token || !state.playing || statusRef.current.isLoaded) return;
+      setState({ playing: false });
+      setProgress({ buffering: false });
+      toast(t('pod.cantPlay'));
+    }, LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap.loadToken, snap.playing, status.isLoaded]);
 
   // After a remount, once the file is in: back to where the last engine was, then play only if it was playing.
   useEffect(() => {
@@ -385,8 +539,10 @@ function Engine() {
     if (at === null || !status.isLoaded || !current || loadedId.current !== current.id) return;
     resumeAt.current = null;
     lastSeek = { at: Date.now(), to: at };
+    commandAt = Date.now();
     const id = current.id;
     const go = () => {
+      commandAt = Date.now();
       try {
         if (playingRef.current && loadedId.current === id && resumeAt.current === null) player.play();
       } catch {

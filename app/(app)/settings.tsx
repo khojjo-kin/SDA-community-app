@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
@@ -36,10 +36,57 @@ function PlusTag() {
 const REPLIES: Record<string, Key> = { everyone: 'settings.repliesEveryone', following: 'settings.repliesFollowing', off: 'settings.repliesOff' };
 const THEME_LABEL: Record<string, Key> = { dark: 'theme.dark', white: 'theme.white' };
 
+/**
+ * A switch saved on the account. It moves at once and stays where it was put while the save goes
+ * through, however fast it is tapped: saves go one at a time and only the last position is saved, and
+ * the profile reloading meanwhile with an older answer doesn't flick it back. Once the account agrees,
+ * it follows the account again. If saving fails it goes back to what the account has, and says why.
+ */
+function useAccountSwitch(saved: boolean, save: (next: boolean) => Promise<unknown>): [boolean, (next: boolean) => void] {
+  const toast = useToast();
+  // Where the member put the switch, until the account says the same; null when it simply shows the account.
+  const [wanted, setWanted] = useState<boolean | null>(null);
+  const latest = useRef<boolean | null>(null);
+  const running = useRef(false);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  useEffect(() => {
+    if (wanted !== null && saved === wanted && !running.current) setWanted(null);
+  }, [saved, wanted]);
+  const set = useCallback(
+    (next: boolean) => {
+      setWanted(next);
+      latest.current = next;
+      if (running.current) return;
+      running.current = true;
+      (async () => {
+        while (latest.current !== null) {
+          const value = latest.current;
+          latest.current = null;
+          try {
+            await saveRef.current(value);
+          } catch (e) {
+            latest.current = null;
+            setWanted(null);
+            toast(errText(e));
+            break;
+          }
+        }
+        running.current = false;
+        setWanted((w) => (w !== null && w === savedRef.current ? null : w));
+      })();
+    },
+    [toast],
+  );
+  return [wanted ?? saved, set];
+}
+
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
   const signOutHere = useLogOut();
-  const { me, profile, refresh } = useSession();
+  const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
   const prefs = usePrefs();
@@ -48,18 +95,12 @@ export default function Settings() {
   const [q, setQ] = useState('');
   const [friends, setFriends] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
-  // Read receipts: shown at once when tapped, then put back if the save fails.
-  const [receipts, setReceipts] = useState(profile?.read_receipts ?? true);
-  useEffect(() => { setReceipts(profile?.read_receipts ?? true); }, [profile?.read_receipts]);
-  // Chat streaks, the same way.
-  const [streaks, setStreaks] = useState(profile?.streaks_enabled ?? true);
-  useEffect(() => { setStreaks(profile?.streaks_enabled ?? true); }, [profile?.streaks_enabled]);
-  // Activity status, the same way.
-  const [activity, setActivity] = useState(profile?.show_activity ?? true);
-  useEffect(() => { setActivity(profile?.show_activity ?? true); }, [profile?.show_activity]);
+  // Switches saved on the account. Each save announces the change, so the profile loads again by itself.
+  const [receipts, setReadReceipts] = useAccountSwitch(profile?.read_receipts ?? true, (next) => updateProfile(me, { read_receipts: next }));
+  const [streaks, setStreaksEnabled] = useAccountSwitch(profile?.streaks_enabled ?? true, (next) => updateProfile(me, { streaks_enabled: next }));
+  const [activity, setShowActivity] = useAccountSwitch(profile?.show_activity ?? true, (next) => updateProfile(me, { show_activity: next }));
   // The blue tick (Plus members may hide it): on means it shows.
-  const [tick, setTick] = useState(!profile?.tick_hidden);
-  useEffect(() => { setTick(!profile?.tick_hidden); }, [profile?.tick_hidden]);
+  const [tick, setShowTick] = useAccountSwitch(!profile?.tick_hidden, (next) => setTickHidden(!next));
 
   useFocusEffect(
     useCallback(() => {
@@ -67,30 +108,6 @@ export default function Settings() {
       listBlocked(me).then((b) => setBlocked(b.length)).catch(() => {});
     }, [me]),
   );
-
-  function setReadReceipts(next: boolean) {
-    const before = receipts;
-    setReceipts(next);
-    updateProfile(me, { read_receipts: next }).then(refresh).catch((e) => { setReceipts(before); toast(errText(e)); });
-  }
-
-  function setStreaksEnabled(next: boolean) {
-    const before = streaks;
-    setStreaks(next);
-    updateProfile(me, { streaks_enabled: next }).then(refresh).catch((e) => { setStreaks(before); toast(errText(e)); });
-  }
-
-  function setShowActivity(next: boolean) {
-    const before = activity;
-    setActivity(next);
-    updateProfile(me, { show_activity: next }).then(refresh).catch((e) => { setActivity(before); toast(errText(e)); });
-  }
-
-  function setShowTick(next: boolean) {
-    const before = tick;
-    setTick(next);
-    setTickHidden(!next).then(refresh).catch((e) => { setTick(before); toast(errText(e)); });
-  }
 
   // Phone-only choices are saved at once and can't fail. The switch itself gives the haptic tap.
   function setHaptics(next: boolean) {

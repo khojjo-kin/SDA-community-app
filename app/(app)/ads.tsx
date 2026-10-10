@@ -1,14 +1,18 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { GridCell } from '../../src/components/Grid';
 import { Icon } from '../../src/components/Icon';
+import { afterSheet } from '../../src/components/StoryChrome';
 import { Button, Empty, ErrorNote, Loading, Screen, ScreenHeader, Sheet } from '../../src/components/ui';
-import { myPromotions } from '../../src/lib/api';
+import { fetchUserPosts, myPromotions } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { t } from '../../src/lib/i18n';
 import { money } from '../../src/lib/payments';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
-import type { Promotion } from '../../src/lib/types';
+import type { Post, Promotion } from '../../src/lib/types';
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -21,14 +25,27 @@ function standing(p: Promotion): { label: string; live: boolean } {
   return { label: 'Ended', live: false };
 }
 
-/** The ads the member has paid for, newest first, with a quick way to run one again. */
+const GAP = 2;
+const keyOfAd = (p: Promotion) => p.id;
+const keyOfPost = (p: Post) => p.id;
+
+/** The ads the member has paid for, newest first, with a quick way to run one again or promote another post. */
 export default function Ads() {
   const router = useRouter();
   const { me } = useSession();
+  const { width } = useWindowDimensions();
+  const cell = Math.floor((width - GAP * 2) / 3);
   const [list, setList] = useState<Promotion[] | null>(null);
   const [error, setError] = useState('');
-  const [how, setHow] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const alive = useRef(true);
+
+  // Choosing a post to promote: the member's own posts, read when the sheet opens.
+  const [picking, setPicking] = useState(false);
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [postsError, setPostsError] = useState('');
+  // One screen per tap, however quickly something is tapped twice.
+  const lastPush = useRef(0);
 
   const load = useCallback(async () => {
     setError('');
@@ -49,15 +66,61 @@ export default function Ads() {
     }, [load]),
   );
 
+  async function pull() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
+
+  const loadPosts = useCallback(async () => {
+    setPostsError('');
+    try {
+      const mine = await fetchUserPosts(me);
+      // A post kept to the profile never shows in For you or Explore, so an ad for it would show nowhere.
+      setPosts(mine.filter((p) => !p.profile_only));
+    } catch (e) {
+      setPostsError(errText(e));
+    }
+  }, [me]);
+
+  function openPicker() {
+    setPicking(true);
+    // Read again each time (a post may have been added or deleted since); the last list shows meanwhile.
+    loadPosts();
+  }
+
+  const promote = useCallback(
+    (postId: string) => {
+      if (Date.now() - lastPush.current < 800) return;
+      lastPush.current = Date.now();
+      router.push(`/promote/${postId}`);
+    },
+    [router],
+  );
+
+  // From the sheet: it slides away first, then the post's promote screen opens.
+  const pick = useCallback(
+    (post: Post) => {
+      if (Date.now() - lastPush.current < 800) return;
+      tap('select');
+      setPicking(false);
+      afterSheet().then(() => {
+        // Not if the member has left this screen meanwhile.
+        if (alive.current) promote(post.id);
+      });
+    },
+    [promote],
+  );
+
+  const renderAd = useCallback(({ item }: { item: Promotion }) => <AdRow item={item} onAgain={promote} />, [promote]);
+  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={cell} onOpen={pick} />, [cell, pick]);
+
   const header = (
-    <Pressable onPress={() => setHow(true)} accessibilityRole="button" accessibilityLabel="Promote a post. How to start" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 16, marginTop: 6, marginBottom: 10, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface })}>
+    <Pressable onPress={openPicker} accessibilityRole="button" accessibilityLabel="Promote a post" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 16, marginTop: 6, marginBottom: 10, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="megaphone" size={24} color={C.accent2} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Promote a post</Text>
-        <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18, marginTop: 2 }}>Start from the ••• menu on any of your posts.</Text>
-      </View>
+      <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>Promote a post</Text>
       <Icon name="right" size={18} color={C.fg2} weight={2} />
     </Pressable>
   );
@@ -69,16 +132,31 @@ export default function Ads() {
     body = (
       <FlatList
         data={list}
-        keyExtractor={(p) => p.id}
+        keyExtractor={keyOfAd}
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 40 }}
-        ListEmptyComponent={
-          <Empty
-            icon="megaphone"
-            title="No ads yet"
-          />
-        }
-        renderItem={({ item }) => <AdRow item={item} onAgain={(postId) => router.push(`/promote/${postId}`)} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={C.fg2} />}
+        ListEmptyComponent={<Empty icon="megaphone" title="No ads yet" />}
+        renderItem={renderAd}
+      />
+    );
+
+  let picker: React.ReactNode;
+  if (postsError && !posts) picker = <ErrorNote message={postsError} onRetry={loadPosts} />;
+  else if (!posts) picker = <Loading />;
+  else
+    picker = (
+      <FlatList
+        data={posts}
+        keyExtractor={keyOfPost}
+        numColumns={3}
+        columnWrapperStyle={{ gap: GAP }}
+        ItemSeparatorComponent={Gap}
+        renderItem={renderCell}
+        initialNumToRender={12}
+        windowSize={5}
+        ListEmptyComponent={<Empty icon="image" title={t('profile.emptyNoPosts')} />}
+        contentContainerStyle={{ paddingBottom: 12 }}
       />
     );
 
@@ -86,43 +164,26 @@ export default function Ads() {
     <Screen>
       <ScreenHeader title="Your ads" />
       {body}
-      <Sheet visible={how} onClose={() => setHow(false)} title="Promote a post">
-        <View style={{ paddingHorizontal: 20, paddingBottom: 8, gap: 14 }}>
-          {[
-            'Open one of your posts on your profile.',
-            'Tap ••• in the top corner and choose Promote.',
-            'Pick how many days, then pay. It starts straight away.',
-          ].map((line, i) => (
-            <View key={line} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: C.fg, fontWeight: '700' }}>{i + 1}</Text>
-              </View>
-              <Text style={{ flex: 1, color: C.fg, fontSize: 15.5, lineHeight: 21 }}>{line}</Text>
-            </View>
-          ))}
-          <Button
-            label="Go to my profile"
-            onPress={() => {
-              setHow(false);
-              router.push(`/user/${me}`);
-            }}
-            style={{ marginTop: 6 }}
-          />
-        </View>
+      <Sheet visible={picking} onClose={() => setPicking(false)} title="Promote a post" tall>
+        <View style={{ flex: 1 }}>{picker}</View>
       </Sheet>
     </Screen>
   );
 }
 
-function AdRow({ item, onAgain }: { item: Promotion; onAgain: (postId: string) => void }) {
+/** The space between rows of the grid. Made once, so the rows aren't rebuilt on every draw. */
+const Gap = () => <View style={{ height: GAP }} />;
+
+/** One ad. Memoised: the list draws again on every refresh, and a row only changes with its ad. */
+const AdRow = React.memo(function AdRow({ item, onAgain }: { item: Promotion; onAgain: (postId: string) => void }) {
   const { label, live } = standing(item);
   const post = item.post ?? null;
-  const first = post?.media[0];
+  const first = post?.media?.[0];
   const thumb = first ? (first.type === 'video' ? first.poster || '' : first.url) : '';
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 }}>
       <View style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-        {thumb ? <Image source={{ uri: thumb }} style={{ width: 56, height: 56 }} contentFit="cover" transition={120} accessibilityIgnoresInvertColors /> : <Icon name={post ? 'image' : 'trash'} size={22} color={C.fg3} />}
+        {thumb ? <Image source={{ uri: thumb }} style={{ width: 56, height: 56 }} contentFit="cover" transition={120} cachePolicy="memory-disk" recyclingKey={item.id} accessibilityIgnoresInvertColors /> : <Icon name={post ? 'image' : 'trash'} size={22} color={C.fg3} />}
       </View>
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={{ color: post ? C.fg : C.fg2, fontSize: 15, fontWeight: '600' }}>{post ? post.caption || 'Post' : 'Post deleted'}</Text>
@@ -134,4 +195,4 @@ function AdRow({ item, onAgain }: { item: Promotion; onAgain: (postId: string) =
       {post && item.post_id ? <Button small kind="ghost" label="Promote again" onPress={() => onAgain(item.post_id!)} /> : null}
     </View>
   );
-}
+});

@@ -1,8 +1,7 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Row, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
-import { C } from '../../src/lib/theme';
 
 export default function Activity() {
   const router = useRouter();

@@ -3,9 +3,12 @@ import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardOpen } from '../../src/components/AssistiveButton';
 import { Icon } from '../../src/components/Icon';
 import { Avatar, Button, Empty, Loading, SearchField, useToast } from '../../src/components/ui';
-import { peopleToMessage, searchProfiles, sendToPeople } from '../../src/lib/api';
+import { peopleToMessage, searchProfiles, sendToPeople, withTimeout } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Profile } from '../../src/lib/types';
@@ -25,6 +28,9 @@ export default function SendTo() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const t = useT();
+  // The bar with Send sits on the keyboard while the message is typed, and above the home indicator without it.
+  const keyboard = useKeyboardOpen();
   const { width } = useWindowDimensions();
   const [base, setBase] = useState<Profile[] | null>(null);
   const [found, setFound] = useState<Profile[] | null>(null);
@@ -34,7 +40,13 @@ export default function SendTo() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    peopleToMessage(me).then(setBase).catch(() => setBase([]));
+    let live = true;
+    withTimeout(peopleToMessage(me))
+      .then((list) => { if (live) setBase(list); })
+      .catch(() => { if (live) setBase([]); });
+    return () => {
+      live = false;
+    };
   }, [me]);
 
   useEffect(() => {
@@ -56,7 +68,15 @@ export default function SendTo() {
 
   const people = found ?? base;
   const cell = Math.floor((width - 20) / 3);
-  const toggle = (uid: string) => setPicked((cur) => (cur.includes(uid) ? cur.filter((x) => x !== uid) : cur.length >= 10 ? cur : [...cur, uid]));
+  const toggle = (uid: string) => {
+    if (busy) return;
+    if (!picked.includes(uid) && picked.length >= 10) {
+      toast(t('chat.forwardLimit'));
+      return;
+    }
+    tap('select');
+    setPicked((cur) => (cur.includes(uid) ? cur.filter((x) => x !== uid) : [...cur, uid]));
+  };
   const close = () => (router.canGoBack() ? router.back() : router.replace('/inbox'));
 
   async function send() {
@@ -64,6 +84,7 @@ export default function SendTo() {
     setBusy(true);
     try {
       await sendToPeople(me, picked, { media, text: note });
+      tap('success');
       toast(picked.length > 1 ? `Sent to ${picked.length} people` : 'Sent');
       close();
     } catch (e) {
@@ -78,7 +99,7 @@ export default function SendTo() {
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12 }}>
         <View style={{ width: 72 }} />
         <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>Forward</Text>
-        <Pressable onPress={close} hitSlop={8} style={{ width: 72, alignItems: 'flex-end' }} accessibilityRole="button">
+        <Pressable onPress={close} hitSlop={8} style={({ pressed }) => ({ width: 72, alignItems: 'flex-end', opacity: pressed ? 0.5 : 1 })} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
           <Text style={{ color: C.accent2, fontWeight: '600', fontSize: 16 }}>Cancel</Text>
         </Pressable>
       </View>
@@ -86,14 +107,14 @@ export default function SendTo() {
       {media.length ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingBottom: 12 }}>
           {media.map((u, i) => (
-            <Image key={`${i}-${u}`} source={{ uri: u }} style={{ width: 62, height: 82, borderRadius: 10, backgroundColor: C.surface }} contentFit="cover" accessibilityLabel="Photo to forward" />
+            <Image key={`${i}-${u}`} source={{ uri: u }} style={{ width: 62, height: 82, borderRadius: 10, backgroundColor: C.surface }} contentFit="cover" transition={120} cachePolicy="memory-disk" accessibilityLabel="Photo to forward" />
           ))}
         </ScrollView>
       ) : null}
       <SearchField value={q} onChangeText={setQ} label="Search people" />
 
       {!media.length ? (
-        <Empty title="Nothing to forward" body="Go back and choose a photo." />
+        <Empty title="Nothing to forward" />
       ) : (
         <FlatList
           data={people ?? []}
@@ -102,28 +123,29 @@ export default function SendTo() {
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 12 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           renderItem={({ item: p }) => {
             const on = picked.includes(p.id);
             return (
-              <Pressable onPress={() => toggle(p.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={p.full_name} style={{ width: cell, alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+              <Pressable onPress={() => toggle(p.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={p.full_name || p.username} style={({ pressed }) => ({ width: cell, alignItems: 'center', gap: 6, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
                 <View>
-                  <Avatar uri={p.avatar_url} name={p.full_name} size={62} />
+                  <Avatar uri={p.avatar_url} name={p.full_name || p.username} size={62} />
                   {on ? (
                     <View style={{ position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="check" size={13} weight={3} color={C.onAccent} />
                     </View>
                   ) : null}
                 </View>
-                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12.5, maxWidth: cell - 8 }}>{p.full_name}</Text>
+                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12.5, maxWidth: cell - 8, fontWeight: on ? '600' : '400' }}>{p.full_name || p.username}</Text>
               </Pressable>
             );
           }}
-          ListEmptyComponent={people === null ? <Loading /> : <Empty title={q.trim() ? 'No one found' : 'No one to send to yet'} body={q.trim() ? 'Try another name.' : 'Follow people or search for someone by name.'} />}
+          ListEmptyComponent={people === null ? <Loading /> : <Empty title={q.trim() ? 'No one found' : 'No one to send to yet'} />}
         />
       )}
 
       {picked.length ? (
-        <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 14, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 10 }}>
+        <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 14, paddingTop: 12, paddingBottom: keyboard ? 10 : insets.bottom + 10, gap: 10 }}>
           <TextInput value={note} onChangeText={setNote} placeholder="Write a message…" placeholderTextColor={C.fg3} maxLength={300} keyboardAppearance={C.blurTint} style={{ color: C.fg, fontSize: 16, height: 40 }} accessibilityLabel="Message" />
           <Button label={picked.length > 1 ? 'Send separately' : 'Send'} onPress={send} busy={busy} />
         </View>

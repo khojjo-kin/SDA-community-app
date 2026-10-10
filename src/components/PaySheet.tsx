@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { confirmPayment, confirmPlatformPayPayment, confirmPlatformPaySetupIntent, confirmSetupIntent, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
 import { fetchSavedCards, settlePayment } from '../lib/api';
+import { tap } from '../lib/haptics';
 // Plain t(): every screen is drawn again from the root when the language changes. The card and
 // payment lines are shared with the Plus checkout (checkout.*).
 import { t } from '../lib/i18n';
@@ -54,6 +55,8 @@ export type PayProps = {
   walletItems?: (p: PayStart) => PlatformPay.CartSummaryItem[];
   /** Apple Pay button wording: "Buy with" for ads, "Support with" for gifts, "Subscribe with". */
   wallet?: 'buy' | 'support' | 'subscribe';
+  /** The Pay button's words, when "Pay £x" isn't right (a free week that only saves a card). */
+  payLabel?: string;
   /** Small print under the Pay button. */
   note?: string;
   /** Drawn under the note, such as a subscription's renewal terms (RenewalTerms). */
@@ -127,6 +130,7 @@ async function payOnce(via: 'apple' | 'card', saved: string | null, props: PayPr
  */
 export function PayPanel(props: PayProps) {
   const { title, amountLabel, onPaid, wallet = 'buy', note, footer, onBusy, onClose } = props;
+  const payWords = props.payLabel || t('checkout.pay', { price: amountLabel });
   const { profile } = useSession();
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [error, setError] = useState('');
@@ -169,7 +173,8 @@ export function PayPanel(props: PayProps) {
   useEffect(() => { load(); }, [load]);
 
   function choose(id: string) {
-    if (busy) return;
+    if (busy || id === method) return;
+    tap('select');
     // The card field empties when it is hidden, so forget what it held.
     if (id !== NEW) setCard(null);
     setMethod(id);
@@ -181,15 +186,22 @@ export function PayPanel(props: PayProps) {
     const saved = via === 'card' && method && method !== NEW ? method : null;
     if (via === 'card' && !saved && !card?.complete) return;
     working.current = true;
+    tap('medium');
     setPayError('');
     setBusy(via);
     onBusy?.(true);
     try {
       const r = await payOnce(via, saved, props, name);
       if (r.kind === 'paid') onPaid(r.id, r.slow);
-      else if (r.kind === 'failed' && alive.current) setPayError(r.message);
+      else if (r.kind === 'failed' && alive.current) {
+        tap('warning');
+        setPayError(r.message);
+      }
     } catch (e) {
-      if (alive.current) setPayError(errText(e));
+      if (alive.current) {
+        tap('warning');
+        setPayError(errText(e));
+      }
     } finally {
       working.current = false;
       if (alive.current) setBusy(null);
@@ -205,7 +217,7 @@ export function PayPanel(props: PayProps) {
 
   const canPay = !busy && !!method && (method !== NEW || !!card?.complete);
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 20 }}>
       <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 14, lineHeight: 19 }}>{title}</Text>
@@ -301,7 +313,7 @@ export function PayPanel(props: PayProps) {
         <Pressable
           onPress={canPay ? () => pay('card') : undefined}
           accessibilityRole="button"
-          accessibilityLabel={t('checkout.pay', { price: amountLabel })}
+          accessibilityLabel={payWords}
           accessibilityState={{ disabled: !canPay, busy: busy === 'card' }}
           style={({ pressed }) => ({ height: 52, borderRadius: 14, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: busy === 'card' ? 1 : !canPay ? 0.45 : pressed ? 0.8 : 1 })}>
           {busy === 'card' ? (
@@ -309,7 +321,7 @@ export function PayPanel(props: PayProps) {
           ) : (
             <>
               <Icon name="lock" size={18} color={C.onAccent} weight={2.2} />
-              <Text style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700' }}>{t('checkout.pay', { price: amountLabel })}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700' }}>{payWords}</Text>
             </>
           )}
         </Pressable>
@@ -320,17 +332,35 @@ export function PayPanel(props: PayProps) {
   );
 }
 
+/** How long the sheet takes to slide away: what it shows stays until then, so it doesn't empty on the way down. */
+const SLIDE_MS = 450;
+
 /** PayPanel in a bottom sheet of its own. It cannot be closed while a payment is under way. */
 export function PaySheet({ visible, onClose, ...props }: PayProps & { visible: boolean; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
+  // Each opening is a new visit (a fresh panel); the last one stays drawn while the sheet slides away.
+  const [visit, setVisit] = useState(visible ? 1 : 0);
+  const [wasVisible, setWasVisible] = useState(visible);
+  const [leaving, setLeaving] = useState(false);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) setVisit(visit + 1);
+    setLeaving(!visible);
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => setLeaving(false), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
   // Hidden mid-payment by the parent (it should not be, but if so) the flag must not stick.
   useEffect(() => { if (!visible) setBusy(false); }, [visible]);
   const close = () => (busy ? undefined : onClose());
   return (
     <Sheet visible={visible} onClose={close} title={t('pay.title')} tall>
-      {visible ? (
-        <View style={{ flex: 1 }}>
+      {visible || leaving ? (
+        <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
           <PayPanel
+            key={visit}
             {...props}
             onClose={close}
             onBusy={(b) => {

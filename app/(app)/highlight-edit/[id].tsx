@@ -1,13 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon } from '../../../src/components/Icon';
 import { afterSheet, confirmAlert, HighlightCover } from '../../../src/components/StoryChrome';
 import { StoryCanvas } from '../../../src/components/StoryCanvas';
-import { Button, Empty, ErrorNote, Field, Loading, RoundButton, Screen, ScreenHeader, Sheet, SheetRow, useToast } from '../../../src/components/ui';
+import { Button, Empty, ErrorNote, Field, Loading, RoundButton, Row, Screen, ScreenHeader, Sheet, SheetRow, useToast } from '../../../src/components/ui';
 import { coverOf, deleteHighlight, fetchHighlight, removeHighlightItem, renameHighlight, setHighlightCover, uploadImage } from '../../../src/lib/api';
+import { tap } from '../../../src/lib/haptics';
+import { useT } from '../../../src/lib/i18n';
 import { pickFromLibrary } from '../../../src/lib/pick';
 import { useSession } from '../../../src/lib/session';
 import { RING_STYLES, ringColors } from '../../../src/lib/styling';
@@ -36,6 +38,7 @@ export default function EditHighlight() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [data, setData] = useState<{ highlight: Highlight; items: HighlightItem[] } | null | 'missing'>(null);
@@ -48,12 +51,20 @@ export default function EditHighlight() {
   const [sheet, setSheet] = useState<'cover' | 'plus' | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const load = useCallback(() => {
     setError('');
     setData(null);
     fetchHighlight(highlightId)
       .then((res) => {
+        if (!alive.current) return;
         setData(res ?? 'missing');
         if (res) {
           setTitle(res.highlight.title);
@@ -61,7 +72,9 @@ export default function EditHighlight() {
           setRemoved([]);
         }
       })
-      .catch((e) => setError(errText(e)));
+      .catch((e) => {
+        if (alive.current) setError(errText(e));
+      });
   }, [highlightId]);
 
   useEffect(load, [load]);
@@ -116,7 +129,10 @@ export default function EditHighlight() {
   const cw = Math.floor((width - 32 - GAP * 2) / 3);
   const ch = Math.round((cw * 16) / 9);
 
-  const toggle = (itemId: string) => setRemoved((cur) => (cur.includes(itemId) ? cur.filter((x) => x !== itemId) : [...cur, itemId]));
+  const toggle = (itemId: string) => {
+    tap('select');
+    setRemoved((cur) => (cur.includes(itemId) ? cur.filter((x) => x !== itemId) : [...cur, itemId]));
+  };
 
   async function back() {
     if (saving) return;
@@ -205,6 +221,8 @@ export default function EditHighlight() {
 
   return (
     <Screen>
+      {/* With changes not yet saved, a swipe back can't throw them away unasked: the back button asks first. */}
+      <Stack.Screen options={{ gestureEnabled: !dirty && !saving }} />
       <ScreenHeader
         title="Edit memory"
         onBack={back}
@@ -232,14 +250,13 @@ export default function EditHighlight() {
             <Pressable onPress={() => setSheet('cover')} disabled={uploading} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit cover">
               <Text style={{ color: C.accent2, fontWeight: '600', fontSize: 15.5 }}>{uploading ? 'Uploading…' : 'Edit cover'}</Text>
             </Pressable>
-            <Pressable onPress={() => router.push('/profile-style')} hitSlop={6} accessibilityRole="link" accessibilityLabel={`Ring colour: ${ringName}. Change it in Profile style`}>
-              <Text style={{ color: C.fg2, fontSize: 13, textAlign: 'center', paddingHorizontal: 24 }}>
-                Ring colour: {ringName}. <Text style={{ color: C.fg, fontWeight: '600' }}>Change it in Profile style</Text>
-              </Text>
-            </Pressable>
           </View>
 
-          <View style={{ paddingHorizontal: 16, paddingTop: 22 }}>
+          <View style={{ marginTop: 14 }}>
+            <Row icon="palette" title={t('memories.ringColour')} value={ringName} onPress={() => router.push('/profile-style')} />
+          </View>
+
+          <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
             <Field label="Title" value={title} onChangeText={setTitle} maxLength={TITLE_MAX} placeholder="Memory name" returnKeyType="done" />
             <Text style={{ color: C.fg3, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {title.length}/{TITLE_MAX}
@@ -283,11 +300,9 @@ export default function EditHighlight() {
             <Text style={{ color: C.fg2, paddingHorizontal: 16 }}>This memory has no stories yet.</Text>
           )}
           {/* There is no story picker to reuse here yet, so adding goes through the archive, which already does it. */}
-          <Pressable onPress={() => router.push('/archive')} accessibilityRole="link" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-            <Text style={{ color: C.fg2, lineHeight: 19 }}>
-              To add more, open a story in your <Text style={{ color: C.fg, fontWeight: '600' }}>archive</Text> and add it to this memory.
-            </Text>
-          </Pressable>
+          <View style={{ marginTop: 12 }}>
+            <Row icon="archive" title={t('memories.addFromArchive')} onPress={() => router.push('/archive')} />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -295,9 +310,6 @@ export default function EditHighlight() {
         {sheet === 'plus' ? (
           <View style={{ paddingHorizontal: 24, gap: 12, alignItems: 'center' }}>
             <Icon name="crown" size={40} color={C.accent2} />
-            <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
-              Uploading any photo from your phone as a memory cover is part of Community Plus. You can always use a picture from the memory itself.
-            </Text>
             <Button label="See Community Plus" onPress={seePlus} style={{ alignSelf: 'stretch', marginTop: 4 }} />
             <Button label="Not now" kind="ghost" onPress={() => setSheet('cover')} style={{ alignSelf: 'stretch' }} />
           </View>
@@ -323,7 +335,7 @@ export default function EditHighlight() {
             ) : (
               <Text style={{ color: C.fg3, paddingHorizontal: 16, paddingBottom: 16 }}>The stories here have no pictures to use.</Text>
             )}
-            <SheetRow first icon="image" label="Upload a photo" sub={profile?.plus ? 'Choose any photo from your phone' : 'Any photo from your phone, with Community Plus'} right={profile?.plus ? undefined : <PlusTag />} onPress={upload} />
+            <SheetRow first icon="image" label="Upload a photo" right={profile?.plus ? undefined : <PlusTag />} onPress={upload} />
           </>
         )}
       </Sheet>

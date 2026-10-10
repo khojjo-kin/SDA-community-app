@@ -131,6 +131,9 @@ export function TaggedLine({ ids }: { ids: string[] }) {
 
 /* ---------- prompt ---------- */
 
+/** One tap, one screen: a quick second tap on Answer doesn't open the comments twice. */
+let lastAnswer = 0;
+
 /**
  * The author's question, with Answer (opens the comments with the box ready). Without Answer when
  * comments are off for me.
@@ -143,12 +146,18 @@ export function PromptCard({ post, dark }: { post: Post; dark?: boolean }) {
   if (!text) return null;
   const canAnswer = !post.comments_off || post.user_id === me;
   const fg = dark ? '#fff' : C.fg;
+  const answer = () => {
+    const now = Date.now();
+    if (now - lastAnswer < 600) return;
+    lastAnswer = now;
+    router.push({ pathname: '/comments/[id]', params: { id: post.id, answer: '1' } } as any);
+  };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: dark ? 0 : 12, marginTop: dark ? 8 : 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 6, minHeight: 46, borderRadius: 14, backgroundColor: dark ? 'rgba(0,0,0,0.45)' : C.surface }}>
       <Icon name="chatdots" size={18} color={dark ? '#fff' : C.accent2} weight={2.1} />
       <Text numberOfLines={2} style={{ flex: 1, color: fg, fontWeight: '600', fontSize: 14, lineHeight: 19 }}>{text}</Text>
       {canAnswer ? (
-        <Pressable onPress={() => router.push({ pathname: '/comments/[id]', params: { id: post.id, answer: '1' } } as any)} accessibilityRole="button" accessibilityLabel={t('postExtras.answer')} style={({ pressed }) => ({ height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: C.accent, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+        <Pressable onPress={answer} accessibilityRole="button" accessibilityLabel={t('postExtras.answer')} style={({ pressed }) => ({ height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: C.accent, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
           <Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 13.5 }}>{t('postExtras.answer')}</Text>
         </Pressable>
       ) : null}

@@ -1192,4 +1192,93 @@ export const tw: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Wɔakora note no',
   'bibleMarks.noteDeleted': 'Wɔapepa note no',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Bue fon nhyehyɛeɛ',
+  'createFlow.cameraOff': 'Wɔadum kamera kwan',
+  'createFlow.choosePhotos': 'Paw mfonini ne video',
+  'createFlow.recents': 'Nea aba nnansa yi',
+  'createFlow.albums': 'Albums',
+  'goLive.endedAway': 'Wo Live no baa awieeɛ bere a na wonni hɔ',
+  'live.paused': 'Agyina kakra',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Saa nhyehyɛeɛ link no bere asa.',
+  'payouts.country': 'Ɔman',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': "W'akawnt yɛ kokoam deɛ. Ma ɛnyɛ baguam deɛ na woatumi de post yi ato dawuru so.",
+  'promote.profileOnly': 'Post yi wɔ wo profile so nko ara, enti wontumi mfa nto dawuru so.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Ɛnnye ntoboa mprempren',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Yɛantumi ampepa saa sika boaboa yi. Wubetumi awie no mmom.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Saa dwom yi amma. San sɔ hwɛ.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Nhoma biara ne eyi nhyia',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Ɛrekɔ…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Ɛnnɛ',
+  'notifications.sectionYesterday': 'Ɛnnora',
+  'notifications.sectionThisWeek': 'Nnawɔtwe yi',
+  'notifications.sectionThisMonth': 'Ɔsram yi',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Wopɛ sɛ wogyae {username} akyi di?',
+  'profile.unfollow': "Gyae n'akyi di",
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Fi {name} mu',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Wɔasoma abisadeɛ no',
+  'verify.pending': 'Ɛretwɛn',
+  'verify.sentOn': 'Wɔsomaa no {date}',
+  'verify.notSent': "Yɛantumi ansoma w'abisadeɛ no. San sɔ hwɛ.",
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ɛrekɔ…',
+  'chat.sent': 'Akɔ',
+  'chat.seen': 'Wɔahu',
+  'chat.notSent': 'Ankɔ · Mia so na san sɔ hwɛ',
+  'chat.notSentTitle': 'Nkra no ankɔ',
+  'chat.copied': 'Woakɔpi',
+  'chat.deleted': 'Wɔapepa nkɔmmɔ no',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Nkra a ɛtwa toɔ',
+  'chat.viewProfile': 'Hwɛ profile',
+  'chat.noSavedReplies': 'Mmuaeɛ biara a woakora nni hɔ da',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Nnipa kosi 10 bere koro mu',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Wɔasoma nkra no',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Yɛntumi nhu baabi a wowɔ seesei. Hwɛ sɛ Location Services abue.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Kawa ahosuo',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Fa ka ho fi nneɛma a woasie mu',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Wɔasoma abisadeɛ no',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Ɛbɛhia sɛ wosan bisa ansa na woaka ho.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Fa nkyerɛkyerɛmu ka ho',
+  // A community with no church chosen.
+  'groups.none': 'Hwee',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Fa baabi a mewɔ di dwuma',
+  'churches.openSettings': 'Bue fon nhyehyɛeɛ',
+  'churches.openSettingsLabel': 'Bue fon nhyehyɛeɛ na fa baabi a wowɔ di dwuma',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ɛretwɛn nhwehwɛmu',
+  'churches.notApproved': 'Wɔampene so',
+  'churches.noMembers': 'Asɔremma biara nni hɔ da',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Sɛ admin bi pene so a, ɛbɛda adi ama obiara.',
+  'churches.thanksMakeYours': "Yɛda wo ase! Wopɛ sɛ ɛyɛ w'asɔre?",
+  // ======== end of v22 ========
 };

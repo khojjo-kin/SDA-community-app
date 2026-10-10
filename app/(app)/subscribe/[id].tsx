@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
 import { type PayStart, useInstantPay } from '../../../src/components/PaySheet';
@@ -41,19 +41,28 @@ export default function Subscribe() {
   const known = useRef<string | null>(null);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+  // One screen per tap, however quickly a button is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
 
   const load = useCallback(async () => {
     setError('');
     try {
-      const [p, mine] = await Promise.all([getProfile(creatorId), mySubscriptions(me).catch(() => [] as CreatorSub[])]);
+      const [p, mine] = await Promise.all([getProfile(creatorId), mySubscriptions(me).catch(() => null)]);
       if (!alive.current) return;
       setCreator(p);
-      setSub(mine.find((s) => s.creator_id === creatorId) ?? null);
+      // A list that didn't load keeps what is on screen, rather than turning a subscription into a Subscribe button.
+      if (mine) setSub(mine.find((s) => s.creator_id === creatorId) ?? null);
     } catch (e) {
       if (alive.current) setError(errText(e));
     }
   }, [creatorId, me]);
-  useEffect(() => { load(); }, [load]);
+  // On every visit: back from Payment methods after a failed renewal, say.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
   // The currency prices are shown in. Not worth an error if it fails.
   useEffect(() => {
     ensureStripe()
@@ -90,14 +99,15 @@ export default function Subscribe() {
     setSettling(true);
     const on = await syncCreatorSubscriptionUntilOn(creatorId, known.current);
     if (!alive.current) return;
-    setSettling(false);
     if (on) {
       tap('success');
       toast(wasOverdue ? t('subscribe.paidCarriesOn', { username: name }) : t('subscribe.subscribedTo', { username: name }));
     } else {
       toast(t('subscribe.paymentReceived'));
     }
-    load();
+    // The button keeps spinning until the page has the new subscription, so Subscribe doesn't show again in between.
+    await load();
+    if (alive.current) setSettling(false);
   }
 
   function changeRenewal() {
@@ -107,7 +117,10 @@ export default function Subscribe() {
     const run = async () => {
       setChanging(true);
       try {
-        await cancelCreatorSubscription(creatorId, resume);
+        const r = await cancelCreatorSubscription(creatorId, resume);
+        // Shown at once from Stripe's answer; the read-back below confirms it.
+        if (alive.current) setSub((s) => (s ? { ...s, status: r.status || s.status, cancel_at_period_end: !!r.cancel_at_period_end } : s));
+        tap('success');
         toast(resume ? t('subscribe.willRenew') : day ? t('subscribe.endsOn', { day }) : t('subscribe.willEnd'));
         await load();
       } catch (e) {
@@ -147,7 +160,8 @@ export default function Subscribe() {
   }
 
   let body: React.ReactNode;
-  if (error) body = <ErrorNote message={error} onRetry={load} />;
+  // A failed refresh on coming back keeps the page as it was.
+  if (error && creator === undefined) body = <ErrorNote message={error} onRetry={load} />;
   else if (creator === undefined) body = <Loading />;
   else if (creator === null) body = <Empty icon="user" title={t('profile.unavailable')} />;
   else if (creator.id === me) {
@@ -168,6 +182,28 @@ export default function Subscribe() {
     ];
     // The monthly price drawn large, wherever the language puts it among its words.
     const [perBefore, perAfter] = tSplit('plus.perMonth', 'price');
+
+    // The bar at the bottom: one thing to do, or nothing (subscribed, but the subscription itself didn't load).
+    let footer: React.ReactNode = null;
+    if (settling) footer = <Button label={t('subscribe.confirming')} busy />;
+    else if (sub?.status === 'past_due') {
+      // A renewal that failed is paid on the same subscription, through the same payment sheet.
+      footer = (
+        <>
+          <Button label={t('subscribe.payNow', { price })} busy={instant.busy} onPress={subscribeNow} />
+          <Button label={t('plus.paymentMethods')} kind="ghost" onPress={() => open('/payment-methods')} />
+        </>
+      );
+    } else if (subscribed) {
+      if (sub) footer = <Button label={sub.cancel_at_period_end ? t('plus.resumeSubscription') : t('plus.cancelSubscription')} kind="ghost" busy={changing} onPress={changeRenewal} textColor={sub.cancel_at_period_end ? undefined : C.like} />;
+    } else if (offered) {
+      footer = (
+        <>
+          <Button label={t('subscribe.button', { price })} busy={instant.busy} onPress={subscribeNow} />
+          <RenewalTerms kind="creator" pricePence={pence} currency={currency} />
+        </>
+      );
+    }
 
     body = (
       <>
@@ -214,26 +250,9 @@ export default function Subscribe() {
           )}
         </ScrollView>
 
-        {offered || subscribed ? (
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 8, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.line }}>
-            {settling ? (
-              <Button label={t('subscribe.confirming')} busy />
-            ) : subscribed ? (
-              sub && sub.status !== 'past_due' ? (
-                <Button label={sub.cancel_at_period_end ? t('plus.resumeSubscription') : t('plus.cancelSubscription')} kind="ghost" busy={changing} onPress={changeRenewal} textColor={sub.cancel_at_period_end ? undefined : C.like} />
-              ) : sub?.status === 'past_due' ? (
-                // A renewal that failed is paid on the same subscription, through the same payment sheet.
-                <>
-                  <Button label={t('subscribe.payNow', { price })} busy={instant.busy} onPress={subscribeNow} />
-                  <Button label={t('plus.paymentMethods')} kind="ghost" onPress={() => router.push('/payment-methods')} />
-                </>
-              ) : null
-            ) : (
-              <>
-                <Button label={t('subscribe.button', { price })} busy={instant.busy} onPress={subscribeNow} />
-                <RenewalTerms kind="creator" pricePence={pence} currency={currency} />
-              </>
-            )}
+        {footer ? (
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 8, backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }}>
+            {footer}
           </View>
         ) : null}
 

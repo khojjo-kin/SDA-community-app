@@ -11,6 +11,7 @@ import { DRAW_H, DRAW_W, fitFrame, overlayBox, OverlayLabel, STORY_BACKGROUNDS, 
 import { Avatar, Button, Empty, Loading, Radio, RoundButton, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { addStory, addToHighlight, countCloseFriends, coverOf, createHighlight, peopleToMessage, searchProfiles, sendToPeople, updateProfile, uploadImage, uploadVideo } from '../../src/lib/api';
 import { isNormal, NORMAL_FILTER } from '../../src/lib/filters';
+import { tap } from '../../src/lib/haptics';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, DARK, errText } from '../../src/lib/theme';
@@ -153,6 +154,8 @@ export default function StoryEditor() {
   const [poster, setPoster] = useState(sources[0]?.poster ?? '');
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState('');
+  // Set the moment a share starts, so a second tap in the same instant can't post the story twice.
+  const sharing = useRef(false);
 
   // The text being typed with the Aa tool.
   const [draft, setDraft] = useState<{ id?: string; text: string; color: string; bg: boolean }>({ text: '', color: '#ffffff', bg: false });
@@ -255,6 +258,8 @@ export default function StoryEditor() {
   }
 
   function close() {
+    // Mid-share the screen stays put: leaving would cut off the filter being drawn into the photo.
+    if (busy) return;
     if (stage === 'share') return setStage('edit');
     const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
     if (!edited) return leave();
@@ -329,18 +334,20 @@ export default function StoryEditor() {
   }
 
   async function share(to: Audience, withExtras: boolean) {
-    if (busy) return;
+    if (busy || sharing.current) return;
     if (kind === 'text' && !overlays.length && !strokes.length) {
       toast('Write or draw something first.');
       return;
     }
     if (to === 'close_friends' && friends === 0) {
-      Alert.alert('Your close friends list is empty', 'Add people to it first. Only they will see stories you share with close friends.', [
+      Alert.alert('Your close friends list is empty', undefined, [
         { text: 'Not now', style: 'cancel' },
         { text: 'Add people', onPress: () => router.push('/close-friends') },
       ]);
       return;
     }
+    sharing.current = true;
+    setSelected(null);
     setBusy('Uploading…');
     const done = () => (router.canDismiss() ? router.dismissAll() : router.replace('/'));
     let posted = 0;
@@ -368,6 +375,7 @@ export default function StoryEditor() {
           extrasFailed = true;
         }
       }
+      tap('success');
       toast(extrasFailed ? 'Added to your story. The memory or message did not go through.' : to === 'close_friends' ? 'Shared with your close friends' : items.length > 1 ? `${items.length} stories added` : 'Added to your story');
       done();
     } catch (e) {
@@ -376,7 +384,9 @@ export default function StoryEditor() {
         done();
         return;
       }
+      sharing.current = false;
       setBusy('');
+      tap('warning');
       Alert.alert('That did not share', errText(e));
     }
   }
@@ -404,7 +414,7 @@ export default function StoryEditor() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
-        <DarkEmpty title="Nothing to share" body="Go back and choose a photo or video." action={<Button small label="Go back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ marginTop: 8 }} />} />
+        <DarkEmpty title="Nothing to share" action={<Button small label="Go back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ marginTop: 8 }} />} />
       </View>
     );
   }
@@ -432,7 +442,7 @@ export default function StoryEditor() {
         <View style={{ paddingTop: insets.top + 8, paddingBottom: 14, alignItems: 'center' }}>
           <StoryCanvas item={{ ...item, overlays, caption: caption.trim() || undefined }} width={thumb.w} height={thumb.h} radius={12} filter={filter} />
           <View style={{ position: 'absolute', left: 16, top: insets.top + 6 }}>
-            <RoundButton name="back" label="Back to editing" onPress={() => setStage('edit')} />
+            <RoundButton name="back" label="Back to editing" onPress={busy ? undefined : () => setStage('edit')} />
           </View>
         </View>
         {exporter}
@@ -476,7 +486,7 @@ export default function StoryEditor() {
           {contacts === null ? (
             <Loading />
           ) : contacts.length === 0 ? (
-            <Empty title="No one to send to yet" body="Follow people or start a chat, and they will appear here." />
+            <Empty icon="send" title="No one to send to yet" />
           ) : (
             <ScrollView style={{ flex: 1 }}>
               {contacts.map((p) => {
@@ -651,7 +661,7 @@ export default function StoryEditor() {
         {people === null ? (
           <Loading />
         ) : people.length === 0 ? (
-          <Empty title="No one found" body="Try another name." />
+          <Empty icon="user" title="No one found" />
         ) : (
           <ScrollView style={{ flex: 1, marginTop: 8 }} keyboardShouldPersistTaps="handled">
             {people.map((p) => (

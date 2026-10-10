@@ -1128,4 +1128,93 @@ export const id: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Catatan disimpan',
   'bibleMarks.noteDeleted': 'Catatan dihapus',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Buka Pengaturan',
+  'createFlow.cameraOff': 'Akses kamera nonaktif',
+  'createFlow.choosePhotos': 'Pilih foto dan video',
+  'createFlow.recents': 'Terbaru',
+  'createFlow.albums': 'Album',
+  'goLive.endedAway': 'Siaran Live Anda berakhir selagi Anda pergi',
+  'live.paused': 'Dijeda',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Tautan penyiapan itu sudah kedaluwarsa.',
+  'payouts.country': 'Negara',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Akun Anda privat. Jadikan publik untuk mempromosikan postingan ini.',
+  'promote.profileOnly': 'Postingan ini hanya ada di profil Anda, jadi tidak bisa dipromosikan.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Belum menerima donasi',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Penggalangan dana ini tidak dapat dihapus. Sebagai gantinya, Anda bisa mengakhirinya.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Trek ini gagal dimuat. Coba lagi.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Tidak ada kitab yang cocok',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Memposting…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Hari ini',
+  'notifications.sectionYesterday': 'Kemarin',
+  'notifications.sectionThisWeek': 'Minggu ini',
+  'notifications.sectionThisMonth': 'Bulan ini',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Berhenti mengikuti {username}?',
+  'profile.unfollow': 'Berhenti mengikuti',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Keluar dari {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Permintaan terkirim',
+  'verify.pending': 'Menunggu ditinjau',
+  'verify.sentOn': 'Dikirim pada {date}',
+  'verify.notSent': 'Permintaan Anda tidak terkirim. Coba lagi.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Mengirim…',
+  'chat.sent': 'Terkirim',
+  'chat.seen': 'Dilihat',
+  'chat.notSent': 'Tidak terkirim · Ketuk untuk mencoba lagi',
+  'chat.notSentTitle': 'Pesan tidak terkirim',
+  'chat.copied': 'Disalin',
+  'chat.deleted': 'Chat dihapus',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Pesan terbaru',
+  'chat.viewProfile': 'Lihat profil',
+  'chat.noSavedReplies': 'Belum ada balasan tersimpan',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Maksimal 10 orang sekaligus',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Pesan terkirim',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Lokasi Anda tidak tersedia saat ini. Pastikan Layanan Lokasi aktif.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Warna cincin',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Tambahkan dari arsip',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Permintaan terkirim',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Anda harus meminta untuk bergabung lagi.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Tambahkan deskripsi',
+  // A community with no church chosen.
+  'groups.none': 'Tidak ada',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Gunakan lokasi saya',
+  'churches.openSettings': 'Buka Pengaturan',
+  'churches.openSettingsLabel': 'Buka Pengaturan untuk menggunakan lokasi Anda',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Menunggu peninjauan',
+  'churches.notApproved': 'Tidak disetujui',
+  'churches.noMembers': 'Belum ada anggota',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Gereja ini akan tampil untuk semua orang setelah disetujui admin.',
+  'churches.thanksMakeYours': 'Terima kasih! Jadikan ini gereja Anda?',
+  // ======== end of v22 ========
 };

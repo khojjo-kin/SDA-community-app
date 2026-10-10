@@ -1,4 +1,5 @@
-export type Media = { url: string; type: 'image' | 'video'; w?: number; h?: number; poster?: string };
+/** `alt`: words describing the photo or video for people who can't see it, written in the post editor. */
+export type Media = { url: string; type: 'image' | 'video'; w?: number; h?: number; poster?: string; alt?: string };
 
 /** Text, an emoji or an @mention placed on a story. x and y are the centre, as fractions of the frame. */
 export type Overlay = {

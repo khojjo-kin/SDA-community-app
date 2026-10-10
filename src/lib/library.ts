@@ -26,9 +26,26 @@ let inflight: Promise<LibraryPage | null> | null = null;
 // Bumped by invalidateLibrary, so a load that was already on its way cannot bring back a dropped page.
 let generation = 0;
 
-/** One page of photos and videos, newest first. `after` is the previous page's endCursor. */
-export function libraryPage(after?: string): Promise<MediaLibrary.PagedInfo<MediaLibrary.Asset>> {
-  return MediaLibrary.getAssetsAsync({ first: LIBRARY_PAGE, after, mediaType: ['photo', 'video'], sortBy: MediaLibrary.SortBy.creationTime });
+/**
+ * What a grid pages through: everything (Recents), only videos (Shorts are made from one), or one
+ * album. A page's endCursor only means something to the same source.
+ */
+export type LibrarySource = { videoOnly?: boolean; album?: string | null };
+
+/** True for Recents: everything, newest first. Only this source is loaded ahead of time. */
+export function isRecents(source?: LibrarySource | null): boolean {
+  return !source?.videoOnly && !source?.album;
+}
+
+/** One page, newest first. `after` is the previous page's endCursor from the same source. */
+export function libraryPage(after?: string, source?: LibrarySource | null): Promise<MediaLibrary.PagedInfo<MediaLibrary.Asset>> {
+  return MediaLibrary.getAssetsAsync({
+    first: LIBRARY_PAGE,
+    after,
+    album: source?.album || undefined,
+    mediaType: source?.videoOnly ? ['video'] : ['photo', 'video'],
+    sortBy: MediaLibrary.SortBy.creationTime,
+  });
 }
 
 /** The page loaded ahead of time, or null when there is none. */

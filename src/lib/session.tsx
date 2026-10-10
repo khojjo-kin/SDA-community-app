@@ -5,7 +5,7 @@ import { getProfile, updateProfile } from './api';
 import { cacheKey, clearCache, readCache, writeCache } from './cache';
 import { retryConsentRecord } from './consent';
 import { listen } from './store';
-import { setTokenGetter } from './supabase';
+import { setSignedIn, setTokenGetter } from './supabase';
 import { errText } from './theme';
 import type { Profile } from './types';
 
@@ -101,10 +101,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useAccountChangeReset();
   const [state, setState] = useState<State>({ id: null, profile: null, error: '', errorCode: '', fresh: false });
 
-  // Hand Supabase the current Clerk session token on every request.
+  // Hand Supabase the current Clerk session token on every request (a brand-new one when asked:
+  // after the server refused the last, or while Clerk had none to give).
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
-  setTokenGetter(() => tokenRef.current());
+  setTokenGetter((fresh) => tokenRef.current(fresh ? { skipCache: true } : undefined));
+  setSignedIn(!!(isLoaded && isSignedIn));
 
   const me = isSignedIn && userId ? userId : '';
   const meRef = useRef(me);

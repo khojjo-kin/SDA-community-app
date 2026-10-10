@@ -308,7 +308,8 @@ export default function People() {
     );
   }
 
-  const label = (t: Tab) => (t === 'followers' ? count(owner?.followers_count ?? 0, 'follower') : t === 'following' ? `${fmt(owner?.following_count ?? 0)} following` : 'Subscriptions');
+  // Until the counts arrive the tabs say just Followers and Following, rather than a "0" that then jumps.
+  const label = (t: Tab) => (t === 'followers' ? (owner ? count(owner.followers_count, 'follower') : 'Followers') : t === 'following' ? (owner ? `${fmt(owner.following_count)} following` : 'Following') : 'Subscriptions');
   const others = (suggested ?? []).filter((p) => p.id !== userId && p.id !== me && !isHidden(me, p.id));
 
   const suggestionsBlock = others.length ? (
@@ -361,17 +362,17 @@ export default function People() {
         ListHeaderComponent={!hidden && list && list.length >= SEARCH_FROM ? <View style={{ paddingTop: 12, paddingBottom: 6 }}><SearchField value={query} onChangeText={setQuery} label={`Search ${tab}`} /></View> : null}
         ListEmptyComponent={
           hidden ? (
-            <Empty icon="lock" title="This list is private" body={`${owner?.username ?? 'This account'} keeps who they follow and who follows them to themselves.`} />
+            <Empty icon="lock" title="This list is private" />
           ) : list === undefined ? (
             error ? <ErrorNote message={error} onRetry={() => loadTab(tab)} /> : <RowsSkeleton padY={7} trailing="button" />
           ) : error ? (
             <ErrorNote message={error} onRetry={() => loadTab(tab)} />
           ) : needle ? (
-            <Empty title="No one by that name" body="Check the spelling, or try part of their name." />
+            <Empty title="No one by that name" />
           ) : tab === 'followers' ? (
-            <Empty icon="people" title="No followers yet" body={mine ? 'When people follow you, you will see them here.' : 'People who follow this account will appear here.'} />
+            <Empty icon="people" title="No followers yet" />
           ) : (
-            <Empty icon="people" title="Not following anyone yet" body={mine ? 'Accounts you follow will appear here.' : 'Accounts this person follows will appear here.'} />
+            <Empty icon="people" title="Not following anyone yet" />
           )
         }
         // Suggestions wait for the list, so they don't jump down the page as it arrives.

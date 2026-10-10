@@ -409,7 +409,6 @@ export default function ClipsSettings() {
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, minHeight: 50, backgroundColor: pressed ? C.press : 'transparent' })}>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontSize: 17 }}>{captionName(code)}</Text>
-                {code === '' ? <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>{t('feed.appLanguageSub')}</Text> : null}
               </View>
               <Radio on={prefs.captionLang === code} />
             </Pressable>

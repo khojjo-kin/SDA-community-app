@@ -42,6 +42,16 @@ export function takeNoteSeed(): Note | null | undefined {
   return s;
 }
 
+// The row as last loaded (and for whose account), so it opens with it next time instead of empty.
+let lastRow: { me: string; notes: Note[] } | null = null;
+// A note just shared or deleted in the composer (null: deleted), put in the row before the server is asked again.
+let changed: { me: string; note: Note | null } | null = null;
+
+/** Tells the row about your note as the composer leaves, so it shows straight away. */
+export function noteChanged(me: string, note: Note | null) {
+  changed = { me, note };
+}
+
 /** How long a song plays when a note is opened. */
 const PREVIEW_MS = 15000;
 
@@ -105,14 +115,14 @@ function songLine(n: Note): string | undefined {
   return n.song_artist ? `${n.song_title} · ${n.song_artist}` : n.song_title;
 }
 
-/** One face in the row: the bubble above, the name below. */
-function NoteFace({ uri, name, label, note, placeholder, adding, onPress, a11y }: { uri?: string | null; name: string; label: string; note: Note | { text: string }; placeholder?: boolean; adding?: boolean; onPress: () => void; a11y: string }) {
+/** One face in the row: the bubble above, the name below. `hidden` keeps the bubble's place without showing it (not loaded yet). */
+function NoteFace({ uri, name, label, note, placeholder, adding, hidden, onPress, a11y }: { uri?: string | null; name: string; label: string; note: Note | { text: string }; placeholder?: boolean; adding?: boolean; hidden?: boolean; onPress: () => void; a11y: string }) {
   const font = useAppFont();
   const full = 'user_id' in note ? note : null;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} style={({ pressed }) => ({ width: 88, alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
       {/* A fixed height above every face, so short and long notes keep the faces level. */}
-      <View style={{ height: 58, justifyContent: 'flex-end', zIndex: 2, marginBottom: -7 }}>
+      <View style={{ height: 58, justifyContent: 'flex-end', zIndex: 2, marginBottom: -7, opacity: hidden ? 0 : 1 }}>
         <NoteBubble text={note.text} song={full ? songLine(full) : undefined} place={full?.place} color={full?.color} placeholder={placeholder} />
       </View>
       <View>
@@ -136,20 +146,25 @@ function NoteFace({ uri, name, label, note, placeholder, adding, onPress, a11y }
  */
 // Memoised: it is the header of Messages' list, which draws again on every 15-second refresh.
 export const NotesRow = React.memo(function NotesRow({ refreshKey = 0 }: { refreshKey?: number }) {
-  const { profile } = useSession();
+  const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
   const fontBold = useAppFont('bold');
   const font = useAppFont();
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>(() => (lastRow?.me === me ? lastRow.notes : []));
+  // Known from the server (or from last time): until then your own bubble keeps its place but isn't shown,
+  // so "Leave a note…" never flashes over a note you have.
+  const [loaded, setLoaded] = useState(() => lastRow?.me === me);
   // The friend's note in the sheet. Kept after the sheet closes so it doesn't empty while sliding away.
   const [viewing, setViewing] = useState<Note | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
   // Whether the row has loaded once, so the composer knows `mine` is the truth rather than "not loaded yet".
-  const loadedOnce = useRef(false);
+  const loadedOnce = useRef(lastRow?.me === me);
   const later = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The composer is on its way: a second quick tap doesn't open a second one.
+  const opening = useRef(false);
   // The song a note is playing, and when its preview ends.
   const preview = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
@@ -174,18 +189,30 @@ export const NotesRow = React.memo(function NotesRow({ refreshKey = 0 }: { refre
     try {
       const list = await fetchNotes();
       loadedOnce.current = true;
-      if (alive.current) setNotes(list);
+      lastRow = { me, notes: list };
+      if (alive.current) {
+        setNotes(list);
+        setLoaded(true);
+      }
     } catch {
       // Notes are a nicety: if they don't load, the row keeps what it had and the chats still work.
     }
-  }, []);
+  }, [me]);
 
   useFocusEffect(
     useCallback(() => {
+      opening.current = false;
+      // Back from the composer: your note as just shared (or gone) at once; the server's copy follows.
+      const c = changed;
+      if (c && c.me === me) {
+        changed = null;
+        setNotes((cur) => [...(c.note ? [c.note] : []), ...cur.filter((n) => !n.mine)]);
+        setLoaded(true);
+      }
       load();
       // Leaving Messages ends a note's song.
       return endPreview;
-    }, [load, endPreview]),
+    }, [load, endPreview, me]),
   );
   useEffect(() => {
     if (refreshKey) load();
@@ -196,6 +223,8 @@ export const NotesRow = React.memo(function NotesRow({ refreshKey = 0 }: { refre
   const others = notes.filter((n) => !n.mine && live(n, now));
 
   function openWriter() {
+    if (opening.current) return;
+    opening.current = true;
     tap();
     endPreview();
     // Not loaded yet: the composer looks your note up itself.
@@ -256,7 +285,8 @@ export const NotesRow = React.memo(function NotesRow({ refreshKey = 0 }: { refre
           label="Your note"
           note={mine ?? { text: 'Leave a note…' }}
           placeholder={!mine}
-          adding={!mine}
+          adding={!mine && loaded}
+          hidden={!mine && !loaded}
           onPress={openWriter}
           a11y={mine ? `Your note: ${noteWords(mine)}. Change or delete it` : 'Leave a note'}
         />

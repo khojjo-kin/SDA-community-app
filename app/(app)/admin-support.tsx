@@ -1,16 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { AdminFrame } from '../../src/components/AdminFrame';
+import { AdminFrame, Chips, PageSpinner, usePagedList } from '../../src/components/AdminFrame';
 import { Icon } from '../../src/components/Icon';
-import { Avatar, Empty, ErrorNote, Loading } from '../../src/components/ui';
+import { RowsSkeleton, SlowLine } from '../../src/components/Skeleton';
+import { Avatar, Empty, ErrorNote } from '../../src/components/ui';
 import { fetchSupportChats, fetchSupportTickets } from '../../src/lib/api';
 import { supabase } from '../../src/lib/supabase';
-import { agoLong, C, errText } from '../../src/lib/theme';
+import { agoLong, C } from '../../src/lib/theme';
 import type { SupportChat, SupportTicket } from '../../src/lib/types';
 import { agentActive, AssistantMark } from './support-chat';
 
 type Channel = ReturnType<typeof supabase.channel>;
+type Which = 'open' | 'all';
+
+const keyOfChat = (c: SupportChat) => c.id;
 
 /** Who is looking after a chat: the assistant, or the last person from the team who answered. */
 function WhoPill({ chat }: { chat: SupportChat }) {
@@ -45,62 +49,62 @@ function OldTicket({ t }: { t: SupportTicket }) {
         </View>
         <Text style={{ color: look.color, fontSize: 12, fontWeight: '700' }}>{look.label}</Text>
       </View>
-      <Text style={{ color: C.fg, lineHeight: 20 }}>{t.body}</Text>
+      <Text selectable style={{ color: C.fg, lineHeight: 20 }}>{t.body}</Text>
       {t.reply ? (
         <View style={{ padding: 12, borderRadius: 12, backgroundColor: C.bg2, gap: 4 }}>
           <Text style={{ color: C.fg3, fontSize: 12.5 }}>Reply</Text>
-          <Text style={{ color: C.fg2, lineHeight: 20 }}>{t.reply}</Text>
+          <Text selectable style={{ color: C.fg2, lineHeight: 20 }}>{t.reply}</Text>
         </View>
       ) : null}
     </View>
   );
 }
 
+/** One chat in the list: the member, when it last moved, and who is answering. */
+const ChatRow = React.memo(function ChatRow({ c, onOpen }: { c: SupportChat; onOpen: (id: string) => void }) {
+  const name = c.profile?.full_name || c.profile?.username || 'Member';
+  const closed = c.status === 'closed';
+  const live = agentActive(c);
+  return (
+    <Pressable
+      onPress={() => onOpen(c.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${c.agent_name ? `answered by ${c.agent_name}` : 'with the assistant'}, ${agoLong(c.updated_at)}${closed ? ', closed' : ''}`}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent', opacity: closed ? 0.6 : 1 })}>
+      <Avatar uri={c.profile?.avatar_url} name={name} size={48} />
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>{name}</Text>
+        <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13 }}>
+          {c.profile?.username ? `@${c.profile.username} · ` : ''}
+          {agoLong(c.updated_at)}
+          {closed ? ' · Closed' : live ? ' · Team answering' : ''}
+        </Text>
+      </View>
+      <WhoPill chat={c} />
+    </Pressable>
+  );
+});
+
 /** Support chats with members, most recent first. Open one to read it and answer under your own name. */
 export default function AdminSupport() {
   const router = useRouter();
-  const [which, setWhich] = useState<'open' | 'all'>('open');
-  const [chats, setChats] = useState<SupportChat[] | null>(null);
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const [which, setWhich] = useState<Which>('open');
   // Tickets from before live chat: kept readable under the list while there are any.
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [showTickets, setShowTickets] = useState(false);
 
-  // Only the latest ask may fill the list, so a slow answer for the other tab can't land on this one.
-  const asked = useRef(0);
-  const load = useCallback(() => {
-    const n = ++asked.current;
-    setError('');
-    return fetchSupportChats(which)
-      .then((list) => {
-        if (n === asked.current) setChats(list);
-      })
-      .catch((e) => {
-        if (n === asked.current) setError(errText(e));
-      });
-  }, [which]);
+  const fetchPage = useCallback((last: SupportChat | null) => fetchSupportChats(which, last?.updated_at), [which]);
+  const list = usePagedList(fetchPage, { pageSize: 50, keyOf: keyOfChat });
 
   useFocusEffect(
     useCallback(() => {
-      load();
       fetchSupportTickets(true).then(setTickets).catch(() => {});
-    }, [load]),
+    }, []),
   );
 
-  // Switching tabs shows the loader rather than the other tab's chats.
-  const firstTab = useRef(true);
-  useEffect(() => {
-    if (firstTab.current) {
-      firstTab.current = false;
-      return;
-    }
-    setChats(null);
-  }, [which]);
-
-  // A new chat, a new message or an answer elsewhere moves a chat up the list: reload when one changes.
-  const loadRef = useRef(load);
-  loadRef.current = load;
+  // A new chat, a new message or an answer elsewhere moves a chat up the list: refresh when one changes.
+  const reload = useRef(list.reload);
+  reload.current = list.reload;
   useEffect(() => {
     let alive = true;
     let channel: Channel | null = null;
@@ -113,11 +117,11 @@ export default function AdminSupport() {
         channel = supabase
           .channel(`support-chats-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'community_support_chats' }, () => {
-            // Several changes arrive together (a message updates its chat): one reload for the lot.
+            // Several changes arrive together (a message updates its chat): one refresh for the lot.
             if (soon) clearTimeout(soon);
             soon = setTimeout(() => {
               soon = null;
-              if (alive) loadRef.current();
+              if (alive) reload.current();
             }, 400);
           })
           .subscribe();
@@ -129,69 +133,52 @@ export default function AdminSupport() {
     };
   }, []);
 
-  async function pull() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
+  const open = useCallback((id: string) => router.push(`/admin-support/${id}` as any), [router]);
+  const renderItem = useCallback(({ item }: { item: SupportChat }) => <ChatRow c={item} onOpen={open} />, [open]);
 
-  const footer = tickets.length ? (
-    <View style={{ paddingTop: 12 }}>
-      <Pressable onPress={() => setShowTickets(!showTickets)} accessibilityRole="button" accessibilityState={{ expanded: showTickets }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
-        <Icon name="archive" size={24} color={C.fg2} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: C.fg, fontSize: 16.5 }}>Older tickets</Text>
-          <Text style={{ color: C.fg2, fontSize: 13.5 }}>Messages from before live chat, to read</Text>
+  const footer = (
+    <>
+      <PageSpinner active={list.paging} />
+      {tickets.length ? (
+        <View style={{ paddingTop: 12 }}>
+          <Pressable onPress={() => setShowTickets(!showTickets)} accessibilityRole="button" accessibilityLabel={`Older tickets, ${tickets.length}`} accessibilityState={{ expanded: showTickets }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
+            <Icon name="archive" size={24} color={C.fg2} />
+            <Text style={{ flex: 1, color: C.fg, fontSize: 16.5 }}>Older tickets</Text>
+            <Text style={{ color: C.fg2, fontSize: 15 }}>{tickets.length}</Text>
+            <Icon name={showTickets ? 'down' : 'right'} size={16} color={C.fg2} weight={2} />
+          </Pressable>
+          {showTickets ? <View style={{ paddingTop: 6 }}>{tickets.map((t) => <OldTicket key={t.id} t={t} />)}</View> : null}
         </View>
-        <Text style={{ color: C.fg2, fontSize: 15 }}>{tickets.length}</Text>
-        <Icon name={showTickets ? 'down' : 'right'} size={16} color={C.fg2} weight={2} />
-      </Pressable>
-      {showTickets ? <View style={{ paddingTop: 6 }}>{tickets.map((t) => <OldTicket key={t.id} t={t} />)}</View> : null}
-    </View>
-  ) : null;
+      ) : null}
+    </>
+  );
 
   return (
     <AdminFrame section="support" title="Support chats">
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-        {(['open', 'all'] as const).map((w) => (
-          <Pressable key={w} onPress={() => setWhich(w)} accessibilityRole="tab" accessibilityLabel={w === 'open' ? 'Open chats' : 'All chats'} accessibilityState={{ selected: which === w }} style={({ pressed }) => ({ paddingHorizontal: 14, height: 34, borderRadius: 17, backgroundColor: which === w ? C.fg : C.surface, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-            <Text style={{ color: which === w ? C.bg : C.fg, fontWeight: '600' }}>{w === 'open' ? 'Open' : 'All'}</Text>
-          </Pressable>
-        ))}
-      </View>
-      {chats === null ? (
-        error ? <ErrorNote message={error} onRetry={load} /> : <Loading />
+      <Chips
+        value={which}
+        onChange={setWhich}
+        options={[
+          { key: 'open', label: 'Open' },
+          { key: 'all', label: 'All' },
+        ]}
+      />
+      <SlowLine active={list.slow} />
+      {list.items === null ? (
+        list.error ? <ErrorNote message={list.error} onRetry={list.retry} /> : <RowsSkeleton count={8} avatar={48} padY={10} />
       ) : (
         <FlatList
-          data={chats}
-          keyExtractor={(c) => c.id}
+          data={list.items}
+          keyExtractor={keyOfChat}
+          renderItem={renderItem}
+          initialNumToRender={12}
+          windowSize={11}
+          onEndReached={list.more}
+          onEndReachedThreshold={0.6}
           contentContainerStyle={{ paddingBottom: 60 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={C.fg2} />}
-          ListEmptyComponent={<Empty icon="lifebuoy" title={which === 'open' ? 'Nothing open' : 'No chats yet'} body={which === 'open' ? 'When a member starts a support chat, it appears here.' : 'Support chats with members appear here.'} />}
+          refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={list.refresh} tintColor={C.fg2} />}
+          ListEmptyComponent={<Empty icon="lifebuoy" title={which === 'open' ? 'Nothing open' : 'No chats yet'} />}
           ListFooterComponent={footer}
-          renderItem={({ item: c }) => {
-            const name = c.profile?.full_name || c.profile?.username || 'Member';
-            const closed = c.status === 'closed';
-            const live = agentActive(c);
-            return (
-              <Pressable
-                onPress={() => router.push(`/admin-support/${c.id}` as any)}
-                accessibilityRole="button"
-                accessibilityLabel={`${name}, ${c.agent_name ? `answered by ${c.agent_name}` : 'with the assistant'}, ${agoLong(c.updated_at)}${closed ? ', closed' : ''}`}
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent', opacity: closed ? 0.6 : 1 })}>
-                <Avatar uri={c.profile?.avatar_url} name={name} size={48} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>{name}</Text>
-                  <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13 }}>
-                    {c.profile?.username ? `@${c.profile.username} · ` : ''}
-                    {agoLong(c.updated_at)}
-                    {closed ? ' · Closed' : live ? ' · Team answering' : ''}
-                  </Text>
-                </View>
-                <WhoPill chat={c} />
-              </Pressable>
-            );
-          }}
         />
       )}
     </AdminFrame>

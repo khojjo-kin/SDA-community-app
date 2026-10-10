@@ -58,14 +58,14 @@ export function SwitchRow({ icon, title, value, onChange, disabled }: { icon: Ic
 }
 
 /** A card above the list, with a title and a way to take it off again. */
-function Card({ icon, title, onRemove, children }: { icon: IconName; title: string; onRemove: () => void; children: React.ReactNode }) {
+function Card({ icon, title, onRemove, children }: { icon: IconName; title: string; onRemove?: () => void; children: React.ReactNode }) {
   const t = useT();
   return (
     <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14, borderRadius: 18, backgroundColor: C.surface, gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 }}>
         <Icon name={icon} size={18} color={C.accent2} weight={2.1} />
         <Text style={{ flex: 1, color: C.fg, fontWeight: '700', fontSize: 15 }}>{title}</Text>
-        <IconButton name="close" size={18} color={C.fg2} label={t('createFlow.remove', { what: title })} onPress={onRemove} />
+        {onRemove ? <IconButton name="close" size={18} color={C.fg2} label={t('createFlow.remove', { what: title })} onPress={onRemove} /> : null}
       </View>
       {children}
     </View>
@@ -74,21 +74,21 @@ function Card({ icon, title, onRemove, children }: { icon: IconName; title: stri
 
 const field = () => ({ color: C.fg, fontSize: 15.5, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: C.bg2 });
 
-/** The poll being written: an optional question and two to four options. */
-export function PollEditor({ poll, onChange, onRemove, editable = true }: { poll: PostPoll; onChange: (p: PostPoll) => void; onRemove: () => void; editable?: boolean }) {
+/** The poll being written: an optional question and two to four options. `onFocus` and `onBlur` are for any of its boxes. */
+export function PollEditor({ poll, onChange, onRemove, editable = true, onFocus, onBlur }: { poll: PostPoll; onChange: (p: PostPoll) => void; onRemove: () => void; editable?: boolean; onFocus?: () => void; onBlur?: () => void }) {
   const t = useT();
   const setOption = (i: number, text: string) => onChange({ ...poll, options: poll.options.map((o, j) => (j === i ? text : o)) });
   return (
-    <Card icon="poll" title={t('createFlow.poll')} onRemove={onRemove}>
-      <TextInput value={poll.question ?? ''} onChangeText={(q) => onChange({ ...poll, question: q })} placeholder={t('createFlow.pollQuestion')} placeholderTextColor={C.fg3} maxLength={140} editable={editable} keyboardAppearance={C.blurTint} style={[field(), { fontWeight: '600' }]} accessibilityLabel={t('createFlow.pollQuestion')} />
+    <Card icon="poll" title={t('createFlow.poll')} onRemove={editable ? onRemove : undefined}>
+      <TextInput value={poll.question ?? ''} onChangeText={(q) => onChange({ ...poll, question: q })} placeholder={t('createFlow.pollQuestion')} placeholderTextColor={C.fg3} maxLength={140} editable={editable} keyboardAppearance={C.blurTint} selectionColor={C.accent2} onFocus={onFocus} onBlur={onBlur} style={[field(), { fontWeight: '600' }]} accessibilityLabel={t('createFlow.pollQuestion')} />
       {poll.options.map((o, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <TextInput value={o} onChangeText={(text) => setOption(i, text)} placeholder={t('createFlow.pollOption', { n: i + 1 })} placeholderTextColor={C.fg3} maxLength={80} editable={editable} keyboardAppearance={C.blurTint} style={[field(), { flex: 1 }]} accessibilityLabel={t('createFlow.pollOption', { n: i + 1 })} />
-          {poll.options.length > 2 ? <IconButton name="close" size={16} color={C.fg2} label={t('createFlow.removeOption', { n: i + 1 })} onPress={() => onChange({ ...poll, options: poll.options.filter((_, j) => j !== i) })} /> : null}
+          <TextInput value={o} onChangeText={(text) => setOption(i, text)} placeholder={t('createFlow.pollOption', { n: i + 1 })} placeholderTextColor={C.fg3} maxLength={80} editable={editable} keyboardAppearance={C.blurTint} selectionColor={C.accent2} onFocus={onFocus} onBlur={onBlur} style={[field(), { flex: 1 }]} accessibilityLabel={t('createFlow.pollOption', { n: i + 1 })} />
+          {poll.options.length > 2 && editable ? <IconButton name="close" size={16} color={C.fg2} label={t('createFlow.removeOption', { n: i + 1 })} onPress={() => onChange({ ...poll, options: poll.options.filter((_, j) => j !== i) })} /> : null}
         </View>
       ))}
-      {poll.options.length < 4 ? (
-        <Pressable onPress={() => onChange({ ...poll, options: [...poll.options, ''] })} disabled={!editable} accessibilityRole="button" accessibilityLabel={t('createFlow.addOption')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', height: 34, paddingHorizontal: 4, opacity: pressed ? 0.6 : 1 })}>
+      {poll.options.length < 4 && editable ? (
+        <Pressable onPress={() => onChange({ ...poll, options: [...poll.options, ''] })} accessibilityRole="button" accessibilityLabel={t('createFlow.addOption')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', height: 34, paddingHorizontal: 4, opacity: pressed ? 0.6 : 1 })}>
           <Icon name="plus" size={16} color={C.accent2} weight={2.4} />
           <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 14.5 }}>{t('createFlow.addOption')}</Text>
         </Pressable>
@@ -98,11 +98,11 @@ export function PollEditor({ poll, onChange, onRemove, editable = true }: { poll
 }
 
 /** The prompt being written: a question others answer in the comments. */
-export function PromptEditor({ value, onChange, onRemove, editable = true }: { value: string; onChange: (v: string) => void; onRemove: () => void; editable?: boolean }) {
+export function PromptEditor({ value, onChange, onRemove, editable = true, onFocus, onBlur }: { value: string; onChange: (v: string) => void; onRemove: () => void; editable?: boolean; onFocus?: () => void; onBlur?: () => void }) {
   const t = useT();
   return (
-    <Card icon="chatdots" title={t('createFlow.prompt')} onRemove={onRemove}>
-      <TextInput value={value} onChangeText={onChange} placeholder={t('createFlow.promptPlaceholder')} placeholderTextColor={C.fg3} maxLength={200} multiline autoFocus editable={editable} keyboardAppearance={C.blurTint} style={[field(), { minHeight: 46, textAlignVertical: 'top' }]} accessibilityLabel={t('createFlow.prompt')} />
+    <Card icon="chatdots" title={t('createFlow.prompt')} onRemove={editable ? onRemove : undefined}>
+      <TextInput value={value} onChangeText={onChange} placeholder={t('createFlow.promptPlaceholder')} placeholderTextColor={C.fg3} maxLength={200} multiline autoFocus editable={editable} keyboardAppearance={C.blurTint} selectionColor={C.accent2} onFocus={onFocus} onBlur={onBlur} style={[field(), { minHeight: 46, textAlignVertical: 'top' }]} accessibilityLabel={t('createFlow.prompt')} />
     </Card>
   );
 }

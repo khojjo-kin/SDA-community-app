@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Redirect, useRouter } from 'expo-router';
 import { AgeStep } from '../src/components/AgeGate';
-import { AuthShell, ConsentBox, DARK_FIELD } from '../src/components/AuthShell';
+import { AuthField, AuthShell, ConsentBox } from '../src/components/AuthShell';
 import { DarkStatusBar } from '../src/components/OnDark';
 import { noteBirthDateSaved } from '../src/components/BirthDateForm';
 import { useLegalSheet } from '../src/components/LegalDocument';
-import { Avatar, Button, Field } from '../src/components/ui';
+import { Avatar, Button } from '../src/components/ui';
 import { useLogOut } from '../src/lib/accounts';
 import { blockDeviceForAge, forgetSignUpBirthDate, isDeviceAgeBlocked, requestChildClosure } from '../src/lib/age';
 import { createProfile, setBirthDate, uploadImage } from '../src/lib/api';
@@ -42,7 +42,12 @@ export default function Onboarding() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  // A ref as well: the keyboard's Go key and a tap on Continue can both arrive before `busy` has drawn.
+  const busyRef = useRef(false);
+  // Shown under the field it is about: the name's own, and everything else under the username.
+  const [nameErr, setNameErr] = useState('');
   const [err, setErr] = useState('');
+  const usernameRef = useRef<TextInput>(null);
   const router = useRouter();
   const t = useT();
   const legal = useLegalSheet();
@@ -85,7 +90,7 @@ export default function Onboarding() {
   }, [me, loading, !!profile, !!error]);
 
   const logOut = (
-    <Pressable onPress={() => { signOut().catch(() => {}); }}>
+    <Pressable onPress={() => { signOut().catch(() => {}); }} accessibilityRole="button" hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
       <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Log out</Text>
     </Pressable>
   );
@@ -107,14 +112,16 @@ export default function Onboarding() {
   }
 
   async function save() {
-    if (busy) return;
+    if (busyRef.current) return;
     const u = username.trim().toLowerCase();
-    if (!name.trim()) return setErr('Add your name.');
+    setNameErr('');
+    setErr('');
+    if (!name.trim()) return setNameErr('Add your name.');
     if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr('Usernames use 3 to 30 lowercase letters, numbers or underscores.');
     // The keyboard's Go key and a quick tap can reach here before the box is ticked.
     if (!consentGiven && !consent) return setErr(t('legal.consentNeeded'));
-    setErr('');
     if (!born) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       let avatar_url = '';
@@ -140,6 +147,7 @@ export default function Onboarding() {
     } catch (e) {
       setErr(errText(e));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -150,18 +158,41 @@ export default function Onboarding() {
       footer={logOut}>
       {/* The sign-up pages sit on a photo and stay dark in every theme. */}
       <DarkStatusBar />
-      <Pressable onPress={choose} accessibilityRole="button" accessibilityLabel="Choose a profile photo" style={{ alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <Pressable onPress={choose} disabled={busy} accessibilityRole="button" accessibilityLabel="Choose a profile photo" style={({ pressed }) => ({ alignItems: 'center', gap: 8, marginBottom: 4, alignSelf: 'center', opacity: pressed ? 0.7 : 1 })}>
         <Avatar uri={photo?.uri} name={name || username} size={92} />
         <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{photo ? 'Change photo' : 'Add a photo'}</Text>
       </Pressable>
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: DARK.fg2, fontSize: 12.5 }}>Name</Text>
-        <Field {...DARK_FIELD} keyboardAppearance="dark" value={name} onChangeText={setName} placeholder="Your name" maxLength={80} textContentType="name" accessibilityLabel="Name" />
-      </View>
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: DARK.fg2, fontSize: 12.5 }}>Username</Text>
-        <Field {...DARK_FIELD} keyboardAppearance="dark" value={username} onChangeText={(t) => setUsername(t.toLowerCase())} placeholder="username" autoCapitalize="none" autoCorrect={false} maxLength={30} error={err} accessibilityLabel="Username" />
-      </View>
+      <AuthField
+        label="Name"
+        value={name}
+        onChangeText={(v) => {
+          setName(v);
+          if (nameErr) setNameErr('');
+        }}
+        placeholder="Your name"
+        maxLength={80}
+        textContentType="name"
+        autoComplete="name"
+        autoCapitalize="words"
+        error={nameErr}
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => usernameRef.current?.focus()}
+      />
+      <AuthField
+        ref={usernameRef}
+        label="Username"
+        value={username}
+        onChangeText={(v) => setUsername(v.toLowerCase())}
+        placeholder="username"
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="username"
+        maxLength={30}
+        error={err}
+        returnKeyType="go"
+        onSubmitEditing={save}
+      />
       {consentGiven ? null : (
         <ConsentBox
           checked={consent}

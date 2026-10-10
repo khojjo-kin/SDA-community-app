@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { withTimeout } from './api';
+import type { BibleMark } from './types';
 
 /** The 66 books, with how many chapters each has. */
 export const BOOKS: { name: string; chapters: number; testament: 'old' | 'new' }[] = [
@@ -27,21 +28,62 @@ const SETTINGS = 'community.bible';
 export type BibleSettings = { translation: TranslationId; size: number; last?: { book: string; chapter: number } };
 const DEFAULTS: BibleSettings = { translation: 'kjv', size: 18 };
 
+/** The settings as last read or saved in this session, so a screen can draw with them at once. */
+let settingsNow: BibleSettings | null = null;
+
 export async function loadBibleSettings(): Promise<BibleSettings> {
+  let s: BibleSettings = DEFAULTS;
   try {
     const raw = await AsyncStorage.getItem(SETTINGS);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : DEFAULTS;
+    if (raw) s = { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {
-    return DEFAULTS;
+    // Unreadable: the defaults.
   }
+  settingsNow = s;
+  return s;
+}
+
+/** The settings already read in this session, or null before the first read. */
+export function peekBibleSettings(): BibleSettings | null {
+  return settingsNow;
 }
 
 export async function saveBibleSettings(s: BibleSettings) {
+  settingsNow = s;
   try {
     await AsyncStorage.setItem(SETTINGS, JSON.stringify(s));
   } catch {
     // Not worth interrupting reading for.
   }
+}
+
+const chapterKey = (book: string, chapter: number, translation: TranslationId) => `community.bible.${translation}.${book}.${chapter}`;
+
+/** Chapters read in this session, so going back and forth between them shows the words at once. The newest last. */
+const recent = new Map<string, Chapter>();
+const RECENT_MAX = 40;
+
+function remember(c: Chapter) {
+  const key = chapterKey(c.book, c.chapter, c.translation);
+  recent.delete(key);
+  recent.set(key, c);
+  if (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value as string);
+}
+
+/** A stored chapter, if it reads as one; anything garbled counts as not there. */
+function parseChapter(raw: string | null): Chapter | null {
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(raw) as Chapter;
+    return c && typeof c.book === 'string' && Array.isArray(c.verses) && c.verses.length ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A chapter read earlier in this session, straight away, or null. */
+export function peekChapter(book: string, chapter: number, translation: TranslationId): Chapter | null {
+  return recent.get(chapterKey(book, chapter, translation)) ?? null;
 }
 
 /**
@@ -50,20 +92,27 @@ export async function saveBibleSettings(s: BibleSettings) {
  * anything already opened.
  */
 export async function fetchChapter(book: string, chapter: number, translation: TranslationId): Promise<Chapter> {
-  const key = `community.bible.${translation}.${book}.${chapter}`;
-  try {
-    const cached = await AsyncStorage.getItem(key);
-    if (cached) return JSON.parse(cached);
-  } catch {
-    // Fall through to the network.
+  const seen = peekChapter(book, chapter, translation);
+  if (seen) return seen;
+  const key = chapterKey(book, chapter, translation);
+  const kept = parseChapter(await AsyncStorage.getItem(key).catch(() => null));
+  if (kept) {
+    remember(kept);
+    return kept;
   }
   const ref = `${book} ${chapter}`.replace(/\s+/g, '+');
-  const res = await withTimeout(fetch(`https://bible-api.com/${encodeURIComponent(ref).replace(/%2B/g, '+')}?translation=${translation}`), 20000);
-  if (!res.ok) throw new Error(res.status === 404 ? 'That chapter could not be found.' : 'The Bible text could not be loaded. Check your connection and try again.');
-  const data = await res.json();
+  // One time limit over the request and reading the body, so a download that stalls half-way can't leave the chapter loading for ever.
+  const data = await withTimeout(
+    fetch(`https://bible-api.com/${encodeURIComponent(ref).replace(/%2B/g, '+')}?translation=${translation}`).then((res) => {
+      if (!res.ok) throw new Error(res.status === 404 ? 'That chapter could not be found.' : 'The Bible text could not be loaded. Check your connection and try again.');
+      return res.json() as Promise<{ verses?: { verse: number; text: string }[] }>;
+    }),
+    20000,
+  );
   const verses: Verse[] = (data.verses ?? []).map((v: { verse: number; text: string }) => ({ verse: v.verse, text: String(v.text).replace(/\s+/g, ' ').trim() }));
   if (!verses.length) throw new Error('That chapter could not be found.');
   const out: Chapter = { book, chapter, translation, verses };
+  remember(out);
   AsyncStorage.setItem(key, JSON.stringify(out)).catch(() => {});
   return out;
 }
@@ -72,17 +121,51 @@ export async function fetchChapter(book: string, chapter: number, translation: T
 export async function cachedChapters(refs: { book: string; chapter: number }[], translation: TranslationId): Promise<Record<string, Chapter>> {
   const out: Record<string, Chapter> = {};
   try {
-    const keys = [...new Set(refs.map((r) => `community.bible.${translation}.${r.book}.${r.chapter}`))];
-    const rows = await Promise.all(keys.map((k) => AsyncStorage.getItem(k).catch(() => null)));
-    for (const raw of rows) {
-      if (!raw) continue;
-      const c: Chapter = JSON.parse(raw);
-      out[`${c.book} ${c.chapter}`] = c;
-    }
+    const wanted = [...new Map(refs.map((r) => [chapterKey(r.book, r.chapter, translation), r])).entries()];
+    const rows = await Promise.all(wanted.map(([k, r]) => peekChapter(r.book, r.chapter, translation) ?? AsyncStorage.getItem(k).then(parseChapter, () => null)));
+    for (const c of rows) if (c) out[`${c.book} ${c.chapter}`] = c;
   } catch {
     // Snippets are a nicety; the list works without them.
   }
   return out;
+}
+
+/* ---------- my highlights and notes, kept on the phone too ---------- */
+
+const marksKey = (me: string, book: string, chapter: number) => `community.bible.marks.${me}.${book}.${chapter}`;
+
+/** Chapters' marks already read or kept in this session, by the key above. */
+const marksNow = new Map<string, BibleMark[]>();
+
+/** A chapter's marks already known in this session, straight away, or null. */
+export function peekMarks(me: string, book: string, chapter: number): BibleMark[] | null {
+  return me ? marksNow.get(marksKey(me, book, chapter)) ?? null : null;
+}
+
+/**
+ * My highlights and notes on a chapter as last seen on this phone, so they show the moment the chapter
+ * opens (and with no connection), before the server's copy arrives.
+ */
+export async function cachedMarks(me: string, book: string, chapter: number): Promise<BibleMark[]> {
+  if (!me) return [];
+  const known = peekMarks(me, book, chapter);
+  if (known) return known;
+  try {
+    const raw = await AsyncStorage.getItem(marksKey(me, book, chapter));
+    const list: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter((m): m is BibleMark => !!m && typeof m === 'object' && typeof m.verse === 'number' && (!!m.color || !!m.note)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Keeps a chapter's marks on the phone for next time. */
+export function keepMarks(me: string, book: string, chapter: number, marks: BibleMark[]) {
+  if (!me) return;
+  const key = marksKey(me, book, chapter);
+  const list = marks.filter((m) => m.color || m.note);
+  marksNow.set(key, list);
+  (list.length ? AsyncStorage.setItem(key, JSON.stringify(list)) : AsyncStorage.removeItem(key)).catch(() => {});
 }
 
 /** "John 3:16", "John 3:16–18", "John 3:16–18, 20" for verses of one chapter. */

@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Icon, VerifiedTick } from '../../src/components/Icon';
-import { Avatar, Button, Empty, ErrorNote, Loading, RoundButton, Screen, ScreenHeader, SearchField, Sheet, useToast } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, RoundButton, Screen, ScreenHeader, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { fetchStoryWatchList, listPeople, setStoryWatch } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
 import { useSession } from '../../src/lib/session';
@@ -88,7 +89,7 @@ export default function StoryAlerts() {
       {error && !list?.length ? (
         <ErrorNote message={error} onRetry={load} />
       ) : list === null ? (
-        <Loading />
+        <RowsSkeleton count={6} avatar={50} trailing="button" />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {list.length === 0 ? (
@@ -158,9 +159,9 @@ function AddPeople({ visible, chosen, onClose, onToggle }: { visible: boolean; c
   return (
     <Sheet visible={visible} onClose={onClose} title="Add people" tall footer={<Button label="Done" onPress={onClose} style={{ marginHorizontal: 16, marginTop: 10 }} />}>
       {people === null ? (
-        <Loading />
+        <RowsSkeleton count={6} avatar={46} />
       ) : people.length === 0 ? (
-        <Empty icon="people" title="You aren't following anyone yet" body="Story alerts are for people you follow." />
+        <Empty icon="people" title="You aren't following anyone yet" />
       ) : (
         <>
           <SearchField value={q} onChangeText={setQ} label="Search people you follow" />

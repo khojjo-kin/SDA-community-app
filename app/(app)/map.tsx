@@ -10,6 +10,7 @@ import { Avatar, Button, IconButton, Radio, RoundButton, Sheet, Toggle, useToast
 import { fetchFriendLocations, openThread, shareLocation, stopSharingLocation } from '../../src/lib/api';
 import { useAppFont } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
+import { useT } from '../../src/lib/i18n';
 import { liveLocationChanged } from '../../src/lib/liveLocation';
 import { useSession } from '../../src/lib/session';
 import { ago, C, errText } from '../../src/lib/theme';
@@ -26,9 +27,9 @@ import type { FriendLocation } from '../../src/lib/types';
 /** How often friends' places are fetched again while the map is open. */
 const REFRESH_MS = 60e3;
 
-const AUDIENCES: { value: FriendLocation['audience']; label: string; sub: string }[] = [
-  { value: 'mutuals', label: 'Mutual followers', sub: 'People you follow who follow you back' },
-  { value: 'close_friends', label: 'Close friends', sub: 'Only the people on your close friends list' },
+const AUDIENCES: { value: FriendLocation['audience']; label: string }[] = [
+  { value: 'mutuals', label: 'Mutual followers' },
+  { value: 'close_friends', label: 'Close friends' },
 ];
 
 function firstName(l: { full_name: string; username: string }): string {
@@ -90,6 +91,7 @@ export default function FriendsMap() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const font = useAppFont();
   const fontBold = useAppFont('bold');
@@ -102,6 +104,7 @@ export default function FriendsMap() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
   const [opening, setOpening] = useState(false);
+  const openingRef = useRef(false);
   const [granted, setGranted] = useState(false);
   const [laidOut, setLaidOut] = useState(false);
   const alive = useRef(true);
@@ -149,8 +152,8 @@ export default function FriendsMap() {
   // Load now, then every minute while the map is open.
   useEffect(() => {
     load();
-    const t = setInterval(load, REFRESH_MS);
-    return () => clearInterval(t);
+    const timer = setInterval(load, REFRESH_MS);
+    return () => clearInterval(timer);
   }, [load]);
 
   // Whether location access is already on: only then is your own blue dot shown. Nothing is asked here.
@@ -179,11 +182,11 @@ export default function FriendsMap() {
     if (!locs || !laidOut || fitted.current) return;
     if (locs.length) {
       const list = locs;
-      const t = setTimeout(() => {
+      const timer = setTimeout(() => {
         fitted.current = true;
         fitAll(list, false);
       }, 250);
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     // Nobody to show yet: start near you, if location access is already on. Once someone appears, they're framed.
     if (centred.current) return;
@@ -208,7 +211,14 @@ export default function FriendsMap() {
         return;
       }
       setGranted(true);
-      const spot = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      let spot: Location.LocationObject;
+      try {
+        spot = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      } catch {
+        // Location Services off for the whole phone, or no fix (indoors, flight mode): nothing is shared.
+        if (alive.current) setProblem(t('map.noFix'));
+        return;
+      }
       if (!alive.current) return;
       await shareLocation(me, { lat: spot.coords.latitude, lng: spot.coords.longitude, accuracy: spot.coords.accuracy, audience });
       // The app-wide updater takes it from here, every couple of minutes while the app is open.
@@ -268,7 +278,9 @@ export default function FriendsMap() {
   }
 
   async function message(l: FriendLocation) {
-    if (opening) return;
+    // A ref as well as the busy button, so a quick second tap can't open the chat twice.
+    if (openingRef.current) return;
+    openingRef.current = true;
     setOpening(true);
     try {
       const tid = await openThread(l.user_id);
@@ -277,6 +289,7 @@ export default function FriendsMap() {
     } catch (e) {
       toast(errText(e));
     } finally {
+      openingRef.current = false;
       if (alive.current) setOpening(false);
     }
   }
@@ -387,14 +400,11 @@ export default function FriendsMap() {
           <View accessibilityRole="radiogroup" style={{ opacity: restricted ? 0.45 : 1 }}>
             <Text style={{ color: C.fg2, fontSize: 14, fontWeight: '700', marginBottom: 4, fontFamily: fontBold }}>Who can see it</Text>
             {AUDIENCES.map((a) => (
-              <Pressable key={a.value} disabled={restricted} onPress={() => chooseAudience(a.value)} accessibilityRole="radio" accessibilityState={{ checked: audience === a.value, disabled: restricted }} accessibilityLabel={`${a.label}. ${a.sub}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, opacity: pressed ? 0.7 : 1 })}>
+              <Pressable key={a.value} disabled={restricted} onPress={() => chooseAudience(a.value)} accessibilityRole="radio" accessibilityState={{ checked: audience === a.value, disabled: restricted }} accessibilityLabel={a.label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, opacity: pressed ? 0.7 : 1 })}>
                 <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: a.value === 'close_friends' ? C.close : C.surface2, alignItems: 'center', justifyContent: 'center' }}>
                   {a.value === 'close_friends' ? <Icon name="star" size={18} color="#fff" fill /> : <Icon name="people" size={19} />}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 16.5, fontFamily: font }}>{a.label}</Text>
-                  <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1, fontFamily: font }}>{a.sub}</Text>
-                </View>
+                <Text style={{ flex: 1, color: C.fg, fontSize: 16.5, fontFamily: font }}>{a.label}</Text>
                 <Radio on={audience === a.value} />
               </Pressable>
             ))}

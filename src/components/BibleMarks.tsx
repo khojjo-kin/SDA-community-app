@@ -1,11 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tap } from '../lib/haptics';
 import { useT, type Key } from '../lib/i18n';
+import { useReduceMotion } from '../lib/motion';
 import { C, themeName } from '../lib/theme';
 import type { BibleMarkColor } from '../lib/types';
 import { Icon, IconName } from './Icon';
 import { Button, Sheet } from './ui';
+
+/** How tall the verse bar is, so the reading can leave room under its last verses. */
+export const MARK_BAR_HEIGHT = 118;
+/** The bar's gap above the bottom of the screen (over the home indicator's own gap). */
+export const MARK_BAR_GAP = 10;
 
 /** Highlight colours, in the order offered. The same in both themes; only the tint behind a verse changes. */
 export const MARK_COLORS: { id: Exclude<BibleMarkColor, ''>; hex: string; label: Key }[] = [
@@ -46,9 +53,9 @@ export function MarkDot({ color, size = 30, on, none }: { color?: BibleMarkColor
 
 function BarAction({ icon, label, onPress, dim }: { icon: IconName; label: string; onPress: () => void; dim?: boolean }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 6, borderRadius: 12, opacity: dim ? 0.4 : pressed ? 0.6 : 1 })}>
+    <Pressable onPress={() => { tap('light'); onPress(); }} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 6, borderRadius: 12, opacity: dim ? 0.4 : pressed ? 0.6 : 1 })}>
       <Icon name={icon} size={22} color={C.fg} />
-      <Text style={{ color: C.fg, fontSize: 12.5, fontWeight: '600' }}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.fg, fontSize: 12.5, fontWeight: '600' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -57,16 +64,49 @@ function BarAction({ icon, label, onPress, dim }: { icon: IconName; label: strin
 export function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onPost: () => void; onClose: () => void }) {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const reduce = useReduceMotion();
+  // It rises a little as it appears (it only fades with Reduce Motion on).
+  const rise = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const a = Animated.timing(rise, { toValue: 1, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    a.start();
+    return () => a.stop();
+  }, [rise]);
+  const colour = (c: BibleMarkColor) => {
+    tap('select');
+    onColor(c);
+  };
   return (
-    <View accessibilityLabel={reference} style={{ position: 'absolute', left: 10, right: 10, bottom: insets.bottom + 10, borderRadius: 22, backgroundColor: C.sheet, borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12 }}>
+    <Animated.View
+      accessibilityLabel={reference}
+      style={{
+        position: 'absolute',
+        left: 10,
+        right: 10,
+        bottom: insets.bottom + MARK_BAR_GAP,
+        borderRadius: 22,
+        backgroundColor: C.sheet,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: C.hairline,
+        paddingHorizontal: 10,
+        paddingTop: 8,
+        paddingBottom: 6,
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 12,
+        opacity: rise,
+        transform: reduce === false ? [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }] : [],
+      }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', gap: 2 }} style={{ flex: 1 }}>
           {MARK_COLORS.map((c) => (
-            <Pressable key={c.id} onPress={() => onColor(c.id)} hitSlop={2} accessibilityRole="button" accessibilityLabel={t(c.label)} accessibilityState={{ selected: active === c.id }}>
+            <Pressable key={c.id} onPress={() => colour(c.id)} hitSlop={2} accessibilityRole="button" accessibilityLabel={t(c.label)} accessibilityState={{ selected: active === c.id }}>
               <MarkDot color={c.id} on={active === c.id} />
             </Pressable>
           ))}
-          <Pressable onPress={() => onColor('')} hitSlop={2} accessibilityRole="button" accessibilityLabel={t('bibleMarks.none')}>
+          <Pressable onPress={() => colour('')} hitSlop={2} accessibilityRole="button" accessibilityLabel={t('bibleMarks.none')}>
             <MarkDot none />
           </Pressable>
         </ScrollView>
@@ -81,7 +121,7 @@ export function MarkBar({ reference, active, single, onColor, onNote, onCopy, on
         <BarAction icon="share" label={t('common.share')} onPress={onShare} />
         <BarAction icon="pluscircle" label={t('bibleMarks.post')} onPress={onPost} />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -95,9 +135,10 @@ export function NoteSheet({ visible, reference, verseText, initial, onClose, onS
   const changed = text.trim() !== initial.trim();
   return (
     <Sheet visible={visible} onClose={onClose} title={reference}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 6, gap: 14 }}>
+      {/* It shrinks to the room above the keyboard (the words of the verse scroll away first), so Save stays in reach on a small phone. */}
+      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 6, gap: 14 }}>
         {verseText ? (
-          <Text numberOfLines={6} style={{ color: C.fg2, fontSize: 15.5, lineHeight: 23 }}>
+          <Text numberOfLines={3} style={{ color: C.fg2, fontSize: 15.5, lineHeight: 23 }}>
             {verseText}
           </Text>
         ) : null}
@@ -112,7 +153,7 @@ export function NoteSheet({ visible, reference, verseText, initial, onClose, onS
           selectionColor={C.accent2}
           keyboardAppearance={C.blurTint}
           accessibilityLabel={t('bibleMarks.note')}
-          style={{ minHeight: 120, maxHeight: 260, color: C.fg, fontSize: 16, lineHeight: 22, padding: 14, borderRadius: 14, backgroundColor: C.surface, textAlignVertical: 'top' }}
+          style={{ minHeight: 110, maxHeight: 200, color: C.fg, fontSize: 16, lineHeight: 22, padding: 14, paddingTop: 12, borderRadius: 14, backgroundColor: C.surface, textAlignVertical: 'top' }}
         />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {initial ? <Button kind="ghost" label={t('common.delete')} onPress={() => onSave('')} style={{ paddingHorizontal: 22 }} /> : null}

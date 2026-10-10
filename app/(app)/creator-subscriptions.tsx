@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
 import { PaySheet, type PayStart } from '../../src/components/PaySheet';
 import { RenewalTerms } from '../../src/components/RenewalTerms';
-import { Avatar, Button, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
+import { Avatar, Button, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
 import { cancelCreatorSubscription, fetchPayouts, mySubscribers, mySubscriptions, startCreatorSubscription, syncCreatorSubscription, syncCreatorSubscriptionUntilOn, updateProfile } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
 import { t, tSplit } from '../../src/lib/i18n';
@@ -55,6 +55,9 @@ export default function CreatorSubscriptions() {
   const [payoutsError, setPayoutsError] = useState('');
   const [subscribers, setSubscribers] = useState<CreatorSub[] | null>(null);
   const [mine, setMine] = useState<CreatorSub[] | null>(null);
+  // A list that didn't load (with none on screen) says so, rather than looking empty.
+  const [subscribersError, setSubscribersError] = useState('');
+  const [mineError, setMineError] = useState('');
   // The creator whose subscription is being cancelled, resumed or paid for.
   const [changing, setChanging] = useState<string | null>(null);
   // A subscription whose last renewal didn't go through, being paid now. Kept after the sheet closes,
@@ -66,6 +69,15 @@ export default function CreatorSubscriptions() {
   const working = useRef(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+  // One screen per tap, however quickly a row is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
+  /** Changes one of my subscriptions in the list at once, from what Stripe answered; the list is then read again. */
+  const patchMine = (creatorId: string, patch: Partial<CreatorSub>) => setMine((list) => list?.map((x) => (x.creator_id === creatorId ? { ...x, ...patch } : x)) ?? list);
 
   // A saved price that isn't one of the chips shows in the box, ready to change.
   useEffect(() => {
@@ -73,17 +85,19 @@ export default function CreatorSubscriptions() {
   }, [current]);
 
   const loadMine = useCallback(() => {
+    setMineError('');
     mySubscriptions(me)
       .then((list) => { if (alive.current) setMine(list); })
-      .catch(() => { if (alive.current) setMine((old) => old ?? []); });
+      .catch((e) => { if (alive.current) setMineError(errText(e)); });
   }, [me]);
 
   // On every visit: the payout status may have changed on Stripe's form (/payouts).
   const load = useCallback(() => {
     loadMine();
+    setSubscribersError('');
     mySubscribers(me)
       .then((list) => { if (alive.current) setSubscribers(list); })
-      .catch(() => { if (alive.current) setSubscribers((old) => old ?? []); });
+      .catch((e) => { if (alive.current) setSubscribersError(errText(e)); });
     setPayoutsError('');
     (async () => {
       try {
@@ -167,7 +181,9 @@ export default function CreatorSubscriptions() {
     const run = async () => {
       setChanging(s.creator_id);
       try {
-        await cancelCreatorSubscription(s.creator_id, resume);
+        const r = await cancelCreatorSubscription(s.creator_id, resume);
+        if (alive.current) patchMine(s.creator_id, { status: r.status || s.status, cancel_at_period_end: !!r.cancel_at_period_end });
+        tap('success');
         toast(resume ? t('creatorSubs.willRenew', { username: name }) : day ? t('creatorSubs.endsOn', { username: name, day }) : t('creatorSubs.willEnd', { username: name }));
         loadMine();
       } catch (e) {
@@ -219,6 +235,8 @@ export default function CreatorSubscriptions() {
     setChanging(s.creator_id);
     const on = await syncCreatorSubscriptionUntilOn(s.creator_id, known.current);
     if (!alive.current) return;
+    // Paid and on again: no more "Pay now" on its row while the list is read again.
+    if (on) patchMine(s.creator_id, { status: 'active' });
     setChanging(null);
     if (on) {
       tap('success');
@@ -244,7 +262,7 @@ export default function CreatorSubscriptions() {
     <Screen>
       <ScreenHeader title={t('settings.subscriptions')} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 48 }}>
           <SectionLabel>{t('creatorSubs.yourPrice')}</SectionLabel>
           {restricted ? (
             <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
@@ -253,15 +271,11 @@ export default function CreatorSubscriptions() {
             </View>
           ) : (
             <View style={{ paddingHorizontal: 16, gap: 12 }}>
-              <Text style={{ color: C.fg, fontSize: 15.5 }}>
-                {current != null ? (
-                  <>
-                    {offerBefore}<Text style={{ fontWeight: '800' }}>{t('plus.perMonth', { price: money(current) })}</Text>{offerAfter}
-                  </>
-                ) : (
-                  t('creatorSubs.notOffering')
-                )}
-              </Text>
+              {current != null ? (
+                <Text style={{ color: C.fg, fontSize: 15.5 }}>
+                  {offerBefore}<Text style={{ fontWeight: '800' }}>{t('plus.perMonth', { price: money(current) })}</Text>{offerAfter}
+                </Text>
+              ) : null}
               <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {PRESETS.map((p) => (
                   <Chip key={p} label={money(p)} on={selected === p} onPress={() => { tap('select'); setChoice(p); }} />
@@ -286,7 +300,8 @@ export default function CreatorSubscriptions() {
                     />
                     <Text style={{ color: C.fg2, fontSize: 15 }}>{t('plus.aMonth')}</Text>
                   </View>
-                  <Text style={{ color: customBad ? C.like : C.fg3, fontSize: 12.5 }}>{t('creatorSubs.between', { min: money(MIN_PENCE), max: money(MAX_PENCE) })}</Text>
+                  {/* The limits only once a price outside them is typed. */}
+                  {customBad ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13 }}>{t('creatorSubs.between', { min: money(MIN_PENCE), max: money(MAX_PENCE) })}</Text> : null}
                 </View>
               ) : null}
               <Button label={saving ? t('creatorSubs.saving') : current == null ? t('creatorSubs.start') : t('creatorSubs.save')} busy={saving} disabled={!canSave} onPress={save} />
@@ -299,7 +314,7 @@ export default function CreatorSubscriptions() {
               <SectionLabel>{t('creatorSubs.payouts')}</SectionLabel>
               {payoutRow ? (
                 <Pressable
-                  onPress={() => router.push('/payouts')}
+                  onPress={() => open('/payouts')}
                   accessibilityRole="button"
                   accessibilityLabel={payoutRow.body ? `${payoutRow.title}. ${payoutRow.body}` : payoutRow.title}
                   style={({ pressed }) => ({ marginHorizontal: 16, padding: 14, borderRadius: 16, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 })}>
@@ -322,7 +337,7 @@ export default function CreatorSubscriptions() {
             <>
               <SectionLabel>{subscribers?.length ? t('creatorSubs.subscribersCount', { count: subscribers.length }) : t('creatorSubs.subscribers')}</SectionLabel>
               {subscribers === null ? (
-                <Loading />
+                subscribersError ? <ErrorNote message={subscribersError} onRetry={load} /> : <Loading />
               ) : subscribers.length === 0 ? (
                 <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noSubscribersYet')}</Text>
               ) : (
@@ -332,7 +347,7 @@ export default function CreatorSubscriptions() {
                     sub={s}
                     line={s.status === 'past_due' ? t('creatorSubs.paymentDue') : s.cancel_at_period_end ? `${t('creatorSubs.since', { day: dayLabel(new Date(s.created_at)) })} · ${standing(s)}` : t('creatorSubs.since', { day: dayLabel(new Date(s.created_at)) })}
                     right={<Text style={{ color: C.fg2, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{t('creatorSubs.perMo', { price: money(s.amount_pence) })}</Text>}
-                    onPress={s.profile ? () => router.push(`/user/${s.subscriber_id}`) : undefined}
+                    onPress={s.profile ? () => open(`/user/${s.subscriber_id}`) : undefined}
                   />
                 ))
               )}
@@ -341,7 +356,7 @@ export default function CreatorSubscriptions() {
 
           <SectionLabel>{t('subscribe.yourSubscriptions')}</SectionLabel>
           {mine === null ? (
-            <Loading />
+            mineError ? <ErrorNote message={mineError} onRetry={loadMine} /> : <Loading />
           ) : mine.length === 0 ? (
             <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noneMineYet')}</Text>
           ) : (
@@ -350,7 +365,7 @@ export default function CreatorSubscriptions() {
                 key={s.id}
                 sub={s}
                 line={`${t('plus.perMonth', { price: money(s.amount_pence) })} · ${standing(s)}`}
-                onPress={() => router.push(`/subscribe/${s.creator_id}`)}
+                onPress={() => open(`/subscribe/${s.creator_id}`)}
                 right={
                   changing === s.creator_id ? (
                     <ActivityIndicator color={C.fg2} />
@@ -370,7 +385,7 @@ export default function CreatorSubscriptions() {
         visible={paying}
         onClose={() => setPaying(false)}
         title={t('subscribe.sheetDue', { username: overdue?.profile?.username ?? '' })}
-        amountLabel={money(overdue?.amount_pence ?? 0)}
+        amountLabel={money(overdue?.amount_pence ?? 0, config?.currency)}
         start={startOverdue}
         onConfirmed={confirmedOverdue}
         onPaid={paidOverdue}
@@ -401,7 +416,7 @@ function PersonLine({ sub, line, right, onPress }: { sub: CreatorSub; line: stri
   const p = sub.profile;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}>
-      <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${p?.full_name ?? t('creatorSubs.someone')}, ${p?.username ?? ''}. ${line}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${p?.full_name ?? t('creatorSubs.someone')}, ${p?.username ?? ''}. ${line}`} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
         <Avatar uri={p?.avatar_url} name={p?.full_name} size={46} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

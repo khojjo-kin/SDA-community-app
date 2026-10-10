@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, FlatList, Modal, PixelRatio, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,9 +8,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { keepSame } from '../lib/cache';
 import { explainCopyrightReport } from '../lib/copyright-report';
-import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts } from '../lib/api';
+import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts, withTimeout } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { en, type Key, tSplit, useT } from '../lib/i18n';
+import { useReduceMotion } from '../lib/motion';
 import { useSession } from '../lib/session';
 import { prefetchLibrary } from '../lib/library';
 import { listen } from '../lib/store';
@@ -28,8 +29,9 @@ import { ScheduledLiveCard } from './LiveSchedule';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
 import { ProfileSkeleton } from './Skeleton';
-import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
+import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
 import { WritingText } from './WritingText';
+import { useTabListBottom } from '../lib/player';
 
 type Tab = 'grid' | 'reels' | 'reposts';
 // Labels here and in ALERT_ROWS are keys, looked up as the profile draws, so they follow the app's language.
@@ -39,6 +41,9 @@ const TABS: { key: Tab; icon: IconName; label: Key }[] = [
   { key: 'reposts', icon: 'repost', label: 'profile.tab.reposts' },
 ];
 
+/** The picture on an empty tab. */
+const EMPTY_ICON: Record<Tab, IconName> = { grid: 'camera', reels: 'reels', reposts: 'repost' };
+
 // Whether "Discover people" is open on your own profile. A plain variable rather than storage: it
 // should survive switching tabs and coming back, not a restart of the app.
 let discoverOpen = false;
@@ -46,12 +51,22 @@ let discoverOpen = false;
 /** How far the theme's band reaches down the profile before it has faded into the page. */
 const BAND_HEIGHT = 190;
 
+/** The top bar's height, under the clock. */
+const BAR_HEIGHT = 52;
+
+/** The longest a load may take before it counts as failed, so a pull to refresh always ends. */
+const LOAD_DEADLINE_MS = 20000;
+
+/** Several changes announced at once (a block announces four things) load the profile once. */
+const RELOAD_AFTER_MS = 250;
+
 /** A count under the name. Without `onPress` it is only words: no button, nothing happens on a touch. */
 function Stat({ n, label, onPress, color }: { n: number; label: string; onPress?: () => void; color: string }) {
   const body = (
     <>
       <Text numberOfLines={1} style={{ color, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{fmt(n)}</Text>
-      <Text numberOfLines={1} style={{ color, fontSize: 14 }}>{label}</Text>
+      {/* A longer word (or language) shrinks a little rather than being cut off. */}
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color, fontSize: 14 }}>{label}</Text>
     </>
   );
   if (!onPress) {
@@ -130,6 +145,8 @@ function AlertsMenu({ anchor, targetId, username, onClose, onChange }: { anchor:
     queue.current = queue.current
       .then(() => setFollowAlerts(me, targetId, next))
       .catch(async (e) => {
+        // The menu closes so the message can be seen: it would be hidden under the menu.
+        handlers.current.onClose();
         toast(errText(e));
         // Show what the server really has rather than guessing which change failed.
         try {
@@ -216,41 +233,125 @@ function AboutRow({ icon, title, value }: { icon: React.ReactNode; title: string
 
 /**
  * "Share your first photo or short" (and "Share your first short" on the Shorts tab): on your own empty
- * profile the words write themselves in the app's green (WritingText). A tap opens Create.
+ * profile the words write themselves in the app's green (WritingText) under a round camera. A tap opens Create.
  */
-function ShareFirst({ title, body, onPress }: { title: string; body: string; onPress: () => void }) {
+function ShareFirst({ title, icon, onPress }: { title: string; icon: IconName; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title} style={({ pressed }) => ({ paddingHorizontal: 32, paddingVertical: 36, alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
+    <Pressable
+      onPress={() => {
+        tap('light');
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      style={({ pressed }) => ({ paddingHorizontal: 32, paddingTop: 36, paddingBottom: 32, alignItems: 'center', gap: 16, opacity: pressed ? 0.7 : 1 })}>
+      <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: C.fg, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={32} color={C.fg} />
+      </View>
       <WritingText text={title} size={20} />
-      <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{body}</Text>
     </Pressable>
   );
 }
 
+/**
+ * Posts, Shorts and Reposts. It is the first row of the list, after the profile's top, and stays
+ * pinned under the top bar once scrolled to, as on Instagram. The line under the chosen tab slides
+ * across (it jumps with Reduce Motion on).
+ */
+const ProfileTabs = React.memo(function ProfileTabs({ tab, onChange }: { tab: Tab; onChange: (next: Tab) => void }) {
+  const t = useT();
+  const { width } = useWindowDimensions();
+  const reduce = useReduceMotion();
+  const index = Math.max(0, TABS.findIndex((x) => x.key === tab));
+  const pos = useRef(new Animated.Value(index)).current;
+  useEffect(() => {
+    if (reduce !== false) {
+      pos.setValue(index);
+      return;
+    }
+    const run = Animated.spring(pos, { toValue: index, speed: 24, bounciness: 0, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [index, reduce, pos]);
+  const w = width / TABS.length;
+  return (
+    <View accessibilityRole="tablist" style={{ flexDirection: 'row', height: 46, backgroundColor: C.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line }}>
+      {TABS.map((tb) => {
+        const on = tab === tb.key;
+        return (
+          <Pressable
+            key={tb.key}
+            onPress={() => {
+              if (on) return;
+              tap('select');
+              onChange(tb.key);
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel={t(tb.label)}
+            accessibilityState={{ selected: on }}
+            style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+            <Icon name={tb.icon} color={on ? C.fg : C.fg3} />
+          </Pressable>
+        );
+      })}
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, bottom: 0, width: w, height: 1.5, backgroundColor: C.fg, transform: [{ translateX: pos.interpolate({ inputRange: [0, 1], outputRange: [0, w] }) }] }} />
+    </View>
+  );
+});
+
 const GRID_GAP = 2;
 const LIST_SOURCE: GridSource = { from: 'list' };
-const GridGap = () => <View style={{ height: GRID_GAP }} />;
-const keyOfPost = (p: Post) => p.id;
+const NO_POSTS: Post[] = [];
+/** The tabs are the list's first row; the profile's top before them is the list's header, so they are child 1. */
+const STICKY_TABS = [1];
 
-/** The profile's grid: the shared grid cells, with room after them for the subscriber-only card. */
-function ProfileGrid({ posts, header, empty, footer, refreshing, onRefresh, source, subtitle }: { posts: Post[]; header: React.ReactElement; empty: React.ReactElement; footer: React.ReactElement | null; refreshing: boolean; onRefresh: () => void; source: GridSource; subtitle: string }) {
+/** A row of the list: the tabs, or up to three posts of the grid. */
+type GridItem = { kind: 'tabs'; key: string; tab: Tab } | { kind: 'row'; key: string; posts: Post[] };
+const keyOfItem = (item: GridItem) => item.key;
+
+/**
+ * Three cells of the grid. Memoised, and its cells keep their places when the posts in them change,
+ * so a reload or a new post only redraws the pictures that changed.
+ */
+const GridRow = React.memo(function GridRow({ posts, size, onOpen }: { posts: Post[]; size: number; onOpen: (post: Post) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: GRID_GAP, marginBottom: GRID_GAP }}>
+      {posts.map((p, i) => (
+        <GridCell key={i} post={p} size={size} onOpen={onOpen} />
+      ))}
+    </View>
+  );
+});
+
+/** The profile's grid: its top, the pinned tabs, rows of the shared grid cells, then whatever follows them. */
+function ProfileGrid({ posts, tab, onTab, showTabs, header, footer, refreshing, onRefresh, source, subtitle }: { posts: Post[]; tab: Tab; onTab: (next: Tab) => void; showTabs: boolean; header: React.ReactElement; footer: React.ReactElement | null; refreshing: boolean; onRefresh: () => void; source: GridSource; subtitle: string }) {
+  const listBottom = useTabListBottom();
   const { width } = useWindowDimensions();
-  const size = Math.floor((width - GRID_GAP * 2) / 3);
+  // Sized in the screen's own pixels, so three cells and their gaps fill the width with no sliver at the right edge.
+  const size = PixelRatio.roundToNearestPixel((width - GRID_GAP * 2) / 3);
   // A post opens a feed of this tab's posts at that one; a Short opens the Shorts player (src/lib/grid-open.ts).
   const open = useOpenFromGrid(posts, source, subtitle);
-  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} onOpen={open} />, [size, open]);
+  const tabRef = useRef(onTab);
+  tabRef.current = onTab;
+  const changeTab = useCallback((next: Tab) => tabRef.current(next), []);
+  const data = useMemo(() => {
+    const out: GridItem[] = showTabs ? [{ kind: 'tabs', key: 'tabs', tab }] : [];
+    for (let i = 0; i < posts.length; i += 3) out.push({ kind: 'row', key: `row-${i / 3}`, posts: posts.slice(i, i + 3) });
+    return out;
+  }, [posts, tab, showTabs]);
+  const renderItem = useCallback(({ item }: { item: GridItem }) => (item.kind === 'tabs' ? <ProfileTabs tab={item.tab} onChange={changeTab} /> : <GridRow posts={item.posts} size={size} onOpen={open} />), [size, open, changeTab]);
   return (
     <FlatList
-      data={posts}
-      keyExtractor={keyOfPost}
-      numColumns={3}
-      columnWrapperStyle={{ gap: GRID_GAP }}
-      ItemSeparatorComponent={GridGap}
-      renderItem={renderCell}
+      data={data}
+      keyExtractor={keyOfItem}
+      renderItem={renderItem}
       ListHeaderComponent={header}
-      ListEmptyComponent={empty}
       ListFooterComponent={footer}
-      contentContainerStyle={{ paddingBottom: 110 }}
+      stickyHeaderIndices={showTabs ? STICKY_TABS : undefined}
+      initialNumToRender={8}
+      maxToRenderPerBatch={6}
+      windowSize={9}
+      contentContainerStyle={{ paddingBottom: listBottom }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.fg2} />}
     />
@@ -258,7 +359,7 @@ function ProfileGrid({ posts, header, empty, footer, refreshing, onRefresh, sour
 }
 
 export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean }) {
-  const { me } = useSession();
+  const { me, profile: myProfile } = useSession();
   const router = useRouter();
   const toast = useToast();
   const t = useT();
@@ -281,15 +382,32 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   // Where the bell is while its menu is open; null when it is shut.
   const [alertsAt, setAlertsAt] = useState<Anchor | null>(null);
   const bellRef = useRef<View>(null);
+  // Views in the last 30 days on a creator's own dashboard card; null while finding out, -1 if that failed.
   const [views, setViews] = useState<number | null>(null);
   /** The broadcast to open when the avatar is tapped while this person is live. */
   const [liveId, setLiveId] = useState<string | null>(null);
+  // Message and Unblock wait on the server: one tap at a time, with the button showing it is busy.
+  const [opening, setOpening] = useState<'message' | 'unblock' | null>(null);
+  const openingRef = useRef(false);
+  // Follows and unfollows go to the server one after another, so quick taps land in the order they were made.
+  const followQueue = useRef<Promise<unknown>>(Promise.resolve());
+  // How many of them are still on their way: the profile reloads once the last has gone through.
+  const followPending = useRef(0);
   // A look at someone else's profile is noted once per visit, after it has loaded.
   const viewed = useRef(false);
+  // Each load is numbered: an older one finishing after a newer one never puts its older answer on screen.
+  const seq = useRef(0);
+  // Set while a pull to refresh is under way, so a failed one can say so.
+  const pulled = useRef(false);
+  // Whether this profile is the screen in front; out of sight it loads again when it comes back instead.
+  const focused = useRef(false);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
+    const n = ++seq.current;
     try {
-      const [p, own, rep] = await Promise.all([getProfile(userId), fetchUserPosts(userId), fetchReposts(userId)]);
+      const [p, own, rep] = await withTimeout(Promise.all([getProfile(userId), fetchUserPosts(userId), fetchReposts(userId)]), LOAD_DEADLINE_MS);
+      if (n !== seq.current) return;
       if (!p) {
         setStatus('missing');
         return;
@@ -303,7 +421,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       if (mine && p.account_type === 'creator') {
         fetchStats(new Date(Date.now() - 30 * 86400e3), new Date())
           .then((s) => setViews(s.views))
-          .catch(() => {});
+          .catch(() => setViews((v) => v ?? -1));
       }
       // Quietly, so "Discover people" opens full rather than with a spinner.
       if (mine) prefetchSuggestions(me);
@@ -319,19 +437,50 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         setLiveId(null);
       }
     } catch (e) {
+      if (n !== seq.current) return;
       setError(errText(e));
       setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
+      // The page stays as it was; a pull that didn't work says why rather than quietly ending.
+      if (pulled.current) toast(errText(e));
     } finally {
-      setRefreshing(false);
+      if (n === seq.current) {
+        setRefreshing(false);
+        pulled.current = false;
+      }
     }
-  }, [userId, mine, me]);
+  }, [userId, mine, me, toast]);
 
   useFocusEffect(
     useCallback(() => {
+      focused.current = true;
       load();
+      return () => {
+        focused.current = false;
+      };
     }, [load]),
   );
-  useEffect(() => listen('profile', () => { load(); }), [load]);
+  /** Loads again in a moment, once for a burst of changes. */
+  const reloadSoon = useCallback(() => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(() => {
+      reloadTimer.current = null;
+      // Left (or closed) meanwhile, say after a follow went through: it loads again as it comes back.
+      if (focused.current) load();
+    }, RELOAD_AFTER_MS);
+  }, [load]);
+  // A follow, a block or an edit anywhere announces 'profile', and the profile in front loads again. Out of
+  // sight it waits, since it loads again anyway as it comes back; mid-follow it waits for the last one.
+  useEffect(() => {
+    const stop = listen('profile', () => {
+      if (!focused.current || followPending.current) return;
+      reloadSoon();
+    });
+    return () => {
+      stop();
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = null;
+    };
+  }, [reloadSoon]);
 
   // Whether every story of theirs (or mine) has been watched: the ring turns grey as soon as it has.
   const [storiesSeen, setStoriesSeen] = useState(false);
@@ -350,31 +499,53 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
     if (profile && (!profile.is_following || profile.is_blocked)) setAlertsAt(null);
   }, [profile]);
 
-  async function follow() {
+  // The posts of the tab in view. Kept as the same list until the posts change, so the grid's rows don't draw again on every redraw.
+  const list = useMemo(() => (tab === 'grid' ? posts : tab === 'reels' ? posts.filter((p) => p.kind === 'reel') : reposts), [tab, posts, reposts]);
+
+  /** Follows or unfollows straight away on screen; the count moves with it and the server's own count follows. */
+  function applyFollow(next: boolean) {
+    tap(next ? 'medium' : 'light');
+    // A load already under way began before this tap: its answer would put the old button back for a moment.
+    seq.current++;
+    followPending.current++;
+    setProfile((p) => (p ? { ...p, is_following: next, followers_count: Math.max(0, p.followers_count + (next ? 1 : -1)) } : p));
+    followQueue.current = followQueue.current
+      .then(() => setFollow(me, userId, next))
+      .catch((e) => toast(errText(e)))
+      .finally(() => {
+        followPending.current--;
+        // The last one has gone through (or failed): the server's own answer, counts included.
+        if (!followPending.current) reloadSoon();
+      });
+  }
+
+  function follow() {
     if (!profile) return;
-    tap();
     const next = !profile.is_following;
     if (next && profile.is_private) return request();
-    setProfile({ ...profile, is_following: next, followers_count: Math.max(0, profile.followers_count + (next ? 1 : -1)) });
-    try {
-      await setFollow(me, userId, next);
-    } catch (e) {
-      toast(errText(e));
-      load();
+    // Unfollowing a private account loses sight of its posts until a new request is accepted: ask first.
+    if (!next && profile.is_private) {
+      Alert.alert(t('profile.unfollowQuestion', { username: profile.username }), undefined, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('profile.unfollow'), style: 'destructive', onPress: () => applyFollow(false) },
+      ]);
+      return;
     }
+    applyFollow(next);
   }
 
   /** Asks a private account to let me follow. */
   async function request() {
     if (!profile) return;
-    setProfile({ ...profile, requested: true });
+    tap('medium');
+    setProfile((p) => (p ? { ...p, requested: true } : p));
     try {
       await requestFollow(me, userId);
       toast(t('profile.requestedToFollow', { username: profile.username }));
     } catch (e) {
       toast(errText(e));
+      load();
     }
-    load();
   }
 
   function withdraw() {
@@ -390,8 +561,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             await removeFollowRequest(me, userId);
           } catch (e) {
             toast(errText(e));
+            load();
           }
-          load();
         },
       },
     ]);
@@ -400,24 +571,46 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   /** Answers this person's request to follow me. */
   async function answer(accept: boolean) {
     if (!profile) return;
-    setProfile({ ...profile, requests_me: false, follows_me: accept || profile.follows_me });
+    setProfile((p) => (p ? { ...p, requests_me: false, follows_me: accept || p.follows_me } : p));
     try {
       if (accept) await acceptFollowRequest(userId);
       else await removeFollowRequest(userId, me);
       toast(accept ? t('common.nowFollowsYou', { username: profile.username }) : t('common.requestRemoved'));
     } catch (e) {
       toast(errText(e));
+      load();
     }
-    load();
   }
 
-  async function message() {
+  /** Runs one server step for a button, with the button busy meanwhile; a second tap meanwhile does nothing. */
+  async function busyWith(which: 'message' | 'unblock', work: () => Promise<void>) {
+    if (openingRef.current) return;
+    openingRef.current = true;
+    setOpening(which);
     try {
-      const tid = await openThread(userId);
-      router.push(`/chat/${tid}`);
+      await work();
     } catch (e) {
       toast(errText(e));
+    } finally {
+      openingRef.current = false;
+      setOpening(null);
     }
+  }
+
+  function message() {
+    busyWith('message', async () => {
+      const tid = await openThread(userId);
+      router.push(`/chat/${tid}`);
+    });
+  }
+
+  function unblock() {
+    if (!profile) return;
+    const name = profile.username;
+    busyWith('unblock', async () => {
+      await setBlock(me, userId, false);
+      toast(t('profile.unblocked', { username: name }));
+    });
   }
 
   const later = (fn: () => void) => () => {
@@ -426,7 +619,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   };
 
   const copyLink = () => {
-    Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast(t('profile.linkCopied')));
+    Clipboard.setStringAsync(`community://user/${userId}`)
+      .then(() => toast(t('profile.linkCopied')))
+      .catch(() => {});
   };
 
   function openAlerts() {
@@ -438,7 +633,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   async function setHidden(next: boolean) {
     if (!profile) return;
     tap('medium');
-    setProfile({ ...profile, hide_connections: next });
+    setProfile((p) => (p ? { ...p, hide_connections: next } : p));
     try {
       await adminSetAccount(me, { hide_connections: next });
       toast(next ? t('profile.connectionsHidden') : t('profile.connectionsShown'));
@@ -449,56 +644,129 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   }
 
   function toggleDiscover() {
+    tap('light');
     discoverOpen = !discover;
     setDiscover(discoverOpen);
   }
 
-  // While the profile loads, or if it failed, the top bar still offers what it always does: Create and
-  // the menu (Settings) on your own, the way back on anyone else's. Settings must never be out of reach.
-  const bareBar = (
-    <Header
-      left={mine && isTab ? <IconButton name="plus" size={28} label={t('common.create')} onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : undefined}
-      right={mine ? <IconButton name="menu" size={26} label={t('settings.title')} onPress={() => router.push('/settings')} /> : undefined}
-    />
-  );
-  if (status === 'loading') return <Screen>{bareBar}<ProfileSkeleton /></Screen>;
-  if (status === 'error') return <Screen>{bareBar}<ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} /></Screen>;
-  if (status === 'missing' || !profile) return <Screen><Header /><Empty icon="user" title={t('profile.unavailable')} body={t('profile.unavailableBody')} /></Screen>;
-
-  // A private account I do not follow: the stats show, the photos do not.
-  const locked = !mine && profile.is_private && !profile.is_following;
-  const listsHidden = !mine && profile.hide_connections;
-  // Posts kept for subscribers, which this viewer can't see yet.
-  const subscriberOnly = !mine && !profile.is_blocked && !locked && !profile.subscribed ? profile.subscriber_posts ?? 0 : 0;
-  const showBell = !mine && profile.is_following && !profile.is_blocked;
-  const joined = new Date(profile.created_at);
-  const verifiedHow = profile.verified_via === 'notable' ? t('profile.verifiedNotable') : profile.verified_via === 'plus' ? t('profile.verifiedPlus') : t('common.verified');
-  const verifiedWhy =
-    profile.verified_via === 'notable' ? t('profile.verifiedWhyNotable') : profile.verified_via === 'plus' ? t('profile.verifiedWhyPlus') : t('profile.verifiedWhy');
-  const lastActive = activeLabel(profile.active_at);
-  const list = tab === 'grid' ? posts : tab === 'reels' ? posts.filter((p) => p.kind === 'reel') : reposts;
-  const who = { username: profile.username };
-  const emptyFor: Record<Tab, [string, string]> = {
-    grid: mine ? [t('profile.emptyFirstPhoto'), t('profile.emptyFirstPhotoBody')] : [t('profile.emptyNoPosts'), t('profile.emptyNoPostsBody', who)],
-    reels: mine ? [t('profile.emptyFirstClip'), t('profile.emptyFirstClipBody')] : [t('profile.emptyNoClips'), t('profile.emptyNoClipsBody', who)],
-    reposts: [t('profile.emptyNoReposts'), mine ? t('profile.emptyMyRepostsBody') : t('profile.emptyTheirRepostsBody', who)],
-  };
-  const viewsWeek = t(profile.views_week === 1 ? 'profile.viewsWeekOne' : 'profile.viewsWeek', { count: fmt(profile.views_week) });
-  const [wantsBefore, wantsAfter] = tSplit('profile.wantsToFollow', 'username');
+  function create(mode?: 'post' | 'shorts') {
+    prefetchLibrary();
+    router.push(mode ? `/create?mode=${mode}` : '/create');
+  }
 
   // Community Plus styling. The standard theme ('') leaves everything exactly as it always was.
-  const theme = profileTheme(profile.profile_theme);
+  const theme = profileTheme(profile?.profile_theme);
   // The themes' accents are made for a dark page; on the White app theme each has a deeper version that shows on white.
   const lightPage = C.statusBar === 'dark';
   const accent: Accent = theme.id ? (lightPage ? { bg: theme.lightAccent, fg: '#ffffff' } : { bg: theme.accent, fg: theme.onAccent }) : null;
   const link = accent ? accent.bg : C.accent2;
-  const band = theme.band.length ? theme.band : null;
+  const band = profile && theme.band.length ? theme.band : null;
   // The bands are all deep colours, so what sits on them is white whatever the app's own theme is.
   const onBand = band ? '#ffffff' : C.fg;
   const onBand2 = band ? 'rgba(255,255,255,0.78)' : C.fg2;
   // The band holds its colour over the avatar row, then fades into the page.
   const bandColors = band ? ([...band, C.bg] as unknown as readonly [string, string, ...string[]]) : null;
   const bandStops = band ? ([...band.map((_, i) => (band.length === 1 ? 0.42 : (i / (band.length - 1)) * 0.42)), 1] as unknown as readonly [number, number, ...number[]]) : null;
+
+  // The top bar has the same shape while the profile loads, if it failed and once it is here, so nothing
+  // moves as it arrives. Create and the menu (Settings) stay on your own, the way back on anyone else's:
+  // Settings must never be out of reach.
+  const showBell = !!profile && !mine && profile.is_following && !profile.is_blocked;
+  // Both sides take the same width, so the username stays centred when one side holds two buttons.
+  const side = mine || showBell ? 86 : 40;
+  const shownName = profile?.username ?? (mine ? myProfile?.username ?? '' : '');
+  const who = { username: profile?.username ?? '' };
+  const barLeft = mine && isTab ? <IconButton name="plus" size={28} color={onBand} label={t('common.create')} onPress={() => create()} /> : <IconButton name="back" color={onBand} label={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
+  const barRight = mine ? (
+    <>
+      {profile ? <IconButton name="more" color={onBand} label={t('profile.moreAboutYours')} onPress={() => setSheet('menu')} /> : <View style={{ width: 40 }} />}
+      {/* Settings stay one tap away, on the far right where they have always been. */}
+      <IconButton name="menu" size={26} color={onBand} label={t('settings.title')} onPress={() => router.push('/settings')} />
+    </>
+  ) : (
+    <>
+      {showBell && profile ? (
+        // A plain wrapper the menu can measure, so the card opens right under the bell.
+        <View ref={bellRef} collapsable={false}>
+          <IconButton name="bell" fill={profile.alerts_on} color={profile.alerts_on ? link : onBand} label={profile.alerts_on ? t('profile.alertsOn', who) : t('profile.alertsTitle', who)} onPress={openAlerts} />
+        </View>
+      ) : null}
+      {profile ? <IconButton name="more" color={onBand} label={t('profile.moreOptions')} onPress={() => setSheet('menu')} /> : <View style={{ width: 40 }} />}
+    </>
+  );
+  const topBar = (
+    <View style={{ paddingTop: insets.top, backgroundColor: band ? band[0] : undefined }}>
+      <View style={{ height: BAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
+        <View style={{ width: side, flexDirection: 'row' }}>{barLeft}</View>
+        {/* On your own profile the username opens the account switcher, as on Instagram. */}
+        <Pressable
+          disabled={!mine}
+          onPress={() => {
+            tap('light');
+            setSheet('accounts');
+          }}
+          style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}
+          accessible
+          accessibilityRole={mine ? 'button' : 'header'}
+          accessibilityHint={mine ? t('accounts.switchHint') : undefined}
+          accessibilityLabel={profile?.is_private ? t('profile.privateLabel', { username: shownName }) : shownName}>
+          {profile?.is_private ? <Icon name="lock" size={15} color={onBand2} weight={2.2} /> : null}
+          <Text numberOfLines={1} style={{ color: onBand, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{shownName}</Text>
+          {mine ? <Icon name="down" size={15} color={onBand} weight={2.6} /> : null}
+        </Pressable>
+        <View style={{ width: side, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>{barRight}</View>
+      </View>
+    </View>
+  );
+  // Keyed, so the switcher opened while the profile loads stays the same sheet when the profile arrives
+  // (it sits at a different place in the page then) rather than closing and opening again.
+  const switcher = mine ? <AccountSwitcher key="switcher" visible={sheet === 'accounts'} onClose={() => setSheet(null)} /> : null;
+
+  if (status === 'loading' || status === 'error' || status === 'missing' || !profile) {
+    return (
+      // The safe-area gap is drawn by the top bar, as it is once the profile is here.
+      <Screen edges={false}>
+        {topBar}
+        {status === 'loading' ? (
+          <ProfileSkeleton />
+        ) : status === 'error' ? (
+          <ErrorNote
+            message={error}
+            onRetry={() => {
+              setStatus('loading');
+              load();
+            }}
+          />
+        ) : (
+          <Empty icon="user" title={t('profile.unavailable')} />
+        )}
+        {switcher}
+      </Screen>
+    );
+  }
+
+  // A private account I do not follow: the stats show, the photos do not.
+  const locked = !mine && profile.is_private && !profile.is_following;
+  // An admin who hides their lists, or a private account I don't follow: the numbers show, but they don't open.
+  const listsHidden = !mine && (profile.hide_connections || locked);
+  // Posts kept for subscribers, which this viewer can't see yet.
+  const subscriberOnly = !mine && !profile.is_blocked && !locked && !profile.subscribed ? profile.subscriber_posts ?? 0 : 0;
+  const joined = new Date(profile.created_at);
+  const verifiedHow = profile.verified_via === 'notable' ? t('profile.verifiedNotable') : profile.verified_via === 'plus' ? t('profile.verifiedPlus') : t('common.verified');
+  const verifiedWhy =
+    profile.verified_via === 'notable' ? t('profile.verifiedWhyNotable') : profile.verified_via === 'plus' ? t('profile.verifiedWhyPlus') : t('profile.verifiedWhy');
+  const lastActive = activeLabel(profile.active_at);
+  // Blocked or private: no tabs and no grid, only what the page says about it.
+  const hidden = profile.is_blocked || locked;
+  const shown = hidden ? NO_POSTS : list;
+  const emptyTitle: Record<Tab, string> = {
+    grid: mine ? t('profile.emptyFirstPhoto') : t('profile.emptyNoPosts'),
+    reels: mine ? t('profile.emptyFirstClip') : t('profile.emptyNoClips'),
+    reposts: t('profile.emptyNoReposts'),
+  };
+  const viewsWeek = t(profile.views_week === 1 ? 'profile.viewsWeekOne' : 'profile.viewsWeek', { count: fmt(profile.views_week) });
+  const [wantsBefore, wantsAfter] = tSplit('profile.wantsToFollow', 'username');
+  const hasBadges = profile.admin_role === 'admin' || profile.plus || (profile.account_type === 'creator' && !!profile.category);
 
   const head = (
     <View>
@@ -510,8 +778,10 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             onPress={() => (liveId ? router.push(`/live/${liveId}`) : profile.has_story ? router.push(`/story/${userId}`) : mine ? router.push('/add-story') : undefined)}
             disabled={!liveId && !profile.has_story && !mine}
             accessibilityRole={liveId || profile.has_story || mine ? 'button' : 'image'}
-            accessibilityLabel={liveId ? t('profile.watchLive') : profile.has_story ? t('profile.viewStory') : mine ? t('profile.addToStory') : t('profile.photo')}>
-            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 82 : 88} ring={profile.has_story ? (storiesSeen ? 'seen' : 'new') : null} ringColors={ringColors(profile.ring_color)} online={!mine && isOnline(profile.active_at)} />
+            accessibilityLabel={liveId ? t('profile.watchLive') : profile.has_story ? t('profile.viewStory') : mine ? t('profile.addToStory') : t('profile.photo')}
+            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+            {/* With a story the face is a little smaller inside its ring, so the whole is 88 points either way and nothing beside it moves. */}
+            <Avatar uri={profile.avatar_url} name={profile.full_name} size={profile.has_story ? 78 : 88} ring={profile.has_story ? (storiesSeen ? 'seen' : 'new') : null} ringColors={ringColors(profile.ring_color)} online={!mine && isOnline(profile.active_at)} />
             {mine && !profile.has_story && !profile.is_live ? (
               <View style={{ position: 'absolute', right: -2, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="plus" size={14} color={C.bg} weight={3} />
@@ -527,13 +797,12 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           </Pressable>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <Text numberOfLines={1} style={{ color: onBand, fontSize: 16, fontWeight: '700', flexShrink: 1 }}>{profile.full_name}</Text>
+              <Text numberOfLines={1} style={{ color: onBand, fontSize: 16, fontWeight: '700', flexShrink: 1 }}>{profile.full_name || profile.username}</Text>
               {profile.verified ? <VerifiedTick /> : null}
               {profile.pronouns ? <Text numberOfLines={1} style={{ color: onBand2, fontSize: 14.5, flexShrink: 1 }}>{profile.pronouns}</Text> : null}
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Stat n={profile.posts_count} label={t('profile.stat.posts')} color={onBand} />
-              {/* An admin who hides their lists: the numbers show, but they don't open for anyone else. */}
               <Stat n={profile.followers_count} label={t('profile.stat.followers')} color={onBand} onPress={listsHidden ? undefined : () => router.push(`/people?id=${userId}&which=followers`)} />
               <Stat n={profile.following_count} label={t('profile.stat.following')} color={onBand} onPress={listsHidden ? undefined : () => router.push(`/people?id=${userId}&which=following`)} />
             </View>
@@ -552,10 +821,10 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             </Text>
           </Pressable>
         ) : null}
-        {profile.admin_role === 'admin' || profile.plus || (profile.account_type === 'creator' && profile.category) ? (
+        {hasBadges ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
             {profile.plus ? (
-              <Pressable onPress={() => (mine ? router.push('/plus') : undefined)} accessibilityRole={mine ? 'button' : 'text'} accessibilityLabel={t('profile.plusMember')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(61,139,255,0.16)' }}>
+              <Pressable onPress={() => (mine ? router.push('/plus') : undefined)} disabled={!mine} accessibilityRole={mine ? 'button' : 'text'} accessibilityLabel={t('profile.plusMember')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: 'rgba(61,139,255,0.16)', opacity: pressed ? 0.7 : 1 })}>
                 <Icon name="crown" size={13} color={C.close} weight={2.2} />
                 <Text style={{ color: C.close, fontSize: 12.5, fontWeight: '700' }}>{t('common.plus')}</Text>
               </Pressable>
@@ -567,31 +836,42 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
                 <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{t('common.admin')}</Text>
               </View>
             ) : null}
-            {profile.account_type === 'creator' && profile.category ? <Text style={{ color: C.fg2, fontSize: 15 }}>{profile.category}</Text> : null}
+            {profile.account_type === 'creator' && profile.category ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 15, flexShrink: 1 }}>{profile.category}</Text> : null}
           </View>
         ) : null}
-        {profile.bio ? <Text style={{ color: C.fg, marginTop: profile.admin_role === 'admin' || profile.plus || (profile.account_type === 'creator' && profile.category) ? 6 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
+        {profile.bio ? <Text style={{ color: C.fg, marginTop: hasBadges ? 6 : 12, lineHeight: 20 }} selectable>{profile.bio}</Text> : null}
         {profile.church_name ? (
-          <Pressable onPress={() => (profile.church_id ? router.push(`/church/${profile.church_id}`) : undefined)} accessibilityRole="button" accessibilityLabel={t('profile.church', { name: profile.church_name })} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          <Pressable
+            onPress={() => (profile.church_id ? router.push(`/church/${profile.church_id}`) : undefined)}
+            disabled={!profile.church_id}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.church', { name: profile.church_name })}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, alignSelf: 'flex-start', maxWidth: '100%', opacity: pressed ? 0.6 : 1 })}>
             <Icon name="church" size={15} color={C.fg2} weight={2} />
             <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, flexShrink: 1 }}>{profile.church_name}</Text>
           </Pressable>
         ) : null}
         {profile.website ? (
-          <Text style={{ color: link, marginTop: 4 }} numberOfLines={1} onPress={() => Linking.openURL(/^https?:\/\//.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast(t('profile.linkFailed')))}>
-            {profile.website.replace(/^https?:\/\//, '')}
-          </Text>
+          <Pressable
+            onPress={() => Linking.openURL(/^https?:\/\//i.test(profile.website) ? profile.website : `https://${profile.website}`).catch(() => toast(t('profile.linkFailed')))}
+            accessibilityRole="link"
+            accessibilityLabel={profile.website}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5, alignSelf: 'flex-start', maxWidth: '100%', opacity: pressed ? 0.6 : 1 })}>
+            <Icon name="link" size={14} color={link} weight={2.2} />
+            <Text numberOfLines={1} style={{ color: link, fontWeight: '600', flexShrink: 1 }}>{profile.website.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</Text>
+          </Pressable>
         ) : null}
         {!mine && profile.follows_me ? <Text style={{ color: C.fg3, marginTop: 6, fontSize: 13 }}>{t('profile.followsYou')}</Text> : null}
         {/* Drawn bare: the card brings its own spacing, so nothing is left behind when there is no card. */}
         {profile.fundraiser_id ? <FundraiserCard fundraiserId={profile.fundraiser_id} /> : null}
         {/* The next planned live, if any: drawn bare like the fundraiser card. */}
-        {profile.is_blocked || locked ? null : <ScheduledLiveCard userId={userId} mine={mine} refreshKey={refreshKey} />}
+        {hidden ? null : <ScheduledLiveCard userId={userId} mine={mine} refreshKey={refreshKey} />}
 
         {mine && profile.account_type === 'creator' ? (
           <Pressable onPress={() => router.push('/dashboard')} accessibilityRole="button" accessibilityLabel={t('profile.dashboard')} style={({ pressed }) => ({ marginTop: 14, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface })}>
             <Text style={{ color: C.fg, fontWeight: '700', fontSize: 15.5 }}>{t('profile.dashboard')}</Text>
-            <Text style={{ color: C.fg2, marginTop: 2, fontSize: 14 }}>{views === null ? t('profile.dashboardSub') : t(views === 1 ? 'profile.dashboardViewsOne' : 'profile.dashboardViews', { count: fmt(views) })}</Text>
+            {/* The views, once known: a line kept for them meanwhile, so the card doesn't grow when they arrive. */}
+            {views === -1 ? null : <Text style={{ color: C.fg2, marginTop: 2, fontSize: 14 }}>{views === null ? ' ' : t(views === 1 ? 'profile.dashboardViewsOne' : 'profile.dashboardViews', { count: fmt(views) })}</Text>}
           </Pressable>
         ) : null}
 
@@ -616,7 +896,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               ) : (
                 <Button small kind="ghost" label={t('profile.editProfile')} style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />
               )}
-              <Button small kind="ghost" label={t('profile.shareProfile')} style={{ flex: 1 }} onPress={() => Clipboard.setStringAsync(`community://user/${userId}`).then(() => toast(t('profile.linkCopied')))} />
+              <Button small kind="ghost" label={t('profile.shareProfile')} style={{ flex: 1 }} onPress={copyLink} />
               {/* Settings stay one tap away from the menu button in the top bar. */}
               <Pressable
                 onPress={toggleDiscover}
@@ -628,7 +908,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               </Pressable>
             </>
           ) : profile.is_blocked ? (
-            <Button small kind="ghost" label={t('profile.unblock')} style={{ flex: 1 }} onPress={() => setBlock(me, userId, false).then(() => { toast(t('profile.unblocked', who)); load(); }).catch((e) => toast(errText(e)))} />
+            <Button small kind="ghost" label={t('profile.unblock')} style={{ flex: 1 }} busy={opening === 'unblock'} onPress={unblock} />
           ) : (
             <>
               {profile.is_following ? (
@@ -640,7 +920,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               ) : (
                 <AccentButton label={profile.follows_me ? t('common.followBack') : t('common.follow')} accent={accent} style={{ flex: 1 }} onPress={follow} />
               )}
-              <Button small kind="ghost" label={t('profile.message')} style={{ flex: 1 }} onPress={message} />
+              <Button small kind="ghost" label={t('profile.message')} style={{ flex: 1 }} busy={opening === 'message'} onPress={message} />
               {profile.sub_price_pence ? (
                 <Button small kind="ghost" label={profile.subscribed ? t('profile.subscribed') : t('profile.subscribe')} textColor={profile.subscribed ? undefined : link} style={{ flex: 1, paddingHorizontal: 8 }} onPress={() => router.push(`/subscribe/${userId}`)} />
               ) : null}
@@ -657,48 +937,11 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
 
       {mine ? <DiscoverCarousel open={discover} accent={accent} link={link} /> : null}
 
-      {profile.is_blocked || locked ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} ringColor={profile.ring_color} />}
+      {hidden ? null : <HighlightsRow userId={userId} mine={mine} refreshKey={refreshKey} ringColor={profile.ring_color} />}
 
-      {locked ? (
-        <View style={{ height: 14 }} />
-      ) : (
-        <View style={{ flexDirection: 'row', marginTop: 14 }} accessibilityRole="tablist">
-          {TABS.map((tb) => (
-            <Pressable key={tb.key} onPress={() => setTab(tb.key)} accessibilityRole="tab" accessibilityLabel={t(tb.label)} accessibilityState={{ selected: tab === tb.key }} style={{ flex: 1, height: 46, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1.5, borderBottomColor: tab === tb.key ? C.fg : 'transparent' }}>
-              <Icon name={tb.icon} color={tab === tb.key ? C.fg : C.fg3} />
-            </Pressable>
-          ))}
-        </View>
-      )}
+      {/* Room before the tabs, which follow as the list's first row. */}
+      <View style={{ height: 14 }} />
     </View>
-  );
-
-  // The same shape as Header, with room for a lock next to the username on a private account. Both
-  // sides take the same width, so the username stays centred when one side holds two buttons.
-  const side = mine || showBell ? 86 : 40;
-  const left = mine && isTab ? <IconButton name="plus" size={28} color={onBand} label={t('common.create')} onPress={() => { prefetchLibrary(); router.push('/create'); }} /> : <IconButton name="back" color={onBand} label={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
-  const right = mine ? (
-    <>
-      <IconButton name="more" color={onBand} label={t('profile.moreAboutYours')} onPress={() => setSheet('menu')} />
-      {/* Settings stay one tap away, on the far right where they have always been. */}
-      <IconButton name="menu" size={26} color={onBand} label={t('settings.title')} onPress={() => router.push('/settings')} />
-    </>
-  ) : (
-    <>
-      {showBell ? (
-        // A plain wrapper the menu can measure, so the card opens right under the bell.
-        <View ref={bellRef} collapsable={false}>
-          <IconButton
-            name="bell"
-            fill={profile.alerts_on}
-            color={profile.alerts_on ? link : onBand}
-            label={profile.alerts_on ? t('profile.alertsOn', who) : t('profile.alertsTitle', who)}
-            onPress={openAlerts}
-          />
-        </View>
-      ) : null}
-      <IconButton name="more" color={onBand} label={t('profile.moreOptions')} onPress={() => setSheet('menu')} />
-    </>
   );
 
   const subOnlyCount = t(subscriberOnly === 1 ? 'profile.subOnlyOne' : 'profile.subOnly', { count: fmt(subscriberOnly) });
@@ -709,7 +952,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
         onPress={() => router.push(`/subscribe/${userId}`)}
         accessibilityRole="button"
         accessibilityLabel={`${subOnlyCount}. ${subOnlyHow}`}
-        style={({ pressed }) => ({ marginHorizontal: 16, marginTop: list.length ? 14 : 0, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, opacity: pressed ? 0.8 : 1 })}>
+        style={({ pressed }) => ({ marginHorizontal: 16, marginTop: shown.length ? 14 : 0, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, opacity: pressed ? 0.8 : 1 })}>
         <LinearGradient colors={[C.accentSoft, C.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 16 }}>
           <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="lock" size={22} color={C.accent2} weight={2.2} />
@@ -723,49 +966,52 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       </Pressable>
     ) : null;
 
+  // What shows where the grid would be when there is nothing in it: short, a picture and a few words.
+  const emptyState = profile.is_blocked ? (
+    <Empty icon="block" title={t('profile.youBlocked')} />
+  ) : locked ? (
+    <Empty icon="lock" title={t('profile.private')} />
+  ) : mine && tab !== 'reposts' ? (
+    <ShareFirst title={emptyTitle[tab]} icon={EMPTY_ICON[tab]} onPress={() => create(tab === 'reels' ? 'shorts' : 'post')} />
+  ) : lockedCard ? (
+    // Everything they've posted is for subscribers: the card below says so, rather than "No posts yet".
+    <View style={{ height: 16 }} />
+  ) : (
+    <Empty icon={EMPTY_ICON[tab]} title={emptyTitle[tab]} />
+  );
+  const footer = shown.length ? lockedCard : (
+    <>
+      {emptyState}
+      {lockedCard}
+    </>
+  );
+
   return (
-    // The safe-area gap is drawn here rather than by Screen so a theme's band can run up behind the clock.
+    // The safe-area gap is drawn by the top bar rather than by Screen, so a theme's band can run up behind the clock.
     <Screen edges={false}>
       {/* A theme's band is a deep colour behind the clock: keep the clock light on it, even on the White theme. */}
       {band && C.statusBar === 'dark' ? <DarkStatusBar /> : null}
-      <View style={{ paddingTop: insets.top, backgroundColor: band ? band[0] : undefined }}>
-        <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6 }}>
-          <View style={{ width: side, flexDirection: 'row' }}>{left}</View>
-          {/* On your own profile the username opens the account switcher, as on Instagram. */}
-          <Pressable disabled={!mine} onPress={() => setSheet('accounts')} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })} accessible accessibilityRole={mine ? 'button' : 'header'} accessibilityHint={mine ? t('accounts.switchHint') : undefined} accessibilityLabel={profile.is_private ? t('profile.privateLabel', who) : profile.username}>
-            {profile.is_private ? <Icon name="lock" size={15} color={onBand2} weight={2.2} /> : null}
-            <Text numberOfLines={1} style={{ color: onBand, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{profile.username}</Text>
-            {mine ? <Icon name="down" size={15} color={onBand} weight={2.6} /> : null}
-          </Pressable>
-          <View style={{ width: side, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>{right}</View>
-        </View>
-      </View>
+      {topBar}
       <ProfileGrid
-        posts={profile.is_blocked || locked ? [] : list}
+        posts={shown}
+        tab={tab}
+        onTab={setTab}
+        showTabs={!hidden}
         // Reposts are other people's posts: that tab's feed is just what it shows.
         source={tab === 'reposts' ? LIST_SOURCE : { from: 'user', userId }}
         subtitle={profile.username}
         header={head}
-        footer={lockedCard}
+        footer={footer}
         refreshing={refreshing}
-        onRefresh={() => { setRefreshing(true); setRefreshKey((k) => k + 1); load(); }}
-        empty={
-          profile.is_blocked ? (
-            <Empty title={t('profile.youBlocked')} body={t('profile.youBlockedBody')} />
-          ) : locked ? (
-            <Empty icon="lock" title={t('profile.private')} body={t('profile.privateBody')} />
-          ) : mine && tab !== 'reposts' ? (
-            <ShareFirst title={emptyFor[tab][0]} body={emptyFor[tab][1]} onPress={() => { prefetchLibrary(); router.push(tab === 'reels' ? '/create?mode=shorts' : '/create?mode=post'); }} />
-          ) : lockedCard ? (
-            // Everything they've posted is for subscribers: the card below says so, rather than "No posts yet".
-            <View style={{ height: 16 }} />
-          ) : (
-            <Empty title={emptyFor[tab][0]} body={emptyFor[tab][1]} />
-          )
-        }
+        onRefresh={() => {
+          pulled.current = true;
+          setRefreshing(true);
+          setRefreshKey((k) => k + 1);
+          load();
+        }}
       />
 
-      {mine ? <AccountSwitcher visible={sheet === 'accounts'} onClose={() => setSheet(null)} /> : null}
+      {switcher}
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)}>
         {mine ? (
           <>
@@ -775,7 +1021,6 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               <SheetRow
                 icon="people"
                 label={t('profile.hideConnections')}
-               
                 right={<Toggle value={profile.hide_connections} onChange={setHidden} label={t('profile.hideConnections')} />}
                 onPress={() => setHidden(!profile.hide_connections)}
               />
@@ -793,7 +1038,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
                   const next = !profile.is_close_friend;
                   setCloseFriend(me, userId, next)
                     .then(() => {
-                      setProfile({ ...profile, is_close_friend: next });
+                      // The profile may have loaded again meanwhile: only this one detail changes.
+                      setProfile((p) => (p ? { ...p, is_close_friend: next } : p));
                       toast(next ? t('profile.nowCloseFriend', who) : t('profile.removedCloseFriend', who));
                     })
                     .catch((e) => toast(errText(e)));
@@ -827,12 +1073,12 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               danger
               onPress={later(() => {
                 if (profile.is_blocked) {
-                  setBlock(me, userId, false).then(() => { toast(t('profile.unblocked', who)); load(); }).catch((e) => toast(errText(e)));
+                  unblock();
                   return;
                 }
                 Alert.alert(t('profile.blockQuestion', who), t('profile.blockBody'), [
                   { text: t('common.cancel'), style: 'cancel' },
-                  { text: t('profile.block'), style: 'destructive', onPress: () => { setBlock(me, userId, true).then(() => { toast(t('profile.blocked', who)); load(); }).catch((e) => toast(errText(e))); } },
+                  { text: t('profile.block'), style: 'destructive', onPress: () => { setBlock(me, userId, true).then(() => toast(t('profile.blocked', who))).catch((e) => toast(errText(e))); } },
                 ]);
               })}
             />

@@ -29,9 +29,10 @@ const THUMB = 76;
 const GAP = 10;
 const SIDE = 16;
 
-function Thumb({ uri, preset, selected, onPress }: { uri: string; preset: FilterPreset; selected: boolean; onPress: () => void }) {
+/** One preset. Memoised with a handler that never changes, so moving a slider or picking a filter redraws only the thumbs that changed. */
+const Thumb = React.memo(function Thumb({ uri, preset, selected, onPick }: { uri: string; preset: FilterPreset; selected: boolean; onPick: (id: string) => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${preset.name} filter`} accessibilityState={{ selected }} style={({ pressed }) => ({ width: THUMB, alignItems: 'center', gap: 5, opacity: pressed ? 0.75 : 1 })}>
+    <Pressable onPress={() => onPick(preset.id)} accessibilityRole="button" accessibilityLabel={`${preset.name} filter`} accessibilityState={{ selected }} style={({ pressed }) => ({ width: THUMB, alignItems: 'center', gap: 5, opacity: pressed ? 0.75 : 1 })}>
       <View style={{ width: THUMB, height: THUMB, borderRadius: 9, overflow: 'hidden', borderWidth: 2, borderColor: selected ? DARK.accent : 'transparent', backgroundColor: DARK.surface2 }}>
         <FilteredImage uri={uri} filterId={preset.id} style={StyleSheet.absoluteFill} />
       </View>
@@ -40,11 +41,15 @@ function Thumb({ uri, preset, selected, onPress }: { uri: string; preset: Filter
       </Text>
     </Pressable>
   );
-}
+});
 
 /** A row of the photo under every preset. Each cell is about 76 x 96; the chosen one is outlined in green. */
 export function FilterStrip({ uri, value, onChange, disabled, style }: { uri: string; value: string; onChange: (id: string) => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<FilterPreset>) => <Thumb uri={uri} preset={item} selected={item.id === value} onPress={() => onChange(item.id)} />, [uri, value, onChange]);
+  // Callers pass a new function on every draw; the thumbs keep one that reaches the latest.
+  const latest = useRef(onChange);
+  latest.current = onChange;
+  const pick = useCallback((id: string) => latest.current(id), []);
+  const renderItem = useCallback(({ item }: ListRenderItemInfo<FilterPreset>) => <Thumb uri={uri} preset={item} selected={item.id === value} onPick={pick} />, [uri, value, pick]);
   return (
     <FlatList
       horizontal

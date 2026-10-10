@@ -93,6 +93,8 @@ export default function PodNew() {
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState('');
   const alive = useRef(true);
+  /** Set at once on the first tap, so a quick second tap can't add the track twice. */
+  const working = useRef(false);
   useEffect(() => () => { alive.current = false; }, []);
 
   async function chooseCover() {
@@ -105,7 +107,7 @@ export default function PodNew() {
   }
 
   async function save() {
-    if (busy) return;
+    if (working.current) return;
     const t = title.trim();
     const a = artist.trim();
     const url = audioOf(audio);
@@ -115,6 +117,7 @@ export default function PodNew() {
     if (!url) errs.audio = 'Paste a direct link to the audio file, ending in .mp3 or .m4a.';
     setErrors(errs);
     if (!url || errs.title || errs.artist) return;
+    working.current = true;
     setBusy(true);
     try {
       setStep('Reading the audio');
@@ -122,6 +125,7 @@ export default function PodNew() {
       if (!alive.current) return;
       if (!duration && !looksLikeAudio(url)) {
         setErrors({ audio: 'That link could not be played. It needs to open as an audio file, such as an .mp3 or .m4a.' });
+        working.current = false;
         setBusy(false);
         setStep('');
         return;
@@ -144,6 +148,7 @@ export default function PodNew() {
       // Replace this form in the stack, so Back from the track goes to Pod rather than an empty form.
       router.replace(`/pod/${item.id}` as any);
     } catch (e) {
+      working.current = false;
       if (!alive.current) return;
       setErrors({ form: errText(e) });
       setBusy(false);
@@ -155,7 +160,7 @@ export default function PodNew() {
     return (
       <Screen>
         <ScreenHeader title="Add to Pod" />
-        <Empty icon="headphones" title="Sharing on Pod is part of Community Plus" body="Plus members and admins can add songs and podcast episodes for the whole family to listen to." action={<Button small label="See Community Plus" onPress={() => router.push('/plus' as any)} style={{ marginTop: 8 }} />} />
+        <Empty icon="headphones" title="Sharing on Pod is part of Community Plus" action={<Button small label="See Community Plus" onPress={() => router.push('/plus' as any)} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }
@@ -178,7 +183,6 @@ export default function PodNew() {
             </Pressable>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Cover</Text>
-              <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>{cover ? 'Tap to choose another square picture.' : 'A square picture shows on the shelf and in the player. Optional.'}</Text>
               {cover ? (
                 <Pressable onPress={() => setCover(null)} hitSlop={6} accessibilityRole="button" accessibilityLabel="Remove the cover" style={({ pressed }) => ({ alignSelf: 'flex-start', paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
                   <Text style={{ color: C.like, fontSize: 13.5, fontWeight: '600' }}>Remove</Text>
@@ -190,10 +194,9 @@ export default function PodNew() {
           <Field label={song ? 'Artist' : 'Host'} value={artist} onChangeText={setArtist} placeholder={song ? 'Who sings it' : 'Who presents it'} maxLength={160} error={errors.artist} editable={!busy} />
           {song ? null : <Field label="About this episode" value={description} onChangeText={setDescription} placeholder="What it covers, who is on it, where to find more" multiline maxLength={2000} style={{ minHeight: 110, textAlignVertical: 'top' }} editable={!busy} />}
           <Field label="Audio file link (mp3/m4a)" value={audio} onChangeText={setAudio} placeholder="https://" autoCapitalize="none" autoCorrect={false} keyboardType="url" maxLength={1000} error={errors.audio} editable={!busy} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17 }}>Paste a direct link to the audio file, for example from your church's website or a file share. The length is read from the file when it is added.</Text>
           {errors.form ? <Text style={{ color: C.like, lineHeight: 19 }}>{errors.form}</Text> : null}
           <Button label="Add to Pod" busy={busy} onPress={save} style={{ marginTop: 6 }} />
-          {busy && step ? <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center' }}>{step}. This can take a moment.</Text> : null}
+          {busy && step ? <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center' }}>{`${step}…`}</Text> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

@@ -8,11 +8,14 @@ import { RowsSkeleton, SlowLine } from '../../../src/components/Skeleton';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, SearchField, useToast } from '../../../src/components/ui';
 import { activeLabel, ERHA_ID, fetchThreads, getProfile, hideThread, isOnline, openThread, setThreadMuted } from '../../../src/lib/api';
 import { cacheKey, keepSame, peekCache, readCache, writeCache } from '../../../src/lib/cache';
+import { tap } from '../../../src/lib/haptics';
 import { type Key, type Vars, useT } from '../../../src/lib/i18n';
+import { usePrefs } from '../../../src/lib/prefs';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
 import { ago, C, errText } from '../../../src/lib/theme';
 import type { Profile, Thread } from '../../../src/lib/types';
+import { useTabListBottom } from '../../../src/lib/player';
 
 /** A chat, or the one row that offers a first chat with Erha when there is none yet. */
 type Item = { kind: 'thread'; t: Thread } | { kind: 'erha' };
@@ -47,12 +50,14 @@ function StreakBadge({ days, onPress }: { days: number; onPress: () => void }) {
 const ThreadRow = React.memo(function ThreadRow({ th, when, active, online, actions, t }: { th: Thread; when: string; active: string; online: boolean; actions: RowActions; t: (key: Key, vars?: Vars) => string }) {
   // Older saved copies of the list may not carry a streak or activity yet.
   const streak = th.streak ?? 0;
+  // Someone who never gave a full name goes by their username.
+  const name = th.full_name || th.username;
   return (
-    <Pressable onPress={() => actions.open(th)} onLongPress={() => actions.hold(th)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={t(online ? 'inbox.chatWithActive' : 'inbox.chatWith', { name: th.full_name })} accessibilityHint={t('inbox.holdHint')} style={rowStyle}>
-      <Avatar uri={th.avatar_url} name={th.full_name} size={56} online={online} />
+    <Pressable onPress={() => actions.open(th)} onLongPress={() => actions.hold(th)} delayLongPress={350} accessibilityRole="button" accessibilityLabel={t(online ? 'inbox.chatWithActive' : 'inbox.chatWith', { name })} accessibilityHint={t('inbox.holdHint')} style={rowStyle}>
+      <Avatar uri={th.avatar_url} name={name} size={56} online={online} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: th.unread_count ? '700' : '400', flexShrink: 1 }}>{th.full_name}</Text>
+          <Text numberOfLines={1} style={{ color: C.fg, fontSize: 15.5, fontWeight: th.unread_count ? '700' : '400', flexShrink: 1 }}>{name}</Text>
           {th.verified ? <VerifiedTick size={14} /> : null}
           {streak >= STREAK_FROM ? <StreakBadge days={streak} onPress={() => actions.streak(streak)} /> : null}
         </View>
@@ -75,7 +80,9 @@ const ThreadRow = React.memo(function ThreadRow({ th, when, active, online, acti
 });
 
 export default function Inbox() {
+  const listBottom = useTabListBottom();
   const { me, profile } = useSession();
+  const prefs = usePrefs();
   const router = useRouter();
   const toast = useToast();
   const t = useT();
@@ -84,6 +91,8 @@ export default function Inbox() {
   const [seed] = useState(() => peekCache<Thread[]>(key));
   const [threads, setThreads] = useState<Thread[]>(() => seed ?? []);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(() => (seed ? 'ready' : 'loading'));
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   // Bumped by pull to refresh, so the notes above the chats load again too.
@@ -97,7 +106,16 @@ export default function Inbox() {
   const opening = useRef(false);
   // Set once a fresh list has come back, so a saved copy arriving late cannot cover it.
   const fresh = useRef(false);
+  // Whether the copy saved on the phone has been looked for yet, and whether a load failed before it was:
+  // "didn't load" is only said once it is clear there is nothing to show instead.
+  const savedChecked = useRef(!!seed);
+  const failedEarly = useRef(false);
+  // Each load is numbered: an older answer never replaces a newer one, nor a change made here since it was asked.
+  const asked = useRef(0);
+  const shown = useRef(0);
   const alive = useRef(true);
+  // Plus: reading quietly leaves a chat unread, so opening one doesn't take its dot away.
+  const quiet = !!profile?.plus && prefs.readQuietly;
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -105,31 +123,56 @@ export default function Inbox() {
     };
   }, []);
 
-  const load = useCallback(async () => {
-    try {
-      const list = (await fetchThreads()).filter((x) => x.has_messages);
-      fresh.current = true;
-      // Chats that haven't changed keep the object already on screen, so their rows aren't drawn again.
-      setThreads((cur) => keepSame(cur, list));
-      setPolls((n) => n + 1);
-      setStatus('ready');
-      if (alive.current) writeCache(key, list);
-    } catch (e) {
-      setError(errText(e));
-      setStatus((s) => (s === 'ready' ? 'ready' : 'error'));
-    } finally {
-      setRefreshing(false);
-    }
-  }, [key]);
+  /**
+   * Fetches the chats. A refresh that fails (no signal, a sign-in hiccup) leaves the list on screen as it
+   * was, and the next refresh, coming back to the tab or pulling down tries again; only with nothing to
+   * show at all does the screen say it didn't load. `pulled`: the member asked, so a failure is said.
+   */
+  const load = useCallback(
+    async (pulled = false) => {
+      const mine = ++asked.current;
+      try {
+        const list = (await fetchThreads()).filter((x) => x.has_messages);
+        if (mine < shown.current) return;
+        shown.current = mine;
+        fresh.current = true;
+        // Chats that haven't changed keep the object already on screen, so their rows aren't drawn again.
+        setThreads((cur) => keepSame(cur, list));
+        setPolls((n) => n + 1);
+        setStatus('ready');
+        if (alive.current) writeCache(key, list);
+      } catch (e) {
+        if (mine < shown.current) return;
+        const words = errText(e);
+        setError(words);
+        if (statusRef.current === 'ready') {
+          if (pulled) toast(words);
+        } else if (savedChecked.current) setStatus('error');
+        else failedEarly.current = true;
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [key, toast],
+  );
+
+  /** A change made here (read, muted, deleted): a list already on its way is older than it, so it isn't shown. */
+  const changedHere = () => {
+    shown.current = ++asked.current;
+  };
 
   // Nothing in memory yet: show the copy saved on the phone while the fresh list loads.
   useEffect(() => {
     if (seed) return;
     let live = true;
     readCache<Thread[]>(key).then((saved) => {
-      if (!live || !saved || fresh.current) return;
-      setThreads(saved);
-      setStatus('ready');
+      if (!live) return;
+      savedChecked.current = true;
+      if (fresh.current) return;
+      if (saved) {
+        setThreads(saved);
+        setStatus('ready');
+      } else if (failedEarly.current) setStatus((s) => (s === 'loading' ? 'error' : s));
     });
     return () => {
       live = false;
@@ -145,6 +188,9 @@ export default function Inbox() {
   );
   useEffect(() => listen('threads', () => { load(); }), [load]);
 
+  // A new message in any chat reaches this list through 'threads' (above): the tab bar listens for
+  // new messages for the whole session and says so, whether or not Messages has been opened.
+
   // Erha chats like anyone else, so her row only needs an invitation until the first message is sent.
   const hasErhaChat = threads.some((th) => th.other_id === ERHA_ID);
   const offerErha = status === 'ready' && me !== ERHA_ID && !hasErhaChat;
@@ -158,6 +204,15 @@ export default function Inbox() {
       live = false;
     };
   }, [offerErha, erha]);
+
+  // One screen per tap: a quick second tap (on the same row or another) while the first opens does nothing.
+  const lastNav = useRef(0);
+  const navOnce = () => {
+    const now = Date.now();
+    if (now - lastNav.current < 700) return false;
+    lastNav.current = now;
+    return true;
+  };
 
   /** Opens (or makes) the chat with Erha. */
   async function startErha() {
@@ -173,17 +228,39 @@ export default function Inbox() {
     }
   }
 
+  /** Muted or not, shown at once and put back if the server says no. */
+  function toggleMute(th: Thread) {
+    const next = !th.muted;
+    changedHere();
+    setThreads((cur) => cur.map((x) => (x.id === th.id ? { ...x, muted: next } : x)));
+    setThreadMuted(me, th.id, next).catch((e) => {
+      toast(errText(e));
+      load();
+    });
+  }
+
+  /** Gone from the list at once; back again if the server says no. */
+  function remove(th: Thread) {
+    changedHere();
+    setThreads((cur) => cur.filter((x) => x.id !== th.id));
+    hideThread(th.id).catch((e) => {
+      toast(errText(e));
+      load();
+    });
+  }
+
   /** Touch and hold a chat for its options. */
   function options(th: Thread) {
-    Alert.alert(th.full_name, undefined, [
-      { text: th.muted ? t('inbox.unmute') : t('inbox.mute'), onPress: () => { setThreadMuted(me, th.id, !th.muted).then(load).catch((e) => toast(errText(e))); } },
+    tap('medium');
+    Alert.alert(th.full_name || th.username, undefined, [
+      { text: th.muted ? t('inbox.unmute') : t('inbox.mute'), onPress: () => toggleMute(th) },
       {
         text: t('inbox.deleteChat'),
         style: 'destructive',
         onPress: () =>
           Alert.alert(t('inbox.deleteQuestion'), t('inbox.deleteBody'), [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('common.delete'), style: 'destructive', onPress: () => { hideThread(th.id).then(load).catch((e) => toast(errText(e))); } },
+            { text: t('common.delete'), style: 'destructive', onPress: () => remove(th) },
           ]),
       },
       { text: t('common.cancel'), style: 'cancel' },
@@ -192,15 +269,23 @@ export default function Inbox() {
 
   const needle = q.trim().toLowerCase();
   const items = useMemo(() => {
-    const shown = needle ? threads.filter((th) => th.username.includes(needle) || th.full_name.toLowerCase().includes(needle)) : threads;
-    const list: Item[] = shown.map((th) => ({ kind: 'thread', t: th }));
+    const found = needle ? threads.filter((th) => th.username.toLowerCase().includes(needle) || (th.full_name || '').toLowerCase().includes(needle)) : threads;
+    const list: Item[] = found.map((th) => ({ kind: 'thread', t: th }));
     if (offerErha && (!needle || 'erha'.includes(needle))) list.push({ kind: 'erha' });
     return list;
   }, [threads, needle, offerErha]);
 
   const latest = useRef<RowActions>(null as unknown as RowActions);
   latest.current = {
-    open: (th) => router.push(`/chat/${th.id}`),
+    open: (th) => {
+      if (!navOnce()) return;
+      // Opening a chat reads it, so its dot goes now rather than after the next refresh.
+      if (th.unread_count && !quiet) {
+        changedHere();
+        setThreads((cur) => cur.map((x) => (x.id === th.id ? { ...x, unread_count: 0 } : x)));
+      }
+      router.push(`/chat/${th.id}`);
+    },
     hold: options,
     streak: (days) => toast(t('inbox.streakToast', { days })),
     erha: startErha,
@@ -246,8 +331,8 @@ export default function Inbox() {
         {/* As wide as the two buttons on the right, so the name stays in the middle. */}
         <View style={{ width: 80 }} />
         <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: C.fg, fontSize: 21, fontWeight: '800' }}>{profile?.username}</Text>
-        <IconButton name="compose" size={26} label={t('inbox.newMessage')} onPress={() => router.push('/new-message')} />
-        <IconButton name="location" size={26} label={t('inbox.map')} onPress={() => router.push('/map')} />
+        <IconButton name="compose" size={26} label={t('inbox.newMessage')} onPress={() => { if (navOnce()) router.push('/new-message'); }} />
+        <IconButton name="location" size={26} label={t('inbox.map')} onPress={() => { if (navOnce()) router.push('/map'); }} />
       </View>
       <View style={{ marginBottom: 8 }}>
         <SearchField value={q} onChangeText={setQ} label={t('inbox.search')} />
@@ -258,21 +343,23 @@ export default function Inbox() {
         keyExtractor={keyOfItem}
         renderItem={renderItem}
         extraData={polls}
+        initialNumToRender={12}
+        windowSize={11}
         ListEmptyComponent={
           status === 'loading' ? (
             <RowsSkeleton avatar={56} gap={14} padY={9} />
           ) : status === 'error' ? (
             <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} />
           ) : needle ? (
-            <Empty title={t('inbox.noneFound')} body={t('common.tryDifferentName')} />
+            <Empty title={t('inbox.noneFound')} />
           ) : (
-            <Empty icon="send" title={t('inbox.emptyTitle')} action={<Button small label={t('inbox.sendMessage')} onPress={() => router.push('/new-message')} style={{ marginTop: 8 }} />} />
+            <Empty icon="send" title={t('inbox.emptyTitle')} action={<Button small label={t('inbox.sendMessage')} onPress={() => { if (navOnce()) router.push('/new-message'); }} style={{ marginTop: 8 }} />} />
           )
         }
         // Notes sit above the chats and scroll with them; they step aside while you search.
         ListHeaderComponent={needle ? null : <NotesRow refreshKey={notesKey} />}
-        contentContainerStyle={{ paddingBottom: 110 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setNotesKey((k) => k + 1); load(); }} tintColor={C.fg2} />}
+        contentContainerStyle={{ paddingBottom: listBottom }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setNotesKey((k) => k + 1); load(true); }} tintColor={C.fg2} />}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       />

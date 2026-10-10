@@ -56,7 +56,7 @@ function tones(dark?: boolean): { base: string; shine: string } {
  * One block. `x` is how far its left edge is from the left of the screen, so the shine reaches it
  * at the right moment; leave it out for something at the left edge.
  */
-export function Skeleton({ width, height, radius = 6, x = 0, dark, style }: { width: number; height: number; radius?: number; x?: number; dark?: boolean; style?: ViewStyle }) {
+export function Skeleton({ width, height, radius = 6, x = 0, dark, base: baseColour, style }: { width: number; height: number; radius?: number; x?: number; dark?: boolean; base?: string; style?: ViewStyle }) {
   const reduce = useReduceMotion();
   const { width: screen } = useWindowDimensions();
   const moving = reduce === false;
@@ -65,7 +65,10 @@ export function Skeleton({ width, height, radius = 6, x = 0, dark, style }: { wi
     join();
     return leave;
   }, [moving]);
-  const { base, shine } = tones(dark);
+  // `base` is for blocks drawn on a card that is itself the block colour (a surface card).
+  const tone = tones(dark);
+  const base = baseColour ?? tone.base;
+  const shine = tone.shine;
   const band = Math.round(Math.min(260, screen * 0.55));
   return (
     <View style={[{ width, height, borderRadius: radius, backgroundColor: base, overflow: 'hidden' }, style]}>
@@ -104,7 +107,7 @@ export function FeedSkeleton({ count = 2 }: { count?: number }) {
   return (
     <SkeletonFrame>
       {Array.from({ length: count }, (_, i) => (
-        <View key={i} style={{ paddingBottom: 14 }}>
+        <View key={i} style={{ paddingBottom: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 12, paddingVertical: 8, height: 50 }}>
             <Skeleton width={34} height={34} radius={17} x={12} />
             <View style={{ gap: 6 }}>

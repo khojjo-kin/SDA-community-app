@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { dismissSuggestion, fetchSuggestedPeople, removeFollowRequest, requestFollow, setFollow } from '../lib/api';
+import { dismissSuggestion, fetchSuggestedPeople, followOrRequest, removeFollowRequest, setFollow } from '../lib/api';
 import { useAppFont } from '../lib/fonts';
 import { tap } from '../lib/haptics';
 import { useSession } from '../lib/session';
@@ -65,25 +65,6 @@ export function hideSuggestion(me: string, id: string): Promise<void> {
   return dismissSuggestion(me, id);
 }
 
-/**
- * Follows someone I was suggested. Suggestions don't say whether an account is private, and the
- * database refuses a plain follow of a private account, so a refusal is answered with a request.
- */
-async function followSuggested(me: string, userId: string): Promise<'following' | 'requested'> {
-  try {
-    await setFollow(me, userId, true);
-    return 'following';
-  } catch (e) {
-    try {
-      await requestFollow(me, userId);
-    } catch {
-      // The request failed too, so the first refusal is the one worth showing.
-      throw e;
-    }
-    return 'requested';
-  }
-}
-
 export function followLabel(p: SuggestedPerson, state: SuggestionFollow): string {
   return state === 'following' ? 'Following' : state === 'requested' ? 'Requested' : p.follows_me ? 'Follow back' : 'Follow';
 }
@@ -129,7 +110,8 @@ export function useSuggestionFollows() {
     try {
       if (was === 'none') {
         put(p.id, 'following');
-        const now = await followSuggested(me, p.id);
+        // Suggestions don't say whether an account is private: a refused follow becomes a request.
+        const now = await followOrRequest(me, p.id);
         put(p.id, now);
         if (now === 'requested') toast(`Requested to follow ${p.username}`);
       } else {

@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { fetchHighlights } from '../lib/api';
+import { useReduceMotion } from '../lib/motion';
 import { listen } from '../lib/store';
 import { ringColors } from '../lib/styling';
 import { C } from '../lib/theme';
@@ -23,6 +24,8 @@ import { Icon } from './Icon';
 
 const opened = new Set<string>();
 let justMade: { id: string; at: number } | null = null;
+/** Each profile's memories as last loaded, so going back to a profile shows its row at once instead of popping in. */
+const known = new Map<string, Highlight[]>();
 
 /** New for a day after it is made. */
 const FRESH_MS = 24 * 3600e3;
@@ -93,14 +96,30 @@ function SpinRing({ colors, stay, children }: { colors: Colors; stay: boolean; c
  */
 export function HighlightsRow({ userId, mine, refreshKey, ringColor }: { userId: string; mine: boolean; refreshKey?: number; ringColor?: string | null }) {
   const router = useRouter();
-  const [list, setList] = useState<Highlight[]>([]);
+  const reduceMotion = useReduceMotion();
+  const [list, setList] = useState<Highlight[]>(() => known.get(userId) ?? []);
   const [focused, setFocused] = useState(false);
   const [spinId, setSpinId] = useState<string | null>(null);
   // Opening a memory changes `opened`, which React can't see; this draws the row again.
   const [, redraw] = useReducer((n: number) => n + 1, 0);
+  // Only the latest answer is used (a profile can change under the row, and answers can arrive out of order).
+  const ask = useRef(0);
+  // A memory was just tapped: a second tap a moment later doesn't open it twice.
+  const lastOpen = useRef(0);
 
   const load = useCallback(() => {
-    fetchHighlights(userId).then(setList).catch(() => {});
+    const asked = ++ask.current;
+    fetchHighlights(userId)
+      .then((h) => {
+        known.set(userId, h);
+        if (asked === ask.current) setList(h);
+      })
+      .catch(() => {});
+  }, [userId]);
+
+  // Another profile in the same row (the screen was reused): its own memories, not the last one's.
+  useEffect(() => {
+    setList(known.get(userId) ?? []);
   }, [userId]);
 
   useEffect(() => {
@@ -127,8 +146,9 @@ export function HighlightsRow({ userId, mine, refreshKey, ringColor }: { userId:
     const id = justMade.id;
     if (!list.some((h) => h.id === id)) return;
     justMade = null;
-    setSpinId(id);
-  }, [mine, focused, list]);
+    // With Reduce Motion on, the ring doesn't turn: the memory just shows as new.
+    if (reduceMotion !== true) setSpinId(id);
+  }, [mine, focused, list, reduceMotion]);
 
   useEffect(() => {
     if (!spinId) return;
@@ -145,23 +165,32 @@ export function HighlightsRow({ userId, mine, refreshKey, ringColor }: { userId:
 
   const cover = (h: Highlight, size: number) =>
     h.cover_url ? (
-      <Image source={{ uri: h.cover_url }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} />
+      <Image source={{ uri: h.cover_url }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
     ) : (
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="highlight" size={24} color={C.fg2} />
       </View>
     );
 
+  /** Opens a screen, once: a second tap a moment later does nothing. */
+  function go(path: string) {
+    const at = Date.now();
+    if (at - lastOpen.current < 700) return false;
+    lastOpen.current = at;
+    router.push(path);
+    return true;
+  }
+
   function open(h: Highlight) {
+    if (!go(`/highlight/${h.id}`)) return;
     markMemoryOpened(h.id);
     redraw();
-    router.push(`/highlight/${h.id}`);
   }
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 14, gap: 12 }}>
       {mine ? (
-        <Pressable onPress={() => router.push('/new-highlight')} accessibilityRole="button" accessibilityLabel="New memory" style={{ width: 72, alignItems: 'center', gap: 5 }}>
+        <Pressable onPress={() => go('/new-highlight')} accessibilityRole="button" accessibilityLabel="New memory" style={({ pressed }) => ({ width: 72, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <View style={outline}>
             <Icon name="plus" size={26} />
           </View>
@@ -172,7 +201,7 @@ export function HighlightsRow({ userId, mine, refreshKey, ringColor }: { userId:
         const fresh = isNew(h);
         const ringed = fresh || !!ringColor;
         return (
-          <Pressable key={h.id} onPress={() => open(h)} accessibilityRole="button" accessibilityLabel={`Memory: ${h.title}${fresh ? ', new' : ''}`} style={{ width: 72, alignItems: 'center', gap: 5 }}>
+          <Pressable key={h.id} onPress={() => open(h)} accessibilityRole="button" accessibilityLabel={`Memory: ${h.title}${fresh ? ', new' : ''}`} style={({ pressed }) => ({ width: 72, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
             {h.id === spinId ? (
               // The cover is already the size it will settle at, so nothing jumps when the turn ends.
               <SpinRing colors={colors} stay={ringed}>{cover(h, ringed ? COVER : 60)}</SpinRing>

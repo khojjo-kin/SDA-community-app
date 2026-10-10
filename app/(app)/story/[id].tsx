@@ -1,37 +1,27 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
 import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { useLegalSheet } from '../../../src/components/LegalDocument';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
+import { RowsSkeleton } from '../../../src/components/Skeleton';
 import { ActionBar, afterSheet, BarButton, confirmAlert, PeopleSheet, REPORT_REASONS, shareStoryItem, storyWords, useStoryHold } from '../../../src/components/StoryChrome';
 import { PlayerCtx, PlayerGroup, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { StoryReply } from '../../../src/components/StoryReply';
-import { Avatar, Empty, IconButton, Loading, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { addToHighlight, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewersDetailed, fetchStoryWatchList, fetchUserStories, markStorySeen, noteStorySeen, report, sendToPeople, setStoryWatch } from '../../../src/lib/api';
+import { Avatar, Empty, ErrorNote, IconButton, Sheet, SheetRow, useToast } from '../../../src/components/ui';
+import { addToHighlight, allStoriesSeen, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewersDetailed, fetchStoryWatchList, fetchUserStories, markStorySeen, noteStorySeen, report, sendToPeople, setStoryWatch } from '../../../src/lib/api';
 import { COPYRIGHT_REASON, explainCopyrightReport } from '../../../src/lib/copyright-report';
 import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { announce } from '../../../src/lib/store';
-import { supabase } from '../../../src/lib/supabase';
 import { C, DARK, dayLabel, errText, fmt } from '../../../src/lib/theme';
 import type { Profile, Story, StoryViewer } from '../../../src/lib/types';
 
 type SheetKind = 'viewers' | 'highlight' | 'more' | 'report' | 'mention' | 'send';
-
-/**
- * Story cards do not carry the verified tick, so it is looked up once for everyone in the tray.
- * (Kept here rather than in api.ts; it could move there as `fetchVerified(ids)`.)
- */
-async function verifiedAmong(ids: string[]): Promise<Set<string>> {
-  if (!ids.length) return new Set();
-  const { data, error } = await supabase.from('community_profile_cards').select('id,verified').in('id', ids);
-  if (error) throw error;
-  return new Set(((data ?? []) as { id: string; verified: boolean }[]).filter((r) => r.verified).map((r) => r.id));
-}
 
 /** "2:41 pm", "Yesterday, 2:41 pm" or "9 Oct, 2:41 pm": when someone last watched. */
 function viewTime(iso: string): string {
@@ -52,6 +42,7 @@ export default function StoryScreen() {
   // A Plus member's quiet preview (held down in the tray): nothing is recorded, so they are not on the viewer list.
   const quiet = params.quiet === '1' && plus && userId !== me;
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const hold = useStoryHold();
   // The Copyright policy, offered after a copyright report. The story stays paused while it is open.
@@ -59,12 +50,17 @@ export default function StoryScreen() {
   const [groups, setGroups] = useState<PlayerGroup<Story>[] | null>(null);
   const [start, setStart] = useState({ g: 0, s: 0 });
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
+  const [viewersError, setViewersError] = useState('');
   // Plus: the viewers whose watching I'm told about (the bell on each row).
   const [watching, setWatching] = useState<Set<string> | null>(null);
   const watchSaving = useRef(new Set<string>());
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   // The story a sheet was opened for. The story is paused while a sheet is open, so it stays current.
   const live = useRef<PlayerCtx<Story> | null>(null);
+  // A profile is opening: a second tap doesn't open it twice.
+  const leaving = useRef(false);
+  // Answers for an older Viewers sheet are dropped.
+  const viewersAsk = useRef(0);
 
   const close = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -88,15 +84,11 @@ export default function StoryScreen() {
         }
         if (!on) return;
         const g = list[at];
-        const firstNew = g ? g.stories.findIndex((s) => !s.seen) : -1;
+        // Someone else's stories open at the first one not yet watched, counting ones watched on this phone a moment ago.
+        const firstNew = g ? g.stories.findIndex((s) => !allStoriesSeen([s], me)) : -1;
         setStart({ g: at, s: g && g.user_id !== me && firstNew > 0 ? firstNew : 0 });
-        setGroups(list.map((x) => ({ key: x.user_id, user_id: x.user_id, username: x.username, avatar_url: x.avatar_url, entries: x.stories })));
-        // The ticks arrive a moment later; the stories do not wait for them.
-        verifiedAmong(list.map((x) => x.user_id))
-          .then((ticked) => {
-            if (on && ticked.size) setGroups((cur) => cur && cur.map((x) => ({ ...x, verified: ticked.has(x.user_id) })));
-          })
-          .catch(() => {});
+        // Story cards carry their author's tick, so it shows from the first frame.
+        setGroups(list.map((x) => ({ key: x.user_id, user_id: x.user_id, username: x.username, avatar_url: x.avatar_url, verified: x.stories.some((s) => s.verified), entries: x.stories })));
       } catch (e) {
         if (on) {
           toast(errText(e));
@@ -111,16 +103,32 @@ export default function StoryScreen() {
   }, [userId, me, quiet]);
 
   function openProfile(uid: string) {
+    if (leaving.current) return;
+    leaving.current = true;
     router.replace(`/user/${uid}`);
   }
 
   const closeSheet = () => setSheet(null);
 
+  function loadViewers(storyId: string) {
+    const ask = ++viewersAsk.current;
+    setViewers(null);
+    setViewersError('');
+    fetchStoryViewersDetailed(storyId)
+      .then((list) => {
+        if (ask === viewersAsk.current) setViewers(list);
+      })
+      .catch((e) => {
+        if (ask !== viewersAsk.current) return;
+        setViewersError(errText(e));
+        setViewers([]);
+      });
+  }
+
   function open(kind: SheetKind, ctx: PlayerCtx<Story>) {
     live.current = ctx;
     if (kind === 'viewers') {
-      setViewers(null);
-      fetchStoryViewersDetailed(ctx.entry.id).then(setViewers).catch(() => setViewers([]));
+      loadViewers(ctx.entry.id);
       setWatching(null);
       if (plus) fetchStoryWatchList(me).then((list) => setWatching(new Set(list.map((p) => p.id)))).catch(() => setWatching(new Set()));
     }
@@ -172,7 +180,13 @@ export default function StoryScreen() {
     if (!(await confirmAlert('Delete this story?', 'It stays in any memory you added it to.', 'Delete'))) return;
     await deleteStory(ctx.entry.id);
     toast('Story deleted');
-    close();
+    // The next of your stories carries on in its place; with none left, the viewer closes.
+    const gone = ctx.entry.id;
+    if (!ctx.group.entries.some((s) => s.id !== gone)) {
+      close();
+      return;
+    }
+    setGroups((cur) => cur && cur.map((x) => (x.key === ctx.group.key ? { ...x, entries: x.entries.filter((s) => s.id !== gone) } : x)));
   }
 
   function chooseHighlight() {
@@ -245,7 +259,7 @@ export default function StoryScreen() {
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
         <DarkEmpty title="No story to show" />
-        <View style={{ position: 'absolute', top: 60, right: 8 }}>
+        <View style={{ position: 'absolute', top: insets.top + 8, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
       </View>
@@ -266,7 +280,12 @@ export default function StoryScreen() {
         onClose={close}
         onOpenProfile={openProfile}
         onMention={openProfile}
-        onShow={(story) => { noteStorySeen(story.id, story.user_id === me); if (story.user_id !== me) markStorySeen(me, story.id, quiet).catch(() => {}); }}
+        onShow={(story) => {
+          // A quiet preview records nothing, not even on this phone: the ring stays as it was.
+          if (quiet) return;
+          noteStorySeen(story.id, story.user_id === me);
+          if (story.user_id !== me) markStorySeen(me, story.id).catch(() => {});
+        }}
         notice={quiet ? "Preview — they won't see you watched" : undefined}
         badge={(ctx) =>
           ctx.entry.audience === 'close_friends' ? (
@@ -301,7 +320,9 @@ export default function StoryScreen() {
 
       <Sheet visible={sheet === 'viewers'} onClose={closeSheet} title="Viewers" tall>
         {viewers === null ? (
-          <Loading />
+          <RowsSkeleton count={5} avatar={46} />
+        ) : viewersError ? (
+          <ErrorNote message={viewersError} onRetry={() => (live.current ? loadViewers(live.current.entry.id) : undefined)} />
         ) : viewers.length === 0 ? (
           <Empty icon="eye" title="No views yet" />
         ) : (
@@ -368,7 +389,7 @@ export default function StoryScreen() {
           <>
             <SheetRow first icon="trash" label="Delete story" danger onPress={fromSheet(removeStory)} />
             <SheetRow icon="highlight" label="Add to memory" onPress={chooseHighlight} />
-            <SheetRow icon="settings" label="Story settings" sub="Replies, close friends and your archive" onPress={fromSheet(() => { hold.leave(); router.push('/story-settings'); })} />
+            <SheetRow icon="settings" label="Story settings" onPress={fromSheet(() => { hold.leave(); router.push('/story-settings'); })} />
             <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
           </>
         ) : (

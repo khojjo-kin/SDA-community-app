@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { fetchFundraiser } from '../lib/api';
@@ -47,20 +47,23 @@ export function ProgressBar({ value, height = 6 }: { value: number; height?: num
 
 /**
  * The fundraiser a member is running, shown on their profile under the bio. Tapping it opens the
- * fundraiser. Shows nothing while loading, or once it has ended or gone.
+ * fundraiser. While it loads, a plain card of the same size holds its place, so the profile doesn't
+ * jump when it arrives; nothing shows once it has ended or gone, or if it can't load.
  */
 export function FundraiserCard({ fundraiserId }: { fundraiserId: string }) {
   const router = useRouter();
-  const [f, setF] = useState<Fundraiser | null>(null);
+  // Undefined while the first answer is on its way; null when there is nothing to show.
+  const [f, setF] = useState<Fundraiser | null | undefined>(undefined);
+  const lastPush = useRef(0);
 
   useEffect(() => {
     let live = true;
-    setF(null);
+    setF(undefined);
     const load = () => {
       fetchFundraiser(fundraiserId)
         .then((r) => { if (live) setF(r); })
-        // The card is extra on a profile: if it cannot load, the profile simply goes without it.
-        .catch(() => {});
+        // The card is extra on a profile: if it cannot load, the profile simply goes without it (or keeps the last total).
+        .catch(() => { if (live) setF((old) => (old === undefined ? null : old)); });
     };
     load();
     // A gift or an edit announces 'profile': keep the total up to date.
@@ -71,12 +74,18 @@ export function FundraiserCard({ fundraiserId }: { fundraiserId: string }) {
     };
   }, [fundraiserId]);
 
+  if (f === undefined) return <CardPlaceholder />;
   if (!f || hasEnded(f)) return null;
   const raised = money(f.raised_pence, f.currency);
   const goal = money(f.goal_pence, f.currency);
   return (
     <Pressable
-      onPress={() => router.push(`/fundraiser/${f.id}`)}
+      onPress={() => {
+        // One screen per tap, however quickly the card is tapped twice.
+        if (Date.now() - lastPush.current < 800) return;
+        lastPush.current = Date.now();
+        router.push(`/fundraiser/${f.id}`);
+      }}
       accessibilityRole="button"
       accessibilityLabel={`Fundraiser: ${f.title}. ${raised} raised of ${goal}`}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
@@ -92,5 +101,20 @@ export function FundraiserCard({ fundraiserId }: { fundraiserId: string }) {
       </View>
       <Icon name="right" size={18} color={C.fg2} weight={2} />
     </Pressable>
+  );
+}
+
+/** The card's shape with nothing in it yet: the same size, so nothing moves when the card arrives. */
+function CardPlaceholder() {
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: C.surface }}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accentSoft }} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <View style={{ width: '55%', height: 12, marginVertical: 3, borderRadius: 6, backgroundColor: C.surface2 }} />
+        <View style={{ height: 4, borderRadius: 2, backgroundColor: C.surface2 }} />
+        <View style={{ width: '40%', height: 10, marginVertical: 3, borderRadius: 5, backgroundColor: C.surface2 }} />
+      </View>
+      <View style={{ width: 18 }} />
+    </View>
   );
 }

@@ -1192,4 +1192,93 @@ export const ru: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Заметка сохранена',
   'bibleMarks.noteDeleted': 'Заметка удалена',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Открыть настройки',
+  'createFlow.cameraOff': 'Доступ к камере выключен',
+  'createFlow.choosePhotos': 'Выбрать фото и видео',
+  'createFlow.recents': 'Недавние',
+  'createFlow.albums': 'Альбомы',
+  'goLive.endedAway': 'Твой эфир завершился, пока тебя не было',
+  'live.paused': 'Пауза',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Срок действия этой ссылки для настройки истёк.',
+  'payouts.country': 'Страна',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Твой аккаунт закрыт. Сделай его открытым, чтобы продвигать эту публикацию.',
+  'promote.profileOnly': 'Эта публикация есть только в твоём профиле, поэтому её нельзя продвигать.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Пожертвования пока не принимаются',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Не удалось удалить этот сбор средств. Вместо этого его можно завершить.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Этот трек не загрузился. Попробуй ещё раз.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Книга не найдена',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Публикация…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Сегодня',
+  'notifications.sectionYesterday': 'Вчера',
+  'notifications.sectionThisWeek': 'На этой неделе',
+  'notifications.sectionThisMonth': 'В этом месяце',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Отписаться от {username}?',
+  'profile.unfollow': 'Отписаться',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Выйти из аккаунта {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Запрос отправлен',
+  'verify.pending': 'На рассмотрении',
+  'verify.sentOn': 'Отправлено {date}',
+  'verify.notSent': 'Не удалось отправить запрос. Попробуй ещё раз.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Отправка…',
+  'chat.sent': 'Отправлено',
+  'chat.seen': 'Просмотрено',
+  'chat.notSent': 'Не отправлено · Нажми, чтобы повторить',
+  'chat.notSentTitle': 'Сообщение не отправлено',
+  'chat.copied': 'Скопировано',
+  'chat.deleted': 'Чат удалён',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'К последним сообщениям',
+  'chat.viewProfile': 'Посмотреть профиль',
+  'chat.noSavedReplies': 'Быстрых ответов пока нет',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Можно выбрать до 10 человек за раз',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Сообщение отправлено',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Сейчас не удаётся определить твою геопозицию. Проверь, что службы геолокации включены.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Цвет кольца',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Добавить из архива',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Запрос отправлен',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Чтобы вернуться, придётся снова отправить запрос.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Добавь описание',
+  // A community with no church chosen.
+  'groups.none': 'Нет',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Использовать мою геопозицию',
+  'churches.openSettings': 'Открыть настройки',
+  'churches.openSettingsLabel': 'Открой настройки, чтобы использовать геопозицию',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ожидает проверки',
+  'churches.notApproved': 'Не одобрена',
+  'churches.noMembers': 'Участников пока нет',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Она появится у всех, как только администратор её одобрит.',
+  'churches.thanksMakeYours': 'Спасибо! Сделать её своей церковью?',
+  // ======== end of v22 ========
 };

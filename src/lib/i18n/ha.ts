@@ -1192,4 +1192,93 @@ export const ha: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'An ajiye bayani',
   'bibleMarks.noteDeleted': 'An goge bayani',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Buɗe saitunan wayarku',
+  'createFlow.cameraOff': 'An kashe damar amfani da kyamara',
+  'createFlow.choosePhotos': 'Zaɓi hotuna da bidiyoyi',
+  'createFlow.recents': 'Na kwanan nan',
+  'createFlow.albums': 'Kundayen hotuna',
+  'goLive.endedAway': 'Watsawarku kai tsaye ta ƙare lokacin da ba ku nan',
+  'live.paused': 'An dakata',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Wannan mahaɗin saitawa ya ƙare.',
+  'payouts.country': 'Ƙasa',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': "Asusunku na sirri ne. Ku mai da shi na jama'a don tallata wannan rubutu.",
+  'promote.profileOnly': 'Wannan rubutu yana kan bayanan martabarku kaɗai, don haka ba za a iya tallata shi ba.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Ba a karɓar gudummawa tukuna',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Ba a iya goge wannan tara kuɗin ba. Kuna iya ƙare shi maimakon haka.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Wannan waƙar ba ta buɗe ba. Ku sake gwadawa.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Babu littafin da ya dace da wannan',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Ana wallafawa…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Yau',
+  'notifications.sectionYesterday': 'Jiya',
+  'notifications.sectionThisWeek': 'Wannan makon',
+  'notifications.sectionThisMonth': 'Wannan watan',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Daina bin {username}?',
+  'profile.unfollow': 'Daina bi',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Fita daga {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'An aika buƙata',
+  'verify.pending': 'Ana jira',
+  'verify.sentOn': 'An aika ranar {date}',
+  'verify.notSent': 'Ba a aika buƙatarku ba. Ku sake gwadawa.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ana aikawa…',
+  'chat.sent': 'An aika',
+  'chat.seen': 'An gani',
+  'chat.notSent': 'Ba a aika ba · Danna don sake gwadawa',
+  'chat.notSentTitle': 'Ba a aika saƙon ba',
+  'chat.copied': 'An kwafi',
+  'chat.deleted': 'An goge hirar',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Sabbin saƙonni',
+  'chat.viewProfile': 'Duba bayanan martaba',
+  'chat.noSavedReplies': 'Babu amsoshin da aka adana tukuna',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Har mutane 10 a lokaci ɗaya',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'An aika saƙonku',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Ba a sami wurin da kuke a yanzu ba. Ku duba ko Location Services a kunne suke.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Launin zobe',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': "Ƙara daga ma'ajiya",
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'An aika buƙata',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Sai ku sake neman shiga.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Ƙara bayani',
+  // A community with no church chosen.
+  'groups.none': 'Babu',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Yi amfani da wurin da nake',
+  'churches.openSettings': 'Buɗe saitunan wayarku',
+  'churches.openSettingsLabel': 'Buɗe saitunan wayarku don amfani da wurin da kuke',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ana jiran dubawa',
+  'churches.notApproved': 'Ba a amince ba',
+  'churches.noMembers': 'Babu membobi tukuna',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Zai bayyana ga kowa da zarar mai gudanarwa ya amince da shi.',
+  'churches.thanksMakeYours': 'Mun gode! Ku mai da shi cocinku?',
+  // ======== end of v22 ========
 };

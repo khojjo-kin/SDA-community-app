@@ -11,7 +11,7 @@ import { cancelSubscription, myPlusRequests, resumeSubscription, setTickHidden, 
 import { fontById, useAppFont } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
 import { type Key, tSplit, useT } from '../../src/lib/i18n';
-import { ensureStripe, money } from '../../src/lib/payments';
+import { ensureStripe, lastPaymentsConfig, money, paymentsAccount, rememberBilling } from '../../src/lib/payments';
 import { usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText, monthName } from '../../src/lib/theme';
@@ -100,12 +100,18 @@ export default function Plus() {
   const font = useAppFont();
   const [requests, setRequests] = useState<PlusRequest[]>([]);
   // Prices, whether payments are on, and the member's subscription (the config carries its status too).
-  const [config, setConfig] = useState<PaymentsConfig | null>(null);
+  // The last answer draws the page at once; it is asked for again on every visit.
+  const [config, setConfig] = useState<PaymentsConfig | null>(lastPaymentsConfig);
   const [configError, setConfigError] = useState('');
   // The Stripe subscription. Kept apart from the config because cancelling or resuming replaces it.
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billing, setBilling] = useState<BillingStatus | null>(lastPaymentsConfig);
   const [changing, setChanging] = useState(false);
-  const [plan, setPlan] = useState<Plan>('monthly');
+  // Paid: Plus is being switched on (the server waits for Stripe), so the button keeps spinning.
+  const [settling, setSettling] = useState(false);
+  const [plan, setPlan] = useState<Plan>(() => {
+    const b = lastPaymentsConfig();
+    return b && RENEWING.includes(b.status) && b.plan === 'yearly' ? 'yearly' : 'monthly';
+  });
   // The sticky plan area's height, so the end of the page can scroll clear of it.
   const [bottomH, setBottomH] = useState(0);
   // Read receipts: shown at once when tapped, then put back if the save fails.
@@ -122,7 +128,9 @@ export default function Plus() {
   useEffect(() => () => { alive.current = false; }, []);
 
   const load = useCallback(() => {
-    myPlusRequests(me).then(setRequests).catch(() => {});
+    myPlusRequests(me)
+      .then((list) => { if (alive.current) setRequests(list); })
+      .catch(() => {});
     setConfigError('');
     ensureStripe(true)
       .then((c) => {
@@ -171,10 +179,13 @@ export default function Plus() {
           style: resume ? 'default' : 'destructive',
           onPress: async () => {
             setChanging(true);
+            const asked = paymentsAccount();
             try {
               const next = await (resume ? resumeSubscription() : cancelSubscription());
+              rememberBilling(next, asked);
               if (!alive.current) return;
               setBilling(next);
+              tap('success');
               toast(resume ? t('plus.renewsAsNormal') : day ? t('plus.willEndOn', { day }) : t('plus.willEndPeriod'));
               refresh();
             } catch (e) {
@@ -215,12 +226,18 @@ export default function Plus() {
       .finally(() => { tickSaving.current = false; });
   }
 
+  /** One screen per tap, however quickly a row is tapped twice. */
+  function open(href: string) {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  }
+
   /** The checkout's card form, to save a card for after the free week (nothing is charged now). */
   function addCard() {
     if (Date.now() - lastPush.current < 800) return;
-    lastPush.current = Date.now();
     tap('medium');
-    router.push(`/checkout?plan=${currentPlan ?? 'monthly'}`);
+    open(`/checkout?plan=${currentPlan ?? 'monthly'}`);
   }
 
   const until = profile?.plus_until ? dayLabel(new Date(profile.plus_until)) : '';
@@ -246,22 +263,34 @@ export default function Plus() {
 
   /** Paid (or the free week started): Plus is switched on by the server once Stripe agrees, so give it a few seconds. */
   async function paidPlus() {
-    let synced = await syncSubscription().catch(() => null);
-    for (let i = 0; i < 3 && !synced?.plus; i++) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+    const asked = paymentsAccount();
+    setSettling(true);
+    try {
+      let synced = await syncSubscription().catch(() => null);
+      for (let i = 0; i < 3 && !synced?.plus; i++) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+        if (!alive.current) return;
+        synced = await syncSubscription().catch(() => null);
+      }
+      if (synced) rememberBilling(synced, asked);
+      await refresh();
       if (!alive.current) return;
-      synced = await syncSubscription().catch(() => null);
+      // Drawn from what the server said at once, rather than offering Subscribe again until the page reloads.
+      if (synced) setBilling(synced);
+      tap('success');
+      // Not on yet: the payment went through, and Plus shows once Stripe has told the server.
+      toast(startedTrial.current ? t('checkout.trialStarted') : synced?.plus ? t('checkout.welcome') : t('subscribe.paymentReceived'));
+      load();
+    } finally {
+      if (alive.current) setSettling(false);
     }
-    await refresh();
-    if (!alive.current) return;
-    tap('success');
-    toast(startedTrial.current ? t('checkout.trialStarted') : t('checkout.welcome'));
-    load();
   }
 
   const instant = useInstantPay({
     title: `${t('common.communityPlus')} · ${plan === 'yearly' ? t('plus.yearly') : t('plus.monthly')}`,
     amountLabel: money(trialOffer ? 0 : planPence, config?.currency ?? 'GBP'),
+    // The free week saves a card and charges nothing today, so the button says what it does rather than "Pay £0.00".
+    payLabel: trialOffer ? t('checkout.startFreeWeek') : undefined,
     start: startPlus,
     onConfirmed: async () => {
       await syncSubscription();
@@ -285,7 +314,7 @@ export default function Plus() {
 
   /** Subscribing starts paying straight away; a member changing plan goes to the checkout. */
   function go() {
-    if (!config) return;
+    if (!config || settling) return;
     if (!config.ready) {
       toast(t('pay.unavailable'));
       return;
@@ -303,6 +332,8 @@ export default function Plus() {
   // Plus through a church has no subscription to change, and a failed renewal is paid from the section above.
   const showBottom = !failed && (member || !isPlus);
   const save = config ? savePercent(config.price_pence, config.yearly_pence) : 0;
+  // Paying has started, or has finished and Plus is being switched on: the button spins and can't be pressed.
+  const working = instant.busy || settling;
 
   let buttonLabel = '';
   let buttonOn = false;
@@ -374,11 +405,11 @@ export default function Plus() {
               ) : null}
               {failed || billing.status === 'incomplete' ? (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-                  <Button label={failed ? t('plus.payNow') : t('plus.finishPaying')} onPress={() => router.push(`/checkout?plan=${billing.plan ?? 'monthly'}`)} />
+                  <Button label={failed ? t('plus.payNow') : t('plus.finishPaying')} onPress={() => open(`/checkout?plan=${billing.plan ?? 'monthly'}`)} />
                 </View>
               ) : null}
-              <Row icon="card" title={t('plus.paymentMethods')} onPress={() => router.push('/payment-methods')} />
-              <Row icon="receipt" title={t('plus.paymentHistory')} onPress={() => router.push('/payments')} />
+              <Row icon="card" title={t('plus.paymentMethods')} onPress={() => open('/payment-methods')} />
+              <Row icon="receipt" title={t('plus.paymentHistory')} onPress={() => open('/payments')} />
               {RENEWING.includes(billing.status) ? (
                 <Row
                   icon={billing.cancel_at_period_end ? 'repeat' : 'close'}
@@ -397,11 +428,11 @@ export default function Plus() {
           <>
             <SectionLabel>{t('plus.yourSettings')}</SectionLabel>
             <View style={{ marginHorizontal: 16, borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden', paddingVertical: 4 }}>
-              <Row icon="font" title={t('settings.appFont')} value={fontById(appFont).name} onPress={() => router.push('/plus-font')} />
-              <Row icon="wallpaper" title={t('settings.chatWallpaper')} onPress={() => router.push('/chat-wallpaper')} />
-              <Row icon="palette" title={t('settings.profileStyle')} onPress={() => router.push('/profile-style')} />
-              <Row icon="eye" title={t('settings.profileViewers')} onPress={() => router.push('/profile-viewers')} />
-              <Row icon="bell" title={t('settings.storyAlerts')} onPress={() => router.push('/story-alerts')} />
+              <Row icon="font" title={t('settings.appFont')} value={fontById(appFont).name} onPress={() => open('/plus-font')} />
+              <Row icon="wallpaper" title={t('settings.chatWallpaper')} onPress={() => open('/chat-wallpaper')} />
+              <Row icon="palette" title={t('settings.profileStyle')} onPress={() => open('/profile-style')} />
+              <Row icon="eye" title={t('settings.profileViewers')} onPress={() => open('/profile-viewers')} />
+              <Row icon="bell" title={t('settings.storyAlerts')} onPress={() => open('/story-alerts')} />
               <Row icon="lock" title={t('settings.readReceipts')} right={<Toggle value={receipts} onChange={setReadReceipts} label={t('settings.readReceipts')} />} />
             </View>
             <SectionLabel strong>{t('plus.whatYouGet')}</SectionLabel>
@@ -450,7 +481,7 @@ export default function Plus() {
         {/* The tick is separate from Plus and free: it only ever comes from an identity check. */}
         {ticked ? null : (
           <Pressable
-            onPress={() => router.push('/verify')}
+            onPress={() => open('/verify')}
             accessibilityRole="link"
             accessibilityLabel={pending('verify') ? t('plus.idBeingReviewed') : t('plus.wantTick')}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 20, padding: 14, borderRadius: 16, backgroundColor: C.surface, opacity: pressed ? 0.75 : 1 })}>
@@ -467,13 +498,14 @@ export default function Plus() {
           style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 10, gap: 10 }}>
           {config ? (
             <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 10 }}>
-              <PlanCard title={t('plus.monthly')} price={monthly} sub={currentPlan === 'monthly' ? t('plus.yourPlan') : t('plus.aMonth')} selected={plan === 'monthly'} onPress={() => { tap('select'); setPlan('monthly'); }} />
+              <PlanCard title={t('plus.monthly')} price={monthly} sub={currentPlan === 'monthly' ? t('plus.yourPlan') : t('plus.aMonth')} selected={plan === 'monthly'} disabled={working} onPress={() => { tap('select'); setPlan('monthly'); }} />
               <PlanCard
                 title={t('plus.yearly')}
                 price={yearly}
                 sub={currentPlan === 'yearly' ? t('plus.yourPlan') : t('plus.perMonth', { price: money(Math.round(config.yearly_pence / 12), config.currency) })}
                 pill={save >= 1 ? t('plus.save', { percent: save }) : undefined}
                 selected={plan === 'yearly'}
+                disabled={working}
                 onPress={() => { tap('select'); setPlan('yearly'); }}
               />
             </View>
@@ -488,15 +520,15 @@ export default function Plus() {
               trialDays={trialOffer ? config.trial_days : 0}
             />
           )}
-          {buttonLabel || !config ? (
+          {buttonLabel || !config || settling ? (
             <Pressable
-              onPress={buttonOn && !instant.busy ? (config ? go : load) : undefined}
+              onPress={buttonOn && !working ? (config ? go : load) : undefined}
               accessibilityRole="button"
               accessibilityLabel={buttonLabel || t('plus.loadingPrices')}
-              accessibilityState={{ disabled: !buttonOn, busy: instant.busy }}
-              style={({ pressed }) => ({ height: 52, borderRadius: 26, backgroundColor: buttonOn ? C.accent : C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed && buttonOn ? 0.8 : 1 })}>
-              {(!config && !configError) || instant.busy ? (
-                <ActivityIndicator color={instant.busy ? C.onAccent : C.fg2} />
+              accessibilityState={{ disabled: !buttonOn, busy: working }}
+              style={({ pressed }) => ({ height: 52, borderRadius: 14, backgroundColor: buttonOn || working ? C.accent : C.surface2, alignItems: 'center', justifyContent: 'center', opacity: pressed && buttonOn && !working ? 0.8 : 1 })}>
+              {(!config && !configError) || working ? (
+                <ActivityIndicator color={working ? C.onAccent : C.fg2} />
               ) : (
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: buttonOn ? C.onAccent : C.fg2, fontSize: 16.5, fontWeight: '700', fontFamily: fontBold }}>
                   {buttonLabel}
@@ -512,26 +544,29 @@ export default function Plus() {
   );
 }
 
-/** One plan in the sticky area. The chosen one wears a 2px green border. */
-function PlanCard({ title, price, sub, pill, selected, onPress }: { title: string; price: string; sub: string; pill?: string; selected: boolean; onPress: () => void }) {
+/** One plan in the sticky area. The chosen one wears a 2px green border over a green wash, with its circle filled. */
+function PlanCard({ title, price, sub, pill, selected, disabled, onPress }: { title: string; price: string; sub: string; pill?: string; selected: boolean; disabled?: boolean; onPress: () => void }) {
   const fontBold = useAppFont('bold');
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
+      accessibilityState={{ checked: selected, disabled: !!disabled }}
       accessibilityLabel={`${title}, ${price}, ${sub}${pill ? `, ${pill}` : ''}`}
-      style={({ pressed }) => ({ flex: 1, minHeight: 84, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, borderWidth: 2, borderColor: selected ? C.accent : C.line, backgroundColor: C.surface, opacity: pressed ? 0.85 : 1 })}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+      style={({ pressed }) => ({ flex: 1, minHeight: 84, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, borderWidth: 2, borderColor: selected ? C.accent : C.line, backgroundColor: selected ? C.accentSoft : C.surface, opacity: pressed && !disabled ? 0.85 : 1 })}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: selected ? 0 : 1.5, borderColor: C.fg3, backgroundColor: selected ? C.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          {selected ? <Icon name="check" size={12} color={C.onAccent} weight={3} /> : null}
+        </View>
         <Text numberOfLines={1} style={{ flexShrink: 1, color: C.fg, fontSize: 15, fontWeight: '700', fontFamily: fontBold }}>{title}</Text>
         {pill ? (
-          <View style={{ height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
-            <Text numberOfLines={1} style={{ color: C.accent2, fontSize: 11, fontWeight: '800' }}>{pill}</Text>
+          <View style={{ marginLeft: 'auto', height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: C.accent, justifyContent: 'center' }}>
+            <Text numberOfLines={1} style={{ color: C.onAccent, fontSize: 11, fontWeight: '800' }}>{pill}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={{ color: C.fg, fontSize: 20, fontWeight: '800', marginTop: 6, fontVariant: ['tabular-nums'] }}>{price}</Text>
-      <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5, marginTop: 1 }}>{sub}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: C.fg, fontSize: 20, fontWeight: '800', marginTop: 6, fontVariant: ['tabular-nums'] }}>{price}</Text>
+      <Text numberOfLines={1} style={{ color: selected ? C.fg : C.fg2, fontSize: 12.5, marginTop: 1 }}>{sub}</Text>
     </Pressable>
   );
 }

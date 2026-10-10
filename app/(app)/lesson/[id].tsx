@@ -7,9 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { WebView } from 'react-native-webview';
 import { Icon, IconName } from '../../../src/components/Icon';
-import { alpha, dayName, HERO_GRADIENT, lessonLine, Skeleton } from '../../../src/components/sabbath/kit';
-import { ErrorNote, IconButton, Loading, Screen, ScreenHeader, Sheet, useToast } from '../../../src/components/ui';
+import { alpha, dayName, HERO_GRADIENT, lessonLine, Skeleton as Line } from '../../../src/components/sabbath/kit';
+import { Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
+import { ErrorNote, IconButton, Screen, ScreenHeader, Sheet, useToast } from '../../../src/components/ui';
 import { useAppFont } from '../../../src/lib/fonts';
+import { tap } from '../../../src/lib/haptics';
 import { dayKey, daySlot, dayState, isSaved, lessonKey, markDayDone, markDayOpened, toggleSaved, useLessonProgress } from '../../../src/lib/lesson-progress';
 import { chipLabel, Day, dateRange, dayTitle, fetchDay, fetchLesson, fetchMemoryText, Lesson, loadSsSettings, MemoryText, Reading, readingHtml, SsSettings, todayIndex, updateSsSettings } from '../../../src/lib/sabbath-school';
 import { C, errText } from '../../../src/lib/theme';
@@ -36,7 +38,8 @@ window.addEventListener('load',post);document.addEventListener('click',function(
  */
 function readingCss(): string {
   const sans = "-apple-system,system-ui,Roboto,'Segoe UI',sans-serif";
-  return `body{padding:4px 22px 20px;line-height:1.6;font-family:'Iowan Old Style',Palatino,Georgia,'Noto Serif',serif}
+  // On a wide screen (a tablet) the lines stop at a comfortable length, about 75 letters, in the middle.
+  return `body{padding:4px 22px 20px;line-height:1.6;font-family:'Iowan Old Style',Palatino,Georgia,'Noto Serif',serif;max-width:44em;margin:0 auto}
 h1,h2,h3,h4{font-family:${sans};letter-spacing:-.01em}
 p{margin:0 0 1.05em}
 a.verse{color:${C.accent2};background:${alpha(C.accent, 0.16)};border:0;border-radius:999px;padding:.08em .55em;font-family:${sans};font-size:.84em;font-weight:600;-webkit-box-decoration-break:clone;box-decoration-break:clone}
@@ -47,9 +50,62 @@ a.verse.open{background:${alpha(C.accent, 0.32)}}
 /** A round button over the lesson's picture; it stays readable once the bar behind it turns solid. */
 function BandButton({ icon, text, label, onPress, fill, colour = '#ffffff' }: { icon?: IconName; text?: string; label: string; onPress: () => void; fill?: boolean; colour?: string }) {
   return (
-    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.38)' })}>
+    <Pressable onPress={() => { tap('light'); onPress(); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.38)' })}>
       {icon ? <Icon name={icon} size={21} color={colour} fill={fill} weight={2.1} /> : <Text style={{ color: colour, fontSize: 15, fontWeight: '700' }}>{text}</Text>}
     </Pressable>
+  );
+}
+
+/** Lines of a reading while it is on its way, at the reading's own margins. */
+function ReadingSkeleton() {
+  const { width } = useWindowDimensions();
+  const w = Math.min(width, 748) - 44;
+  const lines = [0.96, 0.9, 0.98, 0.72, -1, 0.94, 0.88, 0.97, 0.6, -1, 0.92, 0.85, 0.95, 0.4];
+  return (
+    <SkeletonFrame style={{ paddingHorizontal: 22, paddingTop: 10, gap: 12 }}>
+      {lines.map((f, i) => (f < 0 ? <View key={i} style={{ height: 8 }} /> : <Skeleton key={i} width={Math.round(w * f)} height={14} x={22} />))}
+    </SkeletonFrame>
+  );
+}
+
+/**
+ * The page's own shape while the lesson is on its way: the picture band with the back button and the
+ * lesson's number, the memory text card, the days and the reading. Nothing moves when it arrives.
+ */
+function LessonSkeleton({ n, onBack }: { n: number; onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const bandH = insets.top + 250;
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar style="light" />
+      <View style={{ height: bandH, backgroundColor: HERO_GRADIENT[0] }}>
+        <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <View style={{ position: 'absolute', left: 20, right: 20, bottom: 50, gap: 10 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '700' }}>{n ? `Lesson ${n}` : 'Lesson'}</Text>
+          <Line light style={{ height: 26, width: '82%' }} />
+          <Line light style={{ height: 13, width: '38%' }} />
+        </View>
+        <View style={{ position: 'absolute', top: insets.top + 8, left: 12 }}>
+          <BandButton icon="back" label="Back" onPress={onBack} />
+        </View>
+      </View>
+      <View style={{ marginHorizontal: 16, marginTop: -30, padding: 18, borderRadius: 20, backgroundColor: C.surface, gap: 12 }}>
+        <Line style={{ height: 13, width: 110, backgroundColor: C.surface2 }} />
+        <Line style={{ height: 17, width: '94%', backgroundColor: C.surface2 }} />
+        <Line style={{ height: 17, width: '78%', backgroundColor: C.surface2 }} />
+      </View>
+      <SkeletonFrame style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 16 }}>
+        {[64, 56, 56, 56, 56].map((w, i) => (
+          <Skeleton key={i} width={w} height={38} radius={19} x={16 + i * 64} />
+        ))}
+      </SkeletonFrame>
+      <View style={{ paddingHorizontal: 22, paddingBottom: 14, gap: 8 }}>
+        <Skeleton width={120} height={11} x={22} />
+        <Skeleton width={Math.round((width - 44) * 0.7)} height={22} radius={8} x={22} />
+      </View>
+      <ReadingSkeleton />
+    </View>
   );
 }
 
@@ -58,7 +114,10 @@ function DayStep({ dir, name, onPress }: { dir: 'back' | 'right'; name: string; 
   const back = dir === 'back';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        tap('light');
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel={`${back ? 'Previous day' : 'Next day'}: ${name}`}
       style={({ pressed }) => ({ flex: 1, minHeight: 62, borderRadius: 16, backgroundColor: C.surface, paddingHorizontal: 14, flexDirection: back ? 'row' : 'row-reverse', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
@@ -97,6 +156,7 @@ export default function LessonScreen() {
   const [sizing, setSizing] = useState(false);
   /** True while the picture is under the status bar, which then wants light text even on White. */
   const [overPicture, setOverPicture] = useState(true);
+  const overPictureRef = useRef(true);
   const web = useRef<WebView>(null);
   const page = useRef<ScrollView>(null);
   const chips = useRef<ScrollView>(null);
@@ -177,6 +237,7 @@ export default function LessonScreen() {
 
   function setSize(delta: number) {
     if (!settings) return;
+    tap('select');
     const next = { ...settings, size: Math.min(30, Math.max(14, settings.size + delta)) };
     setSettings(next);
     // Only the size is saved: this screen's copy of the chosen quarter may be older than the main page's.
@@ -196,6 +257,7 @@ export default function LessonScreen() {
 
   function go(i: number) {
     if (!lesson || i < 0 || i >= lesson.days.length || i === at) return;
+    tap('select');
     setAt(i);
     // From further down a long reading, bring the new day's start up under the bar.
     const top = Math.max(0, daysY.current - barH);
@@ -205,10 +267,11 @@ export default function LessonScreen() {
   if (error || !lesson || !day) {
     // A lesson with no day readings (some are published as a PDF only) would otherwise spin for ever.
     const empty = !!lesson && !lesson.days.length;
+    if (!error && !empty) return <LessonSkeleton n={n} onBack={back} />;
     return (
       <Screen>
         <ScreenHeader title={n ? `Lesson ${n}` : 'Lesson'} onBack={back} />
-        {error ? <ErrorNote message={error} onRetry={loadLesson} /> : empty ? <ErrorNote message="This lesson has no daily readings in the app yet." onRetry={loadLesson} /> : <Loading />}
+        <ErrorNote message={error || 'This lesson has no daily readings in the app yet.'} onRetry={loadLesson} />
       </Screen>
     );
   }
@@ -224,6 +287,7 @@ export default function LessonScreen() {
   const info = { title: l.title, sub: lessonLine(l, n) };
 
   function toggleDone() {
+    tap(done ? 'light' : 'success');
     markDayDone(quarterlyId, lessonId, slot, !done, info);
     if (!done) toast(`${name} marked as done`);
   }
@@ -255,7 +319,12 @@ export default function LessonScreen() {
           useNativeDriver: true,
           listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
             offset.current = e.nativeEvent.contentOffset.y;
-            setOverPicture(offset.current < bandH - barH - 40);
+            // The page draws again only when the status bar's colour has to change, not on every frame of a scroll.
+            const over = offset.current < bandH - barH - 40;
+            if (over !== overPictureRef.current) {
+              overPictureRef.current = over;
+              setOverPicture(over);
+            }
           },
         })}
         contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}>
@@ -285,8 +354,8 @@ export default function LessonScreen() {
               <Text selectable style={{ color: C.fg, fontSize: 18.5, lineHeight: 28, fontFamily: SERIF }}>{memory.text}</Text>
             ) : (
               <View style={{ gap: 9 }}>
-                <Skeleton style={{ height: 17, width: '94%', backgroundColor: C.surface2 }} />
-                <Skeleton style={{ height: 17, width: '78%', backgroundColor: C.surface2 }} />
+                <Line style={{ height: 17, width: '94%', backgroundColor: C.surface2 }} />
+                <Line style={{ height: 17, width: '78%', backgroundColor: C.surface2 }} />
               </View>
             )}
             {memory?.reference ? (
@@ -339,7 +408,7 @@ export default function LessonScreen() {
           <ErrorNote message={readError} onRetry={loadReading} />
         ) : !reading ? (
           <View style={{ minHeight: screenH * 0.45 }}>
-            <Loading />
+            <ReadingSkeleton />
           </View>
         ) : (
           <View style={{ height: webH }}>
@@ -372,7 +441,7 @@ export default function LessonScreen() {
             />
             {webLoaded ? null : (
               <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: C.bg }]}>
-                <Loading />
+                <ReadingSkeleton />
               </View>
             )}
           </View>

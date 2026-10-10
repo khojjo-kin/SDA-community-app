@@ -4,8 +4,10 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '../../../src/components/Icon';
 import { PaySheet } from '../../../src/components/PaySheet';
+import { afterSheet } from '../../../src/components/StoryChrome';
 import { Button, Empty, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../../src/components/ui';
 import { fetchPost, promotePost } from '../../../src/lib/api';
+import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
 import { ensureStripe, money } from '../../../src/lib/payments';
 import { useSession } from '../../../src/lib/session';
@@ -54,18 +56,33 @@ export default function Promote() {
   }, [postId]);
   useEffect(() => { load(); }, [load]);
 
-  const step = (by: number) => setDays((d) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, d + by)));
+  const step = (by: number) => {
+    tap('select');
+    setDays((d) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, d + by)));
+  };
+  const choose = (n: number) => {
+    if (n === days) return;
+    tap('select');
+    setDays(n);
+  };
 
   function paid(_paymentIntentId: string, slow: boolean) {
     setPaying(false);
+    tap('success');
     toast(slow ? 'Payment received — it may take a minute to show' : 'Your post is being promoted');
-    if (router.canGoBack()) router.back();
-    else router.replace('/ads');
+    // Read the post again: every card showing it (its ••• menu says "Promoted until …") picks up the new end date.
+    fetchPost(postId).catch(() => {});
+    // The sheet slides away first, then this screen goes, rather than both at once.
+    afterSheet().then(() => {
+      if (!alive.current) return;
+      if (router.canGoBack()) router.back();
+      else router.replace('/ads');
+    });
   }
 
   let body: React.ReactNode;
   if (error && !config) body = <ErrorNote message={error} onRetry={load} />;
-  else if (missing) body = <Empty icon="megaphone" title="This post isn't available" body="It may have been deleted." />;
+  else if (missing) body = <Empty icon="megaphone" title="This post isn't available" />;
   else if (!config || !post) body = <Loading />;
   else if (post.user_id !== me) body = <Empty icon="megaphone" title="You can only promote your own posts" />;
   else if (!config.ready) {
@@ -73,7 +90,7 @@ export default function Promote() {
   } else {
     const total = days * config.ad_day_pence;
     const totalLabel = money(total, config.currency);
-    const first = post.media[0];
+    const first = post.media?.[0];
     const thumb = first ? (first.type === 'video' ? first.poster || '' : first.url) : '';
     const until = post.boosted && post.boosted_until && new Date(post.boosted_until) > new Date() ? dayLabel(new Date(post.boosted_until)) : '';
     body = (
@@ -81,8 +98,9 @@ export default function Promote() {
         {/* The post being promoted, so there is no doubt which one. */}
         <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 6, padding: 12, borderRadius: 16, backgroundColor: C.surface }}>
           <View style={{ width: 72, height: 72, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
-            {thumb ? <Image source={{ uri: thumb }} style={{ width: 72, height: 72 }} contentFit="cover" transition={120} accessibilityIgnoresInvertColors /> : <Icon name="image" size={26} color={C.fg2} />}
-            {first?.type === 'video' ? (
+            {thumb ? <Image source={{ uri: thumb }} style={{ width: 72, height: 72 }} contentFit="cover" transition={120} cachePolicy="memory-disk" accessibilityIgnoresInvertColors /> : <Icon name={first?.type === 'video' ? 'play' : 'image'} size={26} color={C.fg2} />}
+            {/* White on the picture; with no picture the grey play icon above says it is a video. */}
+            {thumb && first?.type === 'video' ? (
               <View style={{ position: 'absolute', right: 4, top: 4 }}>
                 <Icon name="play" size={14} color="#fff" />
               </View>
@@ -101,7 +119,7 @@ export default function Promote() {
             return (
               <Pressable
                 key={n}
-                onPress={() => setDays(n)}
+                onPress={() => choose(n)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
                 accessibilityLabel={plural(n, 'day')}
@@ -125,29 +143,21 @@ export default function Promote() {
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>{plural(days, 'day')} × {money(config.ad_day_pence, config.currency)} a day</Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 }}>
-          <Icon name="megaphone" size={20} color={C.fg2} />
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 14, lineHeight: 20 }}>
-            Your post is shown at the top of For you and Explore, labelled Sponsored, until the days run out. Runs straight after paying.
-            {until ? ` It's already promoted until ${until}, so these days are added on after that.` : ''}
-          </Text>
-        </View>
-
         {/* A private account's posts are only shown to its followers, so the server refuses to promote them.
+            A post kept to the profile is never in For you or Explore, so an ad for it would show nowhere.
             Other refusals (a post in a private group, say) come back from the server and show in the pay sheet as they are. */}
         {profile?.is_private ? (
           <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
-            <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
-              <Icon name="lock" size={18} color={C.warn} />
-              <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>
-                Your account is private, so new people can't see your posts. Make it public in Edit profile to promote this post.
-              </Text>
-            </View>
+            <Blocked icon="lock" text={t('promote.private')} />
             <Button label="Edit profile" onPress={() => router.push('/edit-profile')} />
+          </View>
+        ) : post.profile_only ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 22 }}>
+            <Blocked icon="grid" text={t('promote.profileOnly')} />
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 10 }}>
-            <Button label={`Pay ${totalLabel}`} onPress={() => setPaying(true)} />
+            <Button label={t('checkout.pay', { price: totalLabel })} onPress={() => setPaying(true)} />
             <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{t('legal.oneOff', { amount: totalLabel })}</Text>
           </View>
         )}
@@ -174,6 +184,16 @@ export default function Promote() {
         />
       ) : null}
     </Screen>
+  );
+}
+
+/** Why this post can't be paid for here, in place of the Pay button. */
+function Blocked({ icon, text }: { icon: 'lock' | 'grid'; text: string }) {
+  return (
+    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
+      <Icon name={icon} size={18} color={C.warn} />
+      <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>{text}</Text>
+    </View>
   );
 }
 

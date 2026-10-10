@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useKeyboardReveal } from '../../src/components/AuthShell';
 import { Icon, IconName } from '../../src/components/Icon';
 import { Avatar, Button, Divider, Field, Radio, RoundButton, Screen, Sheet, Toggle, useToast } from '../../src/components/ui';
 import { fetchChurch, updateProfile, uploadImage, withTimeout } from '../../src/lib/api';
+import { useAppFont } from '../../src/lib/fonts';
+import { tap } from '../../src/lib/haptics';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
 import { profileTheme, RING_STYLES } from '../../src/lib/styling';
@@ -12,35 +15,50 @@ import { C, errText } from '../../src/lib/theme';
 
 const GENDERS = ['Female', 'Male', 'Custom', 'Prefer not to say'] as const;
 
-/** One line of the form: the label on the left, what you type on the right, a hairline underneath. */
-function Line({ label, value, onChangeText, placeholder, multiline, ...rest }: TextInputProps & { label: string }) {
+/** What can be wrong with the form, each shown next to its own field. */
+type Problems = { name?: string; username?: string; email?: string };
+
+/**
+ * One line of the form: the label on the left, what you type on the right, a hairline underneath, and
+ * anything wrong with it just below. `ref` reaches the text box, so the keyboard's Next key moves on.
+ */
+function Line({ label, value, onChangeText, placeholder, multiline, error, ref, ...rest }: TextInputProps & { label: string; error?: string; ref?: React.Ref<TextInput> }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: multiline ? 'flex-start' : 'center', paddingLeft: 16 }}>
-      <Text style={{ width: 96, color: C.fg, fontSize: 16.5, paddingTop: multiline ? 12 : 0 }}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder ?? label}
-        placeholderTextColor={C.fg3}
-        multiline={multiline}
-        keyboardAppearance={C.blurTint}
-        selectionColor={C.accent2}
-        accessibilityLabel={label}
-        {...rest}
-        style={{ flex: 1, color: C.fg, fontSize: 16.5, paddingVertical: 12, paddingRight: 16, minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, textAlignVertical: multiline ? 'top' : 'center' }}
-      />
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: multiline ? 'flex-start' : 'center', paddingLeft: 16 }}>
+        <Text style={{ width: 96, color: C.fg, fontSize: 16.5, paddingTop: multiline ? 12 : 0 }}>{label}</Text>
+        <TextInput
+          ref={ref}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder ?? label}
+          placeholderTextColor={C.fg3}
+          multiline={multiline}
+          keyboardAppearance={C.blurTint}
+          selectionColor={C.accent2}
+          accessibilityLabel={label}
+          {...rest}
+          style={{ flex: 1, color: C.fg, fontSize: 16.5, paddingVertical: 12, paddingRight: 16, minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: error ? C.like : C.line, textAlignVertical: multiline ? 'top' : 'center' }}
+        />
+      </View>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13.5, lineHeight: 18, paddingLeft: 112, paddingRight: 16, paddingTop: 6, paddingBottom: 4 }}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 /** A line that opens something else, showing the current value on the right. */
-function Pick({ label, value, sub, onPress, accent, icon }: { label: string; value?: string; sub?: string; onPress: () => void; accent?: React.ReactNode; icon?: IconName }) {
+function Pick({ label, value, sub, onPress, accent, icon, error }: { label: string; value?: string; sub?: string; onPress: () => void; accent?: React.ReactNode; icon?: IconName; error?: string }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 54, backgroundColor: pressed ? C.press : 'transparent' })}>
       {icon ? <View style={{ marginRight: 14 }}><Icon name={icon} size={24} color={C.fg} /></View> : null}
-      <View style={{ flex: 1, paddingVertical: sub ? 10 : 0 }}>
+      <View style={{ flex: 1, paddingVertical: sub || error ? 10 : 0 }}>
         <Text style={{ color: C.fg, fontSize: 16.5 }}>{label}</Text>
-        {sub ? <Text style={{ color: C.fg2, fontSize: 14.5, marginTop: 2 }}>{sub}</Text> : null}
+        {sub ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 14.5, marginTop: 2 }}>{sub}</Text> : null}
+        {error ? <Text style={{ color: C.like, fontSize: 13.5, marginTop: 2 }}>{error}</Text> : null}
       </View>
       {accent}
       {value ? <Text numberOfLines={1} style={{ color: value === label ? C.fg3 : C.fg2, fontSize: 16, maxWidth: 170, marginRight: 8 }}>{value}</Text> : null}
@@ -82,10 +100,11 @@ function PlusLabel() {
 }
 
 export default function EditProfile() {
-  const { me, profile, refresh } = useSession();
+  const { me, profile } = useSession();
   const { user } = useUser();
   const router = useRouter();
   const toast = useToast();
+  const fontBold = useAppFont('bold');
   const params = useLocalSearchParams<{ church?: string }>();
   const [name, setName] = useState(profile?.full_name ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -102,10 +121,22 @@ export default function EditProfile() {
   const [readReceipts, setReadReceipts] = useState(profile ? profile.read_receipts !== false : true);
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [sheet, setSheet] = useState<'gender' | 'contact' | 'links' | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Saving goes in steps: the new photo first (shown turning over the picture), then the details.
+  const [stage, setStage] = useState<'' | 'photo' | 'saving'>('');
+  const busy = stage !== '';
+  // A ref as well: two quick taps on Done arrive before `busy` has drawn.
+  const busyRef = useRef(false);
+  const [problems, setProblems] = useState<Problems>({});
+  // Anything else that went wrong, at the top of the form.
   const [err, setErr] = useState('');
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+  // The line being typed in stays above the keyboard; Next moves down the form.
+  const kb = useKeyboardReveal(72);
+  const usernameRef = useRef<TextInput>(null);
+  const pronounsRef = useRef<TextInput>(null);
+  const bioRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
 
   // Coming back from the church list with a choice.
   useFocusEffect(
@@ -121,6 +152,7 @@ export default function EditProfile() {
   );
 
   async function choose() {
+    if (busyRef.current) return;
     try {
       const [a] = await pickFromLibrary({ square: true });
       if (a) setPhoto({ uri: a.uri, width: a.width });
@@ -129,15 +161,28 @@ export default function EditProfile() {
     }
   }
 
+  function toTop() {
+    kb.ref.current?.scrollTo({ y: 0, animated: true });
+  }
+
   async function save() {
-    if (busy) return;
+    if (busyRef.current) return;
     const u = username.trim().toLowerCase();
     const before = profile?.username ?? '';
-    if (!name.trim()) return setErr('Add your name.');
-    if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr('Usernames use 3 to 30 lowercase letters, numbers or underscores.');
-    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) return setErr('That contact email does not look right.');
-    setBusy(true);
+    const found: Problems = {};
+    if (!name.trim()) found.name = 'Add your name.';
+    if (!/^[a-z0-9_]{3,30}$/.test(u)) found.username = 'Usernames use 3 to 30 lowercase letters, numbers or underscores.';
+    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) found.email = 'That contact email does not look right.';
     setErr('');
+    setProblems(found);
+    if (found.name || found.username || found.email) {
+      tap('warning');
+      // Name and username are at the top of the form, where their problems now show.
+      if (found.name || found.username) toTop();
+      return;
+    }
+    busyRef.current = true;
+    setStage(photo ? 'photo' : 'saving');
     try {
       const patch: Parameters<typeof updateProfile>[1] = {
         full_name: name.trim().slice(0, 80),
@@ -152,7 +197,11 @@ export default function EditProfile() {
         is_private: restricted || isPrivate,
         read_receipts: readReceipts,
       };
-      if (photo) patch.avatar_url = (await uploadImage(me, photo.uri, photo.width, 480)).url;
+      if (photo) {
+        patch.avatar_url = (await uploadImage(me, photo.uri, photo.width, 480)).url;
+        if (alive.current) setStage('saving');
+      }
+      // Saving announces the change, so the profile is loaded again everywhere it shows.
       await updateProfile(me, patch);
       // Members can log in with their username, which Clerk checks, so Clerk is told of a new one.
       // The app's username is saved either way: if Clerk won't take it (its rules differ, or someone
@@ -166,49 +215,98 @@ export default function EditProfile() {
           if (u !== before) loginNote = "Saved. Logging in with this username isn't available, use your email.";
         }
       }
-      await refresh();
+      tap('success');
       toast(loginNote || 'Profile saved');
       if (alive.current) router.back();
     } catch (e) {
-      if (!alive.current) return toast(errText(e));
-      setErr(errText(e));
-      setBusy(false);
+      const text = errText(e);
+      if (!alive.current) return toast(text);
+      // A username someone else has, or one the database won't take, is shown under the username.
+      if (/username/i.test(text)) setProblems({ username: text });
+      else setErr(text);
+      toTop();
+      busyRef.current = false;
+      setStage('');
     }
   }
 
   const contact = [email.trim(), phone.trim()].filter(Boolean).length;
+  const field = { onFocus: kb.onFocus, onBlur: kb.onBlur };
 
   return (
     <Screen>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-        <RoundButton name="back" label="Cancel" onPress={() => router.back()} />
-        <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center' }}>Edit profile</Text>
-        <Pressable onPress={save} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Done" style={{ minWidth: 56, flexShrink: 0, alignItems: 'flex-end' }}>
-          <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 17, opacity: busy ? 0.4 : 1 }}>{busy ? '…' : 'Done'}</Text>
+        {/* Both sides take the same room, so the title stays centred. */}
+        <View style={{ minWidth: 64 }}>
+          <RoundButton name="back" label="Cancel" onPress={() => router.back()} />
+        </View>
+        <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 20.5, fontWeight: '700', textAlign: 'center', fontFamily: fontBold }}>Edit profile</Text>
+        <Pressable onPress={save} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Done" accessibilityState={{ busy, disabled: busy }} style={({ pressed }) => ({ minWidth: 64, height: 44, flexShrink: 0, alignItems: 'flex-end', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+          {busy ? <ActivityIndicator color={C.accent2} /> : <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 17 }}>Done</Text>}
         </Pressable>
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={choose} accessibilityRole="button" accessibilityLabel="Edit picture" style={{ alignItems: 'center', gap: 14, paddingTop: 10, paddingBottom: 18 }}>
-            <Avatar uri={photo?.uri ?? profile?.avatar_url} name={name} size={94} />
+        <ScrollView ref={kb.ref} onScroll={kb.onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 48 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Pressable onPress={choose} disabled={busy} accessibilityRole="button" accessibilityLabel="Edit picture" accessibilityState={{ busy: stage === 'photo' }} style={({ pressed }) => ({ alignItems: 'center', gap: 14, paddingTop: 10, paddingBottom: 18, opacity: pressed ? 0.75 : 1 })}>
+            <View>
+              <Avatar uri={photo?.uri ?? profile?.avatar_url} name={name} size={94} />
+              {/* The new picture going up: it turns over the photo until it is saved. */}
+              {stage === 'photo' ? (
+                <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 47, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator color="#ffffff" />
+                </View>
+              ) : null}
+            </View>
             <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Edit picture or avatar</Text>
           </Pressable>
 
-          <Line label="Name" value={name} onChangeText={setName} maxLength={80} />
-          <Line label="Username" value={username} onChangeText={(t) => setUsername(t.toLowerCase())} autoCapitalize="none" autoCorrect={false} maxLength={30} />
-          <Line label="Pronouns" value={pronouns} onChangeText={setPronouns} maxLength={40} autoCapitalize="none" />
-          <Line label="Bio" value={bio} onChangeText={setBio} maxLength={500} multiline />
+          {err ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, paddingHorizontal: 16, paddingBottom: 12, textAlign: 'center', lineHeight: 20 }}>{err}</Text> : null}
+
+          <Line
+            label="Name"
+            value={name}
+            onChangeText={(v) => {
+              setName(v);
+              if (problems.name) setProblems((p) => ({ ...p, name: undefined }));
+            }}
+            maxLength={80}
+            textContentType="name"
+            autoComplete="name"
+            error={problems.name}
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => usernameRef.current?.focus()}
+            {...field}
+          />
+          <Line
+            ref={usernameRef}
+            label="Username"
+            value={username}
+            onChangeText={(v) => {
+              setUsername(v.toLowerCase());
+              if (problems.username) setProblems((p) => ({ ...p, username: undefined }));
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="username"
+            maxLength={30}
+            error={problems.username}
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => pronounsRef.current?.focus()}
+            {...field}
+          />
+          <Line ref={pronounsRef} label="Pronouns" value={pronouns} onChangeText={setPronouns} maxLength={40} autoCapitalize="none" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => bioRef.current?.focus()} {...field} />
+          <Line ref={bioRef} label="Bio" value={bio} onChangeText={setBio} maxLength={500} multiline {...field} />
 
           <Pick label="Links" sub={website.trim() || 'Add a website'} onPress={() => setSheet('links')} accent={!website.trim() ? <View style={{ height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: C.accent, justifyContent: 'center', marginRight: 10 }}><Text style={{ color: C.onAccent, fontWeight: '700', fontSize: 13 }}>New</Text></View> : null} />
           <Pick label="Gender" value={gender || 'Gender'} onPress={() => setSheet('gender')} />
           <Pick label="Church" sub={church.name || 'Choose your home church'} onPress={() => router.push({ pathname: '/churches', params: { pick: '1' } } as any)} />
 
-          {err ? <Text style={{ color: C.like, paddingHorizontal: 16, paddingTop: 10 }}>{err}</Text> : null}
-
           <Divider />
-          <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 20, fontWeight: '700', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8 }}>Profile information</Text>
+          <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 20, fontWeight: '700', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8, fontFamily: fontBold }}>Profile information</Text>
           <Pick label="Category" value={profile?.account_type === 'creator' ? profile.category || 'None' : 'Creator accounts'} onPress={() => router.push('/account-type')} />
-          <Pick label="Contact options" value={contact ? `${contact} added` : undefined} onPress={() => setSheet('contact')} />
+          <Pick label="Contact options" value={contact ? `${contact} added` : undefined} error={problems.email} onPress={() => setSheet('contact')} />
           <Pick label="Action buttons" value={profile?.faq_enabled ? 'Questions on' : 'None active'} onPress={() => router.push('/faq')} />
           <Pick label="Profile display" value={profile?.show_view_counts ? 'View counts on' : 'View counts off'} onPress={() => router.push('/view-counts')} />
           <Pick
@@ -240,27 +338,44 @@ export default function EditProfile() {
 
       <Sheet visible={sheet === 'gender'} onClose={() => setSheet(null)} title="Gender">
         {GENDERS.map((g) => (
-          <Pressable key={g} onPress={() => { setGender(g); setSheet(null); }} accessibilityRole="radio" accessibilityState={{ checked: gender === g }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 50 }}>
+          <Pressable key={g} onPress={() => { tap('select'); setGender(g); setSheet(null); }} accessibilityRole="radio" accessibilityState={{ checked: gender === g }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 50, backgroundColor: pressed ? C.press : 'transparent' })}>
             <Text style={{ color: C.fg, fontSize: 17 }}>{g}</Text>
             <Radio on={gender === g} />
           </Pressable>
         ))}
-        <Pressable onPress={() => { setGender(''); setSheet(null); }} style={{ paddingHorizontal: 20, minHeight: 50, justifyContent: 'center' }}>
+        <Pressable onPress={() => { setGender(''); setSheet(null); }} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 20, minHeight: 50, justifyContent: 'center', backgroundColor: pressed ? C.press : 'transparent' })}>
           <Text style={{ color: C.fg2, fontSize: 16 }}>Clear</Text>
         </Pressable>
       </Sheet>
 
       <Sheet visible={sheet === 'contact'} onClose={() => setSheet(null)} title="Contact options">
         <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 8 }}>
-          <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="you@example.com" />
-          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+44 …" />
+          <Field
+            label="Email"
+            value={email}
+            onChangeText={(v) => {
+              setEmail(v);
+              if (problems.email) setProblems((p) => ({ ...p, email: undefined }));
+            }}
+            error={problems.email}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            placeholder="you@example.com"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => phoneRef.current?.focus()}
+          />
+          {/* Field hands everything on to its text box, `ref` included; its type just doesn't list it. */}
+          <Field {...({ ref: phoneRef } as {})} label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" textContentType="telephoneNumber" placeholder="+44 …" />
           <Button label="Done" onPress={() => setSheet(null)} />
         </View>
       </Sheet>
 
       <Sheet visible={sheet === 'links'} onClose={() => setSheet(null)} title="Links">
         <View style={{ paddingHorizontal: 20, gap: 12, paddingBottom: 8 }}>
-          <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://" maxLength={500} />
+          <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" autoCorrect={false} keyboardType="url" textContentType="URL" placeholder="https://" maxLength={500} returnKeyType="done" onSubmitEditing={() => setSheet(null)} />
           <Button label="Done" onPress={() => setSheet(null)} />
         </View>
       </Sheet>

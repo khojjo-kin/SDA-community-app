@@ -7,6 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MediaStream } from 'react-native-webrtc';
 import { RTCView } from 'react-native-webrtc';
+import { tap } from '../lib/haptics';
+import { useReduceMotion } from '../lib/motion';
 import { clock, DARK } from '../lib/theme';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { Avatar } from './ui';
@@ -28,12 +30,16 @@ export type CallView = {
   remoteStream: MediaStream | null;
   muted: boolean;
   cameraOff: boolean;
-  speaker: boolean;
   front: boolean;
   /** When the link came up, for the timer. */
   connectedAt: number | null;
 };
 
+/*
+ * There is no loudspeaker button: sending a call's sound to the loudspeaker needs a native module this
+ * build doesn't have (react-native-incall-manager or similar), and a button that changes nothing would
+ * only mislead. See enableSpeaker in src/lib/rtc.ts.
+ */
 export type CallActions = {
   accept: () => void;
   decline: () => void;
@@ -41,22 +47,29 @@ export type CallActions = {
   toggleMute: () => void;
   toggleCamera: () => void;
   flip: () => void;
-  toggleSpeaker: () => void;
 };
 
 const RED = '#ff3b30';
 
 /** A round call button. `on` draws it white with a dark icon, the way a toggled control looks in a call. */
-function Round({ name, label, onPress, size = 60, bg = 'rgba(255,255,255,0.18)', color = '#fff', on, caption }: { name: IconName; label: string; onPress?: () => void; size?: number; bg?: string; color?: string; on?: boolean; caption?: string }) {
+function Round({ name, label, onPress, size = 60, bg = 'rgba(255,255,255,0.18)', color = '#fff', on, caption, feel = 'light' }: { name: IconName; label: string; onPress?: () => void; size?: number; bg?: string; color?: string; on?: boolean; caption?: string; feel?: 'light' | 'medium' | 'select' }) {
   return (
     <View style={{ alignItems: 'center', gap: 8 }}>
       <Pressable
-        onPress={onPress}
+        onPress={
+          onPress
+            ? () => {
+                tap(feel);
+                onPress();
+              }
+            : undefined
+        }
+        disabled={!onPress}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityState={on === undefined ? undefined : { selected: on }}
-        style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? '#fff' : bg, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+        accessibilityState={on === undefined ? { disabled: !onPress } : { selected: on, disabled: !onPress }}
+        style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? '#fff' : bg, opacity: !onPress ? 0.45 : pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
         <Icon name={name} size={size * 0.46} color={on ? '#0b1014' : color} weight={2} />
       </Pressable>
       {caption ? <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{caption}</Text> : null}
@@ -103,8 +116,11 @@ function Timer({ since }: { since: number }) {
 
 export function CallScreen({ view, actions }: { view: CallView; actions: CallActions }) {
   const insets = useSafeAreaInsets();
+  // The rings swelling behind a ringing call are decoration: none with Reduce Motion on.
+  const moving = useReduceMotion() === false;
   const { other, kind, phase } = view;
-  const name = other?.full_name || other?.username || 'Unknown';
+  // Blank for the moment before an incoming caller's details arrive, rather than a word that would flash.
+  const name = other?.full_name || other?.username || '';
   const ringing = phase === 'incoming' || phase === 'calling';
   const live = phase === 'connecting' || phase === 'connected';
   const remoteVideo = kind === 'video' && !!view.remoteStream && phase === 'connected';
@@ -136,7 +152,7 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
       <View style={{ position: 'absolute', top: insets.top + 18, left: 24, right: 24, alignItems: remoteVideo ? 'flex-start' : 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text numberOfLines={1} accessibilityRole="header" style={[styles.name, remoteVideo && { fontSize: 20 }]}>
-            {name}
+            {name || ' '}
           </Text>
           {other?.verified ? <VerifiedTick size={remoteVideo ? 15 : 18} /> : null}
         </View>
@@ -147,8 +163,8 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
       {!remoteVideo && !fullLocal ? (
         <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 132, height: 132, alignItems: 'center', justifyContent: 'center' }}>
-            {ringing ? <Pulse size={132} /> : null}
-            <Avatar uri={other?.avatar_url} name={name} size={132} />
+            {ringing && moving ? <Pulse size={132} /> : null}
+            {other ? <Avatar uri={other.avatar_url} name={name} size={132} /> : <View style={{ width: 132, height: 132, borderRadius: 66, backgroundColor: 'rgba(255,255,255,0.12)' }} />}
           </View>
         </View>
       ) : null}
@@ -165,19 +181,18 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
         {phase === 'incoming' ? (
           <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingHorizontal: 24 }}>
             <Round name="endcall" label="Decline" caption="Decline" size={74} bg={RED} onPress={actions.decline} />
-            <Round name="phone" label="Accept" caption="Accept" size={74} bg={DARK.accent} onPress={actions.accept} />
+            <Round name="phone" label="Accept" caption="Accept" size={74} bg={DARK.accent} feel="medium" onPress={actions.accept} />
           </View>
         ) : phase === 'ended' ? (
           <View style={{ alignItems: 'center' }}>
             <Round name="close" label="Close" size={64} bg="rgba(255,255,255,0.22)" onPress={actions.hangUp} />
           </View>
         ) : (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, paddingHorizontal: 16 }}>
-            <Round name={view.muted ? 'micoff' : 'mic'} label={view.muted ? 'Unmute' : 'Mute'} on={view.muted} onPress={actions.toggleMute} />
-            {kind === 'video' ? <Round name={view.cameraOff ? 'videooff' : 'video'} label={view.cameraOff ? 'Turn camera on' : 'Turn camera off'} on={view.cameraOff} onPress={actions.toggleCamera} /> : null}
-            {kind === 'video' ? <Round name="flip" label="Flip camera" onPress={actions.flip} /> : null}
-            <Round name="speaker" label={view.speaker ? 'Speaker off' : 'Speaker on'} on={view.speaker} onPress={actions.toggleSpeaker} />
-            <Round name="endcall" label={live ? 'End call' : 'Cancel call'} bg={RED} onPress={actions.hangUp} />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 22, paddingHorizontal: 16 }}>
+            <Round name={view.muted ? 'micoff' : 'mic'} label={view.muted ? 'Unmute' : 'Mute'} on={view.muted} feel="select" onPress={actions.toggleMute} />
+            {kind === 'video' ? <Round name={view.cameraOff ? 'videooff' : 'video'} label={view.cameraOff ? 'Turn camera on' : 'Turn camera off'} on={view.cameraOff} feel="select" onPress={actions.toggleCamera} /> : null}
+            {kind === 'video' ? <Round name="flip" label="Flip camera" onPress={view.localStream ? actions.flip : undefined} /> : null}
+            <Round name="endcall" label={live ? 'End call' : 'Cancel call'} bg={RED} feel="medium" onPress={actions.hangUp} />
           </View>
         )}
       </View>

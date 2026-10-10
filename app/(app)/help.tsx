@@ -80,6 +80,8 @@ export default function Help() {
   const [stars, setStars] = useState(0);
   const [words, setWords] = useState('');
   const [busy, setBusy] = useState(false);
+  // Why sending didn't work, shown in the sheet: a message at the foot of the screen would be hidden under it.
+  const [sendErr, setSendErr] = useState('');
   // A happy review has been sent: the sheet now offers the store.
   const [thanked, setThanked] = useState(false);
   const later = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +102,7 @@ export default function Help() {
   function openSheet(kind: Feedback['kind']) {
     setStars(0);
     setWords('');
+    setSendErr('');
     setThanked(false);
     setSheet(kind);
     setSheetOpen(true);
@@ -111,6 +114,7 @@ export default function Help() {
     if (!sheetOpen || busy || !canSend) return;
     const kind = sheet;
     setBusy(true);
+    setSendErr('');
     try {
       await sendFeedback(me, { kind, rating: kind === 'review' ? stars : null, text: words, app_version: appVersion(), platform: Platform.OS });
       tap('success');
@@ -121,7 +125,7 @@ export default function Help() {
         toast(t(SHEETS[kind].thanks));
       }
     } catch (e) {
-      toast(errText(e));
+      setSendErr(errText(e));
     } finally {
       setBusy(false);
     }
@@ -231,6 +235,7 @@ export default function Help() {
               style={{ minHeight: 110, maxHeight: 200, color: C.fg, fontSize: 16, padding: 12, borderRadius: 14, backgroundColor: C.field, textAlignVertical: 'top', fontFamily: font }}
             />
             {sheet === 'problem' ? <Text style={{ color: C.fg3, fontSize: 13, lineHeight: 18, marginTop: -6, fontFamily: font }}>{t('help.problemNote')}</Text> : null}
+            {sendErr ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13.5, lineHeight: 18, marginTop: -6, fontFamily: font }}>{sendErr}</Text> : null}
             <Button label={t('common.send')} onPress={send} busy={busy} disabled={!canSend} />
           </View>
         )}

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useSyncExternalStore } from 'react';
+import React, { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { useAppFont } from '../lib/fonts';
 import { useSession } from '../lib/session';
 import { C, DARK, errText } from '../lib/theme';
 import type { Profile } from '../lib/types';
+import { FieldRevealProvider, useFieldReveal, useKeyboardReveal } from './AuthShell';
 import { Icon, IconName, Mark } from './Icon';
 import { Button } from './ui';
 
@@ -55,6 +56,8 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
   const font = useAppFont();
   const month = useRef<TextInput>(null);
   const year = useRef<TextInput>(null);
+  // The page around the boxes keeps them, and the button under them, above the keyboard (useKeyboardReveal).
+  const reveal = useFieldReveal();
   const digits = (t: string, max: number) => t.replace(/\D/g, '').slice(0, max);
   const box = { color: P.fg, fontSize: 17, textAlign: 'center' as const, paddingHorizontal: 10, paddingVertical: 13, borderRadius: 12, backgroundColor: P.surface, fontFamily: font, fontVariant: ['tabular-nums' as const] };
   const label = { color: P.fg2, fontSize: 12.5, fontFamily: font };
@@ -81,6 +84,8 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
             selectionColor={P.accent2}
             returnKeyType="next"
             accessibilityLabel="Birthday, day"
+            onFocus={reveal?.onFocus}
+            onBlur={reveal?.onBlur}
             style={box}
           />
         </View>
@@ -105,6 +110,8 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
             selectionColor={P.accent2}
             returnKeyType="next"
             accessibilityLabel="Birthday, month as a number"
+            onFocus={reveal?.onFocus}
+            onBlur={reveal?.onBlur}
             style={box}
           />
         </View>
@@ -124,6 +131,8 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
             keyboardAppearance={P.blurTint}
             selectionColor={P.accent2}
             accessibilityLabel="Birthday, year"
+            onFocus={reveal?.onFocus}
+            onBlur={reveal?.onBlur}
             style={box}
           />
         </View>
@@ -204,10 +213,19 @@ export function useBirthDateGate(me: string, profile: Profile | null): boolean {
 
 function Page({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  // The birthday boxes, with Save under them, stay above the number pad on a small phone.
+  const kb = useKeyboardReveal(110);
+  const reveal = useMemo(() => ({ onFocus: kb.onFocus, onBlur: kb.onBlur }), [kb.onFocus, kb.onBlur]);
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }} keyboardShouldPersistTaps="handled">
-        {children}
+      <ScrollView
+        ref={kb.ref}
+        onScroll={kb.onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
+        <FieldRevealProvider value={reveal}>{children}</FieldRevealProvider>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -229,15 +247,18 @@ export function BirthDateGate() {
   const [parts, setParts] = useState<BirthParts>(EMPTY_BIRTH);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // A ref as well: a quick second tap on Save arrives before `busy` has drawn.
+  const busyRef = useRef(false);
 
   async function save() {
-    if (busy) return;
+    if (busy || busyRef.current) return;
     const checked = checkBirthDate(parts);
     if ('error' in checked) {
       setErr(checked.error);
       return;
     }
     setErr('');
+    busyRef.current = true;
     setBusy(true);
     try {
       if (await isDeviceAgeBlocked()) {
@@ -263,6 +284,7 @@ export function BirthDateGate() {
       refresh().catch(() => {});
     } catch (e) {
       setErr(errText(e));
+      busyRef.current = false;
       setBusy(false);
       // The birthday may have reached the database with only the reply lost. Ask again: if it was
       // saved, the profile comes back without needs_birth_date and the gate goes away by itself.

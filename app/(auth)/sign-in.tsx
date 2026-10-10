@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
+import { AuthField, AuthShell } from '../../src/components/AuthShell';
 import { Icon } from '../../src/components/Icon';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
 import { SsoButtons } from '../../src/components/SsoButtons';
-import { Button, Field } from '../../src/components/ui';
+import { Button } from '../../src/components/ui';
 import { useT } from '../../src/lib/i18n';
 import { DARK, errText } from '../../src/lib/theme';
 
@@ -36,8 +36,28 @@ export default function SignIn() {
   /** Clerk does not know this phone (or this place): the code is a check that it's really you. */
   const [newDevice, setNewDevice] = useState(false);
   const [busy, setBusy] = useState(false);
+  // A ref as well: the keyboard's Go key and a tap on the button can both arrive before `busy` has drawn.
+  const busyRef = useRef(false);
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
+  const passwordRef = useRef<TextInput>(null);
+
+  /** Runs one step with Clerk, one at a time, with the button busy meanwhile. */
+  async function step(work: () => Promise<void>) {
+    if (!isLoaded || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setErr('');
+    setNote('');
+    try {
+      await work();
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
 
   async function prepare(f: Factor, second: boolean) {
     if (f.strategy !== 'totp') {
@@ -83,60 +103,39 @@ export default function SignIn() {
     setErr(t('auth.unsupportedStep'));
   }
 
-  async function run(fn: () => Promise<any>) {
-    if (!isLoaded || busy) return;
-    setBusy(true);
-    setErr('');
-    setNote('');
-    try {
-      await finish(await fn());
-    } catch (e) {
-      setErr(errText(e));
-    } finally {
-      setBusy(false);
-    }
+  function run(fn: () => Promise<any>) {
+    return step(async () => finish(await fn()));
   }
 
   const submit = () => {
+    if (busyRef.current) return;
     if (!identifier.trim() || !password) return setErr(t('auth.enterIdAndPassword'));
     run(() => signIn!.create({ identifier: identifier.trim(), password }));
   };
 
   const verify = () => {
-    if (!factor) return;
+    if (!factor || busyRef.current) return;
     if (!code.trim()) return setErr(factor.strategy === 'totp' ? t('auth.enterAuthenticatorCode') : t('auth.enterSentCode'));
     const attempt = { strategy: factor.strategy, code: code.trim() };
     run(() => (stage === 'second' ? (signIn as any).attemptSecondFactor(attempt) : (signIn as any).attemptFirstFactor(attempt)));
   };
 
-  async function switchTo(f: Factor) {
-    if (busy || !factor) return;
-    setBusy(true);
-    setErr('');
-    setNote('');
-    try {
-      const was = factor;
+  function switchTo(f: Factor) {
+    if (!factor) return;
+    const was = factor;
+    step(async () => {
       await prepare(f, stage === 'second');
       setOthers((list) => [...list.filter((x) => x !== f), was]);
-    } catch (e) {
-      setErr(errText(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function resend() {
-    if (busy || !factor || factor.strategy === 'totp') return;
-    setBusy(true);
-    setErr('');
-    try {
-      await prepare(factor, stage === 'second');
-      setNote(factor.strategy === 'phone_code' ? t('auth.newCodeByText') : t('auth.newCodeByEmail'));
-    } catch (e) {
-      setErr(errText(e));
-    } finally {
-      setBusy(false);
-    }
+  function resend() {
+    if (!factor || factor.strategy === 'totp') return;
+    const f = factor;
+    step(async () => {
+      await prepare(f, stage === 'second');
+      setNote(f.strategy === 'phone_code' ? t('auth.newCodeByText') : t('auth.newCodeByEmail'));
+    });
   }
 
   if (stage !== 'form' && factor) {
@@ -159,22 +158,31 @@ export default function SignIn() {
             </View>
           ) : null}
           <Text style={{ color: DARK.fg2, lineHeight: 20 }}>{sent}</Text>
-          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} onSubmitEditing={verify} returnKeyType="go" />
-          {note ? <Text style={{ color: DARK.ok, textAlign: 'center' }}>{note}</Text> : null}
+          <AuthField value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" autoComplete="one-time-code" error={err} onSubmitEditing={verify} returnKeyType="go" />
+          {note ? <Text style={{ color: DARK.ok, textAlign: 'center' }} accessibilityLiveRegion="polite">{note}</Text> : null}
           <Button label={t('auth.confirm')} onPress={verify} busy={busy} />
           {factor.strategy !== 'totp' ? (
-            <Pressable onPress={resend} style={{ padding: 6 }} accessibilityRole="button">
+            <Pressable onPress={resend} disabled={busy} style={({ pressed }) => ({ padding: 6, opacity: busy ? 0.5 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityState={{ disabled: busy }}>
               <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.sendNewCode')}</Text>
             </Pressable>
           ) : null}
           {others.map((f) => (
-            <Pressable key={f.strategy + (f.phoneNumberId ?? f.emailAddressId ?? '')} onPress={() => switchTo(f)} style={{ padding: 6 }} accessibilityRole="button">
+            <Pressable key={f.strategy + (f.phoneNumberId ?? f.emailAddressId ?? '')} onPress={() => switchTo(f)} disabled={busy} style={({ pressed }) => ({ padding: 6, opacity: busy ? 0.5 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityState={{ disabled: busy }}>
               <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>
                 {f.strategy === 'phone_code' ? t('auth.textInstead') : f.strategy === 'email_code' ? t('auth.emailInstead') : t('auth.useAuthenticator')}
               </Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => { setStage('form'); setErr(''); setNote(''); setFactor(null); }} style={{ padding: 10 }}>
+          <Pressable
+            onPress={() => {
+              if (busyRef.current) return;
+              setStage('form');
+              setErr('');
+              setNote('');
+              setFactor(null);
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => ({ padding: 10, opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ color: DARK.fg2, textAlign: 'center', fontWeight: '600' }}>{t('auth.backToLogIn')}</Text>
           </Pressable>
         </AuthShell>
@@ -188,7 +196,7 @@ export default function SignIn() {
       <AuthShell
         footer={
           <Link href="/sign-up" replace asChild>
-            <Pressable>
+            <Pressable accessibilityRole="button" hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
               <Text style={{ color: DARK.fg2 }}>
                 {t('auth.noAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.signUp')}</Text>
               </Text>
@@ -196,11 +204,24 @@ export default function SignIn() {
           </Link>
         }>
         {/* Clerk takes a username or an email address here, so the keyboard is the ordinary one. */}
-        <Field {...DARK_FIELD} value={identifier} onChangeText={setIdentifier} placeholder={t('auth.usernameOrEmail')} accessibilityLabel={t('auth.usernameOrEmail')} autoCapitalize="none" autoCorrect={false} keyboardType="default" textContentType="username" autoComplete="username" />
-        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
+        <AuthField
+          value={identifier}
+          onChangeText={setIdentifier}
+          placeholder={t('auth.usernameOrEmail')}
+          accessibilityLabel={t('auth.usernameOrEmail')}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="default"
+          textContentType="username"
+          autoComplete="username"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+        />
+        <AuthField ref={passwordRef} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="password" autoComplete="current-password" autoCapitalize="none" error={err} onSubmitEditing={submit} returnKeyType="go" />
         <Button label={t('auth.logIn')} onPress={submit} busy={busy} />
         <Link href="/forgot" replace asChild>
-          <Pressable style={{ padding: 6 }}>
+          <Pressable accessibilityRole="button" style={({ pressed }) => ({ padding: 6, opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.forgotPassword')}</Text>
           </Pressable>
         </Link>

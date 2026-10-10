@@ -1128,4 +1128,93 @@ export const tl: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Na-save ang note',
   'bibleMarks.noteDeleted': 'Na-delete ang note',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Buksan ang Settings',
+  'createFlow.cameraOff': 'Naka-off ang access sa camera',
+  'createFlow.choosePhotos': 'Pumili ng mga photo at video',
+  'createFlow.recents': 'Recents',
+  'createFlow.albums': 'Mga album',
+  'goLive.endedAway': 'Natapos ang live mo habang wala ka',
+  'live.paused': 'Naka-pause',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Nag-expire na ang setup link na iyon.',
+  'payouts.country': 'Bansa',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Private ang account mo. Gawin itong public para ma-promote ang post na ito.',
+  'promote.profileOnly': 'Nasa profile mo lang ang post na ito, kaya hindi ito puwedeng i-promote.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Hindi pa tumatanggap ng donasyon',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Hindi ma-delete ang fundraiser na ito. Puwede mo na lang itong tapusin.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Hindi nag-load ang track na ito. Subukan ulit.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Walang aklat na tumutugma',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Pino-post…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Ngayong araw',
+  'notifications.sectionYesterday': 'Kahapon',
+  'notifications.sectionThisWeek': 'Ngayong linggo',
+  'notifications.sectionThisMonth': 'Ngayong buwan',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'I-unfollow si {username}?',
+  'profile.unfollow': 'I-unfollow',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Mag-log out sa {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Naipadala ang request',
+  'verify.pending': 'Pending',
+  'verify.sentOn': 'Ipinadala noong {date}',
+  'verify.notSent': 'Hindi naipadala ang request mo. Subukan ulit.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ipinapadala…',
+  'chat.sent': 'Naipadala',
+  'chat.seen': 'Seen',
+  'chat.notSent': 'Hindi naipadala · I-tap para subukan ulit',
+  'chat.notSentTitle': 'Hindi naipadala ang message',
+  'chat.copied': 'Na-copy',
+  'chat.deleted': 'Na-delete ang chat',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Mga pinakabagong message',
+  'chat.viewProfile': 'Tingnan ang profile',
+  'chat.noSavedReplies': 'Wala pang saved replies',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Hanggang 10 tao lang nang sabay-sabay',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Naipadala ang message',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Hindi available ang location mo ngayon. Tingnan kung naka-on ang Location Services.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Kulay ng ring',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Magdagdag mula sa archive',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Naipadala ang request',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Kailangan mong mag-request ulit para makasali.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Maglagay ng description',
+  // A community with no church chosen.
+  'groups.none': 'Wala',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Gamitin ang location ko',
+  'churches.openSettings': 'Buksan ang Settings',
+  'churches.openSettingsLabel': 'Buksan ang Settings para magamit ang location mo',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Naghihintay ng review',
+  'churches.notApproved': 'Hindi naaprubahan',
+  'churches.noMembers': 'Wala pang member',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Makikita ito ng lahat kapag naaprubahan na ng isang admin.',
+  'churches.thanksMakeYours': 'Salamat! Gawin itong simbahan mo?',
+  // ======== end of v22 ========
 };

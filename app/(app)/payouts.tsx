@@ -5,6 +5,7 @@ import { hasEnded, ProgressBar, progressOf } from '../../src/components/Fundrais
 import { Icon, type IconName } from '../../src/components/Icon';
 import { Button, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, Sheet, useToast } from '../../src/components/ui';
 import { fetchPayouts, fetchUserFundraisers, openPayoutsDashboard, startPayoutsOnboarding } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { ensureStripe, money } from '../../src/lib/payments';
 import { t } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
@@ -89,6 +90,8 @@ export default function Payouts() {
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
   const [error, setError] = useState('');
   const [fundraisers, setFundraisers] = useState<Fundraiser[] | null>(null);
+  // The list didn't load (and none was on screen): said so, rather than shown as "no fundraisers".
+  const [listError, setListError] = useState('');
   const [busy, setBusy] = useState<'setup' | 'dashboard' | null>(null);
   // Stripe's setup links expire after a few minutes: if one did, say so and offer to carry on.
   const [expired, setExpired] = useState(params.again === '1');
@@ -99,13 +102,21 @@ export default function Payouts() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
   useEffect(() => { if (params.again === '1') setExpired(true); }, [params.again]);
+  // One screen per tap, however quickly a fundraiser is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
 
   const refresh = useCallback(async () => {
     setError('');
+    setListError('');
     // The status and the list load separately: one failing should not hide the other.
     fetchUserFundraisers(me)
       .then((list) => { if (alive.current) setFundraisers(list); })
-      .catch(() => { if (alive.current) setFundraisers((old) => old ?? []); });
+      .catch((e) => { if (alive.current) setListError(errText(e)); });
     try {
       let c = await ensureStripe();
       // The config is kept from earlier; if payments were off then, they may have been switched on since.
@@ -182,7 +193,7 @@ export default function Payouts() {
         {expired && !finished ? (
           <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
             <Icon name="info" size={18} color={C.warn} />
-            <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>That setup link expired. Tap Continue setup to pick up where you left off.</Text>
+            <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>{t('payouts.linkExpired')}</Text>
           </View>
         ) : null}
         <View style={{ padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
@@ -205,7 +216,7 @@ export default function Payouts() {
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
               <Icon name="globe" size={22} color={C.fg2} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg2, fontSize: 12.5 }}>Where you and your bank are</Text>
+                <Text style={{ color: C.fg2, fontSize: 12.5 }}>{t('payouts.country')}</Text>
                 <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600', marginTop: 1 }}>{countryName}</Text>
               </View>
               <Icon name="right" size={16} color={C.fg2} weight={2} />
@@ -230,7 +241,7 @@ export default function Payouts() {
 
         <SectionLabel>Your fundraisers</SectionLabel>
         {fundraisers === null ? (
-          <Loading />
+          listError ? <ErrorNote message={listError} onRetry={refresh} /> : <Loading />
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 10 }}>
             {fundraisers.map((f) => {
@@ -238,7 +249,7 @@ export default function Payouts() {
               return (
                 <Pressable
                   key={f.id}
-                  onPress={() => router.push(`/fundraiser/${f.id}`)}
+                  onPress={() => open(`/fundraiser/${f.id}`)}
                   accessibilityRole="button"
                   accessibilityLabel={`${f.title}. ${ended ? 'Ended' : 'Running'}. ${money(f.raised_pence, f.currency)} raised of ${money(f.goal_pence, f.currency)}`}
                   style={({ pressed }) => ({ padding: 14, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, gap: 8 })}>
@@ -259,12 +270,12 @@ export default function Payouts() {
                 {restricted ? 'Fundraisers are for members 14 and over.' : "You haven't started a fundraiser."}
               </Text>
             ) : null}
-            {restricted ? null : <Button label="Start a fundraiser" kind={fundraisers.length ? 'ghost' : 'primary'} onPress={() => router.push('/fundraiser-new')} style={{ marginTop: 4 }} />}
+            {restricted ? null : <Button label="Start a fundraiser" kind={fundraisers.length ? 'ghost' : 'primary'} onPress={() => open('/fundraiser-new')} style={{ marginTop: 4 }} />}
           </View>
         )}
       </ScrollView>
 
-      <Sheet visible={choosing} onClose={() => setChoosing(false)} title="Country" tall>
+      <Sheet visible={choosing} onClose={() => setChoosing(false)} title={t('payouts.country')} tall>
         <ScrollView accessibilityRole="radiogroup" contentContainerStyle={{ paddingBottom: 12 }}>
           {COUNTRIES.map((c) => {
             const on = c.code === country;
@@ -272,6 +283,7 @@ export default function Payouts() {
               <Pressable
                 key={c.code}
                 onPress={() => {
+                  tap('select');
                   setCountry(c.code);
                   setChoosing(false);
                 }}

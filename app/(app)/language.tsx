@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Empty, Radio, Screen, ScreenHeader, SearchField } from '../../src/components/ui';
+import { tap } from '../../src/lib/haptics';
 import { LANGUAGES, languageName, phoneLanguage, useT } from '../../src/lib/i18n';
 import { usePrefs } from '../../src/lib/prefs';
 import { C } from '../../src/lib/theme';
@@ -10,7 +11,14 @@ import { chooseLanguage } from '../../src/lib/theme-return';
 function Choice({ title, sub, on, onPress, first }: { title: string; sub: string; on: boolean; onPress: () => void; first: boolean }) {
   return (
     <Pressable
-      onPress={on ? undefined : onPress}
+      onPress={
+        on
+          ? undefined
+          : () => {
+              tap('select');
+              onPress();
+            }
+      }
       accessibilityRole="radio"
       accessibilityState={{ checked: on }}
       accessibilityLabel={`${title}, ${sub}`}
@@ -41,10 +49,10 @@ export default function LanguageScreen() {
       <View style={{ paddingTop: 4, paddingBottom: 4 }}>
         <SearchField value={q} onChangeText={setQ} label={t('language.search')} />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-        {/* Following the phone stays at the top while searching: it is never what the search hides. */}
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        {/* Following the phone stays at the top while searching: it is never what the search hides. Under it, the language the phone is in. */}
         <View style={{ borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>
-          <Choice first title={t('language.phone')} sub={t('language.phoneSub', { name: languageName(phoneLanguage()) })} on={language === ''} onPress={() => chooseLanguage('', '/language')} />
+          <Choice first title={t('language.phone')} sub={languageName(phoneLanguage())} on={language === ''} onPress={() => chooseLanguage('', '/language')} />
         </View>
         {shown.length ? (
           <View style={{ borderRadius: 18, backgroundColor: C.surface, overflow: 'hidden' }}>

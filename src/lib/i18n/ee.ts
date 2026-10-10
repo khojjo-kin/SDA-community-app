@@ -1192,4 +1192,93 @@ export const ee: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Wodzra nuŋɔŋlɔa ɖo',
   'bibleMarks.noteDeleted': 'Wotutu nuŋɔŋlɔa',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Ʋu fon ƒe ɖoɖowo',
+  'createFlow.cameraOff': 'Wotsi kamera ŋuti mɔɖeɖe nu',
+  'createFlow.choosePhotos': 'Tia fotowo kple videowo',
+  'createFlow.recents': 'Yeyetɔwo',
+  'createFlow.albums': 'Albumwo',
+  'goLive.endedAway': 'Wò Live wu nu esime mèle afi sia o',
+  'live.paused': 'Etɔ te vie',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Ɖoɖo link ma ƒe ɣeyiɣi wu nu.',
+  'payouts.country': 'Dukɔ',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Wò akɔnta nye ɣaɣla. Na wòaʋu ɖi na ame sia ame be nàte ŋu aɖe gbeƒã post sia.',
+  'promote.profileOnly': 'Post sia le wò profile dzi ko, eya ta womate ŋu aɖe gbeƒãe o.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Mele nunanawo xɔm haɖe o',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Womete ŋu tutu gaƒoƒo sia o. Àte ŋu awu enu boŋ.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Ha sia meva o. Gbugbɔ te kpɔ.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Agbalẽ aɖeke mesɔ kple ema o',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Ele eɖom ɖa…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Egbe',
+  'notifications.sectionYesterday': 'Etsɔ',
+  'notifications.sectionThisWeek': 'Kwasiɖa sia',
+  'notifications.sectionThisMonth': 'Ɣleti sia',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Àdzudzɔ {username} yomedzedze?',
+  'profile.unfollow': 'Dzudzɔ yomedzedze',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Do le {name} me',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Woɖo biabia la ɖa',
+  'verify.pending': 'Ele lalam',
+  'verify.sentOn': 'Woɖoe ɖa le {date}',
+  'verify.notSent': 'Womete ŋu ɖo wò biabia ɖa o. Gbugbɔ te kpɔ.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ele eɖom ɖa…',
+  'chat.sent': 'Woɖoe ɖa',
+  'chat.seen': 'Wokpɔe',
+  'chat.notSent': 'Meyi o · Zi edzi nàgbugbɔ ate kpɔ',
+  'chat.notSentTitle': 'Gbedasia meyi o',
+  'chat.copied': 'Wokɔpi',
+  'chat.deleted': 'Wotutu dzeɖoɖoa',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Gbedasi yeyetɔwo',
+  'chat.viewProfile': 'Kpɔ profile',
+  'chat.noSavedReplies': 'Mèdzra ŋuɖoɖo aɖeke ɖo haɖe o',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Ame va se ɖe 10 le ɣeyiɣi ɖeka me',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Woɖo gbedasia ɖa',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Womete ŋu kpɔ afi si nèle fifia o. Kpɔe ɖa be Location Services le edzi.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Asigɛ ƒe amadede',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Tsɔ kpee tso Nudzraɖoƒe',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Woɖo biabia la ɖa',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Ele be nàgabia hafi nàte ŋu age ɖe eme.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Tsɔ numeɖeɖe kpee',
+  // A community with no church chosen.
+  'groups.none': 'Naneke',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Zã afi si mele',
+  'churches.openSettings': 'Ʋu fon ƒe ɖoɖowo',
+  'churches.openSettingsLabel': 'Ʋu fon ƒe ɖoɖowo be nàzã afi si nèle',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ele lalam be woadzro eme',
+  'churches.notApproved': 'Womelɔ̃ ɖe edzi o',
+  'churches.noMembers': 'Hamevi aɖeke meli haɖe o',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Ne admin aɖe lɔ̃ ɖe edzi la, adze na ame sia ame.',
+  'churches.thanksMakeYours': 'Akpe! Àtiae abe wò hame ene?',
+  // ======== end of v22 ========
 };

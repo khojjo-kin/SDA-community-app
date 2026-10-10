@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Easing, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { deletePodItem, setPodSaved } from '../lib/api';
-import { next, patchQueued, removeQueued, toggle, useBuffering, usePlayer, useProgress } from '../lib/player';
+import { tap } from '../lib/haptics';
+import { useReduceMotion } from '../lib/motion';
+import { next, patchQueued, removeQueued, toggle, useBuffering, usePlayer, useProgress, useTrackState } from '../lib/player';
 import { useSession } from '../lib/session';
 import { C, errText } from '../lib/theme';
 import type { PodItem } from '../lib/types';
 import { Icon } from './Icon';
 import { Sheet, SheetRow, useToast } from './ui';
+
+/** When a Pod screen was last opened from a tap, so a quick second tap doesn't open it twice. */
+let openedAt = 0;
+
+/** Runs `go` unless something was opened a moment ago (a double tap). */
+export function openOnce(go: () => void) {
+  const now = Date.now();
+  if (now - openedAt < 700) return;
+  openedAt = now;
+  go();
+}
 
 /*
  * The floating "now playing" bar, plus the small pieces every Pod screen shares: covers, list rows and the row menu.
@@ -31,7 +44,7 @@ export function kindLabel(kind: PodItem['kind']): string {
 
 /** Album art, or a dark square with the kind's icon when there is none. */
 export function Cover({ uri, kind, size, radius = Math.round(size * 0.18) }: { uri?: string | null; kind: PodItem['kind']; size: number; radius?: number }) {
-  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2 }} contentFit="cover" transition={160} accessibilityIgnoresInvertColors />;
+  if (uri) return <Image source={{ uri }} recyclingKey={uri} style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2 }} contentFit="cover" transition={160} cachePolicy="memory-disk" accessibilityIgnoresInvertColors />;
   return (
     <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline }}>
       <Icon name={kind === 'podcast' ? 'podcast' : 'music'} size={Math.round(size * 0.42)} color={C.fg2} />
@@ -39,25 +52,54 @@ export function Cover({ uri, kind, size, radius = Math.round(size * 0.18) }: { u
   );
 }
 
-/** Three bars that bounce while the track plays, still while it is paused. */
+/** The bars' full height, and how tall each rises to at most (as a share of it). */
+const MARK_H = 14;
+const MARK_PEAKS = [0.65, 1, 0.45];
+const MARK_LOW = 4 / MARK_H;
+
+/** Three bars that bounce while the track plays and rest, short, while it is paused. Still when the phone asks for less motion. */
 function PlayingMark({ playing }: { playing: boolean }) {
+  const reduce = useReduceMotion();
+  const bars = useRef(MARK_PEAKS.map(() => new Animated.Value(0))).current;
+  const moving = playing && reduce === false;
+  useEffect(() => {
+    if (!moving) return;
+    const loops = bars.map((b, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(b, { toValue: 1, duration: 280 + i * 110, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(b, { toValue: 0, duration: 280 + i * 110, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]),
+      ),
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [moving, bars]);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 14 }} accessibilityElementsHidden>
-      {[9, 14, 6].map((h, i) => (
-        <View key={i} style={{ width: 3, height: playing ? h : 4, borderRadius: 1.5, backgroundColor: C.accent2 }} />
-      ))}
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: MARK_H }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {MARK_PEAKS.map((peak, i) => {
+        // Each bar is drawn full height and squashed towards its foot, so it grows upwards.
+        const scale = moving ? bars[i].interpolate({ inputRange: [0, 1], outputRange: [MARK_LOW + 0.1, peak] }) : playing ? peak : MARK_LOW;
+        const lift = moving ? bars[i].interpolate({ inputRange: [0, 1], outputRange: [(MARK_H / 2) * (1 - MARK_LOW - 0.1), (MARK_H / 2) * (1 - peak)] }) : (MARK_H / 2) * (1 - (playing ? peak : MARK_LOW));
+        return <Animated.View key={i} style={{ width: 3, height: MARK_H, borderRadius: 1.5, backgroundColor: C.accent2, transform: [{ translateY: lift }, { scaleY: scale }] }} />;
+      })}
     </View>
   );
 }
 
-/** One track in a list: cover, title, who it is by, how long, and a menu. The current track is marked in green. */
-export function PodRow({ item, onPress, onMore, compact }: { item: PodItem; onPress: () => void; onMore?: () => void; compact?: boolean }) {
-  const { current, playing } = usePlayer();
-  const isCurrent = current?.id === item.id;
+/**
+ * One track in a list: cover, title, who it is by, how long, and a menu. The current track is marked
+ * in green. It draws again only when its own track starts or stops, so long lists stay smooth; pass
+ * callbacks that don't change from one draw to the next.
+ */
+export const PodRow = React.memo(function PodRow({ item, index = 0, onPress, onMore, compact }: { item: PodItem; index?: number; onPress: (item: PodItem, index: number) => void; onMore?: (item: PodItem) => void; compact?: boolean }) {
+  const track = useTrackState(item.id);
+  const isCurrent = track !== null;
+  const playing = track === 'playing';
   const size = compact ? 48 : 56;
   const sub = item.artist ? `${item.artist} · ${kindLabel(item.kind)}` : kindLabel(item.kind);
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${isCurrent ? (playing ? 'Playing, ' : 'Paused, ') : 'Play '}${item.title} by ${item.artist || 'unknown'}, ${durationLabel(item.duration_seconds)}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: onMore ? 4 : 16, minHeight: size + 14, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable onPress={() => onPress(item, index)} accessibilityRole="button" accessibilityLabel={`${isCurrent ? (playing ? 'Playing, ' : 'Paused, ') : 'Play '}${item.title} by ${item.artist || 'unknown'}, ${durationLabel(item.duration_seconds)}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: onMore ? 4 : 16, minHeight: size + 14, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Cover uri={item.cover_url} kind={item.kind} size={size} radius={10} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -72,13 +114,13 @@ export function PodRow({ item, onPress, onMore, compact }: { item: PodItem; onPr
       </View>
       {item.duration_seconds > 0 ? <Text style={{ color: C.fg3, fontSize: 13, fontVariant: ['tabular-nums'] }}>{durationLabel(item.duration_seconds)}</Text> : null}
       {onMore ? (
-        <Pressable onPress={onMore} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More options for ${item.title}`} style={({ pressed }) => ({ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+        <Pressable onPress={() => onMore(item)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More options for ${item.title}`} style={({ pressed }) => ({ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
           <Icon name="more" size={22} color={C.fg2} />
         </Pressable>
       ) : null}
     </Pressable>
   );
-}
+});
 
 /** The link to a track, the same shape as post links. */
 export function podLink(id: string): string {
@@ -145,9 +187,9 @@ export function PodMenu({ item, onClose, onChange, hideOpen }: { item: PodItem |
 
   return (
     <Sheet visible={!!item} onClose={onClose} title={item?.title}>
-      {hideOpen ? null : <SheetRow first icon="headphones" label="Open" onPress={() => { onClose(); if (item) router.push(`/pod/${item.id}` as any); }} />}
+      {hideOpen ? null : <SheetRow first icon="headphones" label="Open" onPress={() => { onClose(); if (item) openOnce(() => router.push(`/pod/${item.id}` as any)); }} />}
       <SheetRow first={hideOpen} icon="bookmark" label={item?.saved ? 'Remove from library' : 'Add to library'} onPress={save} right={busy ? <ActivityIndicator color={C.fg2} /> : undefined} />
-      <SheetRow icon="link" label="Share" sub="Copy a link to this track" onPress={share} />
+      <SheetRow icon="link" label="Share" onPress={share} />
       {canDelete ? <SheetRow icon="trash" label="Delete" onPress={remove} danger /> : null}
     </Sheet>
   );
@@ -179,7 +221,7 @@ export function NowPlayingBar({ style }: { style?: ViewStyle }) {
   return (
     <BlurView intensity={50} tint={C.blurTint} style={[{ width: '92%', maxWidth: 420, height: 60, borderRadius: 30, overflow: 'hidden', borderWidth: 1, borderColor: C.hairline }, style]}>
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.glass, paddingLeft: 10, paddingRight: 8, gap: 10 }}>
-        <Pressable onPress={() => router.push(`/pod/${current.id}` as any)} accessibilityRole="button" accessibilityLabel={`Now playing: ${current.title} by ${current.artist || 'unknown'}. Open the player`} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
+        <Pressable onPress={() => openOnce(() => router.push(`/pod/${current.id}` as any))} accessibilityRole="button" accessibilityLabel={`Now playing: ${current.title} by ${current.artist || 'unknown'}. Open the player`} style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
           <Cover uri={current.cover_url} kind={current.kind} size={40} radius={10} />
           <View style={{ flex: 1 }}>
             <Text numberOfLines={1} style={{ color: C.fg, fontSize: 14.5, fontWeight: '600' }}>
@@ -190,10 +232,10 @@ export function NowPlayingBar({ style }: { style?: ViewStyle }) {
             </Text>
           </View>
         </Pressable>
-        <Pressable onPress={toggle} hitSlop={6} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+        <Pressable onPress={() => { tap('light'); toggle(); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
           {buffering && playing ? <ActivityIndicator color={C.fg} size="small" /> : <Icon name={playing ? 'pause' : 'play'} size={26} />}
         </Pressable>
-        <Pressable onPress={() => next()} hitSlop={6} disabled={!canSkip} accessibilityRole="button" accessibilityLabel="Next track" accessibilityState={{ disabled: !canSkip }} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: !canSkip ? 0.35 : pressed ? 0.6 : 1 })}>
+        <Pressable onPress={() => { tap('light'); next(); }} hitSlop={6} disabled={!canSkip} accessibilityRole="button" accessibilityLabel="Next track" accessibilityState={{ disabled: !canSkip }} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', opacity: !canSkip ? 0.35 : pressed ? 0.6 : 1 })}>
           <Icon name="skipnext" size={24} />
         </Pressable>
       </View>

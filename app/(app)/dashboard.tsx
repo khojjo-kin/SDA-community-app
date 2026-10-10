@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
@@ -14,10 +14,10 @@ function StatRow({ title, value, before, onPress }: { title: string; value: numb
   const up = value !== null && before !== null && value > before;
   const down = value !== null && before !== null && value < before;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}: ${value ?? 'loading'}${up ? ', up on the 30 days before' : down ? ', down on the 30 days before' : ''}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}: ${value === null ? 'loading' : fmt(value)}${up ? ', up on the 30 days before' : down ? ', down on the 30 days before' : ''}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? C.press : 'transparent' })}>
       <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>{title}</Text>
       {up ? <Icon name="up" size={18} color={C.ok} weight={2.2} /> : down ? <Icon name="dip" size={18} color={C.danger} weight={2.2} /> : null}
-      <Text style={{ color: C.fg, fontSize: 19, fontVariant: ['tabular-nums'] }}>{value === null ? '–' : fmt(value)}</Text>
+      <Text style={{ color: value === null ? C.fg3 : C.fg, fontSize: 19, fontVariant: ['tabular-nums'] }}>{value === null ? '–' : fmt(value)}</Text>
       <Icon name="right" size={18} color={C.fg2} weight={2} />
     </Pressable>
   );
@@ -34,21 +34,32 @@ export default function Dashboard() {
     const to = new Date();
     return { from: new Date(to.getTime() - DAYS * 86400e3), to };
   });
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+  // One screen per tap, however quickly a row is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
 
   const load = useCallback(async () => {
     const to = new Date();
     const from = new Date(to.getTime() - DAYS * 86400e3);
     const earlier = new Date(from.getTime() - DAYS * 86400e3);
-    setRange({ from, to });
     try {
       setError('');
       const [a, b] = await Promise.all([fetchStats(from, to), fetchStats(earlier, from)]);
+      if (!alive.current) return;
+      // The dates change with the numbers, so the two always match.
+      setRange({ from, to });
       setNow(a);
       setBefore(b);
     } catch (e) {
-      setError(errText(e));
+      if (alive.current) setError(errText(e));
     } finally {
-      setRefreshing(false);
+      if (alive.current) setRefreshing(false);
     }
   }, []);
 
@@ -62,7 +73,7 @@ export default function Dashboard() {
     return (
       <Screen>
         <ScreenHeader title="Your dashboard" />
-        <Empty icon="chart" title="The dashboard comes with a creator account" action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
+        <Empty icon="chart" title="The dashboard comes with a creator account" action={<Button small label="Switch account type" onPress={() => open('/account-type')} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }
@@ -72,31 +83,31 @@ export default function Dashboard() {
 
   return (
     <Screen>
-      <ScreenHeader title="Your dashboard" right={<RoundButton name="settings" label="Creator tools and controls" onPress={() => router.push('/creator')} />} />
+      <ScreenHeader title="Your dashboard" right={<RoundButton name="settings" label="Creator tools and controls" onPress={() => open('/creator')} />} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}>
-        <SectionLabel strong right={<Text style={{ color: C.fg2, fontSize: 16.5, fontWeight: '600' }}>{dayLabel(range.from)}-{dayLabel(range.to)}</Text>}>
+        <SectionLabel strong right={<Text style={{ color: C.fg2, fontSize: 16.5, fontWeight: '600' }}>{dayLabel(range.from)} – {dayLabel(range.to)}</Text>}>
           Insights
         </SectionLabel>
         {error && !now ? (
           <ErrorNote message={error} onRetry={load} />
         ) : (
           <>
-            <StatRow title="Views" value={now?.views ?? null} before={before?.views ?? null} onPress={() => router.push('/insights?kind=views')} />
-            <StatRow title="New followers" value={now?.new_followers ?? null} before={before?.new_followers ?? null} onPress={() => router.push('/insights?kind=followers')} />
-            <StatRow title="Content you shared" value={shared} before={sharedBefore} onPress={() => router.push('/insights?kind=content')} />
+            <StatRow title="Views" value={now?.views ?? null} before={before?.views ?? null} onPress={() => open('/insights?kind=views')} />
+            <StatRow title="New followers" value={now?.new_followers ?? null} before={before?.new_followers ?? null} onPress={() => open('/insights?kind=followers')} />
+            <StatRow title="Content you shared" value={shared} before={sharedBefore} onPress={() => open('/insights?kind=content')} />
           </>
         )}
         <View style={{ height: 14 }} />
         <Divider thin />
 
-        <SectionLabel strong right={<Text onPress={() => router.push('/creator')} accessibilityRole="link" style={{ color: C.accent, fontSize: 17, fontWeight: '600' }}>See all</Text>}>
+        <SectionLabel strong right={<Text onPress={() => open('/creator')} accessibilityRole="link" style={{ color: C.accent2, fontSize: 17, fontWeight: '600' }}>See all</Text>}>
           Your tools
         </SectionLabel>
-        <Row icon="archive" title="Monthly recap" sub="See what you made happen last month." right={<NewPill />} onPress={() => router.push('/recap')} />
-        <Row icon="cap" title="Best practices" onPress={() => router.push('/best-practices')} />
-        <Row icon="bulb" title="Inspiration" onPress={() => router.push('/inspiration')} />
-        <Row icon="reply" title="Saved replies" onPress={() => router.push('/saved-replies')} />
-        <Row icon="question" title="Frequently asked questions" value={profile.faq_enabled ? 'On' : 'Off'} onPress={() => router.push('/faq')} />
+        <Row icon="archive" title="Monthly recap" right={<NewPill />} onPress={() => open('/recap')} />
+        <Row icon="cap" title="Best practices" onPress={() => open('/best-practices')} />
+        <Row icon="bulb" title="Inspiration" onPress={() => open('/inspiration')} />
+        <Row icon="reply" title="Saved replies" onPress={() => open('/saved-replies')} />
+        <Row icon="question" title="Frequently asked questions" value={profile.faq_enabled ? 'On' : 'Off'} onPress={() => open('/faq')} />
       </ScrollView>
     </Screen>
   );

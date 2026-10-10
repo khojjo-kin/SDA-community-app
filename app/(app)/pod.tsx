@@ -5,10 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/Icon';
-import { Cover, kindLabel, NowPlayingBar, PodMenu, PodRow } from '../../src/components/NowPlayingBar';
+import { Cover, kindLabel, NowPlayingBar, openOnce, PodMenu, PodRow } from '../../src/components/NowPlayingBar';
+import { Skeleton, SkeletonFrame } from '../../src/components/Skeleton';
 import { Button, Empty, ErrorNote, Loading, RoundButton, Screen, ScreenHeader, SearchField } from '../../src/components/ui';
 import { fetchPod, fetchPodLibrary, fetchPopularPod } from '../../src/lib/api';
-import { play, toggle, usePlayer } from '../../src/lib/player';
+import { tap } from '../../src/lib/haptics';
+import { play, toggle, useHasTrack, usePlayer } from '../../src/lib/player';
 import { useSession } from '../../src/lib/session';
 import { C, DARK, errText } from '../../src/lib/theme';
 import type { PodItem } from '../../src/lib/types';
@@ -22,9 +24,9 @@ const SEGMENTS: { key: Segment; label: string }[] = [
 ];
 
 /** A square cover with its title under it, for the shelves on Listen Now. */
-function Tile({ item, onPress }: { item: PodItem; onPress: () => void }) {
+const Tile = React.memo(function Tile({ item, index, onPlay }: { item: PodItem; index: number; onPlay: (index: number) => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Play ${item.title} by ${item.artist || 'unknown'}`} style={({ pressed }) => ({ width: 140, opacity: pressed ? 0.7 : 1 })}>
+    <Pressable onPress={() => onPlay(index)} accessibilityRole="button" accessibilityLabel={`Play ${item.title} by ${item.artist || 'unknown'}`} style={({ pressed }) => ({ width: 140, opacity: pressed ? 0.7 : 1 })}>
       <Cover uri={item.cover_url} kind={item.kind} size={140} radius={12} />
       <Text numberOfLines={1} style={{ color: C.fg, fontSize: 14, fontWeight: '600', marginTop: 8 }}>
         {item.title}
@@ -34,10 +36,12 @@ function Tile({ item, onPress }: { item: PodItem; onPress: () => void }) {
       </Text>
     </Pressable>
   );
-}
+});
 
 /** A horizontal row of tiles with a "See all" that opens the full list. */
-function Shelf({ title, items, onSeeAll, onPlay }: { title: string; items: PodItem[]; onSeeAll: () => void; onPlay: (index: number) => void }) {
+function Shelf({ title, items, onSeeAll, onPlay }: { title: string; items: PodItem[]; onSeeAll: () => void; onPlay: (items: PodItem[], index: number) => void }) {
+  const shown = useMemo(() => items.slice(0, 12), [items]);
+  const playAt = useCallback((i: number) => onPlay(items, i), [items, onPlay]);
   if (!items.length) return null;
   return (
     <View style={{ paddingTop: 24 }}>
@@ -48,7 +52,7 @@ function Shelf({ title, items, onSeeAll, onPlay }: { title: string; items: PodIt
         <Text style={{ color: C.fg2, fontSize: 15 }}>See all</Text>
         <Icon name="right" size={16} color={C.fg2} weight={2.2} />
       </Pressable>
-      <FlatList horizontal data={items.slice(0, 12)} keyExtractor={(i) => i.id} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }} renderItem={({ item, index }) => <Tile item={item} onPress={() => onPlay(index)} />} />
+      <FlatList horizontal data={shown} keyExtractor={(i) => i.id} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }} renderItem={({ item, index }) => <Tile item={item} index={index} onPlay={playAt} />} />
     </View>
   );
 }
@@ -60,7 +64,7 @@ function Hero({ item, nowPlaying, playing, onOpen, onPlay }: { item: PodItem; no
   return (
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${nowPlaying ? 'Playing now' : 'Start listening'}: ${item.title} by ${item.artist || 'unknown'}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 12, height, borderRadius: 22, overflow: 'hidden', backgroundColor: C.surface, opacity: pressed ? 0.88 : 1 })}>
       {item.cover_url ? (
-        <Image source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} accessibilityIgnoresInvertColors />
+        <Image source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" accessibilityIgnoresInvertColors />
       ) : (
         <LinearGradient colors={[C.accent, '#0e6b33', DARK.bg2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
           <View style={{ position: 'absolute', right: -18, top: -10, opacity: 0.18 }}>
@@ -81,7 +85,7 @@ function Hero({ item, nowPlaying, playing, onOpen, onPlay }: { item: PodItem; no
               {item.artist ? `${item.artist} · ${kindLabel(item.kind)}` : kindLabel(item.kind)}
             </Text>
           </View>
-          <Pressable onPress={onPlay} hitSlop={6} accessibilityRole="button" accessibilityLabel={nowPlaying && playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 50, height: 50, borderRadius: 25, backgroundColor: DARK.fg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+          <Pressable onPress={() => { tap('light'); onPlay(); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={nowPlaying && playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 50, height: 50, borderRadius: 25, backgroundColor: DARK.fg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
             <Icon name={nowPlaying && playing ? 'pause' : 'play'} size={26} color={DARK.bg} />
           </Pressable>
         </View>
@@ -90,11 +94,36 @@ function Hero({ item, nowPlaying, playing, onOpen, onPlay }: { item: PodItem; no
   );
 }
 
+/** Listen Now before anything has arrived: the big card, then two shelves of covers. */
+function ListenSkeleton() {
+  const { width } = useWindowDimensions();
+  const hero = Math.min(230, Math.round((width - 32) * 0.58));
+  return (
+    <SkeletonFrame style={{ paddingTop: 12 }}>
+      <Skeleton width={width - 32} height={hero} radius={22} x={16} style={{ marginHorizontal: 16 }} />
+      {[0, 1].map((shelf) => (
+        <View key={shelf} style={{ paddingTop: 24 }}>
+          <Skeleton width={shelf ? 128 : 96} height={18} x={16} style={{ marginHorizontal: 16, marginBottom: 14 }} />
+          <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16 }}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={{ gap: 8 }}>
+                <Skeleton width={140} height={140} radius={12} x={16 + i * 152} />
+                <Skeleton width={100} height={11} x={16 + i * 152} />
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </SkeletonFrame>
+  );
+}
+
 export default function Pod() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { me, profile } = useSession();
   const { current, playing } = usePlayer();
+  const hasTrack = useHasTrack();
   const canAdd = !!profile?.plus || !!profile?.admin_role;
 
   const [segment, setSegment] = useState<Segment>('now');
@@ -115,12 +144,13 @@ export default function Pod() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [p, s, c, l] = await Promise.all([fetchPopularPod(), fetchPod('song'), fetchPod('podcast'), fetchPodLibrary(me)]);
+      // The library is the member's own: if it alone fails, the shelves still show and it comes back on the next visit.
+      const [p, s, c, l] = await Promise.all([fetchPopularPod(), fetchPod('song'), fetchPod('podcast'), fetchPodLibrary(me).catch(() => null)]);
       if (!alive.current) return;
       setPopular(p);
       setSongs(s);
       setPodcasts(c);
-      setLibrary(l);
+      setLibrary((old) => l ?? old ?? []);
       loaded.current = true;
     } catch (e) {
       if (alive.current) setError(errText(e));
@@ -170,8 +200,8 @@ export default function Pod() {
     });
   }
 
-  const openList = (kind: 'song' | 'podcast' | 'popular') => router.push({ pathname: '/pod-list', params: { kind } } as any);
-  const openPlayer = (id: string) => router.push(`/pod/${id}` as any);
+  const openList = (kind: 'song' | 'podcast' | 'popular') => openOnce(() => router.push({ pathname: '/pod-list', params: { kind } } as any));
+  const openPlayer = (id: string) => openOnce(() => router.push(`/pod/${id}` as any));
 
   const list = useMemo<PodItem[] | null>(() => {
     if (segment === 'song') return needle ? found : songs;
@@ -180,26 +210,32 @@ export default function Pod() {
     return null;
   }, [segment, needle, found, songs, podcasts, library]);
 
-  const bottomPad = (current ? 80 : 20) + insets.bottom + 20;
+  // The rows' callbacks stay the same from one draw to the next, so a row draws again only when its own track changes.
+  const listRef = useRef(list);
+  listRef.current = list;
+  const playRow = useCallback((_: PodItem, index: number) => play(listRef.current ?? [], index), []);
+  const playShelf = useCallback((items: PodItem[], index: number) => play(items, index), []);
+  const renderRow = useCallback(({ item, index }: { item: PodItem; index: number }) => <PodRow item={item} index={index} onPress={playRow} onMore={setMenuItem} />, [playRow]);
+
+  const bottomPad = (hasTrack ? 80 : 20) + insets.bottom + 20;
   // The hero is what is playing; failing that, the most played track with its shelf as the queue.
   const heroQueue = popular?.length ? popular : songs?.length ? songs : podcasts ?? [];
   const hero = current ?? heroQueue[0] ?? null;
   const nothingAtAll = loaded.current && !popular?.length && !songs?.length && !podcasts?.length;
+  const add = canAdd ? <Button small label="Add to Pod" onPress={() => openOnce(() => router.push('/pod-new' as any))} style={{ marginTop: 8 }} /> : undefined;
 
   let body: React.ReactNode;
   if (error && !loaded.current) body = <ErrorNote message={error} onRetry={load} />;
-  else if (!loaded.current) body = <Loading />;
+  else if (!loaded.current) body = <ListenSkeleton />;
   else if (segment === 'now') {
     body = (
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
-        {nothingAtAll ? (
-          <Empty icon="headphones" title="Nothing in Pod yet" body={canAdd ? 'Add the first song or podcast for the family to listen to.' : 'Songs and podcasts will appear here as they are added.'} action={canAdd ? <Button small label="Add to Pod" onPress={() => router.push('/pod-new' as any)} style={{ marginTop: 8 }} /> : undefined} />
-        ) : null}
+        {nothingAtAll ? <Empty icon="headphones" title="Nothing in Pod yet" action={add} /> : null}
         {hero ? <Hero item={hero} nowPlaying={!!current} playing={playing} onOpen={() => openPlayer(hero.id)} onPlay={() => (current ? toggle() : play(heroQueue, 0))} /> : null}
-        <Shelf title="Popular" items={popular ?? []} onSeeAll={() => openList('popular')} onPlay={(i) => play(popular ?? [], i)} />
-        <Shelf title="New songs" items={songs ?? []} onSeeAll={() => openList('song')} onPlay={(i) => play(songs ?? [], i)} />
-        <Shelf title="New podcasts" items={podcasts ?? []} onSeeAll={() => openList('podcast')} onPlay={(i) => play(podcasts ?? [], i)} />
-        {library?.length ? <Shelf title="Your library" items={library} onSeeAll={() => setSegment('library')} onPlay={(i) => play(library, i)} /> : null}
+        <Shelf title="Popular" items={popular ?? []} onSeeAll={() => openList('popular')} onPlay={playShelf} />
+        <Shelf title="New songs" items={songs ?? []} onSeeAll={() => openList('song')} onPlay={playShelf} />
+        <Shelf title="New podcasts" items={podcasts ?? []} onSeeAll={() => openList('podcast')} onPlay={playShelf} />
+        {library?.length ? <Shelf title="Your library" items={library} onSeeAll={() => setSegment('library')} onPlay={playShelf} /> : null}
       </ScrollView>
     );
   } else {
@@ -208,13 +244,13 @@ export default function Pod() {
       items === null ? (
         <Loading />
       ) : needle ? (
-        <Empty icon="search" title="Nothing matches" body="Try another title or artist." />
+        <Empty icon="search" title="Nothing matches" />
       ) : segment === 'library' ? (
         <Empty icon="bookmark" title="Your library is empty" />
       ) : segment === 'song' ? (
-        <Empty icon="music" title="No songs yet" body={canAdd ? 'Add the first one for the family.' : 'Songs will appear here as they are added.'} />
+        <Empty icon="music" title="No songs yet" action={add} />
       ) : (
-        <Empty icon="podcast" title="No podcasts yet" body={canAdd ? 'Add the first one for the family.' : 'Podcasts will appear here as they are added.'} />
+        <Empty icon="podcast" title="No podcasts yet" action={add} />
       );
     body = (
       <FlatList
@@ -222,20 +258,32 @@ export default function Pod() {
         keyExtractor={(i) => i.id}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        initialNumToRender={12}
+        windowSize={9}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: bottomPad }}
         ListHeaderComponent={error ? <ErrorNote message={error} onRetry={load} /> : null}
         ListEmptyComponent={empty}
-        renderItem={({ item, index }) => <PodRow item={item} onPress={() => play(items ?? [], index)} onMore={() => setMenuItem(item)} />}
+        renderItem={renderRow}
       />
     );
   }
 
   return (
     <Screen>
-      <ScreenHeader title="Pod" right={canAdd ? <RoundButton name="plus" label="Add a song or podcast" onPress={() => router.push('/pod-new' as any)} /> : undefined} />
+      <ScreenHeader title="Pod" right={canAdd ? <RoundButton name="plus" label="Add a song or podcast" onPress={() => openOnce(() => router.push('/pod-new' as any))} /> : undefined} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingTop: 4, paddingBottom: 8 }} accessibilityRole="tablist" style={{ flexGrow: 0 }}>
         {SEGMENTS.map((s) => (
-          <Pressable key={s.key} onPress={() => setSegment(s.key)} accessibilityRole="tab" accessibilityState={{ selected: segment === s.key }} accessibilityLabel={s.label} style={({ pressed }) => ({ paddingHorizontal: 16, height: 34, borderRadius: 17, backgroundColor: segment === s.key ? C.fg : C.surface, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
+          <Pressable
+            key={s.key}
+            onPress={() => {
+              if (segment === s.key) return;
+              tap('select');
+              setSegment(s.key);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: segment === s.key }}
+            accessibilityLabel={s.label}
+            style={({ pressed }) => ({ paddingHorizontal: 16, height: 34, borderRadius: 17, backgroundColor: segment === s.key ? C.fg : C.surface, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
             <Text style={{ color: segment === s.key ? C.bg : C.fg, fontWeight: '600' }}>{s.label}</Text>
           </Pressable>
         ))}

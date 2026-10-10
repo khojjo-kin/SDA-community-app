@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
-import { SABBATH_KINDS, usePublishing } from '../../src/components/sabbath/publishers';
+import { SABBATH_KINDS, sabbathPostsChanged, usePublishing } from '../../src/components/sabbath/publishers';
 import { Button, Empty, ErrorNote, Field, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { createSabbathPost, fetchSabbathPost, updateSabbathPost, uploadImage, type SabbathPostInput } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { useT } from '../../src/lib/i18n';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
@@ -34,7 +35,8 @@ export default function SabbathPostEdit() {
   const toast = useToast();
   const t = useT();
   const { me, profile } = useSession();
-  const { publisher, canPublish, reload } = usePublishing();
+  const { height: screenH } = useWindowDimensions();
+  const { publisher, canPublish, reload, error: publishingError } = usePublishing();
 
   const [existing, setExisting] = useState<SabbathPost | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -110,12 +112,14 @@ export default function SabbathPostEdit() {
       const input: SabbathPostInput = { kind, title: tt, body: text, lesson_ref: ref, media, link: url };
       if (existing) {
         await updateSabbathPost(existing.id, input);
+        sabbathPostsChanged();
         if (!alive.current) return;
         toast(t('ssPub.saved'));
         router.back();
         return;
       }
       const id = await createSabbathPost(me, input);
+      sabbathPostsChanged();
       if (!alive.current) return;
       toast(t('ssPub.published'));
       router.replace({ pathname: '/sabbath-post/[id]', params: { id } } as any);
@@ -130,17 +134,26 @@ export default function SabbathPostEdit() {
   const admin = !!profile?.admin_role;
   let content: React.ReactNode;
   if (loadError) content = <ErrorNote message={loadError} onRetry={load} />;
+  // Whether this member may publish couldn't be found out (no connection): say so, rather than "only publishers".
+  else if (!admin && publisher === undefined && publishingError) content = <ErrorNote message={publishingError} onRetry={reload} />;
   else if ((editId && !existing) || (!admin && publisher === undefined)) content = <Loading />;
   else if (existing ? !((existing.mine && canPublish) || admin) : !canPublish) content = <Empty icon="lesson" title={t('ssPub.onlyPublishers')} />;
   else {
     content = (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 16 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {SABBATH_KINDS.map((k) => {
               const on = kind === k.id;
               return (
-                <Pressable key={k.id} onPress={() => setKind(k.id)} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={t(k.label)} style={({ pressed }) => ({ height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.accent : pressed ? C.surface2 : C.surface })}>
+                <Pressable
+                  key={k.id}
+                  onPress={() => {
+                    if (on) return;
+                    tap('select');
+                    setKind(k.id);
+                  }}
+                  accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={t(k.label)} style={({ pressed }) => ({ height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.accent : pressed ? C.surface2 : C.surface })}>
                   <Text style={{ color: on ? C.onAccent : C.fg, fontWeight: '600', fontSize: 14 }}>{t(k.label)}</Text>
                 </Pressable>
               );
@@ -150,7 +163,8 @@ export default function SabbathPostEdit() {
           <Field label={t('ssPub.title')} value={title} onChangeText={setTitle} placeholder={t('ssPub.titlePlaceholder')} maxLength={MAX.title} error={errors.title} />
           <Field label={t('ssPub.lessonRef')} value={lessonRef} onChangeText={setLessonRef} placeholder={t('ssPub.lessonRefPlaceholder')} maxLength={MAX.ref} error={errors.ref} />
           <View style={{ gap: 4 }}>
-            <Field label={t('ssPub.body')} value={body} onChangeText={setBody} placeholder={t('ssPub.bodyPlaceholder')} maxLength={MAX.body} multiline error={errors.body} style={{ minHeight: 200, textAlignVertical: 'top', lineHeight: 22 }} />
+            {/* A long study scrolls inside the box, so the line being typed stays in view above the keyboard. */}
+            <Field label={t('ssPub.body')} value={body} onChangeText={setBody} placeholder={t('ssPub.bodyPlaceholder')} maxLength={MAX.body} multiline scrollEnabled error={errors.body} style={{ minHeight: 200, maxHeight: Math.max(240, Math.round(screenH * 0.42)), textAlignVertical: 'top', lineHeight: 22 }} />
             {body.length > MAX.body - 1000 ? <Text style={{ color: C.fg3, fontSize: 12, textAlign: 'right' }}>{`${body.length.toLocaleString()} / ${MAX.body.toLocaleString()}`}</Text> : null}
           </View>
 
