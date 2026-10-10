@@ -61,6 +61,13 @@ async function priceId(plan: Plan = 'monthly'): Promise<string> {
   const found = await stripe('GET', 'prices', { lookup_keys: [lookup], active: true, limit: 1 });
   const existing = found?.data?.[0];
   if (existing && existing.unit_amount === amount && existing.currency === CURRENCY && (!PLUS_PRODUCT || existing.product === PLUS_PRODUCT)) return existing.id;
+  // A matching price already made on the product in the Stripe dashboard is used as it is.
+  if (PLUS_PRODUCT) {
+    const interval = plan === 'yearly' ? 'year' : 'month';
+    const onProduct = await stripe('GET', 'prices', { product: PLUS_PRODUCT, active: true, limit: 100 });
+    const match = ((onProduct?.data ?? []) as any[]).find((p) => p.unit_amount === amount && p.currency === CURRENCY && p.recurring?.interval === interval && (p.recurring?.interval_count ?? 1) === 1);
+    if (match) return match.id;
+  }
   const price = await stripe('POST', 'prices', {
     currency: CURRENCY,
     unit_amount: amount,
