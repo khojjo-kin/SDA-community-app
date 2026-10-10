@@ -6,11 +6,14 @@ import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
+import { useT } from '../../src/lib/i18n';
 import { DARK, errText } from '../../src/lib/theme';
 
 export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
+  // The app's own words are translated; what Clerk says when something fails (errText) stays as Clerk sends it.
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -20,8 +23,8 @@ export default function SignUp() {
 
   async function create() {
     if (!isLoaded || busy) return;
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr('Enter a valid email address.');
-    if (password.length < 8) return setErr('Use a password with at least 8 characters.');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr(t('auth.enterValidEmail'));
+    if (password.length < 8) return setErr(t('auth.passwordTooShort'));
     setBusy(true);
     setErr('');
     try {
@@ -42,7 +45,7 @@ export default function SignUp() {
 
   async function verify() {
     if (!isLoaded || busy) return;
-    if (!code.trim()) return setErr('Enter the code from your email.');
+    if (!code.trim()) return setErr(t('auth.enterEmailCode'));
     setBusy(true);
     setErr('');
     try {
@@ -52,7 +55,7 @@ export default function SignUp() {
         router.replace('/');
       } else {
         const missing = ((res as any).missingFields ?? []).join(', ');
-        setErr(missing ? `Sign-up also needs: ${missing}. Ask the app owner to turn those requirements off in Clerk.` : 'That code did not finish sign-up. Request a new code and try again.');
+        setErr(missing ? t('auth.signUpNeeds', { fields: missing }) : t('auth.codeDidNotFinish'));
       }
     } catch (e) {
       setErr(errText(e));
@@ -74,14 +77,14 @@ export default function SignUp() {
     return (
       <>
         <DarkStatusBar />
-        <AuthShell title={`Enter the code we sent to ${email.trim()}.`}>
-          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
-          <Button label="Confirm email" onPress={verify} busy={busy} />
+        <AuthShell title={t('auth.enterCodeSentTo', { email: email.trim() })}>
+          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} />
+          <Button label={t('auth.confirmEmail')} onPress={verify} busy={busy} />
           <Pressable onPress={resend} style={{ padding: 10 }}>
-            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.sendNewCode')}</Text>
           </Pressable>
           <Pressable onPress={() => { setStage('form'); setCode(''); setErr(''); }} style={{ padding: 10 }}>
-            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Use a different email</Text>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.differentEmail')}</Text>
           </Pressable>
         </AuthShell>
       </>
@@ -92,19 +95,19 @@ export default function SignUp() {
     <>
       <DarkStatusBar />
       <AuthShell
-        title="Join your church family: share, pray and grow together."
+        title={t('auth.joinTagline')}
         footer={
           <Link href="/sign-in" replace asChild>
             <Pressable>
               <Text style={{ color: DARK.fg2 }}>
-                Have an account? <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Log in</Text>
+                {t('auth.haveAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.logIn')}</Text>
               </Text>
             </Pressable>
           </Link>
         }>
-        <Field {...DARK_FIELD} value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
-        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
-        <Button label="Sign up" onPress={create} busy={busy} />
+        <Field {...DARK_FIELD} value={email} onChangeText={setEmail} placeholder={t('auth.email')} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
+        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
+        <Button label={t('auth.signUp')} onPress={create} busy={busy} />
         <SsoButtons onError={setErr} />
       </AuthShell>
     </>

@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View, ViewSty
 import { useRouter } from 'expo-router';
 import { dismissSuggestion, fetchSuggestedPeople, removeFollowRequest, requestFollow, setFollow } from '../lib/api';
 import { useAppFont } from '../lib/fonts';
+import { tap } from '../lib/haptics';
 import { useSession } from '../lib/session';
 import { C, errText, fmt } from '../lib/theme';
 import type { SuggestedPerson } from '../lib/types';
@@ -123,6 +124,7 @@ export function useSuggestionFollows() {
   async function toggle(p: SuggestedPerson) {
     if (busy.current.has(p.id)) return;
     busy.current.add(p.id);
+    tap();
     const was = stateOf(p.id);
     try {
       if (was === 'none') {

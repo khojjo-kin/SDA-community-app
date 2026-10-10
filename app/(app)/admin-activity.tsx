@@ -23,7 +23,7 @@ const ICON: Record<ActivityRow['kind'], IconName> = {
 const WORD: Record<ActivityRow['kind'], string> = {
   joined: 'joined',
   post: 'posted',
-  reel: 'shared a reel',
+  reel: 'shared a clip',
   live: 'went live',
   report: 'reported',
   transaction: 'transaction',

@@ -234,7 +234,7 @@ export default function Account() {
   function removeAccount() {
     Alert.alert(
       'Delete your account?',
-      'Your account will be hidden straight away, and after 30 days it will be deleted for good — your profile, posts, stories, highlights, comments, messages and followers, all of it.\n\nIf you change your mind, log in before then and tap Restore.',
+      'Your account will be hidden straight away, and after 30 days it will be deleted for good — your profile, posts, stories, memories, comments, messages and followers, all of it.\n\nIf you change your mind, log in before then and tap Restore.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

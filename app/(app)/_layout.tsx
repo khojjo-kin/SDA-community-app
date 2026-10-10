@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Stack } from 'expo-router';
+import { AssistiveButton } from '../../src/components/AssistiveButton';
 import { BirthDateGate, useBirthDateGate } from '../../src/components/BirthDateForm';
+import { FeedbackPrompt } from '../../src/components/FeedbackPrompt';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
 import { purgeDate, restoreAccount } from '../../src/lib/api';
 import { CallProvider } from '../../src/lib/calls';
+import { useLiveLocation } from '../../src/lib/liveLocation';
 import { usePresence } from '../../src/lib/presence';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
@@ -45,6 +48,9 @@ export default function AppLayout() {
   const needsBirthday = useBirthDateGate(me, profile);
   // "Active now" for the people who can see it, while the app is open and signed in.
   usePresence(!!isSignedIn && !!profile && !profile.deleted_at);
+  // A shared live location moves with the member while the app is open (never in the background).
+  // Members under 14 can't share, so it never runs for them.
+  useLiveLocation(me, !!isSignedIn && !!profile && !profile.deleted_at && !profile.restricted);
 
   if (!isSignedIn) return <Redirect href="/sign-in" />;
 
@@ -101,6 +107,10 @@ export default function AppLayout() {
         <Stack.Screen name="go-live" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="live/[id]" options={{ contentStyle: { backgroundColor: '#000' }, animation: 'fade', gestureEnabled: false }} />
       </Stack>
+      {/* Drawn after the screens so it floats above them; it lets every other touch through. */}
+      <AssistiveButton />
+      {/* The occasional "Enjoying Community?" question. Inside the call provider, so it can stay away from calls. */}
+      <FeedbackPrompt />
     </CallProvider>
   );
 }

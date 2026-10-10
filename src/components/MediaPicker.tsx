@@ -16,7 +16,7 @@ import { DarkEmpty } from './OnDark';
 import { Button, RoundButton, useToast } from './ui';
 
 /**
- * POST is one to ten photos and videos (a video on its own becomes a reel when shared), STORY hands
+ * POST is one to ten photos and videos (a video on its own becomes a clip when shared), STORY hands
  * over to the story flow. LIVE, next to them, opens Go live.
  */
 export type PickMode = 'post' | 'story';
@@ -287,7 +287,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
       ? { uri: a.uri, type: 'video', w: a.width, h: a.height, duration: (a.duration ?? 0) / 1000, bytes: a.fileSize ?? undefined }
       : { uri: a.uri, type: 'image', w: a.width, h: a.height };
 
-  // A photo or a video: a video shared on its own becomes a reel.
+  // A photo or a video: a video shared on its own becomes a clip.
   const camera = () =>
     run(async () => {
       const [shot] = await takePhoto({ front: prefs.frontCamera, video: true });
@@ -399,7 +399,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
         {!current ? (
           <View style={{ alignItems: 'center', gap: 10, paddingHorizontal: 32 }}>
             <Icon name="image" size={44} color={DARK.fg3} />
-            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{`Choose up to ${LIMIT} photos and videos. People swipe through them in one post. A video on its own becomes a reel.`}</Text>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{`Choose up to ${LIMIT} photos and videos. People swipe through them in one post. A video on its own becomes a clip.`}</Text>
           </View>
         ) : null}
         {multi && picked.length ? (

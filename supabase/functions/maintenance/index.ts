@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // Single files queued for removal, a bucket at a time.
-  const { data: trash } = await db.from('community_media_trash').select('path, bucket').lte('remove_after', new Date().toISOString()).limit(500);
+  const { data: trash } = await db.from('community_media_trash').select('path, bucket').lte('remove_after', new Date().toISOString()).order('remove_after').limit(100);
   let trashed = 0;
   const byBucket = new Map<string, string[]>();
   for (const t of (trash ?? []) as { path: string; bucket: string }[]) byBucket.set(t.bucket, [...(byBucket.get(t.bucket) ?? []), t.path]);

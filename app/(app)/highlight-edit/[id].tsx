@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon } from '../../../src/components/Icon';
 import { afterSheet, confirmAlert, HighlightCover } from '../../../src/components/StoryChrome';
 import { StoryCanvas } from '../../../src/components/StoryCanvas';
@@ -26,7 +27,7 @@ function PlusTag() {
 }
 
 /**
- * Edit one of your highlights: its cover, its name and which stories it keeps. Nothing is saved
+ * Edit one of your memories (stored as highlights): its cover, its name and which stories it keeps. Nothing is saved
  * until Done, so a slip of the finger can be undone by simply going back.
  */
 export default function EditHighlight() {
@@ -70,7 +71,7 @@ export default function EditHighlight() {
   if (error) {
     return (
       <Screen>
-        <ScreenHeader title="Edit highlight" />
+        <ScreenHeader title="Edit memory" />
         <ErrorNote message={error} onRetry={load} />
       </Screen>
     );
@@ -78,7 +79,7 @@ export default function EditHighlight() {
   if (data === null) {
     return (
       <Screen>
-        <ScreenHeader title="Edit highlight" />
+        <ScreenHeader title="Edit memory" />
         <Loading />
       </Screen>
     );
@@ -86,16 +87,16 @@ export default function EditHighlight() {
   if (data === 'missing') {
     return (
       <Screen>
-        <ScreenHeader title="Edit highlight" />
-        <Empty icon="highlight" title="This highlight isn't available" body="It may have been deleted." />
+        <ScreenHeader title="Edit memory" />
+        <Empty icon="highlight" title="This memory isn't available" body="It may have been deleted." />
       </Screen>
     );
   }
   if (data.highlight.user_id !== me) {
     return (
       <Screen>
-        <ScreenHeader title="Edit highlight" />
-        <Empty icon="lock" title="You can only edit your own highlights" />
+        <ScreenHeader title="Edit memory" />
+        <Empty icon="lock" title="You can only edit your own memories" />
       </Screen>
     );
   }
@@ -119,14 +120,14 @@ export default function EditHighlight() {
 
   async function back() {
     if (saving) return;
-    if (dirty && !(await confirmAlert('Discard your changes?', 'Your highlight stays as it was.', 'Discard'))) return;
+    if (dirty && !(await confirmAlert('Discard your changes?', 'Your memory stays as it was.', 'Discard'))) return;
     leave();
   }
 
   async function save() {
     if (saving || uploading) return;
     if (!name) {
-      toast('Give the highlight a name.');
+      toast('Give the memory a name.');
       return;
     }
     if (!dirty) {
@@ -134,11 +135,11 @@ export default function EditHighlight() {
       return;
     }
     if (!kept.length) {
-      if (!(await confirmAlert('Remove every story?', 'A highlight needs at least one story, so this one will be deleted. Your archive keeps the stories.', 'Delete highlight'))) return;
+      if (!(await confirmAlert('Remove every story?', 'A memory needs at least one story, so this one will be deleted. Your archive keeps the stories.', 'Delete memory'))) return;
       setSaving(true);
       try {
         await deleteHighlight(highlight.id);
-        toast('Highlight deleted');
+        toast('Memory deleted');
         leave();
       } catch (e) {
         toast(errText(e));
@@ -162,7 +163,9 @@ export default function EditHighlight() {
         await renameHighlight(saved.id, name);
         saved = { ...saved, title: name };
       }
-      toast('Highlight saved');
+      // Its ring turns once when your profile next appears, as it does for a new memory.
+      markMemoryJustMade(saved.id);
+      toast('Memory saved');
       leave();
     } catch (e) {
       toast(errText(e));
@@ -174,7 +177,7 @@ export default function EditHighlight() {
     }
   }
 
-  // Your own photo as a cover is a Community Plus perk; everyone can use a picture from the highlight.
+  // Your own photo as a cover is a Community Plus perk; everyone can use a picture from the memory.
   async function upload() {
     if (!profile?.plus) {
       setSheet('plus');
@@ -203,7 +206,7 @@ export default function EditHighlight() {
   return (
     <Screen>
       <ScreenHeader
-        title="Edit highlight"
+        title="Edit memory"
         onBack={back}
         right={
           saving ? (
@@ -237,7 +240,7 @@ export default function EditHighlight() {
           </View>
 
           <View style={{ paddingHorizontal: 16, paddingTop: 22 }}>
-            <Field label="Title" value={title} onChangeText={setTitle} maxLength={TITLE_MAX} placeholder="Highlight name" returnKeyType="done" />
+            <Field label="Title" value={title} onChangeText={setTitle} maxLength={TITLE_MAX} placeholder="Memory name" returnKeyType="done" />
             <Text style={{ color: C.fg3, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {title.length}/{TITLE_MAX}
             </Text>
@@ -277,12 +280,12 @@ export default function EditHighlight() {
               })}
             </View>
           ) : (
-            <Text style={{ color: C.fg2, paddingHorizontal: 16 }}>This highlight has no stories yet.</Text>
+            <Text style={{ color: C.fg2, paddingHorizontal: 16 }}>This memory has no stories yet.</Text>
           )}
           {/* There is no story picker to reuse here yet, so adding goes through the archive, which already does it. */}
           <Pressable onPress={() => router.push('/archive')} accessibilityRole="link" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
             <Text style={{ color: C.fg2, lineHeight: 19 }}>
-              To add more, open a story in your <Text style={{ color: C.fg, fontWeight: '600' }}>archive</Text> and tap Highlight.
+              To add more, open a story in your <Text style={{ color: C.fg, fontWeight: '600' }}>archive</Text> and add it to this memory.
             </Text>
           </Pressable>
         </ScrollView>
@@ -293,14 +296,14 @@ export default function EditHighlight() {
           <View style={{ paddingHorizontal: 24, gap: 12, alignItems: 'center' }}>
             <Icon name="crown" size={40} color={C.accent2} />
             <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
-              Uploading any photo from your phone as a highlight cover is part of Community Plus. You can always use a picture from the highlight itself.
+              Uploading any photo from your phone as a memory cover is part of Community Plus. You can always use a picture from the memory itself.
             </Text>
             <Button label="See Community Plus" onPress={seePlus} style={{ alignSelf: 'stretch', marginTop: 4 }} />
             <Button label="Not now" kind="ghost" onPress={() => setSheet('cover')} style={{ alignSelf: 'stretch' }} />
           </View>
         ) : (
           <>
-            <Text style={{ color: C.fg2, fontSize: 13.5, paddingHorizontal: 16, paddingBottom: 10 }}>From this highlight</Text>
+            <Text style={{ color: C.fg2, fontSize: 13.5, paddingHorizontal: 16, paddingBottom: 10 }}>From this memory</Text>
             {choices.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}>
                 {choices.map((url) => {

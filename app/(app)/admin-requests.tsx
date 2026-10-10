@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -21,6 +21,32 @@ const DOC_LABEL: Record<PlusRequest['document_type'], string> = {
   other: 'Other document',
   '': 'Not given',
 };
+
+/** How the member asked: the free notable-account application, or verification with Plus. */
+const PATH_LABEL: Record<PlusRequest['path'], string> = {
+  notable: 'Notable account application',
+  plus: 'Verified with Community Plus',
+  '': 'Identity check',
+};
+
+/** A link a member gave, as an address that opens in the browser. Anything that isn't a web address is shown, not opened. */
+function webAddress(link: string): string | null {
+  const t = link.trim();
+  if (!t || /\s/.test(t)) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return null;
+  return `https://${t}`;
+}
+
+/** One answer from the notability step: a small label over what the member wrote. */
+function Answer({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ gap: 2 }}>
+      <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: value ? C.fg : C.fg3, lineHeight: 20, fontStyle: value ? 'normal' : 'italic' }}>{value || 'Not given'}</Text>
+    </View>
+  );
+}
 
 /**
  * One identity photo. They sit in a private bucket, so each is opened with a short-lived signed
@@ -120,8 +146,13 @@ export default function AdminRequests() {
   function renderVerify(r: PlusRequest) {
     // Requests sent before photos were required cannot be checked; the member has to start again.
     const incomplete = !r.selfie_path || !r.document_path;
+    const links = (r.links ?? []).filter((l) => l.trim());
     return (
       <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: r.path === 'plus' ? C.accentSoft : C.surface2 }}>
+          <Icon name={r.path === 'plus' ? 'crown' : r.path === 'notable' ? 'star' : 'idcard'} size={14} color={r.path === 'plus' ? C.accent2 : C.fg} weight={2.2} />
+          <Text style={{ color: r.path === 'plus' ? C.accent2 : C.fg, fontSize: 13, fontWeight: '700' }}>{PATH_LABEL[r.path ?? ''] ?? PATH_LABEL['']}</Text>
+        </View>
         <View style={{ gap: 4 }}>
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>
             Name on document: <Text style={{ color: C.fg, fontWeight: '700' }}>{r.legal_name || 'Not given'}</Text>
@@ -139,6 +170,36 @@ export default function AdminRequests() {
         ) : (
           <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17 }}>Check that the face matches and the name on the document matches the account. Both photos are deleted once you decide.</Text>
         )}
+        {r.path === 'notable' ? (
+          // The notability answers: what admins weigh when deciding whether the account is widely known.
+          <View style={{ gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.bg2 }}>
+            <Text style={{ color: C.fg, fontWeight: '700' }}>Is this account widely known?</Text>
+            <Answer label="Category" value={r.category} />
+            <Answer label="Country or region" value={r.country} />
+            <Answer label="Who follows them and why" value={r.audience} />
+            <Answer label="Also known as" value={r.known_as} />
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>Links</Text>
+              {links.length ? (
+                links.map((l, i) => {
+                  const url = webAddress(l);
+                  return url ? (
+                    <Pressable key={`${i}-${l}`} onPress={() => Linking.openURL(url).catch(() => toast("That link couldn't be opened."))} accessibilityRole="link" accessibilityLabel={`Open ${l}`} hitSlop={4} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Icon name="link" size={15} color={C.accent2} weight={2.2} />
+                      <Text numberOfLines={1} style={{ flex: 1, color: C.accent2, fontWeight: '600' }}>{l}</Text>
+                    </Pressable>
+                  ) : (
+                    <Text key={`${i}-${l}`} numberOfLines={2} style={{ color: C.fg }}>{l}</Text>
+                  );
+                })
+              ) : (
+                <Text style={{ color: C.fg3, fontStyle: 'italic' }}>None given</Text>
+              )}
+            </View>
+          </View>
+        ) : r.path === 'plus' ? (
+          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17 }}>Asked through Community Plus: the identity check is all that's needed. Open their profile to see that Plus is active.</Text>
+        ) : null}
         {r.note ? <Text style={{ color: C.fg, lineHeight: 20 }}>{r.note}</Text> : null}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button small label="Approve: give the tick" busy={busy === r.id} disabled={incomplete || (!!busy && busy !== r.id)} onPress={() => decide(r, true)} style={{ flex: 1 }} />

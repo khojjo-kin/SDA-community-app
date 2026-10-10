@@ -10,11 +10,12 @@ import { Slot, SplashScreen, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Button, ToastProvider } from '../src/components/ui';
+import { LanguageWatch, useLanguage } from '../src/lib/i18n';
 import { loadPrefs, usePrefsLoaded, usePrefTheme } from '../src/lib/prefs';
 import { SessionProvider } from '../src/lib/session';
 import { CLERK_KEY, SUPABASE_KEY, SUPABASE_URL } from '../src/lib/supabase';
 import { applyTheme, C, themeName } from '../src/lib/theme';
-import { takeThemeReturn } from '../src/lib/theme-return';
+import { takeReturn } from '../src/lib/theme-return';
 
 // Hold the launch screen until the saved theme is read (useHideLaunchScreen below takes it down), or
 // the router would take it away at once and the first screen could flash in the wrong colours. Nothing
@@ -58,18 +59,18 @@ function useSystemAppearance(theme: string) {
 }
 
 /**
- * After the theme changes every screen below is drawn again (the key on ToastProvider). Where the
- * member is in the app is kept through that, so they normally stay on the screen they chose the
- * theme on and this does nothing. It is kept as a safety net: should the app ever come back up
- * somewhere else, it takes them back there.
+ * After the theme or the language changes every screen below is drawn again (the key on
+ * ToastProvider). Where the member is in the app is kept through that, so they normally stay on the
+ * screen they made the choice on and this does nothing. It is kept as a safety net: should the app
+ * ever come back up somewhere else, it takes them back there (Settings, then Theme or Language).
  */
-function ThemeReturn() {
+function ReturnAfterRedraw() {
   const router = useRouter();
   const path = usePathname();
   const pathRef = useRef(path);
   pathRef.current = path;
   useEffect(() => {
-    const to = takeThemeReturn();
+    const to = takeReturn();
     if (!to) return;
     const t = setTimeout(() => {
       if (pathRef.current === to) return;
@@ -159,8 +160,9 @@ export default function RootLayout() {
   // Changing the key starts sign-in again from scratch, which is what "Try again" does.
   const [attempt, setAttempt] = useState(0);
   const prefsLoaded = usePrefsLoaded();
-  // Only the theme: other choices (camera side, wallpaper…) must not redraw the whole app.
+  // Only the theme and the language: other choices (camera side, wallpaper…) must not redraw the whole app.
   const theme = usePrefTheme();
+  const language = useLanguage();
   // Swap the colours before anything below draws with them.
   if (themeName() !== theme) applyTheme(theme);
   useSystemAppearance(theme);
@@ -182,9 +184,10 @@ export default function RootLayout() {
       <ClerkProvider key={attempt} publishableKey={CLERK_KEY} tokenCache={tokenCache}>
         <Gate onRetry={() => setAttempt((n) => n + 1)}>
           <SessionProvider>
-            {/* Keyed on the theme: a new theme draws every screen again in its colours. */}
-            <ToastProvider key={theme}>
-              <ThemeReturn />
+            {/* Keyed on the theme and the language: a new one draws every screen again in its colours and words. */}
+            <ToastProvider key={`${theme}:${language}`}>
+              <ReturnAfterRedraw />
+              <LanguageWatch />
               <Slot />
             </ToastProvider>
           </SessionProvider>

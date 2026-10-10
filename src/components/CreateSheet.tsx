@@ -14,12 +14,12 @@ export function CreateSheet({ visible, onClose }: { visible: boolean; onClose: (
   };
   return (
     <Sheet visible={visible} onClose={onClose} title="Create">
-      {/* One way in for photos and videos: a video shared on its own becomes a reel. */}
-      <SheetRow first icon="grid" label="Post" sub="Photos and videos" onPress={go('/create?mode=post')} />
+      {/* One way in for photos and videos: a video shared on its own becomes a clip. */}
+      <SheetRow first icon="grid" label="Post" sub="Photos, videos and clips" onPress={go('/create?mode=post')} />
       <SheetRow icon="story" label="Story" onPress={go('/add-story')} />
       {/* Members under 14 can't broadcast. */}
       {profile?.restricted !== true ? <SheetRow icon="live" label="Live" sub="Broadcast to everyone, right now" onPress={go('/go-live')} /> : null}
-      <SheetRow icon="highlight" label="Highlight" onPress={go('/new-highlight')} />
+      <SheetRow icon="highlight" label="Memory" onPress={go('/new-highlight')} />
     </Sheet>
   );
 }

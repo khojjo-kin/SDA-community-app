@@ -6,7 +6,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ago } from '../lib/theme';
 import type { StoryItem } from '../lib/types';
-import { VerifiedTick } from './Icon';
+import { Icon, VerifiedTick } from './Icon';
 import { fitFrame, StoryCanvas } from './StoryCanvas';
 import { Avatar, IconButton } from './ui';
 
@@ -35,8 +35,8 @@ const isStopped = (w: Record<Why, boolean>) => w.touch || w.manual || w.held;
 
 /**
  * Plays stories one after another inside a rounded card: progress bars, tap left or right to move,
- * hold to pause. Stories, highlights and the archive all use it and only differ in what they put in
- * the bar under the card.
+ * hold to pause. Stories, memories (highlights in the code) and the archive all use it and only differ
+ * in what they put in the bar under the card.
  */
 export function StoryPlayer<E extends PlayerEntry>({
   groups,
@@ -52,6 +52,7 @@ export function StoryPlayer<E extends PlayerEntry>({
   subtitle,
   held = false,
   showTime = true,
+  notice,
 }: {
   groups: PlayerGroup<E>[];
   startGroup?: number;
@@ -71,6 +72,8 @@ export function StoryPlayer<E extends PlayerEntry>({
   /** While true the story stays paused: a sheet is open, the keyboard is up, or another screen is on top. */
   held?: boolean;
   showTime?: boolean;
+  /** A small label under the top row, such as the quiet preview's "they won't see you watched". */
+  notice?: string;
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -343,6 +346,14 @@ export function StoryPlayer<E extends PlayerEntry>({
             {isVideo ? <IconButton name={muted ? 'mute' : 'sound'} label={muted ? 'Turn sound on' : 'Mute'} size={22} color="#fff" onPress={() => setMuted((m) => !m)} /> : null}
             <IconButton name="close" label="Close" size={26} color="#fff" onPress={close} />
           </View>
+          {notice ? (
+            <View pointerEvents="none" style={{ flexDirection: 'row', paddingHorizontal: 10, paddingTop: 4 }}>
+              <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                <Icon name="eye" size={14} color="#fff" weight={2.2} />
+                <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '600' }}>{notice}</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       </View>
       <View style={{ flex: 1 }} pointerEvents="none" />

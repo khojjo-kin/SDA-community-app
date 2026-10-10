@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { markMemoryOpened } from '../../../src/components/HighlightsRow';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { ActionBar, afterSheet, BarButton, confirmAlert, HighlightBrowser, REPORT_REASONS, shareStoryItem, useStoryHold } from '../../../src/components/StoryChrome';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
@@ -44,7 +45,7 @@ export default function HighlightScreen() {
     else router.replace('/');
   }, [router]);
 
-  /** `again` is a reload after Edit highlight: if the highlight has gone, the viewer just closes. */
+  /** `again` is a reload after Edit memory: if the memory has gone, the viewer just closes. */
   const load = useCallback(
     async (again: boolean) => {
       try {
@@ -56,7 +57,10 @@ export default function HighlightScreen() {
           return;
         }
         const owner = await getProfile(res.highlight.user_id);
-        if (alive.current) setData({ ...res, owner });
+        if (!alive.current) return;
+        // However it was opened (the profile row, Browse, a link), it no longer wears the new ring.
+        markMemoryOpened(res.highlight.id);
+        setData({ ...res, owner });
       } catch (e) {
         if (!alive.current) return;
         toast(errText(e));
@@ -71,7 +75,7 @@ export default function HighlightScreen() {
     load(false);
   }, [load]);
 
-  // Coming back from Edit highlight: the title, cover or stories may have changed.
+  // Coming back from Edit memory: the title, cover or stories may have changed.
   useFocusEffect(
     useCallback(() => {
       if (!editing.current) return;
@@ -106,12 +110,12 @@ export default function HighlightScreen() {
     const at = items.findIndex((i) => i.id === ctx.entry.id);
     await removeHighlightItem(ctx.entry.id);
     const left = items.filter((i) => i.id !== ctx.entry.id);
-    toast('Removed from highlight');
+    toast('Removed from memory');
     if (!left.length) {
-      // An empty highlight would sit on the profile as a blank circle, so offer to tidy it away.
-      if (await confirmAlert('This highlight is now empty', `Delete "${highlight.title}" from your profile too?`, 'Delete')) {
+      // An empty memory would sit on the profile as a blank circle, so offer to tidy it away.
+      if (await confirmAlert('This memory is now empty', `Delete "${highlight.title}" from your profile too?`, 'Delete')) {
         await deleteHighlight(highlight.id);
-        toast('Highlight deleted');
+        toast('Memory deleted');
       }
       close();
       return;
@@ -132,9 +136,9 @@ export default function HighlightScreen() {
   async function removeAll() {
     const cur = dataRef.current;
     if (!cur || cur === 'missing') return;
-    if (!(await confirmAlert(`Delete "${cur.highlight.title}"?`, 'The highlight is removed from your profile. Your archive keeps the stories.', 'Delete'))) return;
+    if (!(await confirmAlert(`Delete "${cur.highlight.title}"?`, 'The memory is removed from your profile. Your archive keeps the stories.', 'Delete'))) return;
     await deleteHighlight(cur.highlight.id);
-    toast('Highlight deleted');
+    toast('Memory deleted');
     close();
   }
 
@@ -142,8 +146,8 @@ export default function HighlightScreen() {
     const cur = dataRef.current;
     setSheet(null);
     if (!cur || cur === 'missing') return;
-    report(me, { userId: cur.highlight.user_id }, `${reason} (on a highlight)`)
-      .then(() => toast('Thanks. We will review this highlight.'))
+    report(me, { userId: cur.highlight.user_id }, `${reason} (on a memory)`)
+      .then(() => toast('Thanks. We will review this memory.'))
       .catch((e) => toast(errText(e)));
   }
 
@@ -154,7 +158,7 @@ export default function HighlightScreen() {
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
         <DarkEmpty
-          title={data === 'missing' ? "This highlight isn't available" : 'This highlight is empty'}
+          title={data === 'missing' ? "This memory isn't available" : 'This memory is empty'}
           body={data === 'missing' ? 'It may have been deleted.' : mineEmpty ? 'Add stories to it from your archive.' : undefined}
         />
         <View style={{ position: 'absolute', top: 60, right: 8 }}>
@@ -182,8 +186,8 @@ export default function HighlightScreen() {
         footer={(ctx) =>
           mine ? (
             <ActionBar>
-              {/* Highlights keep no list of viewers, so this shows when the story was added instead. */}
-              <BarButton icon="activity" label={dayLabel(new Date(ctx.entry.created_at))} a11y={`Added ${dayLabel(new Date(ctx.entry.created_at))}`} onPress={() => toast(`Added to this highlight on ${dayLabel(new Date(ctx.entry.created_at))}`)} />
+              {/* Memories keep no list of viewers, so this shows when the story was added instead. */}
+              <BarButton icon="activity" label={dayLabel(new Date(ctx.entry.created_at))} a11y={`Added ${dayLabel(new Date(ctx.entry.created_at))}`} onPress={() => toast(`Added to this memory on ${dayLabel(new Date(ctx.entry.created_at))}`)} />
               <BarButton icon="browse" label="Browse" onPress={() => { live.current = ctx; setSheet('browse'); }} />
               <BarButton icon="more" label="More" onPress={() => { live.current = ctx; setSheet('more'); }} />
             </ActionBar>
@@ -202,7 +206,7 @@ export default function HighlightScreen() {
       />
 
       {/* More, and Report as its second page: one sheet, so nothing has to slide away in between. */}
-      <Sheet visible={sheet === 'more' || sheet === 'report'} onClose={closeSheet} title={sheet === 'report' ? 'Why are you reporting this highlight?' : undefined}>
+      <Sheet visible={sheet === 'more' || sheet === 'report'} onClose={closeSheet} title={sheet === 'report' ? 'Why are you reporting this memory?' : undefined}>
         {sheet === 'report' ? (
           <>
             {REPORT_REASONS.map((r, i) => (
@@ -212,10 +216,10 @@ export default function HighlightScreen() {
           </>
         ) : mine ? (
           <>
-            <SheetRow first icon="highlight" label="Remove from highlight" danger onPress={fromSheet(removeItem)} />
-            <SheetRow icon="compose" label="Edit highlight" onPress={fromSheet(() => { editing.current = true; hold.leave(); router.push(`/highlight-edit/${highlight.id}`); })} />
+            <SheetRow first icon="highlight" label="Remove from memory" danger onPress={fromSheet(removeItem)} />
+            <SheetRow icon="compose" label="Edit memory" onPress={fromSheet(() => { editing.current = true; hold.leave(); router.push(`/highlight-edit/${highlight.id}`); })} />
             <SheetRow icon="share" label="Share…" onPress={fromSheet(() => (live.current ? shareStoryItem(live.current.entry.item) : undefined))} />
-            <SheetRow icon="trash" label="Delete highlight" danger onPress={fromSheet(removeAll)} />
+            <SheetRow icon="trash" label="Delete memory" danger onPress={fromSheet(removeAll)} />
             <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
           </>
         ) : (

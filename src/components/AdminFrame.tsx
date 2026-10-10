@@ -17,14 +17,15 @@ export const ADMIN_SECTIONS: { key: AdminSection; label: string; icon: IconName;
   { key: 'admins', label: 'Admins', icon: 'shield', href: '/admin-admins' },
   { key: 'transactions', label: 'Transactions', icon: 'receipt', href: '/admin-transactions' },
   { key: 'activity', label: 'Activity', icon: 'pulse', href: '/admin-activity' },
-  { key: 'support', label: 'Support', icon: 'lifebuoy', href: '/admin-support' },
+  { key: 'support', label: 'Support chats', icon: 'lifebuoy', href: '/admin-support' },
+  { key: 'feedback', label: 'Feedback and reviews', icon: 'star', href: '/admin-feedback' },
   { key: 'pod', label: 'Pod', icon: 'headphones', href: '/pod' },
   { key: 'hymns', label: 'Hymns', icon: 'hymnal', href: '/hymnal' },
   { key: 'churches', label: 'Churches', icon: 'church', href: '/churches' },
   { key: 'groups', label: 'Groups', icon: 'users', href: '/groups' },
 ];
 
-export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'ads' | 'words' | 'admins' | 'transactions' | 'activity' | 'support' | 'pod' | 'hymns' | 'churches' | 'groups';
+export type AdminSection = 'overview' | 'members' | 'reports' | 'requests' | 'ads' | 'words' | 'admins' | 'transactions' | 'activity' | 'support' | 'feedback' | 'pod' | 'hymns' | 'churches' | 'groups';
 
 /** From this width up (an iPad on its side, or a Mac window) the console shows its sidebar. */
 export const WIDE_WIDTH = 860;

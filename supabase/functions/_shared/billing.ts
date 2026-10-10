@@ -90,6 +90,9 @@ function methodLabel(pm: any): string {
   return `${wallet}${brand} •••• ${card.last4}`.slice(0, 60);
 }
 
+/** Statuses in which a subscription is still running (paid up, in its free week, or retrying a payment). */
+const LIVE = ['active', 'trialing', 'past_due'];
+
 /** A creator subscription carries kind 'creator' in its metadata; anything else is Community Plus. */
 export function isCreatorSub(sub: any): boolean {
   return sub?.metadata?.kind === 'creator';
@@ -106,6 +109,9 @@ function planOf(sub: any): 'monthly' | 'yearly' {
  * of times (the app runs it after paying, the webhook on every renewal).
  */
 export async function applySubscription(db: SupabaseClient, userId: string, sub: any) {
+  // News about an old subscription (an abandoned checkout expiring, say) must not replace a live one.
+  const { data: row } = await db.from('community_billing').select('stripe_subscription_id, status').eq('user_id', userId).maybeSingle();
+  if (row?.stripe_subscription_id && row.stripe_subscription_id !== sub?.id && LIVE.includes(row.status) && !LIVE.includes(sub?.status)) return;
   const end = sub?.current_period_end ? new Date(sub.current_period_end * 1000) : null;
   // past_due means the renewal failed: its new period is not paid for, so it does not extend Plus.
   const paidUp = ['active', 'trialing'].includes(sub?.status);
@@ -231,7 +237,9 @@ export async function applyCreatorSub(db: SupabaseClient, sub: any) {
   const creator = sub?.metadata?.creator_id;
   const subscriber = sub?.metadata?.user_id;
   if (!creator || !subscriber) return;
-  const { data: before } = await db.from('community_creator_subs').select('status').eq('creator_id', creator).eq('subscriber_id', subscriber).maybeSingle();
+  const { data: before } = await db.from('community_creator_subs').select('status, stripe_subscription_id').eq('creator_id', creator).eq('subscriber_id', subscriber).maybeSingle();
+  // An older subscription to the same creator ending must not undo the one now running.
+  if (before?.stripe_subscription_id && before.stripe_subscription_id !== sub.id && LIVE.includes(before.status) && !LIVE.includes(sub.status)) return;
   const live = ['active', 'trialing'].includes(sub.status);
   await db.from('community_creator_subs').upsert(
     {

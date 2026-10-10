@@ -11,7 +11,8 @@ import { Icon } from './Icon';
 import { Button, Empty, ErrorNote, Loading, Radio, Sheet } from './ui';
 
 /**
- * Paying a one-off amount (an ad, a gift to a fundraiser) in the app's own sheet: Apple Pay, a saved
+ * Paying a one-off amount (an ad, a gift to a fundraiser, the first month of a subscription to a
+ * creator) in the app's own sheet: Apple Pay, a saved
  * card, or a new card typed into Stripe's field. The same approach as the Plus checkout: the server
  * starts the payment, the phone confirms it (Stripe handles 3-D Secure inside the confirm call), then
  * the server is asked to settle it. The webhook settles it too, so a slow settle is not a failure.
@@ -22,15 +23,23 @@ const NEW = 'new';
 
 type Failure = { code: string; message: string; localizedMessage?: string };
 
+/** What `start` hands back. `already` means there is nothing left to pay (a subscription that is already on). */
+export type PayStart = OneOffPayment & { already?: boolean };
+
 export type PayProps = {
   /** What is being paid for ("Promote for 7 days", "Gift to Choir trip"). */
   title: string;
   /** The total, already formatted ("£14.00"). */
   amountLabel: string;
   /** Starts the payment on the server. Called once per press of Pay, never before. */
-  start: () => Promise<OneOffPayment>;
+  start: () => Promise<PayStart>;
   /** Paid. `slow` is true when the server has not caught up yet: it may take a minute to show. */
   onPaid: (paymentIntentId: string, slow: boolean) => void;
+  /**
+   * Used instead of settlePayment after confirming, for payments the server reads back another way
+   * (a creator subscription is synced, not settled). If it throws, the payment counts as slow.
+   */
+  onConfirmed?: (paymentIntentId: string) => Promise<void>;
   /** The line on the Apple Pay sheet ("Community ad · 7 days"). Defaults to the title. */
   walletLabel?: string;
   /** Apple Pay button wording: "Buy with" for ads, "Support with" for gifts. */
@@ -47,7 +56,7 @@ export type PayProps = {
  * The paying part on its own, for a sheet that has steps of its own before it (the donation sheet).
  * Mount it only while it is showing: each visit starts fresh.
  */
-export function PayPanel({ title, amountLabel, start, onPaid, walletLabel, wallet = 'buy', note, onBusy, onClose }: PayProps) {
+export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walletLabel, wallet = 'buy', note, onBusy, onClose }: PayProps) {
   const { profile } = useSession();
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [error, setError] = useState('');
@@ -136,9 +145,29 @@ export function PayPanel({ title, amountLabel, start, onPaid, walletLabel, walle
       // A fresh payment for every attempt: the server marks a declined one as failed, and a failed
       // ad would not start even if the same payment went through on a second try.
       const p = await start();
+      // Nothing to pay (already subscribed, say): done, without asking the card or Apple Pay.
+      if (p?.already) {
+        onPaid(p.payment_intent_id || '', false);
+        return;
+      }
       if (!p?.client_secret || !p.payment_intent_id) throw new Error('The payment could not be started. Try again.');
       const failure = await confirm(via, saved, p);
       if (failure && String(failure.code) === 'Canceled') return; // Closing Apple Pay or the bank's check is not an error.
+      if (onConfirmed) {
+        // Asked either way, as with settling below: if Stripe's answer was lost but the money moved, this finds it.
+        let synced = true;
+        try {
+          await onConfirmed(p.payment_intent_id);
+        } catch {
+          synced = false;
+        }
+        if (failure) {
+          if (alive.current) setPayError(failure.localizedMessage || failure.message || 'The payment did not go through. Try again.');
+          return;
+        }
+        onPaid(p.payment_intent_id, !synced);
+        return;
+      }
       // Ask the server either way: if Stripe's answer was lost on the way back but the money moved,
       // this finds it, rather than asking the member to pay a second time.
       const settled = await settlePayment(p.payment_intent_id).catch(() => null);

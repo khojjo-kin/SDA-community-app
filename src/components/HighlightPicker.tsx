@@ -27,7 +27,7 @@ export function HighlightPicker({ visible, onClose, onPick }: { visible: boolean
   }, [visible, me]);
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Add to highlight">
+    <Sheet visible={visible} onClose={onClose} title="Add to memories">
       {list === null ? (
         <Loading />
       ) : (
@@ -48,7 +48,7 @@ export function HighlightPicker({ visible, onClose, onPick }: { visible: boolean
         </ScrollView>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12 }}>
-        <TextInput value={title} onChangeText={setTitle} placeholder="New highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" onSubmitEditing={() => { if (title.trim()) onPick({ title: title.trim() }); }} style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="New highlight name" />
+        <TextInput value={title} onChangeText={setTitle} placeholder="New memory name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" onSubmitEditing={() => { if (title.trim()) onPick({ title: title.trim() }); }} style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="New memory name" />
         <Button small label="Create" disabled={!title.trim()} onPress={() => onPick({ title: title.trim() })} style={{ height: 44 }} />
       </View>
     </Sheet>

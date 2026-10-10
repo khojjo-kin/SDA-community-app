@@ -2,17 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { fetchLives, fetchStoryTray } from '../lib/api';
+import { tap } from '../lib/haptics';
 import { useSession } from '../lib/session';
 import { listen } from '../lib/store';
 import { C } from '../lib/theme';
 import type { LiveCard, StoryGroup } from '../lib/types';
 import { Icon } from './Icon';
 import { LiveAvatar } from './LiveBadge';
-import { Avatar } from './ui';
+import { Avatar, useToast } from './ui';
 
 export function StoryTray({ refreshKey }: { refreshKey: number }) {
   const { me, profile } = useSession();
   const router = useRouter();
+  const toast = useToast();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [lives, setLives] = useState<LiveCard[]>([]);
 
@@ -44,6 +46,20 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
     ]);
   }
 
+  /**
+   * Holding someone else's circle: a Plus member watches quietly (the viewer records nothing, so they
+   * stay off the viewer list); anyone else is told it's a Plus perk.
+   */
+  function preview(g: StoryGroup) {
+    if (!profile?.plus) {
+      tap('warning');
+      toast('Quiet story previews are part of Community Plus');
+      return;
+    }
+    tap('medium');
+    router.push(`/story/${g.user_id}?quiet=1`);
+  }
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 14 }}>
       {myLive ? (
@@ -70,7 +86,7 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
         <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12 }}>Your story</Text>
       </Pressable>
       {others.map((g) => (
-        <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} style={{ width: 76, alignItems: 'center', gap: 5 }}>
+        <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} onLongPress={() => preview(g)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} accessibilityHint="Hold to preview quietly" style={{ width: 76, alignItems: 'center', gap: 5 }}>
           <Avatar uri={g.avatar_url} name={g.username} size={66} ring={g.seen ? 'seen' : g.close ? 'close' : 'new'} />
           <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76 }}>{g.username}</Text>
         </Pressable>

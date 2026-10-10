@@ -3,6 +3,25 @@ import { Image } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { C } from '../lib/theme';
 
+/**
+ * A scalloped rosette round the centre of the 24 grid, for the verified badge: `points` soft lobes
+ * whose crests reach `outer`, dipping to `inner` between them. Worked out here rather than typed in,
+ * so the lobes are exactly even and the shape can be tuned by changing three numbers.
+ */
+function rosette(points: number, outer: number, inner: number): string {
+  const at = (r: number, a: number) => `${(12 + r * Math.cos(a)).toFixed(2)} ${(12 + r * Math.sin(a)).toFixed(2)}`;
+  const step = (Math.PI * 2) / points;
+  // Each lobe is one quadratic curve from a dip to the next dip. A quadratic only gets halfway to its
+  // control point, so the control sits far enough out for the crest of the lobe to land on `outer`.
+  const reach = 2 * outer - inner * Math.cos(step / 2);
+  let d = `M${at(inner, -Math.PI / 2 - step / 2)}`;
+  for (let i = 0; i < points; i++) {
+    const crest = -Math.PI / 2 + i * step;
+    d += `Q${at(reach, crest)} ${at(inner, crest + step / 2)}`;
+  }
+  return `${d}Z`;
+}
+
 // The app's own icon set, drawn on a 24px grid.
 const ICONS = {
   home: '<path d="M3.5 10.6 12 3.4l8.5 7.2V20a1 1 0 0 1-1 1h-4.9v-6.2H9.4V21H4.5a1 1 0 0 1-1-1z"/>',
@@ -80,8 +99,8 @@ const ICONS = {
   smile: '<circle cx="12" cy="12" r="8.6"/><path d="M8.4 13.6c.9 1.5 2.1 2.2 3.6 2.2s2.7-.7 3.6-2.2"/><circle cx="9" cy="9.6" r="1.1" fill="COLOR" stroke="none"/><circle cx="15" cy="9.6" r="1.1" fill="COLOR" stroke="none"/>',
   phone: '<rect x="6.5" y="3" width="11" height="18" rx="2.6"/><path d="M10.5 6h3"/>',
   camerafill: '<path d="M8.2 6.5 9.6 4.2h4.8l1.4 2.3H19A2.5 2.5 0 0 1 21.5 9v8.5A2.5 2.5 0 0 1 19 20H5a2.5 2.5 0 0 1-2.5-2.5V9A2.5 2.5 0 0 1 5 6.5z" fill="COLOR"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="INK" stroke-width="2"/>',
-  /** The verified seal: a scalloped badge with a tick. Pass the badge colour as `color` and the tick colour as `ink`. */
-  verified: '<path d="M12 1.4 14.87 3.16 18.23 3.42 19.52 6.53 22.08 8.72 21.3 12 22.08 15.28 19.52 17.47 18.23 20.58 14.87 20.84 12 22.6 9.13 20.84 5.77 20.58 4.48 17.47 1.92 15.28 2.7 12 1.92 8.72 4.48 6.53 5.77 3.42 9.13 3.16Z" fill="COLOR" stroke="none"/><path d="m7.6 12.4 2.9 2.9 5.9-6.2" fill="none" stroke="INK" stroke-width="2.3"/>',
+  /** The verified badge: a 12-lobed rosette with a check. Pass the badge colour as `color` and the check colour as `ink`. */
+  verified: `<path d="${rosette(12, 11.2, 9.6)}" fill="COLOR" stroke="none"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="INK" stroke-width="2.4"/>`,
   bible: '<path d="M4.5 5.2A2.2 2.2 0 0 1 6.7 3h12.8v15.4H6.7a2.2 2.2 0 0 0-2.2 2.2z"/><path d="M4.5 18.4a2.2 2.2 0 0 0 2.2 2.2h12.8M12 7v6M9.3 9.7h5.4"/>',
   hymnal: '<path d="M9 17.5V6.2l10-2.2v11.3"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.3" r="2.5"/><path d="M9 9.4l10-2.2"/>',
   lesson: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/><path d="M7 9h3M7 12h3M14 9h3M14 12h3"/>',
@@ -165,8 +184,8 @@ export function Mark({ size = 64, color = C.fg }: { size?: number; color?: strin
   return <Image source={require('../../assets/logo-white.png')} style={{ width: size, height: size, tintColor: color }} accessibilityIgnoresInvertColors />;
 }
 
-/** The verified tick shown next to a verified account's name. */
-export function VerifiedTick({ size = 16 }: { size?: number }) {
+/** The verified badge shown next to a verified account's name: blue rosette, white check. */
+export function VerifiedTick({ size = 18 }: { size?: number }) {
   return <Icon name="verified" size={size} color={C.verified} ink="#ffffff" />;
 }
 

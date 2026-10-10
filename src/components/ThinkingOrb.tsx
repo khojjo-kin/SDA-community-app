@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppFont } from '../lib/fonts';
+import { useT } from '../lib/i18n';
 import { C } from '../lib/theme';
 import { TypingDots } from './TypingDots';
 
@@ -51,8 +52,8 @@ export function ThinkingOrb({ size = 28 }: { size?: number }) {
   );
 }
 
-/** A line of text with a soft light passing through it, left to right. */
-export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15 }: { text: string; color?: string; shine?: string; size?: number }) {
+/** A line of text with a soft light passing through it, left to right. `center` centres it if it runs onto a second line. */
+export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15, bold = false, center = false }: { text: string; color?: string; shine?: string; size?: number; bold?: boolean; center?: boolean }) {
   const font = useAppFont();
   const x = useRef(new Animated.Value(0)).current;
   const [w, setW] = React.useState(0);
@@ -64,7 +65,7 @@ export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15 
   const band = Math.max(36, w * 0.35);
   const left = x.interpolate({ inputRange: [0, 1], outputRange: [-band, w] });
   const inner = x.interpolate({ inputRange: [0, 1], outputRange: [band, -w] });
-  const style = { fontSize: size, fontFamily: font, fontWeight: '600' as const };
+  const style = { fontSize: size, fontFamily: font, fontWeight: bold ? ('800' as const) : ('600' as const), textAlign: center ? ('center' as const) : undefined };
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={[style, { color }]}>{text}</Text>
@@ -82,10 +83,12 @@ export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15 
 
 /** The assistant is working on a reply. */
 export function AssistantThinking({ name = 'Erha', label }: { name?: string; label?: string }) {
+  const t = useT();
+  const words = label ?? t('assistant.thinking', { name });
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }} accessible accessibilityLabel={`${name} is thinking`}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }} accessible accessibilityLabel={words}>
       <ThinkingOrb size={26} />
-      <ShimmerText text={label ?? `${name} is thinking…`} />
+      <ShimmerText text={words} />
     </View>
   );
 }
@@ -93,9 +96,10 @@ export function AssistantThinking({ name = 'Erha', label }: { name?: string; lab
 /** A person from the support team is typing: their name, then the dots. */
 export function AgentTyping({ name }: { name: string }) {
   const font = useAppFont();
+  const t = useT();
   return (
-    <View style={{ gap: 4, paddingVertical: 4 }} accessible accessibilityLabel={`${name} is typing`}>
-      <Text style={{ color: C.fg3, fontSize: 12.5, fontFamily: font }}>{name} · Support team</Text>
+    <View style={{ gap: 4, paddingVertical: 4 }} accessible accessibilityLabel={t('support.typing', { name })}>
+      <Text style={{ color: C.fg3, fontSize: 12.5, fontFamily: font }}>{t('support.fromTeam', { name })}</Text>
       <View style={{ alignSelf: 'flex-start', backgroundColor: C.surface2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 6 }}>
         <TypingDots />
       </View>

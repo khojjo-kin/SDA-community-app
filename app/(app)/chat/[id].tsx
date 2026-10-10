@@ -7,16 +7,20 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { thumbOf } from '../../../src/components/Grid';
 import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
+import { OnceToggle, SnapBubble, SnapViewer } from '../../../src/components/SnapBubble';
+import { AssistantThinking } from '../../../src/components/ThinkingOrb';
 import { TypingDots } from '../../../src/components/TypingDots';
 import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useToast } from '../../../src/components/ui';
-import { askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, markThreadRead, report, sendMessage, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
+import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
 import { useCalls } from '../../../src/lib/calls';
-import { pickFromLibrary, takePhoto } from '../../../src/lib/pick';
+import { tap } from '../../../src/lib/haptics';
+import { pickFromLibrary, takePhoto, type Picked } from '../../../src/lib/pick';
 import { useAppFont } from '../../../src/lib/fonts';
 import { usePrefs } from '../../../src/lib/prefs';
 import { useSession } from '../../../src/lib/session';
@@ -33,7 +37,11 @@ type Row =
   | { key: string; kind: 'post'; mine: boolean; m: Message; seen?: boolean }
   | { key: string; kind: 'photos'; mine: boolean; urls: string[]; at: number; seen?: boolean }
   | { key: string; kind: 'voice'; mine: boolean; m: Message; seen?: boolean }
-  | { key: string; kind: 'call'; mine: boolean; m: Message; seen?: boolean };
+  | { key: string; kind: 'call'; mine: boolean; m: Message; seen?: boolean }
+  // A view-once photo: never drawn as a photo, only as a small bubble (src/components/SnapBubble.tsx).
+  | { key: string; kind: 'snap'; mine: boolean; m: Message; seen?: boolean }
+  // A line from the app in the middle of the chat, such as "took a screenshot". Never marked "Seen".
+  | { key: string; kind: 'notice'; mine: boolean; m: Message; seen?: boolean };
 
 type Channel = ReturnType<typeof supabase.channel>;
 
@@ -48,6 +56,16 @@ const TYPING_LINGER_MS = 4000;
 /** A chat streak shows from three days in a row, as a small orange flame next to the name. */
 const STREAK_FROM = 3;
 const FLAME = '#ff8a3d';
+
+/**
+ * At most one screenshot notice per chat every 30 seconds: a burst of screenshots says the same thing once.
+ * Kept outside the screen so a second copy of the same chat (opened from a profile) shares the limit.
+ */
+const SHOT_GAP_MS = 30000;
+const lastShotAt = new Map<string, number>();
+
+/** How often the header's "Active now" is refreshed while the chat is open. */
+const ACTIVE_EVERY_MS = 60000;
 
 /** Said when the database turns a message away under the under-14 rules. */
 const MINOR_RULE = 'Members under 14 can only message people they follow, and be messaged by people they follow.';
@@ -150,6 +168,15 @@ function buildRows(messages: Message[], me: string, theirRead: string | null): R
     const mine = m.sender_id === me;
     if (!prevAt || at - prevAt > 3600e3) rows.push({ key: 's' + m.id, kind: 'stamp', label: chatStamp(m.created_at) });
     prevAt = at;
+    // Notices and view-once photos come first: neither is ever shown as text or as a photo.
+    if (m.system === 'screenshot') {
+      rows.push({ key: m.id, kind: 'notice', mine, m });
+      continue;
+    }
+    if (m.view_once) {
+      rows.push({ key: m.id, kind: 'snap', mine, m });
+      continue;
+    }
     const words = m.text.trim();
     const plain = words && !(m.post_id && words === 'Sent a post');
     if (m.call_url) {
@@ -173,11 +200,11 @@ function buildRows(messages: Message[], me: string, theirRead: string | null): R
   }
   // "Seen" only ever sits under the last message you sent: the last row of yours is that message's last piece.
   if (theirRead) {
-    const last = [...messages].reverse().find((m) => m.sender_id === me);
+    const last = [...messages].reverse().find((m) => m.sender_id === me && m.system !== 'screenshot');
     if (last && atOrAfter(theirRead, last.created_at)) {
       for (let i = rows.length - 1; i >= 0; i--) {
         const r = rows[i];
-        if (r.kind !== 'stamp' && r.mine) {
+        if (r.kind !== 'stamp' && r.kind !== 'notice' && r.mine) {
           r.seen = true;
           break;
         }
@@ -200,6 +227,17 @@ function Bubble({ mine, children }: { mine: boolean; children: React.ReactNode }
 /** The small note under the last message you sent, once the other person has read it. `color` is light over a wallpaper. */
 function SeenLabel({ color }: { color: string }) {
   return <Text style={{ color, fontSize: 12, alignSelf: 'flex-end', paddingTop: 3, paddingRight: 6 }}>Seen</Text>;
+}
+
+/** "Grace took a screenshot of the chat": a quiet line across the middle, not a bubble. Colours follow the wallpaper. */
+function ScreenshotLine({ mine, name, fg2, fg3 }: { mine: boolean; name: string; fg2: string; fg3: string }) {
+  const words = mine ? 'You took a screenshot of the chat' : `${name} took a screenshot of the chat`;
+  return (
+    <View accessible accessibilityLabel={words} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '90%', paddingVertical: 8 }}>
+      <Icon name="camera" size={14} color={fg3} weight={2} />
+      <Text numberOfLines={2} style={{ color: fg2, fontSize: 13, textAlign: 'center', flexShrink: 1 }}>{words}</Text>
+    </View>
+  );
 }
 
 /**
@@ -358,7 +396,8 @@ function BarIcon({ name, label, onPress, disabled }: { name: IconName; label: st
 }
 
 export default function Chat() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `draft` starts the message box with some words, e.g. a quoted note when replying to one (src/components/NotesRow.tsx).
+  const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const threadId = String(id);
   const { me, profile } = useSession();
   const prefs = usePrefs();
@@ -373,8 +412,14 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading');
   const [error, setError] = useState('');
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => (typeof draft === 'string' ? draft : ''));
   const [sending, setSending] = useState(false);
+  // Photos chosen and waiting for Send, with the view-once choice. Nothing is uploaded until Send.
+  const [pending, setPending] = useState<{ assets: Picked[]; once: boolean } | null>(null);
+  // The view-once photo open in the viewer. Its address is held here only while the viewer is open.
+  const [snap, setSnap] = useState<{ id: string; url: string } | null>(null);
+  // View-once photos opened on this phone, with when: they stay "Opened" even if a refresh races the server.
+  const openedHere = useRef(new Map<string, string>());
   const [tray, setTray] = useState(false);
   const [sheet, setSheet] = useState<'more' | 'options' | null>(null);
   const [replies, setReplies] = useState<SavedReply[] | null>(null);
@@ -408,6 +453,14 @@ export default function Chat() {
   // Likewise read when a message is refused (a ref, so the voice recorder's callback always sees it).
   const suspended = useRef(false);
   suspended.current = !!profile?.suspended;
+  // Plus: read without the other person seeing "Seen" (Settings → Read quietly). Nothing marks the chat read
+  // while this is on. A ref as well, so load() always sees the latest choice.
+  const quiet = !!profile?.plus && prefs.readQuietly;
+  const quietRef = useRef(quiet);
+  quietRef.current = quiet;
+  // The chat's card, for the screenshot listener, which is set up once per visit rather than on every draw.
+  const threadRef = useRef<Thread | null>(null);
+  threadRef.current = thread;
 
   const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, numberOfChannels: 1, bitRate: 64000 });
 
@@ -466,7 +519,11 @@ export default function Chat() {
     if (!ready.current) return;
     const mine = ++asked.current;
     try {
-      const list = await fetchMessages(threadId, hidden.current);
+      // A view-once photo opened here stays opened, and its address is dropped, even if the server hasn't caught up yet.
+      const list = (await fetchMessages(threadId, hidden.current)).map((m) => {
+        const at = openedHere.current.get(m.id);
+        return at ? { ...m, media_url: '', opened_at: m.opened_at ?? at } : m;
+      });
       // A slow, older answer must not replace a newer one (a message you just sent would vanish for a moment).
       if (mine < shown.current) return;
       shown.current = mine;
@@ -479,7 +536,8 @@ export default function Chat() {
         hideTheirTyping();
       }
       // Mark as read when their newest message is one you have not been shown yet, and only while this chat is in front.
-      if (front.current && theirs && theirs.id !== seen.current) {
+      // Reading quietly, nothing is marked, and `seen` isn't moved on: turning it off later marks the chat then.
+      if (front.current && !quietRef.current && theirs && theirs.id !== seen.current) {
         seen.current = theirs.id;
         markThreadRead(me, threadId);
       }
@@ -505,7 +563,7 @@ export default function Chat() {
         them.current = t.other_id;
         ready.current = true;
         load();
-        markThreadRead(me, threadId);
+        if (!quietRef.current) markThreadRead(me, threadId);
         refreshTheirRead();
         // Creators can offer ready-made questions at the top of the chat.
         getProfile(t.other_id)
@@ -534,6 +592,8 @@ export default function Chat() {
         channel = supabase
           .channel(`thread-${threadId}-${Date.now().toString(36)}`)
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { load(); })
+          // Changes to a message, above all a view-once photo being opened: the sender's "Delivered" turns to "Opened".
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { load(); })
           // The other person's read marker, for "Seen". Both markers for the chat arrive here; only theirs matters.
           .on('postgres_changes', { event: '*', schema: 'public', table: 'community_thread_reads', filter: `thread_id=eq.${threadId}` }, (payload) => {
             const row = payload.new as { user_id?: string; last_read_at?: string };
@@ -599,6 +659,51 @@ export default function Chat() {
     }, [load, refreshTheirRead]),
   );
 
+  // "Active now" in the header goes stale, so the chat's card is asked for again every minute while it's open.
+  // Only what changes with time is taken from it: muting and the rest stay as this screen has them.
+  useEffect(() => {
+    let live = true;
+    const timer = setInterval(() => {
+      fetchThread(threadId)
+        .then((t) => {
+          if (live && t) setThread((cur) => (cur ? { ...cur, active_at: t.active_at, other_plus: t.other_plus, streak: t.streak } : cur));
+        })
+        .catch(() => {});
+    }, ACTIVE_EVERY_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [threadId]);
+
+  // A screenshot while this chat is in front tells the other person, if they have Plus. Only the screen in
+  // front listens, so the same chat open twice sends one notice, and at most one every 30 seconds.
+  useFocusEffect(
+    useCallback(() => {
+      let sub: { remove(): void } | null = null;
+      try {
+        sub = ScreenCapture.addScreenshotListener(() => {
+          const t = threadRef.current;
+          if (!t || !t.other_plus || t.other_id === ERHA_ID || t.other_id === me) return;
+          const now = Date.now();
+          if (now - (lastShotAt.get(threadId) ?? 0) < SHOT_GAP_MS) return;
+          lastShotAt.set(threadId, now);
+          sendScreenshotNotice(me, threadId)
+            .then(() => load())
+            .catch(() => {
+              // Not sent, so the next screenshot may try again.
+              lastShotAt.delete(threadId);
+            });
+        });
+      } catch {
+        // Screenshot detection isn't available on this phone: nothing to announce.
+      }
+      return () => {
+        sub?.remove();
+      };
+    }, [me, threadId, load]),
+  );
+
   useEffect(() => {
     const up = Keyboard.addListener('keyboardWillShow', () => setKeyboardUp(true));
     const down = Keyboard.addListener('keyboardWillHide', () => setKeyboardUp(false));
@@ -638,6 +743,7 @@ export default function Chat() {
   async function send(msg: { text?: string; media_url?: string }) {
     if (sending) return;
     setSending(true);
+    tap();
     if (msg.text !== undefined) tellStopped();
     try {
       await explained(sendMessage(me, threadId, msg), mutual.current, suspended.current);
@@ -662,22 +768,83 @@ export default function Chat() {
     calls.startCall(thread.other_id, kind, threadId).catch((e) => toast(errText(e)));
   }
 
-  async function sendPhotos(fromCamera: boolean) {
+  /**
+   * Takes or chooses photos. They wait above the message box with the view-once choice until you
+   * press Send, so you decide before anything is uploaded.
+   */
+  async function pickPhotos(fromCamera: boolean) {
     if (sending) return;
     try {
       const picked = fromCamera ? await takePhoto({ front: prefs.frontCamera }) : await pickFromLibrary({ multiple: true, limit: 10 });
       if (!picked.length) return;
-      setSending(true);
-      for (const a of picked) {
+      setTray(false);
+      // Choosing again replaces what was waiting, but keeps the view-once choice.
+      setPending((cur) => ({ assets: picked, once: cur?.once ?? false }));
+    } catch (e) {
+      toast(errText(e));
+    }
+  }
+
+  async function sendPending() {
+    if (!pending || sending) return;
+    const { assets, once } = pending;
+    setSending(true);
+    tap();
+    let sent = 0;
+    try {
+      for (const a of assets) {
         const m = await uploadImage(me, a.uri, a.width, 1280);
-        await explained(sendMessage(me, threadId, { media_url: m.url }), mutual.current, suspended.current);
+        await explained(sendMessage(me, threadId, { media_url: m.url, view_once: once }), mutual.current, suspended.current);
+        sent++;
       }
+      setPending(null);
       await load();
     } catch (e) {
+      // Whatever didn't go stays waiting, so Send can try again without sending any twice.
+      setPending((cur) => (cur && cur.assets === assets ? { ...cur, assets: assets.slice(sent) } : cur));
+      if (sent) load();
       toast(errText(e));
     } finally {
       setSending(false);
     }
+  }
+
+  /* ----- view-once photos ----- */
+
+  const openingSnap = useRef(false);
+
+  /**
+   * Opens a view-once photo sent to you. Yours, and ones already opened, can't be opened. The server
+   * hands over the photo's address only now, and from this moment it counts as opened.
+   */
+  async function openSnap(m: Message) {
+    if (m.sender_id === me || m.opened_at || openedHere.current.has(m.id) || openingSnap.current) return;
+    openingSnap.current = true;
+    tap('medium');
+    pauseVoice();
+    try {
+      const url = await openViewOnce(m.id);
+      openedHere.current.set(m.id, new Date().toISOString());
+      if (url) setSnap({ id: m.id, url });
+      else {
+        toast('This photo has already been opened.');
+        setMessages((list) => list.map((x) => (x.id === m.id ? { ...x, opened_at: x.opened_at ?? new Date().toISOString() } : x)));
+      }
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      openingSnap.current = false;
+    }
+  }
+
+  function closeSnap() {
+    const s = snap;
+    setSnap(null);
+    if (!s) return;
+    const at = openedHere.current.get(s.id);
+    // Opened: forget its address straight away and show "Opened". Not loaded: it stays waiting to be tapped.
+    if (at) setMessages((list) => list.map((m) => (m.id === s.id ? { ...m, media_url: '', opened_at: m.opened_at ?? at } : m)));
+    load();
   }
 
   /* ----- voice messages ----- */
@@ -851,7 +1018,7 @@ export default function Chat() {
         <RoundButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/inbox'))} />
         {thread ? (
           <Pressable onPress={() => router.push(`/user/${thread.other_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${thread.full_name}'s profile`}>
-            {isErha && !thread.avatar_url ? <ErhaAvatar size={40} /> : <Avatar uri={thread.avatar_url} name={thread.full_name} size={40} />}
+            {isErha && !thread.avatar_url ? <ErhaAvatar size={40} /> : <Avatar uri={thread.avatar_url} name={thread.full_name} size={40} online={!isErha && isOnline(thread.active_at)} />}
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{thread.full_name}</Text>
@@ -864,9 +1031,12 @@ export default function Chat() {
                 ) : null}
               </View>
               {showTyping ? (
-                <Text numberOfLines={1} style={{ color: C.accent2, fontSize: 13 }} accessibilityLiveRegion="polite">Typing…</Text>
+                <Text numberOfLines={1} style={{ color: C.accent2, fontSize: 13 }} accessibilityLiveRegion="polite">{isErha && erhaThinking ? 'Thinking…' : 'Typing…'}</Text>
               ) : isErha ? (
                 <Text numberOfLines={1} style={{ color: C.fg, fontSize: 13 }}>Church assistant{thread.muted ? ' · muted' : ''}</Text>
+              ) : activeLabel(thread.active_at) ? (
+                // When they were last here, if both of you share activity status; otherwise their username, as before.
+                <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13 }}>{activeLabel(thread.active_at)}{thread.muted ? ' · muted' : ''}</Text>
               ) : (
                 <Text numberOfLines={1} style={{ color: C.fg, fontSize: 13 }}>{thread.username}{thread.muted ? ' · muted' : ''}</Text>
               )}
@@ -883,6 +1053,12 @@ export default function Chat() {
         ) : null}
         {thread ? <RoundButton name="info" label="Chat options" onPress={() => setSheet('options')} /> : null}
       </View>
+      {quiet && thread && !isErha ? (
+        <Pressable onPress={() => toast("They won't see “Seen” while you read. Change it in Settings.")} accessibilityRole="button" accessibilityLabel="Reading quietly. They won't see Seen while you read" style={({ pressed }) => ({ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4, borderRadius: 11, backgroundColor: C.surface, opacity: pressed ? 0.7 : 1 })}>
+          <Icon name="eye" size={13} color={C.fg2} weight={2} />
+          <Text style={{ color: C.fg2, fontSize: 12, fontWeight: '600' }}>Reading quietly</Text>
+        </Pressable>
+      ) : null}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {status === 'loading' ? (
@@ -903,8 +1079,18 @@ export default function Chat() {
               keyboardShouldPersistTaps="handled"
               renderItem={({ item: r }) => {
                 if (r.kind === 'stamp') return <Text style={{ color: onWall.fg2, fontSize: 12.5, letterSpacing: 0.2, textAlign: 'center', paddingTop: 18, paddingBottom: 10 }}>{r.label}</Text>;
+                if (r.kind === 'notice') return <ScreenshotLine mine={r.mine} name={thread?.full_name || thread?.username || 'They'} fg2={onWall.fg2} fg3={onWall.fg3} />;
                 const align = { alignSelf: r.mine ? ('flex-end' as const) : ('flex-start' as const), maxWidth: '82%' as const };
                 const seen = r.seen ? <SeenLabel color={onWall.fg3} /> : null;
+                if (r.kind === 'snap') {
+                  // The sender's own bubble says Delivered or Opened, so "Seen" would only repeat it.
+                  const opened = !!r.m.opened_at || openedHere.current.has(r.m.id);
+                  return (
+                    <View style={[align, { paddingVertical: 2 }]}>
+                      <SnapBubble mine={r.mine} opened={opened} onOpen={() => openSnap(r.m)} />
+                    </View>
+                  );
+                }
                 if (r.kind === 'photos') {
                   return (
                     <>
@@ -977,7 +1163,13 @@ export default function Chat() {
               }}
               // The list is upside down, so its header sits at the bottom: their typing bubble goes under the newest message.
               ListHeaderComponent={
-                showTyping ? (
+                isErha && erhaThinking ? (
+                  // Erha is working on her answer: her living orb as the last row of the chat.
+                  // Over a wallpaper it sits on a soft card, so the words stay readable on the dark picture.
+                  <View style={[{ alignSelf: 'flex-start', paddingTop: 6, paddingLeft: 4 }, wallpaper ? { paddingLeft: 12, paddingRight: 14, paddingTop: 4, paddingBottom: 4, marginTop: 4, borderRadius: 18, backgroundColor: C.surface2 } : null]} accessibilityLiveRegion="polite">
+                    <AssistantThinking name="Erha" />
+                  </View>
+                ) : showTyping ? (
                   <View style={{ alignSelf: 'flex-start', paddingTop: 4 }} accessibilityLabel={`${thread?.full_name ?? 'They'} is typing`} accessibilityLiveRegion="polite">
                     <Bubble mine={false}>
                       <TypingDots />
@@ -1039,6 +1231,28 @@ export default function Chat() {
                 ))}
               </ScrollView>
             ) : null}
+            {pending && !recording ? (
+              // Photos waiting to be sent: choose view once (the "1") or keep them in the chat, then Send.
+              <View style={{ marginBottom: 6, padding: 8, borderRadius: 22, backgroundColor: C.inputBar, gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Pressable onPress={() => setPending(null)} disabled={sending} hitSlop={6} accessibilityRole="button" accessibilityLabel="Don't send these photos" style={({ pressed }) => ({ width: 32, height: 32, borderRadius: 16, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.4 : pressed ? 0.6 : 1 })}>
+                    <Icon name="close" size={16} weight={2.4} />
+                  </Pressable>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="always">
+                    {pending.assets.map((a, i) => (
+                      <Image key={`${i}-${a.uri}`} source={{ uri: a.uri }} style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: C.surface2 }} contentFit="cover" accessibilityLabel={`Photo ${i + 1} of ${pending.assets.length}`} />
+                    ))}
+                  </ScrollView>
+                  <OnceToggle on={pending.once} disabled={sending} onPress={() => { tap('select'); setPending((p) => (p ? { ...p, once: !p.once } : p)); }} />
+                  <Pressable onPress={sendPending} disabled={sending} accessibilityRole="button" accessibilityLabel={pending.once ? `Send ${pending.assets.length === 1 ? 'photo' : `${pending.assets.length} photos`} as view once` : `Send ${pending.assets.length === 1 ? 'photo' : `${pending.assets.length} photos`}`} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                    {sending ? <ActivityIndicator color={C.onAccent} size="small" /> : <Icon name="send" size={19} color={C.onAccent} />}
+                  </Pressable>
+                </View>
+                <Text style={{ color: pending.once ? C.accent2 : C.fg3, fontSize: 12.5, paddingHorizontal: 4 }}>
+                  {pending.once ? 'View once: they can open each photo one time, then it’s gone.' : 'Tap 1 to send as view once.'}
+                </Text>
+              </View>
+            ) : null}
             {recording ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 6, borderRadius: 26, backgroundColor: C.inputBar }}>
                 <Pressable onPress={() => stopRecording(false)} accessibilityRole="button" accessibilityLabel="Discard recording" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
@@ -1053,11 +1267,11 @@ export default function Chat() {
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 52, paddingLeft: isErha ? 8 : 6, paddingRight: 8, borderRadius: 26, backgroundColor: C.inputBar }}>
                 {isErha ? null : (
-                  <Pressable onPress={() => sendPhotos(true)} disabled={sending} accessibilityRole="button" accessibilityLabel="Take a photo" style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 6, opacity: pressed ? 0.7 : 1 })}>
+                  <Pressable onPress={() => pickPhotos(true)} disabled={sending} accessibilityRole="button" accessibilityLabel="Take a photo" style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 6, opacity: pressed ? 0.7 : 1 })}>
                     {sending ? <ActivityIndicator color={C.onAccent} size="small" /> : <Icon name="camerafill" size={23} color={C.onAccent} ink={C.accent} />}
                   </Pressable>
                 )}
-                <TextInput value={text} onChangeText={changeText} onFocus={() => setTray(false)} onBlur={tellStopped} placeholder={isErha ? 'Ask Erha…' : 'Message…'} placeholderTextColor={C.fg2} multiline maxLength={5000} keyboardAppearance={C.blurTint} style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel={isErha ? 'Message to Erha' : 'Message'} />
+                <TextInput value={text} onChangeText={changeText} onFocus={() => setTray(false)} onBlur={tellStopped} placeholder={isErha ? 'Ask Erha…' : 'Message…'} placeholderTextColor={C.fg2} autoFocus={!!draft} multiline maxLength={5000} keyboardAppearance={C.blurTint} style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel={isErha ? 'Message to Erha' : 'Message'} />
                 {typing ? (
                   <Pressable onPress={() => send({ text })} disabled={sending} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: sending }} style={{ paddingHorizontal: 10, height: 52, justifyContent: 'center' }}>
                     {isErha && sending ? <ActivityIndicator color={C.accent2} size="small" /> : <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5, opacity: sending ? 0.4 : 1 }}>Send</Text>}
@@ -1065,7 +1279,7 @@ export default function Chat() {
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', height: 52 }}>
                     {isErha ? null : <BarIcon name="mic" label="Record a voice message" onPress={startRecording} disabled={sending} />}
-                    {isErha ? null : <BarIcon name="image" label="Send photos" onPress={() => sendPhotos(false)} disabled={sending} />}
+                    {isErha ? null : <BarIcon name="image" label="Send photos" onPress={() => pickPhotos(false)} disabled={sending} />}
                     <BarIcon name="chatdots" label={tray ? 'Hide quick reactions' : 'Quick reactions'} onPress={() => setTray(!tray)} />
                     <BarIcon name="pluscircle" label="More" onPress={openMore} />
                   </View>
@@ -1147,6 +1361,9 @@ export default function Chat() {
           ) : null}
         </View>
       </Modal>
+
+      {/* a view-once photo, full screen: no forwarding and no saving */}
+      <SnapViewer url={snap?.url ?? null} onClose={closeSnap} />
     </Screen>
   );
 }

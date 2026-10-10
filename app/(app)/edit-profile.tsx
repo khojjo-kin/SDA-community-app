@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { useUser } from '@clerk/clerk-expo';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon, IconName } from '../../src/components/Icon';
 import { Avatar, Button, Divider, Field, Radio, RoundButton, Screen, Sheet, Toggle, useToast } from '../../src/components/ui';
-import { fetchChurch, updateProfile, uploadImage } from '../../src/lib/api';
+import { fetchChurch, updateProfile, uploadImage, withTimeout } from '../../src/lib/api';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
 import { profileTheme, RING_STYLES } from '../../src/lib/styling';
@@ -82,6 +83,7 @@ function PlusLabel() {
 
 export default function EditProfile() {
   const { me, profile, refresh } = useSession();
+  const { user } = useUser();
   const router = useRouter();
   const toast = useToast();
   const params = useLocalSearchParams<{ church?: string }>();
@@ -130,6 +132,7 @@ export default function EditProfile() {
   async function save() {
     if (busy) return;
     const u = username.trim().toLowerCase();
+    const before = profile?.username ?? '';
     if (!name.trim()) return setErr('Add your name.');
     if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr('Usernames use 3 to 30 lowercase letters, numbers or underscores.');
     if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) return setErr('That contact email does not look right.');
@@ -151,8 +154,20 @@ export default function EditProfile() {
       };
       if (photo) patch.avatar_url = (await uploadImage(me, photo.uri, photo.width, 480)).url;
       await updateProfile(me, patch);
+      // Members can log in with their username, which Clerk checks, so Clerk is told of a new one.
+      // The app's username is saved either way: if Clerk won't take it (its rules differ, or someone
+      // there has it), logging in simply carries on with email.
+      let loginNote = '';
+      if (user && user.username !== u) {
+        try {
+          await withTimeout(user.update({ username: u }), 10000);
+        } catch {
+          // Only worth a word when they have just chosen the name; otherwise it would nag on every save.
+          if (u !== before) loginNote = "Saved. Logging in with this username isn't available, use your email.";
+        }
+      }
       await refresh();
-      toast('Profile saved');
+      toast(loginNote || 'Profile saved');
       if (alive.current) router.back();
     } catch (e) {
       if (!alive.current) return toast(errText(e));

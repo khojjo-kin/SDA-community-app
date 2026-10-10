@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
-import { getProfile } from './api';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { getProfile, updateProfile } from './api';
 import { cacheKey, clearCache, readCache, writeCache } from './cache';
 import { listen } from './store';
 import { setTokenGetter } from './supabase';
@@ -27,6 +27,50 @@ export const useSession = () => useContext(Ctx);
  */
 type State = { id: string | null; profile: Profile | null; error: string; fresh: boolean; away?: boolean };
 
+type ClerkUser = NonNullable<ReturnType<typeof useUser>['user']>;
+
+/** "Ghana" from "GH". Clerk may give either; a code is turned into a name where the phone knows how. */
+function countryName(raw: string | null | undefined): string {
+  const value = (raw ?? '').trim();
+  if (!/^[A-Za-z]{2}$/.test(value)) return value.slice(0, 60);
+  const code = value.toUpperCase();
+  try {
+    const Names = (Intl as unknown as { DisplayNames?: new (locales: string[], options: { type: 'region' }) => { of(code: string): string | undefined } }).DisplayNames;
+    const name = Names ? new Names(['en-GB'], { type: 'region' }).of(code) : undefined;
+    if (name && name !== code) return name;
+  } catch {
+    // An older JavaScript engine without region names: the code is still better than nothing.
+  }
+  return code;
+}
+
+/**
+ * Keeps Clerk and the profile in step, once per launch and entirely in the background: nothing waits
+ * on it and every failure is swallowed, so it can never hold up or break start-up.
+ * - Members can log in with their username, which Clerk checks, so Clerk's copy follows the app's.
+ *   Clerk may refuse one the app allows (too short for its rules, or taken there): email still works.
+ * - Where the account is based (About this account) comes from where this session was signed in.
+ *   The database only takes it while it is still empty, so it is set once and never moves after.
+ */
+async function keepClerkInStep(me: string, user: ClerkUser, profile: Profile, sessionId: string | null) {
+  if (profile.username && user.username !== profile.username) {
+    try {
+      await user.update({ username: profile.username });
+    } catch {
+      // Logging in with the username isn't available for this one; nothing to tell anyone.
+    }
+  }
+  if (!profile.country && sessionId) {
+    try {
+      const sessions = await user.getSessions();
+      const country = countryName(sessions.find((s) => s.id === sessionId)?.latestActivity?.country);
+      if (country) await updateProfile(me, { country });
+    } catch {
+      // Unknown for now; the next launch asks again.
+    }
+  }
+}
+
 /** No connection or no answer in time: worth keeping last session's copy on screen and trying again. */
 function offline(e: unknown): boolean {
   const msg = String((e as any)?.message ?? '');
@@ -34,7 +78,8 @@ function offline(e: unknown): boolean {
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
+  const { isLoaded, isSignedIn, userId, getToken, sessionId } = useAuth();
+  const { user } = useUser();
   const [state, setState] = useState<State>({ id: null, profile: null, error: '', fresh: false });
 
   // Hand Supabase the current Clerk session token on every request.
@@ -105,6 +150,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, me, load]);
 
   useEffect(() => listen('profile', () => { refresh(); }), [refresh]);
+
+  // Once per launch for each account, after the database has confirmed the profile (never from last
+  // session's copy). Remembering the account here is what stops it running again when the profile
+  // reloads, including the reload its own save sets off.
+  const synced = useRef('');
+  useEffect(() => {
+    const p = state.profile;
+    if (!me || !user || user.id !== me || state.id !== me || !state.fresh || !p || p.id !== me || p.deleted_at) return;
+    if (synced.current === me) return;
+    synced.current = me;
+    keepClerkInStep(me, user, p, sessionId ?? null).catch(() => {});
+  }, [me, user, state, sessionId]);
 
   // Signing out forgets what was kept for that account on this phone.
   const lastUser = useRef('');

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
+import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon, IconName } from '../../../src/components/Icon';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
@@ -59,7 +60,7 @@ export default function ArchivedStories() {
 
   function remove(ctx: PlayerCtx<ArchivedStory>) {
     ctx.pause();
-    Alert.alert('Delete this story?', 'It is removed from your archive, and from your story if it is still showing. Highlights keep their copy.', [
+    Alert.alert('Delete this story?', 'It is removed from your archive, and from your story if it is still showing. Memories keep their copy.', [
       { text: 'Cancel', style: 'cancel', onPress: ctx.resume },
       {
         text: 'Delete',
@@ -93,7 +94,7 @@ export default function ArchivedStories() {
 
   function chooseHighlight(ctx: PlayerCtx<ArchivedStory>) {
     if (ctx.entry.audience === 'close_friends') {
-      toast('Close friends stories stay out of highlights, because highlights are for everyone.');
+      toast('Close friends stories stay out of memories, because memories are for everyone.');
       return;
     }
     ctx.pause();
@@ -107,7 +108,11 @@ export default function ArchivedStories() {
     if (!ctx) return;
     try {
       if (choice.id) await addToHighlight(me, choice.id, ctx.entry.item);
-      else await createHighlight(me, choice.title, [ctx.entry.item]);
+      else {
+        const made = await createHighlight(me, choice.title, [ctx.entry.item]);
+        // A new memory: its ring turns once when the profile next shows it, as from New memory.
+        markMemoryJustMade(made);
+      }
       toast(`Added to ${choice.title}`);
     } catch (e) {
       toast(errText(e));
@@ -148,7 +153,7 @@ export default function ArchivedStories() {
         )}
         footer={(ctx) => (
           <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-            <Action icon="highlight" label="Highlight" onPress={() => chooseHighlight(ctx)} />
+            <Action icon="highlight" label="Memory" onPress={() => chooseHighlight(ctx)} />
             <Action icon="story" label="Share again" onPress={() => again(ctx)} />
             <Action icon="trash" label="Delete" onPress={() => remove(ctx)} />
           </View>

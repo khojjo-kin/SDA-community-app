@@ -81,7 +81,7 @@ export default function Recap() {
               <Tile label="Likes" value={stats.likes} />
               <Tile label="Comments" value={stats.comments} />
               <Tile label="New followers" value={stats.new_followers} />
-              <Tile label="Posts, reels and stories shared" value={stats.posts + stats.reels + stats.stories} />
+              <Tile label="Posts, clips and stories shared" value={stats.posts + stats.reels + stats.stories} />
             </View>
             {top ? (
               <Pressable onPress={() => router.push(top.kind === 'reel' ? `/watch/${top.id}` : `/post/${top.id}`)} accessibilityRole="button" accessibilityLabel="Open your most viewed post of the month" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, margin: 16, padding: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>

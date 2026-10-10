@@ -7,6 +7,7 @@ import { Icon } from '../../src/components/Icon';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
+import { useT } from '../../src/lib/i18n';
 import { DARK, errText } from '../../src/lib/theme';
 
 type Strategy = 'email_code' | 'phone_code' | 'totp';
@@ -18,6 +19,8 @@ const ORDER: Strategy[] = ['email_code', 'phone_code', 'totp'];
 export default function SignIn() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  // The app's own words are translated; what Clerk says when something fails (errText) stays as Clerk sends it.
+  const t = useT();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -72,7 +75,7 @@ export default function SignIn() {
         return;
       }
     }
-    setErr('This account needs a sign-in step the app does not support yet. Try resetting your password.');
+    setErr(t('auth.unsupportedStep'));
   }
 
   async function run(fn: () => Promise<any>) {
@@ -90,13 +93,13 @@ export default function SignIn() {
   }
 
   const submit = () => {
-    if (!identifier.trim() || !password) return setErr('Enter your email and password.');
+    if (!identifier.trim() || !password) return setErr(t('auth.enterIdAndPassword'));
     run(() => signIn!.create({ identifier: identifier.trim(), password }));
   };
 
   const verify = () => {
     if (!factor) return;
-    if (!code.trim()) return setErr(factor.strategy === 'totp' ? 'Enter the code from your authenticator app.' : 'Enter the code we sent you.');
+    if (!code.trim()) return setErr(factor.strategy === 'totp' ? t('auth.enterAuthenticatorCode') : t('auth.enterSentCode'));
     const attempt = { strategy: factor.strategy, code: code.trim() };
     run(() => (stage === 'second' ? (signIn as any).attemptSecondFactor(attempt) : (signIn as any).attemptFirstFactor(attempt)));
   };
@@ -123,7 +126,7 @@ export default function SignIn() {
     setErr('');
     try {
       await prepare(factor, stage === 'second');
-      setNote(factor.strategy === 'phone_code' ? 'We sent a new code by text.' : 'We sent a new code to your email.');
+      setNote(factor.strategy === 'phone_code' ? t('auth.newCodeByText') : t('auth.newCodeByEmail'));
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -132,9 +135,14 @@ export default function SignIn() {
   }
 
   if (stage !== 'form' && factor) {
-    const where = factor.safeIdentifier ? ` to ${factor.safeIdentifier}` : '';
-    const sent = factor.strategy === 'totp' ? 'Enter the 6-digit code from your authenticator app.' : factor.strategy === 'phone_code' ? `We texted a code${where}. Enter it below.` : `We emailed a code${where}. Enter it below.`;
-    const title = newDevice ? "Confirm it's you" : "Enter your code";
+    const where = factor.safeIdentifier;
+    const sent =
+      factor.strategy === 'totp'
+        ? t('auth.codeFromAuthenticator')
+        : factor.strategy === 'phone_code'
+          ? where ? t('auth.textedCodeTo', { where }) : t('auth.textedCode')
+          : where ? t('auth.emailedCodeTo', { where }) : t('auth.emailedCode');
+    const title = newDevice ? t('auth.confirmItsYou') : t('auth.enterYourCode');
     return (
       <>
         <DarkStatusBar />
@@ -142,29 +150,27 @@ export default function SignIn() {
           {newDevice ? (
             <View style={{ flexDirection: 'row', gap: 10, backgroundColor: 'rgba(31,191,90,0.12)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(31,191,90,0.35)' }}>
               <Icon name="lock" size={18} color={DARK.accent2} />
-              <Text style={{ color: DARK.fg, flex: 1, lineHeight: 20 }}>
-                You're logging in on a new device or from a new place. To keep your account safe, we need to check it's really you.
-              </Text>
+              <Text style={{ color: DARK.fg, flex: 1, lineHeight: 20 }}>{t('auth.newDevice')}</Text>
             </View>
           ) : null}
           <Text style={{ color: DARK.fg2, lineHeight: 20 }}>{sent}</Text>
-          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder="6-digit code" keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} onSubmitEditing={verify} returnKeyType="go" />
+          <Field {...DARK_FIELD} value={code} onChangeText={setCode} placeholder={t('auth.codePlaceholder')} keyboardType="number-pad" autoFocus textContentType="oneTimeCode" error={err} onSubmitEditing={verify} returnKeyType="go" />
           {note ? <Text style={{ color: DARK.ok, textAlign: 'center' }}>{note}</Text> : null}
-          <Button label="Confirm" onPress={verify} busy={busy} />
+          <Button label={t('auth.confirm')} onPress={verify} busy={busy} />
           {factor.strategy !== 'totp' ? (
             <Pressable onPress={resend} style={{ padding: 6 }} accessibilityRole="button">
-              <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Send a new code</Text>
+              <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.sendNewCode')}</Text>
             </Pressable>
           ) : null}
           {others.map((f) => (
             <Pressable key={f.strategy + (f.phoneNumberId ?? f.emailAddressId ?? '')} onPress={() => switchTo(f)} style={{ padding: 6 }} accessibilityRole="button">
               <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>
-                {f.strategy === 'phone_code' ? 'Text me a code instead' : f.strategy === 'email_code' ? 'Email me a code instead' : 'Use my authenticator app'}
+                {f.strategy === 'phone_code' ? t('auth.textInstead') : f.strategy === 'email_code' ? t('auth.emailInstead') : t('auth.useAuthenticator')}
               </Text>
             </Pressable>
           ))}
           <Pressable onPress={() => { setStage('form'); setErr(''); setNote(''); setFactor(null); }} style={{ padding: 10 }}>
-            <Text style={{ color: DARK.fg2, textAlign: 'center', fontWeight: '600' }}>Back to log in</Text>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', fontWeight: '600' }}>{t('auth.backToLogIn')}</Text>
           </Pressable>
         </AuthShell>
       </>
@@ -179,17 +185,18 @@ export default function SignIn() {
           <Link href="/sign-up" replace asChild>
             <Pressable>
               <Text style={{ color: DARK.fg2 }}>
-                Don't have an account? <Text style={{ color: DARK.accent2, fontWeight: '600' }}>Sign up</Text>
+                {t('auth.noAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.signUp')}</Text>
               </Text>
             </Pressable>
           </Link>
         }>
-        <Field {...DARK_FIELD} value={identifier} onChangeText={setIdentifier} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="username" />
-        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
-        <Button label="Log in" onPress={submit} busy={busy} />
+        {/* Clerk takes a username or an email address here, so the keyboard is the ordinary one. */}
+        <Field {...DARK_FIELD} value={identifier} onChangeText={setIdentifier} placeholder={t('auth.usernameOrEmail')} accessibilityLabel={t('auth.usernameOrEmail')} autoCapitalize="none" autoCorrect={false} keyboardType="default" textContentType="username" autoComplete="username" />
+        <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="password" error={err} onSubmitEditing={submit} returnKeyType="go" />
+        <Button label={t('auth.logIn')} onPress={submit} busy={busy} />
         <Link href="/forgot" replace asChild>
           <Pressable style={{ padding: 6 }}>
-            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>Forgot password?</Text>
+            <Text style={{ color: DARK.accent2, textAlign: 'center', fontWeight: '600' }}>{t('auth.forgotPassword')}</Text>
           </Pressable>
         </Link>
         <SsoButtons onError={setErr} />

@@ -543,6 +543,8 @@ export type BillingStatus = {
   plan: 'monthly' | 'yearly' | null;
   /** A new member's first week is free. */
   trial_available: boolean;
+  /** In the free week with no card saved for after it: offer to add one, or Plus ends with the week. */
+  needs_card?: boolean;
 };
 
 export type PaymentsConfig = BillingStatus & {

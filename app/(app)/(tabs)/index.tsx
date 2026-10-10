@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, Text, View, ViewToken } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -9,18 +9,21 @@ import { Button, Empty, ErrorNote, IconButton, Loading, Screen } from '../../../
 import { countUnreadNotices, fetchExplore, fetchFeed, recordView } from '../../../src/lib/api';
 import { getActivePost, setActivePost } from '../../../src/lib/autoplay';
 import { cacheKey, peekCache, readCache, writeCache } from '../../../src/lib/cache';
+import { type Key, useT } from '../../../src/lib/i18n';
 import { prefetchLibrary } from '../../../src/lib/library';
 import { useSession } from '../../../src/lib/session';
 import { getPostNow, listen, putPosts } from '../../../src/lib/store';
 import { C, errText } from '../../../src/lib/theme';
 import type { Post } from '../../../src/lib/types';
+import { FeedTaste, tasteKey, tasteOf, tuneFeed } from '../clips-settings';
 
 /** Home offers only these two feeds; the API's other kinds aren't shown here. */
 type HomeFeed = 'foryou' | 'following';
 
-const FEEDS: readonly { key: HomeFeed; label: string }[] = [
-  { key: 'foryou', label: 'For you' },
-  { key: 'following', label: 'Following' },
+// Keys for the labels: the switch is handed the words as Home draws, in the app's language.
+const FEEDS: readonly { key: HomeFeed; label: Key }[] = [
+  { key: 'foryou', label: 'home.forYou' },
+  { key: 'following', label: 'common.following' },
 ];
 
 /** The feed last chosen in this session. Null until someone picks one, so the default can depend on who they follow. */
@@ -32,6 +35,20 @@ const CACHED_POSTS = 12;
 /** How many of the first posts have their pictures fetched before they scroll into view. */
 const PREFETCH_IMAGES = 4;
 const feedKey = (me: string, kind: HomeFeed) => cacheKey(me, `feed.${kind}`);
+/** How many posts the server sends at a time. */
+const PAGE = 12;
+/** When the member's choices leave a whole page out, look this many pages further before giving up. */
+const EXTRA_PAGES = 2;
+
+/**
+ * Applies Your feed (clips-settings) to a page as it is shown. For you gets all of it; the latest posts
+ * shown to someone who follows nobody get the sensitive filter only; Following is left as it is.
+ */
+function tune(page: Post[], me: string, taste: FeedTaste, feed: HomeFeed, suggested: boolean): Post[] {
+  if (feed === 'foryou') return tuneFeed(page, me, taste, true);
+  if (suggested) return tuneFeed(page, me, taste, false);
+  return page;
+}
 
 /** The picture a post shows first: the photo, or a video's cover. */
 function firstPicture(p: Post): string | undefined {
@@ -43,10 +60,18 @@ function firstPicture(p: Post): string | undefined {
 export default function Home() {
   const { me, profile } = useSession();
   const router = useRouter();
+  const t = useT();
+  // The same two feeds, with their words.
+  const feeds = useMemo(() => FEEDS.map((f) => ({ key: f.key, label: t(f.label) })), [t]);
   const [kind, setKindState] = useState<HomeFeed>(() => chosenFeed ?? ((profile?.following_count ?? 0) > 0 ? 'following' : 'foryou'));
+  // What the member wants more and less of (Your feed). Pages are kept as the server sent them and
+  // tuned as they are shown, so a change of mind only needs the feed loaded again.
+  const taste = tasteOf(profile);
+  const tasteRef = useRef(taste);
+  tasteRef.current = taste;
   // A first page already in memory from earlier in this session shows on the very first frame.
   const [seed] = useState(() => peekCache<CachedFeed>(feedKey(me, kind)));
-  const [ids, setIds] = useState<string[]>(() => (seed ? seed.posts.map((p) => p.id).filter((id) => getPostNow(id)) : []));
+  const [ids, setIds] = useState<string[]>(() => (seed ? tune(seed.posts, me, taste, kind, seed.suggested).map((p) => p.id).filter((id) => getPostNow(id)) : []));
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(() => (seed?.posts.length ? 'ready' : 'loading'));
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +121,7 @@ export default function Home() {
   const landed = useRef(0);
 
   /** Shows a saved first page while the fresh one loads. */
-  const showCached = useCallback((page: CachedFeed) => {
+  const showCached = useCallback((page: CachedFeed, feed: HomeFeed) => {
     if (!page.posts.length) return;
     // The shared copy is at least as new as the saved one (a like made since, say), so it wins.
     putPosts(page.posts.filter((p) => !getPostNow(p.id)));
@@ -104,7 +129,7 @@ export default function Home() {
     done.current = page.posts.length < CACHED_POSTS;
     mode.current = page.suggested ? 'explore' : 'feed';
     setSuggested(page.suggested);
-    setIds(page.posts.map((p) => p.id));
+    setIds(tune(page.posts, meRef.current, tasteRef.current, feed, page.suggested).map((p) => p.id));
     setStatus('ready');
   }, []);
 
@@ -117,25 +142,35 @@ export default function Home() {
       let which = reset ? 'feed' : mode.current;
       const before = reset ? undefined : cursor.current;
       try {
-        let page = which === 'feed' ? await fetchFeed(me, before, feed) : await fetchExplore(before, 12);
+        let page = which === 'feed' ? await fetchFeed(me, before, feed) : await fetchExplore(before, PAGE);
         // Following nobody yet: show everyone's latest instead, and say so.
         if (reset && page.length === 0 && feed === 'following') {
           which = 'explore';
-          page = await fetchExplore(undefined, 12);
+          page = await fetchExplore(undefined, PAGE);
         }
         if (my !== seq.current) return;
+        // Paging follows what the server sent, not what is shown, or a short page would look like the end.
+        let last = page;
+        let shown = tune(page, me, tasteRef.current, feed, which === 'explore');
+        // The member's choices left the whole page out: look a little further, so the feed isn't empty by mistake.
+        for (let i = 0; i < EXTRA_PAGES && !shown.length && last.length >= PAGE; i++) {
+          const from = last[last.length - 1].created_at;
+          last = which === 'feed' ? await fetchFeed(me, from, feed) : await fetchExplore(from, PAGE);
+          if (my !== seq.current) return;
+          shown = tune(last, me, tasteRef.current, feed, which === 'explore');
+        }
         mode.current = which;
         if (reset) done.current = false;
-        if (page.length < 12) done.current = true;
-        if (page.length) cursor.current = page[page.length - 1].created_at;
+        if (last.length < PAGE) done.current = true;
+        if (last.length) cursor.current = last[last.length - 1].created_at;
         setSuggested(which === 'explore');
-        setIds((cur) => (reset ? page.map((p) => p.id) : [...cur, ...page.map((p) => p.id).filter((id) => !cur.includes(id))]));
+        setIds((cur) => (reset ? shown.map((p) => p.id) : [...cur, ...shown.map((p) => p.id).filter((id) => !cur.includes(id))]));
         setStatus('ready');
         if (reset) {
           landed.current = my;
           // Keep this page for next time, and fetch the first pictures before they scroll into view.
           if (alive.current) writeCache(feedKey(me, feed), { posts: page.slice(0, CACHED_POSTS), suggested: which === 'explore' } satisfies CachedFeed);
-          const urls = page.slice(0, PREFETCH_IMAGES).map(firstPicture).filter((u): u is string => !!u);
+          const urls = shown.slice(0, PREFETCH_IMAGES).map(firstPicture).filter((u): u is string => !!u);
           if (urls.length) Image.prefetch(urls).catch(() => {});
         }
       } catch (e) {
@@ -160,7 +195,7 @@ export default function Home() {
     if (!peekCache<CachedFeed>(feedKey(me, kind))) {
       readCache<CachedFeed>(feedKey(me, kind)).then((page) => {
         if (!live || !page || mine !== seq.current || landed.current === mine) return;
-        showCached(page);
+        showCached(page, kind);
       });
     }
     return () => {
@@ -168,6 +203,15 @@ export default function Home() {
     };
   }, [load, kind, me, showCached]);
   useEffect(() => listen('feed', () => { load(true); }), [load]);
+
+  // New choices in Your feed: load For you (or the latest posts shown instead) again with them.
+  const tasteNow = tasteKey(taste);
+  const tasteShown = useRef(tasteNow);
+  useEffect(() => {
+    if (tasteShown.current === tasteNow) return;
+    tasteShown.current = tasteNow;
+    if (kindRef.current === 'foryou' || mode.current === 'explore') load(true);
+  }, [tasteNow, load]);
 
   useFocusEffect(
     useCallback(() => {
@@ -199,7 +243,7 @@ export default function Home() {
     setStatus('loading');
     // Seen earlier in this session: show that page straight away while the fresh one loads.
     const saved = peekCache<CachedFeed>(feedKey(me, next));
-    if (saved) showCached(saved);
+    if (saved) showCached(saved, next);
   };
 
   const refresh = () => {
@@ -214,17 +258,17 @@ export default function Home() {
   };
 
   const empty = (
-    <Empty icon="image" title="Welcome to Community" body="Nobody has posted yet. Share the first photo, or find people to follow." action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label="Share a photo" onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label="Find people" onPress={() => router.push('/explore')} /></View>} />
+    <Empty icon="image" title={t('home.welcome')} body={t('home.welcomeBody')} action={<View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}><Button small label={t('home.sharePhoto')} onPress={() => router.push('/create?mode=post')} /><Button small kind="ghost" label={t('home.findPeople')} onPress={() => router.push('/explore')} /></View>} />
   );
 
   return (
     <Screen>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 }}>
-        <IconButton name="plus" size={24} label="Create" bg={C.surface} onPress={create} />
+        <IconButton name="plus" size={24} label={t('common.create')} bg={C.surface} onPress={create} />
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <FeedSwitch value={kind} onChange={setKind} options={FEEDS} style={{ alignSelf: 'stretch', maxWidth: 320 }} />
+          <FeedSwitch value={kind} onChange={setKind} options={feeds} style={{ alignSelf: 'stretch', maxWidth: 320 }} />
         </View>
-        <IconButton name="heart" size={23} label="Notifications" bg={C.surface} badge={unread} onPress={() => { setUnread(false); router.push('/notifications'); }} />
+        <IconButton name="heart" size={23} label={t('common.notifications')} bg={C.surface} badge={unread} onPress={() => { setUnread(false); router.push('/notifications'); }} />
       </View>
       <FlatList
         data={ids}
@@ -235,16 +279,16 @@ export default function Home() {
             <StoryTray refreshKey={trayKey} />
             {status === 'ready' && suggested && ids.length > 0 ? (
               <Text style={{ color: C.fg2, paddingHorizontal: 14, paddingBottom: 8, lineHeight: 19 }}>
-                You aren't following anyone yet, so here are the latest posts from everyone.{' '}
-                <Text style={{ color: C.accent2, fontWeight: '600' }} onPress={() => setKind('foryou')} accessibilityRole="button" accessibilityLabel="Switch to For you">
-                  Switch to For you
+                {t('home.notFollowing')}{' '}
+                <Text style={{ color: C.accent2, fontWeight: '600' }} onPress={() => setKind('foryou')} accessibilityRole="button" accessibilityLabel={t('home.switchToForYou')}>
+                  {t('home.switchToForYou')}
                 </Text>
               </Text>
             ) : null}
           </View>
         }
         ListEmptyComponent={status === 'loading' ? <Loading /> : status === 'error' ? <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /> : empty}
-        ListFooterComponent={status === 'ready' && ids.length > 0 && done.current ? <Text style={{ color: C.fg2, textAlign: 'center', padding: 28 }}>You're all caught up</Text> : null}
+        ListFooterComponent={status === 'ready' && ids.length > 0 && done.current ? <Text style={{ color: C.fg2, textAlign: 'center', padding: 28 }}>{t('home.caughtUp')}</Text> : null}
         onEndReached={() => load(false)}
         onEndReachedThreshold={0.6}
         contentContainerStyle={{ paddingBottom: 110 }}

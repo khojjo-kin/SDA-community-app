@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Animated, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { deletePost, report, setBlock, setFlag, setFollow, setPostSensitive } from '../lib/api';
 import { useIsActivePost } from '../lib/autoplay';
+// Named feel here because this card has a tap() of its own (the double tap on the photo).
+import { tap as feel } from '../lib/haptics';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
 import { agoLong, C, dayLabel, errText, fmt } from '../lib/theme';
@@ -136,7 +137,8 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
 
   function like(force?: boolean) {
     const next = force ?? !post!.liked;
-    if (next && !post!.liked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // Through haptics.ts, so a member who turned taps off in Settings doesn't feel one.
+    if (next && !post!.liked) feel('light');
     safe(() => setFlag(me, post!, 'liked', next));
   }
 
@@ -258,7 +260,16 @@ export const PostCard = React.memo(function PostCard({ id }: { id: string }) {
           <Text style={{ color: C.fg2, fontSize: 13.5 }}>{post.comment_count > 1 ? `View all ${fmt(post.comment_count)} comments` : 'View 1 comment'}</Text>
         </Pressable>
       ) : null}
-      <Text style={{ color: C.fg2, fontSize: 12, paddingHorizontal: 14, paddingTop: 4 }}>{agoLong(post.created_at)}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 4 }}>
+        <Text style={{ color: C.fg2, fontSize: 12 }}>{agoLong(post.created_at)}</Text>
+        {/* Only the author's subscribers (and the author) can see this one, so it says so. */}
+        {post.audience === 'subscribers' ? (
+          <View accessibilityLabel="For subscribers only" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 20, paddingHorizontal: 7, borderRadius: 10, backgroundColor: C.accentSoft }}>
+            <Icon name="lock" size={11} color={C.accent2} weight={2.4} />
+            <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>Subscribers</Text>
+          </View>
+        ) : null}
+      </View>
 
       <PostMenu post={post} visible={menu} onClose={() => setMenu(false)} />
     </View>

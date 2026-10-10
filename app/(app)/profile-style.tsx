@@ -141,7 +141,7 @@ export default function ProfileStyle() {
               <Icon name="crown" size={26} color={C.accent2} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.fg, fontSize: 16, fontWeight: '700' }}>Part of Community Plus</Text>
-                <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 19, marginTop: 2 }}>Choose the colour of the ring round your stories and highlights, and give your profile a look of its own.</Text>
+                <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 19, marginTop: 2 }}>Choose the colour of the ring round your stories and memories, and give your profile a look of its own.</Text>
               </View>
             </View>
             <Button label="Get Community Plus" onPress={() => router.push('/plus')} />

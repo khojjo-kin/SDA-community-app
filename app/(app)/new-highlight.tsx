@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { markMemoryJustMade } from '../../src/components/HighlightsRow';
 import { Icon } from '../../src/components/Icon';
 import { StoryCanvas } from '../../src/components/StoryCanvas';
 import { Button, Empty, ErrorNote, IconButton, Loading, Screen, useToast } from '../../src/components/ui';
@@ -10,7 +11,7 @@ import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
 import type { ArchivedStory } from '../../src/lib/types';
 
-/** Make a highlight: pick stories from your archive and give them a name. */
+/** Make a memory (stored as a highlight): pick stories from your archive and give them a name. */
 export default function NewHighlight() {
   const { me } = useSession();
   const router = useRouter();
@@ -38,13 +39,13 @@ export default function NewHighlight() {
 
   function toggle(id: string) {
     if (list?.find((s) => s.id === id)?.audience === 'close_friends') {
-      toast('Close friends stories stay out of highlights, because highlights are for everyone.');
+      toast('Close friends stories stay out of memories, because memories are for everyone.');
       return;
     }
     setPicked((cur) => {
       if (cur.includes(id)) return cur.filter((x) => x !== id);
       if (cur.length >= 20) {
-        toast('A highlight holds up to 20 stories here. Add more later from your archive.');
+        toast('A memory holds up to 20 stories here. Add more later from your archive.');
         return cur;
       }
       return [...cur, id];
@@ -54,13 +55,15 @@ export default function NewHighlight() {
   async function create() {
     if (busy || !list) return;
     if (!picked.length) return toast('Choose at least one story.');
-    if (!title.trim()) return toast('Give the highlight a name.');
+    if (!title.trim()) return toast('Give the memory a name.');
     setBusy(true);
     try {
-      // Oldest first, the way a highlight plays.
+      // Oldest first, the way a memory plays.
       const items = list.filter((s) => picked.includes(s.id)).reverse().map((s) => s.item);
-      await createHighlight(me, title, items);
-      toast('Highlight added to your profile');
+      const id = await createHighlight(me, title, items);
+      // Its ring turns once when the profile appears again, so you can see where it went.
+      markMemoryJustMade(id);
+      toast('Memory added to your profile');
       close();
     } catch (e) {
       toast(errText(e));
@@ -76,7 +79,7 @@ export default function NewHighlight() {
     <Screen>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
         <IconButton name="close" size={28} label="Close" onPress={close} />
-        <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>New highlight</Text>
+        <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>New memory</Text>
         <View style={{ width: 40 }} />
       </View>
       {list === null ? (
@@ -84,7 +87,7 @@ export default function NewHighlight() {
       ) : error ? (
         <ErrorNote message={error} onRetry={load} />
       ) : !list.length ? (
-        <Empty icon="highlight" title="Share a story first" body="Highlights are made from your stories. Once you have shared one, you can keep it on your profile here." action={<Button small label="Add to your story" onPress={() => router.replace('/add-story')} style={{ marginTop: 8 }} />} />
+        <Empty icon="highlight" title="Share a story first" body="Memories are made from your stories. Once you have shared one, you can keep it on your profile here." action={<Button small label="Add to your story" onPress={() => router.replace('/add-story')} style={{ marginTop: 8 }} />} />
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <FlatList
@@ -94,7 +97,7 @@ export default function NewHighlight() {
             columnWrapperStyle={{ gap }}
             ItemSeparatorComponent={() => <View style={{ height: gap }} />}
             keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>Choose the stories to keep on your profile. Highlights stay until you remove them.</Text>}
+            ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 14, lineHeight: 20 }}>Choose the stories to keep on your profile. Memories stay until you remove them.</Text>}
             contentContainerStyle={{ paddingBottom: 16 }}
             renderItem={({ item: s }) => {
               const order = picked.indexOf(s.id);
@@ -120,7 +123,7 @@ export default function NewHighlight() {
             }}
           />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 12), borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg }}>
-            <TextInput value={title} onChangeText={setTitle} placeholder="Highlight name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" style={{ flex: 1, height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Highlight name" />
+            <TextInput value={title} onChangeText={setTitle} placeholder="Memory name" placeholderTextColor={C.fg3} maxLength={30} keyboardAppearance={C.blurTint} returnKeyType="done" style={{ flex: 1, height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.field, color: C.fg, fontSize: 16 }} accessibilityLabel="Memory name" />
             <Button label={picked.length ? `Add (${picked.length})` : 'Add'} busy={busy} disabled={!picked.length || !title.trim()} onPress={create} />
           </View>
         </KeyboardAvoidingView>

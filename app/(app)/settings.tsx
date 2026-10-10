@@ -2,32 +2,40 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth, useSession as useClerkSession } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { CHURCH_APPS } from '../../src/components/AssistiveButton';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, Toggle, useToast } from '../../src/components/ui';
-import { countCloseFriends, listBlocked, updateProfile } from '../../src/lib/api';
+import { countCloseFriends, listBlocked, setTickHidden, updateProfile } from '../../src/lib/api';
 import { fontById } from '../../src/lib/fonts';
-import { usePrefs } from '../../src/lib/prefs';
+import { tap } from '../../src/lib/haptics';
+import { en, type Key, languageCode, languageName, useT } from '../../src/lib/i18n';
+import { setPrefs, usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 
 /**
  * A line in the list. With `toggle`, it is a switch rather than a link; with `info`, it is only
  * words to read. `href` then only names it for the search. `plus` puts a small Plus label on it.
+ * `title` and `sub` are keys (src/lib/i18n/en.ts), looked up as the list draws; `words` are extra
+ * English search terms, kept in English so they work in every language.
  */
-type Item = { icon: IconName; title: string; sub?: string; value?: string; href: string; words?: string; toggle?: 'read_receipts' | 'streaks_enabled'; info?: boolean; plus?: boolean };
-type Section = { label: string; items: Item[] };
+type Item = { icon: IconName; title: Key; sub?: Key; value?: string; href: string; words?: string; toggle?: ToggleKey; info?: boolean; plus?: boolean };
+/** Switches saved on the account (the first four) or only on this phone (the rest). */
+type ToggleKey = 'read_receipts' | 'streaks_enabled' | 'show_activity' | 'tick' | 'haptics' | 'assistive' | 'captions' | 'readQuietly';
+type Section = { label: Key; items: Item[] };
 
 /** The small label on a line that is a Community Plus perk. */
 function PlusTag() {
+  const t = useT();
   return (
     <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: C.accent }}>
-      <Text style={{ color: C.onAccent, fontSize: 11.5, fontWeight: '700' }}>Plus</Text>
+      <Text style={{ color: C.onAccent, fontSize: 11.5, fontWeight: '700' }}>{t('common.plus')}</Text>
     </View>
   );
 }
 
-const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Off' } as const;
-const THEME_LABEL: Record<string, string> = { dark: 'Dark', white: 'White', green: 'Green' };
+const REPLIES: Record<string, Key> = { everyone: 'settings.repliesEveryone', following: 'settings.repliesFollowing', off: 'settings.repliesOff' };
+const THEME_LABEL: Record<string, Key> = { dark: 'theme.dark', white: 'theme.white', green: 'theme.green' };
 
 /** "Settings and activity": everything about your account in one list, with a search box on top. */
 export default function Settings() {
@@ -36,7 +44,9 @@ export default function Settings() {
   const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
-  const { appFont, theme } = usePrefs();
+  const prefs = usePrefs();
+  const t = useT();
+  const { appFont, theme } = prefs;
   const [q, setQ] = useState('');
   const [friends, setFriends] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
@@ -46,6 +56,12 @@ export default function Settings() {
   // Chat streaks, the same way.
   const [streaks, setStreaks] = useState(profile?.streaks_enabled ?? true);
   useEffect(() => { setStreaks(profile?.streaks_enabled ?? true); }, [profile?.streaks_enabled]);
+  // Activity status, the same way.
+  const [activity, setActivity] = useState(profile?.show_activity ?? true);
+  useEffect(() => { setActivity(profile?.show_activity ?? true); }, [profile?.show_activity]);
+  // The blue tick (Plus members may hide it): on means it shows.
+  const [tick, setTick] = useState(!profile?.tick_hidden);
+  useEffect(() => { setTick(!profile?.tick_hidden); }, [profile?.tick_hidden]);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,86 +82,111 @@ export default function Settings() {
     updateProfile(me, { streaks_enabled: next }).then(refresh).catch((e) => { setStreaks(before); toast(errText(e)); });
   }
 
+  function setShowActivity(next: boolean) {
+    const before = activity;
+    setActivity(next);
+    updateProfile(me, { show_activity: next }).then(refresh).catch((e) => { setActivity(before); toast(errText(e)); });
+  }
+
+  function setShowTick(next: boolean) {
+    const before = tick;
+    setTick(next);
+    setTickHidden(!next).then(refresh).catch((e) => { setTick(before); toast(errText(e)); });
+  }
+
+  // Phone-only choices are saved at once and can't fail. The switch itself gives the haptic tap.
+  function setHaptics(next: boolean) {
+    setPrefs({ haptics: next });
+    // Turning taps on is the one time the switch couldn't give one (they were off as it was pressed), so give it now.
+    if (next) tap('select');
+  }
+
   const creator = profile?.account_type === 'creator';
   const admin = !!profile?.admin_role;
   // Members under 14: no live broadcasts and no fundraisers, and a few things work differently.
   const restricted = profile?.restricted === true;
-  const plusValue = profile?.plus ? 'Active' : profile?.verified ? 'Verified' : undefined;
+  // A verified member who has hidden the tick shows as not verified on their own card, so both count.
+  const hasTick = !!profile?.verified || !!profile?.tick_hidden;
+  const plusValue = profile?.plus ? t('settings.plusActive') : hasTick ? t('common.verified') : undefined;
   const sections: Section[] = [
     ...(restricted
       ? [
           {
-            label: 'Safety',
+            label: 'settings.section.safety',
             items: [
               {
                 icon: 'shield' as IconName,
-                title: 'Under-14 account',
-                sub: "To keep you safe, your account stays private, sensitive posts are hidden, only people you follow can message you, you can only message people you follow, and Live and fundraisers aren't available.",
+                title: 'settings.under14',
+                sub: 'settings.under14Sub',
                 href: '#under-14',
                 words: 'under 14 age young child minor restricted safety private birthday',
                 info: true,
               },
             ],
-          },
+          } satisfies Section,
         ]
       : []),
     {
-      label: 'Your account',
+      label: 'settings.section.account',
       items: [
-        { icon: 'account', title: 'Account', sub: 'Email, phone, password, other accounts and deleting your account', href: '/account', words: 'email phone password security delete personal details profile add account switch' },
-        { icon: 'devices', title: 'Login activity', sub: "Where you're logged in", href: '/login-activity', words: 'sessions devices phones logged in log out security sign in where location' },
-        { icon: 'crown', title: 'Community Plus', sub: 'Fonts, wallpapers, profile style and more', value: plusValue, href: '/plus', words: 'subscribe subscription premium plus fonts wallpaper profile style' },
-        ...(profile?.verified ? [] : [{ icon: 'verified' as IconName, title: 'Request verification', sub: 'Get the blue tick with an ID check', href: '/verify', words: 'verify verified blue tick badge id identity check request' }]),
+        { icon: 'account', title: 'settings.account', sub: 'settings.accountSub', href: '/account', words: 'email phone password security delete personal details profile add account switch' },
+        { icon: 'devices', title: 'settings.loginActivity', sub: 'settings.loginActivitySub', href: '/login-activity', words: 'sessions devices phones logged in log out security sign in where location' },
+        { icon: 'crown', title: 'common.communityPlus', sub: 'settings.plusSub', value: plusValue, href: '/plus', words: 'subscribe subscription premium plus fonts wallpaper profile style' },
+        ...(hasTick ? [] : [{ icon: 'verified' as IconName, title: 'settings.requestVerification', sub: 'settings.requestVerificationSub', href: '/verify', words: 'verify verified blue tick badge id identity check request' } satisfies Item]),
       ],
     },
     ...(profile?.plus
       ? [
           {
-            label: 'Plus',
+            label: 'common.plus',
             items: [
-              { icon: 'font' as IconName, title: 'App font', value: fontById(appFont).name, href: '/plus-font', words: 'typeface text nunito lora poppins' },
-              { icon: 'wallpaper' as IconName, title: 'Chat wallpaper', href: '/chat-wallpaper', words: 'background messages chats theme' },
-              { icon: 'eye' as IconName, title: 'Profile viewers', sub: 'Who looked at your profile', href: '/profile-viewers', words: 'views visitors who viewed' },
-              { icon: 'lock' as IconName, title: 'Read receipts', sub: 'Let people see when you have read their messages', href: '/plus#read-receipts', words: 'seen messages chats privacy', toggle: 'read_receipts' as const },
+              { icon: 'font' as IconName, title: 'settings.appFont', value: fontById(appFont).name, href: '/plus-font', words: 'typeface text nunito lora poppins' },
+              { icon: 'wallpaper' as IconName, title: 'settings.chatWallpaper', href: '/chat-wallpaper', words: 'background messages chats theme' },
+              { icon: 'eye' as IconName, title: 'settings.profileViewers', sub: 'settings.profileViewersSub', href: '/profile-viewers', words: 'views visitors who viewed' },
+              { icon: 'lock' as IconName, title: 'settings.readReceipts', sub: 'settings.readReceiptsSub', href: '/plus#read-receipts', words: 'seen messages chats privacy', toggle: 'read_receipts' as const },
+              { icon: 'chatdots' as IconName, title: 'settings.readQuietly', sub: 'settings.readQuietlySub', href: '#read-quietly', words: 'seen read receipts quiet private messages chats ghost', toggle: 'readQuietly' as const },
+              ...(hasTick ? [{ icon: 'verified' as IconName, title: 'settings.showTick', sub: 'settings.showTickSub', href: '#show-tick', words: 'verified blue tick badge hide show', toggle: 'tick' as const } satisfies Item] : []),
+              { icon: 'bell' as IconName, title: 'settings.storyAlerts', sub: 'settings.storyAlertsSub', href: '/story-alerts', words: 'stories notifications alerts notify people' },
             ],
-          },
+          } satisfies Section,
         ]
       : []),
-    {
-      label: 'Church life',
-      items: [
-        { icon: 'bible', title: 'Bible', href: '/bible', words: 'scripture read verse chapter kjv' },
-        { icon: 'hymnal', title: 'Hymnal', sub: 'The Seventh-day Adventist Hymnal', href: '/hymnal', words: 'hymns songs sing worship music' },
-        { icon: 'headphones', title: 'Pod', sub: 'Songs and podcasts', href: '/pod', words: 'music audio listen podcast episodes songs library' },
-        { icon: 'lesson', title: 'Sabbath School', sub: "This week's lesson", href: '/sabbath-school', words: 'lesson quarterly study guide' },
-        { icon: 'church', title: 'Churches', sub: 'Find churches near you and their members', value: profile?.church_name ?? undefined, href: '/churches', words: 'church near me members find location' },
-        { icon: 'users', title: 'Communities and pages', sub: 'Join groups, follow ministries, or start your own', href: '/groups', words: 'groups community page ministry choir youth join create follow' },
-      ],
-    },
     ...(admin
       ? [
           {
-            label: 'Admin',
+            label: 'settings.section.admin',
             items: [
-              { icon: 'gavel' as IconName, title: 'Admin tools', sub: 'Reports, members, requests and admins', href: '/admin', words: 'admin moderation reports members verify suspend hymns churches console overview' },
-              { icon: 'receipt' as IconName, title: 'Transactions', sub: 'Plus payments, donations and refunds', href: '/admin-transactions', words: 'admin money income payments donations refunds' },
-              { icon: 'pulse' as IconName, title: 'Activity', sub: 'What is happening across the community', href: '/admin-activity', words: 'admin timeline joined posts lives reports' },
-              { icon: 'lifebuoy' as IconName, title: 'Support inbox', sub: 'Questions from members', href: '/admin-support', words: 'admin tickets help answer reply' },
+              { icon: 'gavel' as IconName, title: 'settings.adminTools', sub: 'settings.adminToolsSub', href: '/admin', words: 'admin moderation reports members verify suspend hymns churches console overview' },
+              { icon: 'receipt' as IconName, title: 'settings.transactions', sub: 'settings.transactionsSub', href: '/admin-transactions', words: 'admin money income payments donations refunds' },
+              { icon: 'pulse' as IconName, title: 'settings.activity', sub: 'settings.activitySub', href: '/admin-activity', words: 'admin timeline joined posts lives reports' },
+              { icon: 'lifebuoy' as IconName, title: 'settings.supportChats', sub: 'settings.supportChatsSub', href: '/admin-support', words: 'admin support inbox tickets help answer reply chat live' },
+              { icon: 'star' as IconName, title: 'settings.feedback', sub: 'settings.feedbackSub', href: '/admin-feedback', words: 'admin feedback reviews ratings stars ideas problems bugs suggestions' },
             ],
-          },
+          } satisfies Section,
         ]
       : []),
+    // The church apps live in the floating button. With the button turned off, they are listed here
+    // instead (the same lines, opening the same screens), so turning it off doesn't lose them.
+    ...(prefs.assistive
+      ? []
+      : [
+          {
+            label: 'churchApps.title',
+            items: CHURCH_APPS.map((a): Item => ({ icon: a.icon, title: a.label, href: a.href, words: `church apps ${a.words}` })),
+          } satisfies Section,
+        ]),
     {
-      label: 'How you use Community',
+      label: 'settings.section.howYouUse',
       items: [
-        { icon: 'bookmark', title: 'Saved', href: '/saved', words: 'bookmarks' },
-        { icon: 'archive', title: 'Archive', href: '/archive', words: 'stories old expired' },
-        { icon: 'activity', title: 'Your activity', href: '/activity', words: 'likes comments reposts history' },
-        { icon: 'bell', title: 'Notifications', href: '/notifications', words: 'likes follows comments' },
+        { icon: 'bookmark', title: 'settings.saved', href: '/saved', words: 'bookmarks' },
+        { icon: 'archive', title: 'settings.archive', href: '/archive', words: 'stories old expired' },
+        { icon: 'activity', title: 'settings.yourActivity', href: '/activity', words: 'likes comments reposts history' },
+        { icon: 'bell', title: 'common.notifications', href: '/notifications', words: 'likes follows comments' },
+        { icon: 'sliders', title: 'settings.yourFeed', sub: 'settings.yourFeedSub', href: '/clips-settings', words: 'feed for you clips reels interests topics more less sensitive recommendations' },
         {
           icon: 'flame',
-          title: 'Chat streaks',
-          sub: 'Show how many days in a row you and a friend have chatted. If either of you turns this off, neither sees the streak.',
+          title: 'settings.chatStreaks',
+          sub: 'settings.chatStreaksSub',
           href: '#chat-streaks',
           words: 'streak flame fire days messages chats in a row',
           toggle: 'streaks_enabled',
@@ -153,94 +194,122 @@ export default function Settings() {
       ],
     },
     {
-      label: 'Who can see your content',
+      label: 'settings.section.whoCanSee',
       items: [
-        { icon: 'star', title: 'Close friends', value: friends === null ? undefined : String(friends), href: '/close-friends', words: 'stories list' },
-        { icon: 'block', title: 'Blocked', value: blocked === null ? undefined : String(blocked), href: '/blocked', words: 'block unblock accounts' },
-        { icon: 'story', title: 'Story replies', value: REPLIES[profile?.story_replies ?? 'everyone'], href: '/story-settings', words: 'stories reply messages' },
+        { icon: 'star', title: 'settings.closeFriends', value: friends === null ? undefined : String(friends), href: '/close-friends', words: 'stories list' },
+        { icon: 'block', title: 'settings.blocked', value: blocked === null ? undefined : String(blocked), href: '/blocked', words: 'block unblock accounts' },
+        { icon: 'story', title: 'settings.storyReplies', value: t(REPLIES[profile?.story_replies ?? 'everyone'] ?? 'settings.repliesEveryone'), href: '/story-settings', words: 'stories reply messages' },
+        {
+          icon: 'eye',
+          title: 'settings.activityStatus',
+          sub: 'settings.activityStatusSub',
+          href: '#activity-status',
+          words: 'active now online last seen status presence green dot',
+          toggle: 'show_activity',
+        },
+        { icon: 'location', title: 'settings.liveLocation', sub: 'settings.liveLocationSub', href: '/map', words: 'map location share where friends nearby gps' },
       ],
     },
     {
-      label: 'Your app and media',
+      label: 'settings.section.appAndMedia',
       items: [
-        { icon: 'sun', title: 'Theme', value: THEME_LABEL[theme] ?? 'Dark', href: '/theme', words: 'theme dark light white green colour color mode appearance look' },
-        { icon: 'palette', title: 'Profile style', sub: 'Ring colour and profile theme', href: '/profile-style', words: 'ring colour color theme look profile style customise', plus: true },
-        { icon: 'camera', title: 'Story and camera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' },
+        { icon: 'sun', title: 'theme.title', value: t(THEME_LABEL[theme] ?? 'theme.dark'), href: '/theme', words: 'theme dark light white green colour color mode appearance look' },
+        { icon: 'palette', title: 'settings.profileStyle', sub: 'settings.profileStyleSub', href: '/profile-style', words: 'ring colour color theme look profile style customise', plus: true },
+        { icon: 'camera', title: 'settings.storyCamera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' },
+        { icon: 'globe', title: 'language.title', value: languageName(languageCode()), href: '/language', words: 'language translate english spanish french words' },
+        { icon: 'text', title: 'settings.captions', sub: 'settings.captionsSub', href: '#captions', words: 'captions subtitles clips reels words deaf hearing accessibility', toggle: 'captions' },
+        // Named by the same list as the Language screen and Your feed (i18n's LANGUAGES), so the names can't drift apart.
+        { icon: 'globe', title: 'settings.captionLanguage', value: prefs.captionLang ? languageName(prefs.captionLang) : t('settings.appLanguage'), href: '/clips-settings', words: 'captions subtitles translate language clips reels' },
+        { icon: 'pulse', title: 'settings.haptics', sub: 'settings.hapticsSub', href: '#haptics', words: 'haptics vibration vibrate tap feel touch buzz', toggle: 'haptics' },
+        { icon: 'grid', title: 'settings.assistive', sub: 'settings.assistiveSub', href: '#assistive', words: 'floating button assistive shortcut bible hymnal pod sabbath school churches communities erha map', toggle: 'assistive' },
       ],
     },
     {
-      label: 'Your insights and tools',
+      label: 'settings.section.insights',
       items: [
         ...(creator
           ? [
-              { icon: 'chart' as IconName, title: 'Dashboard', href: '/dashboard', words: 'insights views followers analytics' },
-              { icon: 'tag' as IconName, title: 'Creator tools and controls', href: '/creator', words: 'saved reply faq questions view counts category account type' },
+              { icon: 'chart' as IconName, title: 'settings.dashboard', href: '/dashboard', words: 'insights views followers analytics' } satisfies Item,
+              { icon: 'tag' as IconName, title: 'settings.creatorTools', href: '/creator', words: 'saved reply faq questions view counts category account type' } satisfies Item,
             ]
-          : [{ icon: 'chart' as IconName, title: 'Account type and tools', sub: 'Switch to a creator account for insights, saved replies and more', href: '/account-type', words: 'creator professional dashboard insights' }]),
-        { icon: 'megaphone', title: 'Your ads', href: '/ads', words: 'ads advert advertising promote boost campaign sponsored' },
+          : [{ icon: 'chart' as IconName, title: 'settings.accountType', sub: 'settings.accountTypeSub', href: '/account-type', words: 'creator professional dashboard insights' } satisfies Item]),
+        { icon: 'megaphone', title: 'settings.yourAds', href: '/ads', words: 'ads advert advertising promote boost campaign sponsored' },
+        { icon: 'crown', title: 'settings.subscriptions', sub: 'settings.subscriptionsSub', href: '/creator-subscriptions', words: 'subscriptions subscribe subscribers creator monthly price cancel exclusive' },
         // Fundraisers aren't available to members under 14.
-        ...(restricted ? [] : [{ icon: 'gift' as IconName, title: 'Fundraisers and payouts', href: '/payouts', words: 'fundraiser donations giving money payout bank stripe raise' }]),
+        ...(restricted ? [] : [{ icon: 'gift' as IconName, title: 'settings.fundraisers', href: '/payouts', words: 'fundraiser donations giving money payout bank stripe raise' } satisfies Item]),
       ],
     },
     {
-      label: 'More info and support',
+      label: 'settings.section.support',
       items: [
-        { icon: 'lifebuoy', title: 'Help and support', sub: 'Common questions and quick support', href: '/help', words: 'help support contact questions faq ticket email problem' },
-        { icon: 'info', title: 'About', href: '/about', words: 'version privacy data help' },
+        { icon: 'lifebuoy', title: 'help.title', sub: 'settings.helpSub', href: '/help', words: 'help support contact chat questions faq problem feedback review rate idea suggest bug' },
+        { icon: 'info', title: 'settings.about', href: '/about', words: 'version privacy data help' },
       ],
     },
   ];
 
   function logOut() {
-    Alert.alert('Log out of Community?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('settings.logOutQuestion'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
       // Only this account: any other account signed in on this phone stays, and Clerk switches to it.
-      { text: 'Log out', style: 'destructive', onPress: () => { signOut(session ? { sessionId: session.id } : undefined).catch((e: unknown) => toast(errText(e))); } },
+      { text: t('settings.logOut'), style: 'destructive', onPress: () => { signOut(session ? { sessionId: session.id } : undefined).catch((e: unknown) => toast(errText(e))); } },
     ]);
   }
 
   const needle = q.trim().toLowerCase();
-  const matches = needle ? sections.flatMap((s) => s.items).filter((i) => `${i.title} ${i.sub ?? ''} ${i.words ?? ''}`.toLowerCase().includes(needle)) : [];
-  const toggles = {
+  // Searched in the app's language and in English (with the English search words), so either finds a line.
+  const haystack = (i: Item) => `${t(i.title)} ${i.sub ? t(i.sub) : ''} ${en[i.title]} ${i.sub ? en[i.sub] : ''} ${i.words ?? ''}`;
+  const matches = needle ? sections.flatMap((s) => s.items).filter((i) => haystack(i).toLowerCase().includes(needle)) : [];
+  const toggles: Record<ToggleKey, { value: boolean; set: (next: boolean) => void }> = {
     read_receipts: { value: receipts, set: setReadReceipts },
     streaks_enabled: { value: streaks, set: setStreaksEnabled },
+    show_activity: { value: activity, set: setShowActivity },
+    tick: { value: tick, set: setShowTick },
+    haptics: { value: prefs.haptics, set: setHaptics },
+    assistive: { value: prefs.assistive, set: (next) => setPrefs({ assistive: next }) },
+    captions: { value: prefs.captions, set: (next) => setPrefs({ captions: next }) },
+    readQuietly: { value: prefs.readQuietly, set: (next) => setPrefs({ readQuietly: next }) },
   };
-  const row = (i: Item) =>
-    i.toggle ? (
-      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} right={<Toggle value={toggles[i.toggle].value} onChange={toggles[i.toggle].set} label={i.title} />} />
+  const row = (i: Item) => {
+    const title = t(i.title);
+    const sub = i.sub ? t(i.sub) : undefined;
+    return i.toggle ? (
+      <Row key={i.href + i.title} icon={i.icon} title={title} sub={sub} right={<Toggle value={toggles[i.toggle].value} onChange={toggles[i.toggle].set} label={title} />} />
     ) : i.info ? (
-      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} />
+      <Row key={i.href + i.title} icon={i.icon} title={title} sub={sub} />
     ) : (
-      <Row key={i.href} icon={i.icon} title={i.title} sub={i.sub} value={i.value} right={i.plus ? <PlusTag /> : undefined} onPress={() => router.push(i.href as any)} />
+      // Two lines can open the same screen (Your feed and Caption language), so the title is part of the key.
+      <Row key={i.href + i.title} icon={i.icon} title={title} sub={sub} value={i.value} right={i.plus ? <PlusTag /> : undefined} onPress={() => router.push(i.href as any)} />
     );
+  };
 
   return (
     <Screen>
-      <ScreenHeader title="Settings and activity" />
+      <ScreenHeader title={t('settings.title')} />
       <View style={{ paddingTop: 4, paddingBottom: 4 }}>
-        <SearchField value={q} onChangeText={setQ} label="Search settings" />
+        <SearchField value={q} onChangeText={setQ} label={t('settings.search')} />
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
         {needle ? (
           matches.length ? (
             <View style={{ paddingTop: 8 }}>{matches.map(row)}</View>
           ) : (
-            <Empty title="No settings found" body="Try a different word." />
+            <Empty title={t('settings.noneFound')} body={t('settings.tryDifferentWord')} />
           )
         ) : (
           <>
             {sections.map((s) => (
               <View key={s.label}>
-                <SectionLabel>{s.label}</SectionLabel>
+                <SectionLabel>{t(s.label)}</SectionLabel>
                 {s.items.map(row)}
                 <Divider />
               </View>
             ))}
-            <SectionLabel>Login</SectionLabel>
+            <SectionLabel>{t('settings.section.login')}</SectionLabel>
             <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? C.surface : 'transparent' })}>
-              <Text style={{ color: C.danger, fontSize: 17.5 }}>Log out</Text>
+              <Text style={{ color: C.danger, fontSize: 17.5 }}>{t('settings.logOut')}</Text>
             </Pressable>
-            <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6 }}>Logged in as {profile?.username}</Text>
+            <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6 }}>{t('settings.loggedInAs', { username: profile?.username ?? '' })}</Text>
           </>
         )}
       </ScrollView>

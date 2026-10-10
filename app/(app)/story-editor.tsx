@@ -368,7 +368,7 @@ export default function StoryEditor() {
           extrasFailed = true;
         }
       }
-      toast(extrasFailed ? 'Added to your story. The highlight or message did not go through.' : to === 'close_friends' ? 'Shared with your close friends' : items.length > 1 ? `${items.length} stories added` : 'Added to your story');
+      toast(extrasFailed ? 'Added to your story. The memory or message did not go through.' : to === 'close_friends' ? 'Shared with your close friends' : items.length > 1 ? `${items.length} stories added` : 'Added to your story');
       done();
     } catch (e) {
       if (posted > 0) {
@@ -458,10 +458,10 @@ export default function StoryEditor() {
             <ShareRow left={<CircleIcon name="send" />} title="Message" sub={recipients.length ? recipients.map((p) => p.username).join(', ') : undefined} onPress={openPeople} right={<Icon name="right" size={18} color={C.fg2} weight={2} />} />
             <ShareRow
               left={<CircleIcon name="highlight" />}
-              title="Add to highlight"
+              title="Add to memories"
               sub={audience === 'close_friends' ? 'Not for close friends stories' : highlight ? highlight.title : undefined}
-              onSub={audience === 'close_friends' ? () => toast('Highlights are for everyone, so close friends stories stay out of them.') : undefined}
-              onPress={() => (audience === 'close_friends' ? toast('Highlights are for everyone, so close friends stories stay out of them.') : setPicker('highlight'))}
+              onSub={audience === 'close_friends' ? () => toast('Memories are for everyone, so close friends stories stay out of them.') : undefined}
+              onPress={() => (audience === 'close_friends' ? toast('Memories are for everyone, so close friends stories stay out of them.') : setPicker('highlight'))}
               right={<Icon name="right" size={18} color={C.fg2} weight={2} />}
             />
           </ScrollView>

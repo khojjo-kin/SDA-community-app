@@ -35,7 +35,7 @@ function RequestRow({ p, onAnswer }: { p: Profile; onAnswer: (accept: boolean) =
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '700', fontSize: 14.5, flexShrink: 1 }}>{p.username}</Text>
-            {p.verified ? <VerifiedTick size={14} /> : null}
+            {p.verified ? <VerifiedTick size={16} /> : null}
           </View>
           {p.full_name ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{p.full_name}</Text> : null}
         </View>
@@ -55,7 +55,7 @@ function SuggestionRow({ p, label, following, onFollow, onDismiss }: { p: Sugges
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '700', fontSize: 14.5, flexShrink: 1 }}>{p.username}</Text>
-            {p.verified ? <VerifiedTick size={14} /> : null}
+            {p.verified ? <VerifiedTick size={16} /> : null}
           </View>
           {p.full_name ? <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5 }}>{p.full_name}</Text> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>

@@ -6,6 +6,7 @@ import { Icon, IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
 import { fetchAdminQueue, fetchAdminStats } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session';
+import { supabase } from '../../src/lib/supabase';
 import { C, count, errText, fmt } from '../../src/lib/theme';
 import type { AdminQueue, AdminStats } from '../../src/lib/types';
 
@@ -43,6 +44,8 @@ export default function Admin() {
   // What is waiting: churches to approve, identity checks, running ads and fundraisers.
   const [queue, setQueue] = useState<AdminQueue | null>(null);
   const [error, setError] = useState('');
+  // Open support chats. The stats' support_open counts the old tickets, so chats are counted here.
+  const [chatsOpen, setChatsOpen] = useState<number | undefined>(undefined);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,6 +53,16 @@ export default function Admin() {
       setError('');
       fetchAdminStats().then(setStats).catch((e) => setError(errText(e)));
       fetchAdminQueue().then(setQueue).catch((e) => setError(errText(e)));
+      supabase
+        .from('community_support_chats')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open')
+        .then(
+          ({ count: n, error: err }) => {
+            if (!err) setChatsOpen(n ?? 0);
+          },
+          () => {},
+        );
     }, [profile?.admin_role]),
   );
 
@@ -86,7 +99,7 @@ export default function Admin() {
           <Tile wide={wide} icon="card" value={stats ? money(stats.income_month_pence) : undefined} label="Income this month" tone="ok" href="/admin-transactions" />
           <Tile wide={wide} icon="flag" value={num(stats?.reports_open)} label="Open reports" tone="warn" href="/admin-reports" />
           <Tile wide={wide} icon="verified" value={num(stats?.requests_open)} label="Open requests" tone="warn" href="/admin-requests" />
-          <Tile wide={wide} icon="lifebuoy" value={num(stats?.support_open)} label="Open support" tone="warn" href="/admin-support" />
+          <Tile wide={wide} icon="lifebuoy" value={num(chatsOpen)} label="Open support chats" tone="warn" href="/admin-support" />
         </View>
 
         <SectionLabel>This week</SectionLabel>
@@ -118,7 +131,8 @@ export default function Admin() {
         <Row icon="idcard" title="Identity checks" sub="Document and selfie checks for the blue tick" value={badge(queue?.verifications_pending)} onPress={() => router.push('/admin-requests')} />
         <Row icon="crown" title="Plus requests" sub="Plus arranged through a church: approve or decline" value={badge(plusOpen)} onPress={() => router.push('/admin-requests?kind=plus' as any)} />
         <Row icon="church" title="Churches to approve" sub="Churches suggested by members" value={badge(queue?.churches_pending)} onPress={() => router.push('/admin-churches' as any)} />
-        <Row icon="lifebuoy" title="Support inbox" sub="Questions from members, answered in the app" value={badge(stats?.support_open)} onPress={() => router.push('/admin-support')} />
+        <Row icon="lifebuoy" title="Support chats" sub="Members asking for help: the assistant answers first, you can step in" value={badge(chatsOpen)} onPress={() => router.push('/admin-support')} />
+        <Row icon="star" title="Feedback and reviews" sub="Ratings, ideas and problems members send" onPress={() => router.push('/admin-feedback' as any)} />
         <Divider />
 
         <SectionLabel>Members</SectionLabel>

@@ -22,6 +22,20 @@ export default function Watch() {
     fetchPost(postId).catch(() => {}).finally(() => setChecked(true));
   }, [postId]);
 
+  // Captions are made in the background after a clip is shared. While they're on their way, look again
+  // now and then (a few times at most), so they appear without leaving and coming back.
+  const captionsPending = post?.captions_status === 'pending';
+  useEffect(() => {
+    if (!captionsPending || !focused) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
+      fetchPost(postId).catch(() => {});
+      if (tries >= 6) clearInterval(timer);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [captionsPending, focused, postId]);
+
   useFocusEffect(
     useCallback(() => {
       setFocused(true);

@@ -1,14 +1,16 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Radio, Screen, ScreenHeader } from '../../src/components/ui';
+import { type Key, useT } from '../../src/lib/i18n';
 import { usePrefs } from '../../src/lib/prefs';
 import { C, PALETTES, type ThemeName } from '../../src/lib/theme';
 import { chooseTheme } from '../../src/lib/theme-return';
 
-const CHOICES: { id: ThemeName; label: string; sub: string }[] = [
-  { id: 'dark', label: 'Dark', sub: 'Easy on the eyes at night. The original look.' },
-  { id: 'white', label: 'White', sub: 'Bright and clean, for daylight.' },
-  { id: 'green', label: 'Green', sub: 'Deep green, calm like a Sabbath walk.' },
+// Keys rather than words: the words are looked up as the screen draws, in the app's language.
+const CHOICES: { id: ThemeName; label: Key; sub: Key }[] = [
+  { id: 'dark', label: 'theme.dark', sub: 'theme.darkSub' },
+  { id: 'white', label: 'theme.white', sub: 'theme.whiteSub' },
+  { id: 'green', label: 'theme.green', sub: 'theme.greenSub' },
 ];
 
 /** A tiny picture of the app in a theme's colours: a header, a post and a button. */
@@ -31,25 +33,27 @@ function Preview({ id }: { id: ThemeName }) {
 /** Settings → Theme: Dark, White or Green. The whole app is redrawn in the new colours straight away. */
 export default function ThemeScreen() {
   const { theme } = usePrefs();
+  const t = useT();
   return (
     <Screen>
-      <ScreenHeader title="Theme" />
+      <ScreenHeader title={t('theme.title')} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }}>
-        <Text style={{ color: C.fg2, lineHeight: 20, marginBottom: 4 }}>Choose how Community looks on this phone. Photos, videos, the camera and stories always show on black, whatever you choose.</Text>
+        <Text style={{ color: C.fg2, lineHeight: 20, marginBottom: 4 }}>{t('theme.intro')}</Text>
         {CHOICES.map((c) => {
           const on = theme === c.id;
+          const label = t(c.label);
           return (
             <Pressable
               key={c.id}
               onPress={() => (on ? undefined : chooseTheme(c.id, '/theme'))}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
-              accessibilityLabel={`${c.label} theme`}
+              accessibilityLabel={t('theme.label', { name: label })}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: 18, backgroundColor: C.surface, borderWidth: 2, borderColor: on ? C.accent : 'transparent', opacity: pressed ? 0.8 : 1 })}>
               <Preview id={c.id} />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700' }}>{c.label}</Text>
-                <Text style={{ color: C.fg2, lineHeight: 19 }}>{c.sub}</Text>
+                <Text style={{ color: C.fg, fontSize: 17, fontWeight: '700' }}>{label}</Text>
+                <Text style={{ color: C.fg2, lineHeight: 19 }}>{t(c.sub)}</Text>
               </View>
               <Radio on={on} />
             </Pressable>

@@ -10,6 +10,7 @@ import { DarkStatusBar } from '../../src/components/OnDark';
 import { isPlainEdit, PhotoEdit, PLAIN_EDIT, PostEditor, useLookExport } from '../../src/components/PostEditor';
 import { Button, IconButton, Radio, Sheet, Toggle, useToast } from '../../src/components/ui';
 import { canPostIn, createPost, fetchMyGroups, uploadImage, uploadVideo } from '../../src/lib/api';
+import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Group, Media, PodItem } from '../../src/lib/types';
@@ -31,6 +32,7 @@ export default function Create() {
   const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('pick');
   const [items, setItems] = useState<PickedItem[]>([]);
@@ -49,6 +51,8 @@ export default function Create() {
   const picks = useRef(0);
   // Sensitive posts are never shown to members under 14.
   const [sensitive, setSensitive] = useState(false);
+  // Creators who offer subscriptions can keep a post for their subscribers.
+  const [subscribersOnly, setSubscribersOnly] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const { exportEdited, exporter } = useLookExport();
@@ -61,6 +65,8 @@ export default function Create() {
     fetchMyGroups(me).then((all) => setGroups(all.filter(canPostIn))).catch(() => setGroups([]));
   }, [me]);
   const group = groups.find((g) => g.id === groupId) ?? null;
+  // Only posts on your own profile can be for subscribers: a community or page has its own members.
+  const canLimit = !!profile?.sub_price_pence && !groupId;
 
   // The upload carries on if this screen is closed part-way; it must not then close whatever is open instead.
   const alive = useRef(true);
@@ -85,7 +91,7 @@ export default function Create() {
     setErr('');
     if (list.length === 1 && list[0]?.type === 'video') {
       VideoThumbnails.getThumbnailAsync(list[0].uri, { time: 300, quality: 0.6 })
-        .then((t) => { if (alive.current && mine === picks.current) setPoster((p) => p || t.uri); })
+        .then((still) => { if (alive.current && mine === picks.current) setPoster((p) => p || still.uri); })
         .catch(() => {});
       setStep('edit');
       return;
@@ -108,7 +114,7 @@ export default function Create() {
     if (!alive.current || mine !== picks.current) return;
     setFrames(out);
     setPreparing(false);
-    toast('Edits apply to the photos. Videos are shared as they are.');
+    toast(t('create.mixedNote'));
     setStep('edit');
   }
 
@@ -126,14 +132,15 @@ export default function Create() {
       const media: Media[] = [];
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
-        const which = items.length > 1 ? ` ${i + 1} of ${items.length}` : '';
+        // Which one this is, when there are several: "2 of 5".
+        const which = items.length > 1 ? { n: i + 1, total: items.length } : null;
         if (a.type === 'video') {
-          setBusy('Uploading video…');
+          setBusy(t('create.uploadingVideo'));
           const m = await uploadVideo(me, a.uri, a.w, a.h);
           // A cover chosen in the editor replaces the first frame the uploader took.
           if (posterChosen && poster) {
             try {
-              setBusy('Uploading the cover…');
+              setBusy(t('create.uploadingCover'));
               m.poster = (await uploadImage(me, poster, undefined, 1080)).url;
             } catch {
               // the first frame will do
@@ -147,20 +154,20 @@ export default function Create() {
         let uri = a.uri;
         let w: number | undefined = a.w;
         if (!isPlainEdit(e)) {
-          setBusy(`Preparing${which ? ' photo' + which : ' the photo'}…`);
+          setBusy(which ? t('create.preparingPhotoN', which) : t('create.preparingPhoto'));
           uri = await exportEdited(a.uri, e, a.w, a.h);
           w = undefined;
         }
-        setBusy(`Uploading${which}…`);
+        setBusy(which ? t('create.uploadingN', which) : t('create.uploading'));
         media.push(await uploadImage(me, uri, w));
       }
-      setBusy('Sharing…');
-      await createPost(me, { caption, media, group_id: groupId, audio_id: audio?.id ?? null, location, sensitive });
-      toast(media.length === 1 && media[0].type === 'video' ? 'Your reel is live' : 'Your post is live');
+      setBusy(t('create.sharingNow'));
+      await createPost(me, { caption, media, group_id: groupId, audio_id: audio?.id ?? null, location, sensitive, audience: canLimit && subscribersOnly ? 'subscribers' : 'everyone' });
+      toast(media.length === 1 && media[0].type === 'video' ? t('create.clipLive') : t('create.postLive'));
       if (alive.current) close();
     } catch (e) {
       if (!alive.current) {
-        toast(`That did not share. ${errText(e)}`);
+        toast(t('create.didNotShare', { error: errText(e) }));
         return;
       }
       setErr(errText(e));
@@ -169,7 +176,7 @@ export default function Create() {
   }
 
   const thumb = isReel ? poster : editorItems[0]?.uri;
-  const what = isReel ? 'Video' : items.length > 1 ? `${items.length} ${items.some((it) => it.type === 'video') ? 'photos and videos' : 'photos'}` : 'Photo';
+  const what = isReel ? t('create.video') : items.length > 1 ? t(items.some((it) => it.type === 'video') ? 'create.photosAndVideos' : 'create.photos', { count: items.length }) : t('create.photo');
   const disabled = !items.length || !!busy;
 
   return (
@@ -181,7 +188,7 @@ export default function Create() {
 
       {preparing ? (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }]} accessibilityLiveRegion="polite">
-          <Text style={{ color: '#fff', fontWeight: '600' }}>Getting it ready…</Text>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>{t('create.gettingReady')}</Text>
         </View>
       ) : null}
 
@@ -194,17 +201,20 @@ export default function Create() {
       {step === 'share' && items.length ? (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg, paddingTop: insets.top }]}>
           <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
-            <IconButton name="back" label="Back to editing" onPress={() => (busy ? undefined : setStep('edit'))} />
-            <Text accessibilityRole="header" style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{isReel ? 'New reel' : 'New post'}</Text>
-            <Pressable onPress={share} disabled={disabled} hitSlop={8} style={({ pressed }) => ({ minWidth: 64, flexShrink: 0, alignItems: 'flex-end', paddingRight: 8, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel="Share" accessibilityState={{ disabled }}>
-              <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>Share</Text>
+            {/* As wide as the Share side, so the title stays centred and neither side squeezes the other. */}
+            <View style={{ minWidth: 64, flexShrink: 0, alignItems: 'flex-start' }}>
+              <IconButton name="back" label={t('create.backToEditing')} onPress={() => (busy ? undefined : setStep('edit'))} />
+            </View>
+            <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{isReel ? t('create.newClip') : t('create.newPost')}</Text>
+            <Pressable onPress={share} disabled={disabled} hitSlop={8} style={({ pressed }) => ({ minWidth: 64, flexShrink: 0, alignItems: 'flex-end', paddingRight: 8, opacity: disabled ? 0.4 : pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel={t('common.share')} accessibilityState={{ disabled }}>
+              <Text numberOfLines={1} style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>{t('common.share')}</Text>
             </Pressable>
           </View>
 
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
               <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 8 }}>
-                <Pressable onPress={() => (busy ? undefined : setStep('edit'))} accessibilityRole="button" accessibilityLabel={`${what}. Back to editing`} style={({ pressed }) => ({ width: 72, height: 90, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                <Pressable onPress={() => (busy ? undefined : setStep('edit'))} accessibilityRole="button" accessibilityLabel={t('create.thumbLabel', { what })} style={({ pressed }) => ({ width: 72, height: 90, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
                   {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
                   {items[0]?.type === 'video' ? <Icon name="play" size={26} color="#fff" /> : null}
                   {items.length > 1 ? (
@@ -213,15 +223,15 @@ export default function Create() {
                     </View>
                   ) : null}
                 </Pressable>
-                <TextInput value={caption} onChangeText={setCaption} placeholder="Write a caption…" placeholderTextColor={C.fg3} multiline maxLength={2200} keyboardAppearance={C.blurTint} editable={!busy} style={{ flex: 1, minHeight: 90, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel="Caption" />
+                <TextInput value={caption} onChangeText={setCaption} placeholder={t('create.captionPlaceholder')} placeholderTextColor={C.fg3} multiline maxLength={2200} keyboardAppearance={C.blurTint} editable={!busy} style={{ flex: 1, minHeight: 90, padding: 12, borderRadius: 12, backgroundColor: C.surface, color: C.fg, fontSize: 16, textAlignVertical: 'top' }} accessibilityLabel={t('create.caption')} />
               </View>
 
               {groups.length || groupId ? (
-                <Pressable onPress={() => setChoosingGroup(true)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={`Post to ${group ? group.name : 'your profile'}`} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 })}>
+                <Pressable onPress={() => setChoosingGroup(true)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={t('create.postToLabel', { where: group ? group.name : t('create.yourProfileLower') })} style={({ pressed }) => ({ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: pressed ? C.surface2 : C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 })}>
                   <Icon name={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} size={20} color={C.accent2} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: C.fg2, fontSize: 12.5 }}>Post to</Text>
-                    <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{group ? group.name : 'Your profile'}</Text>
+                    <Text style={{ color: C.fg2, fontSize: 12.5 }}>{t('create.postTo')}</Text>
+                    <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{group ? group.name : t('create.yourProfile')}</Text>
                   </View>
                   <Icon name="down" size={18} color={C.fg2} weight={2.2} />
                 </Pressable>
@@ -230,37 +240,48 @@ export default function Create() {
               <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Icon name="music" size={20} color={C.accent2} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg2, fontSize: 12.5 }}>Audio</Text>
-                  <Text style={{ color: audio ? C.fg : C.fg3, fontSize: 16, fontWeight: audio ? '600' : '400' }} numberOfLines={1}>{audio ? `${audio.title} · ${audio.artist}` : 'None'}</Text>
+                  <Text style={{ color: C.fg2, fontSize: 12.5 }}>{t('create.audio')}</Text>
+                  <Text style={{ color: audio ? C.fg : C.fg3, fontSize: 16, fontWeight: audio ? '600' : '400' }} numberOfLines={1}>{audio ? `${audio.title} · ${audio.artist}` : t('create.none')}</Text>
                 </View>
-                {audio ? <IconButton name="close" size={20} label="Remove the audio" color={C.fg2} onPress={() => (busy ? undefined : setAudio(null))} /> : null}
+                {audio ? <IconButton name="close" size={20} label={t('create.removeAudio')} color={C.fg2} onPress={() => (busy ? undefined : setAudio(null))} /> : null}
               </View>
 
               <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 52, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Icon name="location" size={20} color={C.accent2} />
-                <TextInput value={location} onChangeText={setLocation} placeholder="Add location" placeholderTextColor={C.fg3} maxLength={120} keyboardAppearance={C.blurTint} editable={!busy} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 12 }} accessibilityLabel="Location" />
+                <TextInput value={location} onChangeText={setLocation} placeholder={t('create.addLocation')} placeholderTextColor={C.fg3} maxLength={120} keyboardAppearance={C.blurTint} editable={!busy} style={{ flex: 1, color: C.fg, fontSize: 16, paddingVertical: 12 }} accessibilityLabel={t('create.location')} />
               </View>
 
               <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 60, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Icon name="shield" size={20} color={C.accent2} />
                 <View style={{ flex: 1, paddingVertical: 10 }}>
-                  <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>Sensitive content</Text>
-                  <Text style={{ color: C.fg2, fontSize: 12.5, marginTop: 1 }}>Hidden from members under 14</Text>
+                  <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{t('create.sensitive')}</Text>
+                  <Text style={{ color: C.fg2, fontSize: 12.5, marginTop: 1 }}>{t('create.sensitiveSub')}</Text>
                 </View>
-                <Toggle value={sensitive} onChange={setSensitive} label="Sensitive content. Hidden from members under 14" disabled={!!busy} />
+                <Toggle value={sensitive} onChange={setSensitive} label={`${t('create.sensitive')}. ${t('create.sensitiveSub')}`} disabled={!!busy} />
               </View>
+
+              {canLimit ? (
+                <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, minHeight: 60, borderRadius: 12, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Icon name="lock" size={20} color={C.accent2} />
+                  <View style={{ flex: 1, paddingVertical: 10 }}>
+                    <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{t('create.subscribersOnly')}</Text>
+                    <Text style={{ color: C.fg2, fontSize: 12.5, marginTop: 1 }}>{t('create.subscribersOnlySub')}</Text>
+                  </View>
+                  <Toggle value={subscribersOnly} onChange={setSubscribersOnly} label={`${t('create.subscribersOnly')}. ${t('create.subscribersOnlySub')}`} disabled={!!busy} />
+                </View>
+              ) : null}
 
               {busy ? <Text style={{ color: C.fg2, textAlign: 'center', marginTop: 18 }} accessibilityLiveRegion="polite">{busy}</Text> : null}
               {err ? <Text style={{ color: C.like, textAlign: 'center', marginTop: 18, marginHorizontal: 24, lineHeight: 20 }} accessibilityLiveRegion="polite">{err}</Text> : null}
 
-              <Button label={busy ? 'Sharing' : 'Share'} busy={!!busy} onPress={share} disabled={!items.length} style={{ marginHorizontal: 16, marginTop: 22 }} />
+              <Button label={busy ? t('create.sharing') : t('common.share')} busy={!!busy} onPress={share} disabled={!items.length} style={{ marginHorizontal: 16, marginTop: 22 }} />
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
       ) : null}
 
-      <Sheet visible={choosingGroup} onClose={() => setChoosingGroup(false)} title="Post to">
-        {[{ id: null as string | null, name: 'Your profile', sub: 'Everyone who follows you' }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: g.kind === 'page' ? 'Page' : g.privacy === 'private' ? 'Private community' : 'Community' }))].map((o) => (
+      <Sheet visible={choosingGroup} onClose={() => setChoosingGroup(false)} title={t('create.postTo')}>
+        {[{ id: null as string | null, name: t('create.yourProfile'), sub: t('create.everyoneWhoFollows') }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: g.kind === 'page' ? t('create.page') : g.privacy === 'private' ? t('create.privateCommunity') : t('create.community') }))].map((o) => (
           <Pressable key={o.id ?? 'me'} onPress={() => { setGroupId(o.id); setChoosingGroup(false); }} accessibilityRole="radio" accessibilityState={{ checked: groupId === o.id }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 54, backgroundColor: pressed ? C.press : 'transparent' })}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: C.fg, fontSize: 16.5 }} numberOfLines={1}>{o.name}</Text>

@@ -67,9 +67,10 @@ async function make(db: any, me: string, postId: string) {
       await db.from('community_posts').update({ captions_status: 'none' }).eq('id', post.id);
       return json({ status: 'none' });
     }
-    const name = String(video.url).toLowerCase().includes('.mov') ? 'clip.mov' : 'clip.mp4';
+    // iPhone clips are .mov, which Whisper won't take by name; it's the same container as .mp4 and
+    // decodes fine sent as one.
     const form = new FormData();
-    form.append('file', new Blob([bytes], { type: name.endsWith('.mov') ? 'video/quicktime' : 'video/mp4' }), name);
+    form.append('file', new Blob([bytes], { type: 'video/mp4' }), 'clip.mp4');
     form.append('model', 'whisper-1');
     form.append('response_format', 'verbose_json');
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form });

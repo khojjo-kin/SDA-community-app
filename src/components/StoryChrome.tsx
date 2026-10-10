@@ -279,7 +279,7 @@ export function HighlightCover({ uri, size, ring, gap }: { uri?: string | null; 
   );
 }
 
-/** All of a member's highlights as round covers; the one playing now wears their ring. */
+/** All of a member's memories (highlights in the code) as round covers; the one playing now wears their ring. */
 export function HighlightBrowser({ visible, userId, currentId, ring, onClose, onPick }: { visible: boolean; userId: string; currentId: string; ring: readonly string[]; onClose: () => void; onPick: (id: string) => void }) {
   const [list, setList] = useState<Highlight[] | null>(null);
 
@@ -300,11 +300,11 @@ export function HighlightBrowser({ visible, userId, currentId, ring, onClose, on
   }, [visible, userId]);
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Highlights">
+    <Sheet visible={visible} onClose={onClose} title="Memories">
       {list === null ? (
         <Loading />
       ) : !list.length ? (
-        <Empty icon="highlight" title="No highlights" />
+        <Empty icon="highlight" title="No memories" />
       ) : (
         <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8, rowGap: 16 }}>
           {list.map((h) => {

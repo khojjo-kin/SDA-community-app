@@ -1,14 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SectionTitle } from '../../src/components/Grid';
-import { Icon } from '../../src/components/Icon';
-import { PersonRow } from '../../src/components/PersonRow';
-import { Empty, Header, Loading, Screen, useToast } from '../../src/components/ui';
-import { ERHA_ID, getProfile, openThread, peopleToMessage, searchProfiles } from '../../src/lib/api';
+import { Icon, VerifiedTick } from '../../src/components/Icon';
+import { Avatar, Empty, Header, Loading, Screen, useToast } from '../../src/components/ui';
+import { activeLabel, ERHA_ID, getProfile, isOnline, openThread, peopleToMessage, searchProfiles } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Profile } from '../../src/lib/types';
+
+/**
+ * Someone you could message: their face (with the green dot when they're in the app now), name, and
+ * when they were last active. Tapping anywhere on the row opens the chat; there's no follow button here.
+ */
+function MessageRow({ person, onPress }: { person: Profile; onPress: () => void }) {
+  // Profiles loaded before activity status existed have no active_at; they simply show no dot.
+  const online = isOnline(person.active_at);
+  const active = activeLabel(person.active_at);
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Message ${person.full_name}, ${person.username}${online ? ', active now' : ''}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
+      <Avatar uri={person.avatar_url} name={person.full_name} size={50} ring={person.has_story ? 'new' : null} online={online} />
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{person.username}</Text>
+          {person.verified ? <VerifiedTick size={14} /> : null}
+        </View>
+        <View style={{ flexDirection: 'row' }}>
+          <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13.5, flexShrink: 1 }}>{person.full_name}</Text>
+          {active ? <Text numberOfLines={1} style={{ color: C.fg3, fontSize: 13.5 }}> · {active}</Text> : null}
+        </View>
+      </View>
+      <Icon name="right" size={20} color={C.fg2} />
+    </Pressable>
+  );
+}
 
 export default function NewMessage() {
   const { me } = useSession();
@@ -62,6 +88,7 @@ export default function NewMessage() {
   async function open(p: Profile) {
     if (opening) return;
     setOpening(true);
+    tap();
     try {
       const tid = await openThread(p.id);
       router.replace(`/chat/${tid}`);
@@ -85,7 +112,7 @@ export default function NewMessage() {
         keyExtractor={(p) => p.id}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={<SectionTitle>{q.trim() ? 'Results' : 'Suggested'}</SectionTitle>}
-        renderItem={({ item }) => <PersonRow person={item} onPress={() => open(item)} right={<Icon name="right" size={20} color={C.fg2} />} />}
+        renderItem={({ item }) => <MessageRow person={item} onPress={() => open(item)} />}
         ListEmptyComponent={people === null ? <Loading /> : <Empty title={q.trim() ? 'No one found' : 'No suggestions yet'} body={q.trim() ? 'Check the spelling and try again.' : 'Search for someone by name or username.'} />}
         contentContainerStyle={{ paddingBottom: 40 }}
       />

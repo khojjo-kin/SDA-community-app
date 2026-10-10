@@ -731,11 +731,14 @@ export async function sendMessage(me: string, threadId: string, msg: { text?: st
 }
 
 /**
- * Opens a view-once photo: from now on it is gone for both of you (the server clears it and deletes
- * the file). Call this once the photo is showing, with its address already in hand.
+ * Opens a view-once photo sent to me. The message never carries the photo's address: the server
+ * hands it over here, this one time, marks the photo opened, and deletes the file a few minutes
+ * later. Null if it was already opened (on another phone, say).
  */
-export async function openViewOnce(messageId: string) {
-  ok(await supabase.from('community_messages').update({ opened_at: new Date().toISOString() }).eq('id', messageId));
+export async function openViewOnce(messageId: string): Promise<string | null> {
+  const url: string | null = ok(await supabase.rpc('community_open_view_once', { message: messageId }));
+  announce('threads');
+  return url || null;
 }
 
 /** Tells the other person (a Plus member) that I took a screenshot of our chat. */
@@ -1482,7 +1485,7 @@ export const setDefaultCard = (id: string) => payments<{ cards: SavedCard[] }>('
  * nothing is left to pay.
  */
 export const startSubscription = (savedCardId?: string | null, plan: 'monthly' | 'yearly' = 'monthly') =>
-  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment' | 'setup'; trial_days?: number; status?: string; amount?: number; currency?: string }>('subscribe', { plan, ...(savedCardId ? { payment_method_id: savedCardId } : {}) });
+  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment' | 'setup'; trial_days?: number; status?: string; amount?: number; currency?: string; plan_changed?: boolean }>('subscribe', { plan, ...(savedCardId ? { payment_method_id: savedCardId } : {}) });
 
 /** Reads the subscription back from Stripe after paying and switches Plus on. */
 export async function syncSubscription(): Promise<BillingStatus & { plus: boolean }> {
@@ -1583,13 +1586,29 @@ export const openPayoutsDashboard = () => payments<{ url: string }>('payouts_das
 
 /** Starts subscribing to a creator. Confirm the client secret (card or Apple Pay), then syncCreatorSubscription. */
 export const startCreatorSubscription = (creatorId: string) =>
-  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment'; amount?: number; currency?: string }>('creator_subscribe', { creator_id: creatorId });
+  payments<{ already?: boolean; subscription_id: string; client_secret?: string; intent?: 'payment'; amount?: number; currency?: string; status?: string }>('creator_subscribe', { creator_id: creatorId });
 
 export async function syncCreatorSubscription(creatorId: string) {
   const r = await payments<{ status: string; cancel_at_period_end?: boolean; current_period_end?: string | null }>('creator_sync', { creator_id: creatorId });
   announce('profile');
   announce('feed');
   return r;
+}
+
+/**
+ * After paying: reads the subscription back until Stripe has it on ('active' or 'trialing'). A payment
+ * that has only just gone through can leave it 'incomplete' (or 'past_due', for a renewal paid late)
+ * for a few seconds. `known` is a status already read, so it isn't asked for twice. True once it's on.
+ */
+export async function syncCreatorSubscriptionUntilOn(creatorId: string, known: string | null = null): Promise<boolean> {
+  const on = (s: string | null) => s === 'active' || s === 'trialing';
+  let status = known;
+  for (let i = 0; i < 4 && !on(status); i++) {
+    // Already asked and not on yet: give Stripe a moment before asking again.
+    if (status !== null) await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+    status = (await syncCreatorSubscription(creatorId).catch(() => null))?.status ?? 'unknown';
+  }
+  return on(status);
 }
 
 /** Stops renewing at the end of the paid month (or, with resume, carries on after all). */
@@ -1615,11 +1634,17 @@ export async function mySubscribers(me: string): Promise<CreatorSub[]> {
 
 /* ---------- live support and feedback ---------- */
 
-/** My open support chat, made if there isn't one. */
-export async function openSupportChat(me: string): Promise<SupportChat> {
-  const open: SupportChat | null = ok(await supabase.from('community_support_chats').select('*').eq('user_id', me).eq('status', 'open').order('updated_at', { ascending: false }).limit(1).maybeSingle());
-  if (open) return open;
-  return ok(await supabase.from('community_support_chats').insert({ user_id: me }).select('*').single());
+/**
+ * My latest support chat, open or closed (the team's last answers stay readable, and writing again
+ * reopens it), or null if I've never written to support.
+ */
+export async function findSupportChat(me: string): Promise<SupportChat | null> {
+  return ok(await supabase.from('community_support_chats').select('*').eq('user_id', me).order('updated_at', { ascending: false }).limit(1).maybeSingle());
+}
+
+/** Starts my support chat, for my first message (just opening Support doesn't make one). */
+export async function startSupportChat(me: string): Promise<SupportChat> {
+  return (await findSupportChat(me)) ?? ok(await supabase.from('community_support_chats').insert({ user_id: me }).select('*').single());
 }
 
 export async function fetchSupportMessages(chatId: string): Promise<SupportMessage[]> {
@@ -1627,11 +1652,11 @@ export async function fetchSupportMessages(chatId: string): Promise<SupportMessa
 }
 
 /** Sends my message, then asks the assistant to answer (it stays quiet while a person from the team is answering). */
-export async function sendSupportMessage(me: string, chatId: string, text: string): Promise<{ answered_by: 'ai' | 'agent' | 'none' }> {
+export async function sendSupportMessage(me: string, chatId: string, text: string): Promise<{ answered_by: 'ai' | 'agent' | 'none' | 'busy' }> {
   ok(await supabase.from('community_support_messages').insert({ chat_id: chatId, sender_id: me, role: 'member', text: text.trim().slice(0, 4000) }));
-  const { data, error } = await withTimeout(supabase.functions.invoke('support', { body: { chat_id: chatId } }), 60000);
+  const { data, error } = await withTimeout(supabase.functions.invoke('support', { body: { chat_id: chatId } }), 90000);
   if (error) return { answered_by: 'none' };
-  return (data as { answered_by: 'ai' | 'agent' | 'none' }) ?? { answered_by: 'none' };
+  return (data as { answered_by: 'ai' | 'agent' | 'none' | 'busy' }) ?? { answered_by: 'none' };
 }
 
 /** Admins: support chats, most recent first, with who they're from. */
@@ -1666,11 +1691,26 @@ export async function fetchFeedback(): Promise<Feedback[]> {
 
 /** Shares (or updates) where I am with mutual followers or close friends. Members under 14 can't. */
 export async function shareLocation(me: string, loc: { lat: number; lng: number; accuracy?: number | null; audience: FriendLocation['audience'] }) {
-  ok(await supabase.from('community_locations').upsert({ user_id: me, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy ?? null, audience: loc.audience, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }));
+  // The time is set by the server's clock, not the phone's.
+  ok(await supabase.from('community_locations').upsert({ user_id: me, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy ?? null, audience: loc.audience }, { onConflict: 'user_id' }));
 }
 
 export async function stopSharingLocation(me: string) {
   ok(await supabase.from('community_locations').delete().eq('user_id', me));
+}
+
+/** Whether I'm sharing where I am (my place is on the server, however old). */
+export async function amSharingLocation(me: string): Promise<boolean> {
+  return !!ok(await supabase.from('community_locations').select('user_id').eq('user_id', me).maybeSingle());
+}
+
+/**
+ * Moves my shared place, only if I'm still sharing. It never adds a place, so an update that lands
+ * after sharing was turned off changes nothing. False when there was no place to move.
+ */
+export async function moveSharedLocation(me: string, loc: { lat: number; lng: number; accuracy?: number | null }): Promise<boolean> {
+  const rows: { user_id: string }[] | null = ok(await supabase.from('community_locations').update({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy ?? null }).eq('user_id', me).select('user_id'));
+  return !!rows?.length;
 }
 
 /** Friends sharing where they are (updated in the last day), and me if I'm sharing. */
