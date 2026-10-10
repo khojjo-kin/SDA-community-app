@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { AssistiveButton } from '../../src/components/AssistiveButton';
 import { BirthDateGate, useBirthDateGate } from '../../src/components/BirthDateForm';
 import { FeedbackPrompt } from '../../src/components/FeedbackPrompt';
 import { Mark } from '../../src/components/Icon';
 import { Button } from '../../src/components/ui';
-import { purgeDate, restoreAccount } from '../../src/lib/api';
+import { blockDeviceForAge, isUnder13, requestChildClosure } from '../../src/lib/age';
+import { fetchBirthDate, purgeDate, restoreAccount } from '../../src/lib/api';
 import { CallProvider } from '../../src/lib/calls';
 import { useLiveLocation } from '../../src/lib/liveLocation';
 import { usePresence } from '../../src/lib/presence';
@@ -17,6 +18,23 @@ import { C, errText } from '../../src/lib/theme';
 /** Shown instead of the app while the account is deactivated: restore it, or leave it to be deleted. */
 function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; deletedAt: string; onRestored: () => Promise<void>; onLogOut: () => void }) {
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  // An account closed because its owner is under 13 can't be restored, so it gets the age check's
+  // sorry screen instead. The birth date tells (only its owner can read it); null while finding out.
+  const [young, setYoung] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchBirthDate(me)
+      .then((d) => { if (live) setYoung(!!d && isUnder13(d)); })
+      .catch(() => { if (live) setYoung(false); });
+    return () => { live = false; };
+  }, [me]);
+  useEffect(() => {
+    if (!young) return;
+    requestChildClosure(me);
+    blockDeviceForAge();
+    router.replace('/cannot-join?closed=1');
+  }, [young, me, router]);
   const gone = purgeDate(deletedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
   async function restore() {
     setBusy(true);
@@ -24,9 +42,21 @@ function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; dele
       await restoreAccount(me);
       await onRestored();
     } catch (e) {
+      // The server refuses to restore an under-13 account, whatever the app worked out above.
+      if (/aged 13 and over/i.test(errText(e))) {
+        setYoung(true);
+        return;
+      }
       Alert.alert('Could not restore', errText(e));
       setBusy(false);
     }
+  }
+  if (young !== false) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={C.fg2} />
+      </View>
+    );
   }
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
@@ -43,7 +73,7 @@ function Deactivated({ me, deletedAt, onRestored, onLogOut }: { me: string; dele
 
 export default function AppLayout() {
   const { isSignedIn, signOut } = useAuth();
-  const { me, loading, profile, error, refresh } = useSession();
+  const { me, loading, profile, error, errorCode, refresh } = useSession();
   // Members who haven't given their birthday yet are asked for it before anything else.
   const needsBirthday = useBirthDateGate(me, profile);
   // "Active now" for the people who can see it, while the app is open and signed in.
@@ -69,7 +99,8 @@ export default function AppLayout() {
         <Mark size={64} />
         <Text style={{ color: C.fg, fontSize: 19, fontWeight: '800', textAlign: 'center' }}>Can't reach your account</Text>
         <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>{error}</Text>
-        {/JWT|JWS|PGRST30|token/i.test(error) ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 19, fontSize: 13 }}>Sign-in is still being connected to the database for this app. Try again in a little while.</Text> : null}
+        {/* Read from the raw failure: `error` is already in friendly words, which never mention tokens. */}
+        {/JWT|JWS|PGRST30|token/i.test(errorCode) ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 19, fontSize: 13 }}>Sign-in is still being connected to the database for this app. Try again in a little while.</Text> : null}
         <Button label="Try again" onPress={refresh} style={{ alignSelf: 'stretch' }} />
         <Button label="Log out" kind="ghost" onPress={() => signOut()} style={{ alignSelf: 'stretch' }} />
       </View>

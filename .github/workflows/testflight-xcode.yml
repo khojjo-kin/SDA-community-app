@@ -21,8 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ASC_KEY_ID: PD6DWK7T4C
-  ASC_ISSUER_ID: 232fdb99-c796-444e-8430-34452fd67484
+  # Repository variables (Settings → Secrets and variables → Actions → Variables) win when set, so
+  # a new key can be swapped in without editing this file.
+  ASC_KEY_ID: ${{ vars.ASC_KEY_ID || 'PD6DWK7T4C' }}
+  ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID || '232fdb99-c796-444e-8430-34452fd67484' }}
 
 jobs:
   check:
@@ -64,27 +66,35 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
       - name: Collect the Apple key, certificate and profile
+        env:
+          # The safe place for these is the repository's Actions secrets (base64 of each file). While
+          # they aren't set, the copies committed on this branch are used, as before.
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          DIST_KEY_BASE64: ${{ secrets.DIST_KEY_BASE64 }}
+          DIST_CER_BASE64: ${{ secrets.DIST_CER_BASE64 }}
+          PROFILE_BASE64: ${{ secrets.PROFILE_BASE64 }}
         run: |
           mkdir -p "$RUNNER_TEMP/logs"; exec > >(tee -a "$RUNNER_TEMP/logs/setup.txt") 2>&1
           mkdir -p "$RUNNER_TEMP/signing"
-          # These live on the branch being built. Older copies of this project kept them only on
-          # main, so main is still tried as a fallback.
+          KEY_FILE="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          # Older copies of this project kept the files only on main, so main is still tried as a fallback.
           git fetch --quiet --depth 1 origin main || true
-          take() { # $1 = path in the repository, $2 = where to put it
-            if [ -s "$1" ]; then cp "$1" "$2" && echo "$1: from this branch"; return 0; fi
-            if git show "FETCH_HEAD:$1" > "$2" 2> /dev/null && [ -s "$2" ]; then echo "$1: from main"; return 0; fi
-            rm -f "$2"; echo "$1: MISSING"; return 1
+          take() { # $1 = secret's value (base64), $2 = path in the repository, $3 = where to put it
+            if [ -n "$1" ]; then printf '%s' "$1" | base64 --decode > "$3" && [ -s "$3" ] && echo "$2: from secrets" && return 0; fi
+            if [ -s "$2" ]; then cp "$2" "$3" && echo "$2: from this branch"; return 0; fi
+            if git show "FETCH_HEAD:$2" > "$3" 2> /dev/null && [ -s "$3" ]; then echo "$2: from main"; return 0; fi
+            rm -f "$3"; echo "$2: MISSING"; return 1
           }
-          take ios/fastlane/AuthKey_PD6DWK7T4C.p8 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" || {
-            echo "The App Store Connect key is not in the repository, so nothing could be uploaded."
+          take "$ASC_KEY_P8_BASE64" "ios/fastlane/AuthKey_$ASC_KEY_ID.p8" "$KEY_FILE" || {
+            echo "The App Store Connect key is not in the secrets or the repository, so nothing could be uploaded."
             exit 1
           }
-          take ios/PRZR6A95J9.p12 "$RUNNER_TEMP/signing/dist.p12" || true
-          take ios/PRZR6A95J9.cer "$RUNNER_TEMP/signing/dist.cer" || true
-          take ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision "$RUNNER_TEMP/signing/app.mobileprovision" || true
-          chmod 600 "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8"
+          take "$DIST_KEY_BASE64" ios/PRZR6A95J9.p12 "$RUNNER_TEMP/signing/dist.p12" || true
+          take "$DIST_CER_BASE64" ios/PRZR6A95J9.cer "$RUNNER_TEMP/signing/dist.cer" || true
+          take "$PROFILE_BASE64" ios/AppStore_Kojo.SDAAPPGEMINI.mobileprovision "$RUNNER_TEMP/signing/app.mobileprovision" || true
+          chmod 600 "$KEY_FILE"
           chmod 600 "$RUNNER_TEMP"/signing/* 2> /dev/null || true
-          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" >> "$GITHUB_ENV"
+          echo "ASC_KEY_PATH=$KEY_FILE" >> "$GITHUB_ENV"
           echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
       - name: Build with Xcode and upload to TestFlight
@@ -93,7 +103,7 @@ jobs:
       - name: Remove the key and certificate
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/AuthKey_PD6DWK7T4C.p8" "$RUNNER_TEMP/signing" "$HOME/.appstoreconnect/private_keys"
+          rm -rf "$RUNNER_TEMP"/AuthKey_*.p8 "$RUNNER_TEMP/signing" "$HOME/.appstoreconnect/private_keys"
           security delete-keychain "$RUNNER_TEMP/community-signing.keychain-db" > /dev/null 2>&1 || true
       - name: Save logs
         if: always()

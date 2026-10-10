@@ -4,7 +4,8 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SectionTitle } from '../../src/components/Grid';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
-import { Avatar, Button, Empty, ErrorNote, Header, Loading, Row, Screen, useToast } from '../../src/components/ui';
+import { RowsSkeleton, SlowLine } from '../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, Header, Row, Screen, useToast } from '../../src/components/ui';
 import { acceptFollowRequest, fetchFollowRequests, fetchNotices, markNoticesRead, removeFollowRequest, setFollow } from '../../src/lib/api';
 import { type Key, useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
@@ -164,8 +165,9 @@ export default function Notifications() {
   return (
     <Screen>
       <Header title={t('common.notifications')} />
+      <SlowLine active={refreshing} />
       {status === 'loading' ? (
-        <Loading />
+        <RowsSkeleton count={9} avatar={46} padY={8} trailing="square" />
       ) : status === 'error' ? (
         <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} />
       ) : (

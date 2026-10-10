@@ -4,8 +4,9 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { FeedSwitch } from '../../../src/components/FeedSwitch';
 import { PostCard } from '../../../src/components/PostCard';
+import { FeedSkeleton, SlowLine } from '../../../src/components/Skeleton';
 import { StoryTray } from '../../../src/components/StoryTray';
-import { Button, Empty, ErrorNote, IconButton, Loading, Screen } from '../../../src/components/ui';
+import { Button, Empty, ErrorNote, IconButton, Screen } from '../../../src/components/ui';
 import { countUnreadNotices, fetchExplore, fetchFeed, recordView } from '../../../src/lib/api';
 import { getActivePost, setActivePost } from '../../../src/lib/autoplay';
 import { cacheKey, peekCache, readCache, writeCache } from '../../../src/lib/cache';
@@ -75,6 +76,8 @@ export default function Home() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(() => (seed?.posts.length ? 'ready' : 'loading'));
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  // The next page is on its way (scrolled to the end): shows the slow line if it takes a while.
+  const [paging, setPaging] = useState(false);
   const [suggested, setSuggested] = useState(!!seed?.suggested);
   const [unread, setUnread] = useState(false);
   const [trayKey, setTrayKey] = useState(0);
@@ -138,6 +141,7 @@ export default function Home() {
       if (!reset && (busy.current || done.current)) return;
       const my = reset ? ++seq.current : seq.current;
       busy.current = true;
+      if (!reset) setPaging(true);
       const feed = kindRef.current;
       let which = reset ? 'feed' : mode.current;
       const before = reset ? undefined : cursor.current;
@@ -181,6 +185,7 @@ export default function Home() {
         if (my === seq.current) {
           busy.current = false;
           setRefreshing(false);
+          setPaging(false);
         }
       }
     },
@@ -270,6 +275,7 @@ export default function Home() {
         </View>
         <IconButton name="heart" size={23} label={t('common.notifications')} bg={C.surface} badge={unread} onPress={() => { setUnread(false); router.push('/notifications'); }} />
       </View>
+      <SlowLine active={refreshing || paging} />
       <FlatList
         data={ids}
         keyExtractor={(id) => id}
@@ -287,7 +293,7 @@ export default function Home() {
             ) : null}
           </View>
         }
-        ListEmptyComponent={status === 'loading' ? <Loading /> : status === 'error' ? <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /> : empty}
+        ListEmptyComponent={status === 'loading' ? <FeedSkeleton /> : status === 'error' ? <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /> : empty}
         ListFooterComponent={status === 'ready' && ids.length > 0 && done.current ? <Text style={{ color: C.fg2, textAlign: 'center', padding: 28 }}>{t('home.caughtUp')}</Text> : null}
         onEndReached={() => load(false)}
         onEndReachedThreshold={0.6}

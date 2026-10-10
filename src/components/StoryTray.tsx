@@ -9,6 +9,7 @@ import { C } from '../lib/theme';
 import type { LiveCard, StoryGroup } from '../lib/types';
 import { Icon } from './Icon';
 import { LiveAvatar } from './LiveBadge';
+import { StoryCircleSkeleton } from './Skeleton';
 import { Avatar, useToast } from './ui';
 
 export function StoryTray({ refreshKey }: { refreshKey: number }) {
@@ -17,9 +18,15 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
   const toast = useToast();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [lives, setLives] = useState<LiveCard[]>([]);
+  // Until the first answer (or failure), empty circles stand where the stories will be. A refresh
+  // keeps the circles already shown.
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(() => {
-    fetchStoryTray(me).then(setGroups).catch(() => {});
+    fetchStoryTray(me)
+      .then(setGroups)
+      .catch(() => {})
+      .finally(() => setLoaded(true));
     // Anyone broadcasting right now sits at the front of the tray.
     fetchLives()
       .then((cards) => setLives(cards.filter((c) => !c.ended_at)))
@@ -91,6 +98,7 @@ export function StoryTray({ refreshKey }: { refreshKey: number }) {
           <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76 }}>{g.username}</Text>
         </Pressable>
       ))}
+      {loaded ? null : [1, 2, 3, 4, 5].map((i) => <StoryCircleSkeleton key={i} index={i} />)}
     </ScrollView>
   );
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -296,6 +296,51 @@ export function SheetRow({ icon, label, sub, onPress, danger, right, first }: { 
       </View>
     </Pressable>
   );
+}
+
+/* ---------- a question with several answers ---------- */
+
+/** One answer offered by useChoices. */
+export type Choice = { label: string; onPress: () => void };
+
+/**
+ * A question with several answers, such as why something is being reported. On iPhone it is the
+ * system alert, as before. Android's alert shows no more than three buttons and quietly drops the
+ * rest, so there the answers are rows in a bottom sheet instead, as the story viewer's reasons are,
+ * with Cancel last. Render `element` in the screen, then call `ask`.
+ */
+export function useChoices() {
+  const [asked, setAsked] = useState<{ title: string; message?: string; icon: IconName; choices: Choice[] } | null>(null);
+  const [visible, setVisible] = useState(false);
+  const ask = useCallback((q: { title: string; message?: string; icon: IconName; choices: Choice[] }) => {
+    if (Platform.OS !== 'android') {
+      Alert.alert(q.title, q.message, [...q.choices.map((c) => ({ text: c.label, onPress: c.onPress })), { text: t('common.cancel'), style: 'cancel' as const }]);
+      return;
+    }
+    setAsked(q);
+    setVisible(true);
+  }, []);
+  // The rows stay in place while the sheet slides away, so it doesn't empty as it goes.
+  const close = useCallback(() => setVisible(false), []);
+  const element = (
+    <Sheet visible={visible} onClose={close} title={asked?.title}>
+      {asked?.message ? <Text style={{ color: C.fg2, fontSize: 15, textAlign: 'center', paddingHorizontal: 24, marginTop: -10, paddingBottom: 14 }}>{asked.message}</Text> : null}
+      {asked?.choices.map((c, i) => (
+        <SheetRow
+          key={`${i}:${c.label}`}
+          first={i === 0}
+          icon={asked.icon}
+          label={c.label}
+          onPress={() => {
+            close();
+            c.onPress();
+          }}
+        />
+      ))}
+      <SheetRow icon="close" label={t('common.cancel')} onPress={close} />
+    </Sheet>
+  );
+  return { ask, element };
 }
 
 /* ---------- toast ---------- */

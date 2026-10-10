@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { appVersion, askForStoreRating, StarPicker, STORE_LABEL } from '../../src/components/FeedbackPrompt';
 import { Icon } from '../../src/components/Icon';
+import { LegalRows, useLegalSheet } from '../../src/components/LegalDocument';
 import { ThinkingOrb } from '../../src/components/ThinkingOrb';
 import { Button, Divider, Row, Screen, ScreenHeader, SectionLabel, Sheet, useToast } from '../../src/components/ui';
 import { mySupportTickets, PLUS_PRICE_PENCE, sendFeedback } from '../../src/lib/api';
@@ -66,6 +67,8 @@ export default function Help() {
   const router = useRouter();
   const toast = useToast();
   const t = useT();
+  // The policies open in a sheet over Help.
+  const legal = useLegalSheet();
   const font = useAppFont();
   const fontBold = useAppFont('bold');
   const [open, setOpen] = useState(-1);
@@ -172,6 +175,9 @@ export default function Help() {
         <Row icon="bulb" title={t('help.suggestIdea')} sub={t('help.suggestIdeaSub')} onPress={() => openSheet('idea')} />
         <Row icon="flag" title={t('help.reportProblem')} sub={t('help.reportProblemSub')} onPress={() => openSheet('problem')} />
 
+        <SectionLabel>{t('legal.title')}</SectionLabel>
+        <LegalRows onOpen={legal.open} />
+
         {tickets.length ? (
           <>
             <Divider />
@@ -232,6 +238,7 @@ export default function Help() {
           </View>
         )}
       </Sheet>
+      {legal.element}
     </Screen>
   );
 }

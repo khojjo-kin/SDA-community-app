@@ -10,6 +10,10 @@ npm install --no-audit --no-fund > "$LOG_DIR/npm-install.log" 2>&1
 echo "npm install: $?" >> "$LOG_DIR/status.txt"
 [ -f package-lock.json ] && cp package-lock.json "$LOG_DIR/package-lock.json"
 
+# Known vulnerabilities in what ships with the app (dev tools left out). Reported, never fatal here.
+npm audit --omit=dev --audit-level=high > "$LOG_DIR/npm-audit.log" 2>&1
+echo "npm audit (high and above): $?" >> "$LOG_DIR/status.txt"
+
 npx expo install --check > "$LOG_DIR/expo-check.log" 2>&1
 echo "expo install --check: $?" >> "$LOG_DIR/status.txt"
 

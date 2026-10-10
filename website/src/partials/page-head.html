@@ -1,0 +1,8 @@
+<div class="page-head">
+  <div class="wrap">
+    <h1>{{h1}}</h1>
+    {{#if lead}}<p class="page-lead">{{lead}}</p>
+    {{/if}}{{#if effective_date}}<p class="page-meta">Effective {{#if effective_iso}}<time datetime="{{effective_iso}}">{{effective_date}}</time>{{else}}{{effective_date}}{{/if}}</p>
+    {{/if}}
+  </div>
+</div>

@@ -257,16 +257,60 @@ export function clock(seconds: number): string {
   return Math.floor(s / 60) + ':' + pad(s % 60);
 }
 
-/** Turns any thrown value into a sentence a person can act on. */
+/**
+ * An error whose words were written for members, such as the reason one of our server functions
+ * (payments, Erha) gives when it says no. errText shows it as it is.
+ */
+export class FriendlyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FriendlyError';
+  }
+}
+
+const SOMETHING_WRONG = 'Something went wrong. Try again.';
+const OFFLINE = "You're offline, or the connection is too weak. Check your internet and try again.";
+const NOT_SAVED = "That didn't save — try again.";
+
+/** No connection, or no answer in time. */
+const NETWORK = /Network request failed|Failed to fetch|FetchError|network error|timed? ?out|timeout|AbortError|aborted|ECONN|ENOTFOUND|EAI_AGAIN/i;
+
+/**
+ * Words that only turn up in text written for developers: the database's and the server's own
+ * messages, sign-in token problems, and faults in the code (with their stack lines). An error that
+ * reads like this is never shown to a member, whoever threw it.
+ */
+const TECHNICAL = /permission denied|row-level security|duplicate key|violates|constraint|null value|invalid input|syntax error|(relation|column|function|schema|type) "[^"]*" does not exist|JWT|PGRST|JSON|unauthori[sz]ed|forbidden|status code|non-2xx|Edge Function|SSL|certificate|undefined is not|null is not|is not a function|cannot read propert|unexpected token|TypeError|ReferenceError|SyntaxError|RangeError|\[object |\n|\bat \S+ \([^)]*:\d+:\d+\)|\.(js|jsx|ts|tsx):\d/i;
+
+/**
+ * Turns any thrown value into a sentence a person can act on. Only words written for members get
+ * through: Clerk's, our server functions' (FriendlyError), the reasons our own database functions and
+ * triggers give (Postgres code P0001), and the app's own. Everything else (what the database, the
+ * network or a library says) becomes a plain sentence; the full error goes to the console in
+ * development builds only.
+ */
 export function errText(e: unknown): string {
+  if (__DEV__) console.log('[errText]', e);
   const anyE = e as any;
-  const clerk = anyE?.errors?.[0];
-  if (clerk) return clerk.longMessage || clerk.message || 'Something went wrong. Try again.';
-  if (anyE?.code === '23505') return /username/.test(String(anyE?.message ?? '') + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
-  if (anyE?.code === '23514') return /username/.test(String(anyE?.message ?? '')) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
+  if (e instanceof FriendlyError) return e.message || SOMETHING_WRONG;
+  // Clerk's errors (sign-in, sign-up, email codes) are written for the person signing in.
+  const clerk = Array.isArray(anyE?.errors) ? anyE.errors[0] : null;
+  if (clerk && typeof clerk === 'object' && !(clerk instanceof Error) && typeof clerk.code === 'string') return clerk.longMessage || clerk.message || SOMETHING_WRONG;
+  const message = typeof anyE?.message === 'string' ? anyE.message.trim() : typeof e === 'string' ? e.trim() : '';
+  const code = typeof anyE?.code === 'string' || typeof anyE?.code === 'number' ? String(anyE.code) : '';
+  // Raised by our own database functions and triggers, in words written for members.
+  if (code === 'P0001') return message && !message.includes('\n') ? message : SOMETHING_WRONG;
+  if (NETWORK.test(message) || anyE?.name === 'AbortError' || anyE?.name === 'FunctionsFetchError') return OFFLINE;
+  if (code === '23505') return /username/.test(message + String(anyE?.details ?? '')) ? 'That username is taken. Try another.' : 'That already exists.';
+  if (code === '23514') return /username/.test(message) ? 'Usernames use 3 to 30 lowercase letters, numbers or underscores.' : 'That is too long or not allowed. Shorten it and try again.';
   // Refused by the database's access rules: usually someone has blocked someone, or the thing is gone.
-  if (anyE?.code === '42501') return "That isn't available for this account.";
-  if (/Network request failed|Failed to fetch|FetchError|network error/i.test(String(anyE?.message ?? ''))) return 'No connection. Check your internet and try again.';
-  if (typeof anyE?.message === 'string' && anyE.message) return anyE.message;
-  return 'Something went wrong. Check your connection and try again.';
+  if (code === '42501') return "That isn't available for this account.";
+  // Any other data the database wouldn't take (a missing link, a value of the wrong kind or size).
+  if (/^2[23]/.test(code)) return NOT_SAVED;
+  if (typeof anyE?.name === 'string' && anyE.name.startsWith('Storage')) return NOT_SAVED;
+  if (code) return SOMETHING_WRONG;
+  // What the app itself throws (a plain Error) is written for members, unless it reads like the above.
+  const own = typeof e === 'string' || (e instanceof Error && e.name === 'Error');
+  if (own && message && message.length <= 300 && !TECHNICAL.test(message)) return message;
+  return SOMETHING_WRONG;
 }

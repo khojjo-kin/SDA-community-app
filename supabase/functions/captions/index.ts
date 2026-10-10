@@ -1,11 +1,11 @@
-// Captions on clips.
+// Captions on Shorts.
 //
-//   make       after a clip is shared, its author's app asks for captions: the video goes to OpenAI's
+//   make       after a short is shared, its author's app asks for captions: the video goes to OpenAI's
 //              speech-to-text (Whisper), and the timed lines are kept on the post.
 //   translate  a viewer whose app is in another language asks for the captions in it: Claude
 //              translates the lines once, and the translation is kept for everyone after.
 //
-// Secrets: OPENAI_API_KEY (speech to text) and ANTHROPIC_API_KEY (translation). Without them, clips
+// Secrets: OPENAI_API_KEY (speech to text) and ANTHROPIC_API_KEY (translation). Without them, shorts
 // simply have no captions and nothing breaks.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -31,7 +31,7 @@ const NAMES: Record<string, string> = {
 };
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' } });
 }
 
 function subjectOf(req: Request): string | null {
@@ -54,18 +54,49 @@ async function make(db: any, me: string, postId: string) {
   const video = (post.media ?? []).find((m: any) => m?.type === 'video');
   if (!video?.url) return json({ status: 'none' });
   if (post.captions_status === 'ready') return json({ status: 'ready' });
+  // Only the author's own upload in the app's storage is fetched, never an address someone typed in.
+  const own = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/community-media/${post.user_id}/`;
+  if (typeof video.url !== 'string' || !video.url.startsWith(own) || video.url.includes('..')) return json({ status: 'none' });
   const key = Deno.env.get('OPENAI_API_KEY');
   if (!key) {
     await db.from('community_posts').update({ captions_status: 'none' }).eq('id', post.id);
     return json({ status: 'none', reason: 'Captions are not switched on yet.' });
   }
+  // Speech-to-text costs money: a few shorts an hour per member is plenty.
+  const { data: allowed } = await db.rpc('community_rate_check', { uid: me, bucket: 'captions_make', most: 20, seconds: 3600 });
+  if (!allowed) return json({ status: 'none', reason: 'Try again later.' });
   await db.from('community_posts').update({ captions_status: 'pending' }).eq('id', post.id);
   try {
     const file = await fetch(video.url);
-    const bytes = await file.arrayBuffer();
-    if (!file.ok || bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES) {
+    const length = Number(file.headers.get('content-length') ?? '0');
+    if (!file.ok || length > MAX_BYTES) {
+      await file.body?.cancel().catch(() => {});
       await db.from('community_posts').update({ captions_status: 'none' }).eq('id', post.id);
       return json({ status: 'none' });
+    }
+    // Read it in, stopping as soon as it passes the limit (a missing or wrong length can't make it read on forever).
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const reader = file.body!.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BYTES) {
+        await reader.cancel().catch(() => {});
+        break;
+      }
+      chunks.push(value);
+    }
+    if (size === 0 || size > MAX_BYTES) {
+      await db.from('community_posts').update({ captions_status: 'none' }).eq('id', post.id);
+      return json({ status: 'none' });
+    }
+    const bytes = new Uint8Array(size);
+    let at = 0;
+    for (const c of chunks) {
+      bytes.set(c, at);
+      at += c.byteLength;
     }
     // iPhone clips are .mov, which Whisper won't take by name; it's the same container as .mp4 and
     // decodes fine sent as one.
@@ -93,7 +124,7 @@ async function make(db: any, me: string, postId: string) {
   }
 }
 
-async function translate(db: any, viewer: any, postId: string, lang: string) {
+async function translate(db: any, viewer: any, me: string, postId: string, lang: string) {
   if (!NAMES[lang]) return json({ error: 'Unknown language.' }, 400);
   // Read through the viewer's own access, so a post they can't see can't be translated for them.
   const { data: post } = await viewer.from('community_post_cards').select('id, captions, captions_lang').eq('id', postId).maybeSingle();
@@ -103,6 +134,8 @@ async function translate(db: any, viewer: any, postId: string, lang: string) {
   if (cached?.captions) return json({ captions: cached.captions, lang });
   const key = Deno.env.get('ANTHROPIC_API_KEY');
   if (!key) return json({ captions: null, reason: 'Translation is not switched on yet.' });
+  const { data: allowed } = await db.rpc('community_rate_check', { uid: me, bucket: 'captions_translate', most: 60, seconds: 3600 });
+  if (!allowed) return json({ captions: null, reason: 'Try again later.' });
   const lines = (post.captions as Line[]).slice(0, 400);
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -153,7 +186,7 @@ Deno.serve(async (req: Request) => {
         auth: { persistSession: false },
         global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
       });
-      return await translate(db, viewer, postId, String(body.lang ?? '').slice(0, 10));
+      return await translate(db, viewer, me, postId, String(body.lang ?? '').slice(0, 10));
     }
     return json({ error: 'Unknown action.' }, 400);
   } catch (e) {

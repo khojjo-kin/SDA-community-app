@@ -213,7 +213,7 @@ export function Reel({ id, active, height, width, bottomInset }: { id: string; a
     <View style={{ width, height, backgroundColor: '#000' }}>
       {media?.poster ? <Image source={{ uri: media.poster }} style={{ position: 'absolute', width, height }} contentFit="cover" /> : null}
       {media?.type === 'video' ? <VideoView player={player} style={{ position: 'absolute', width, height }} contentFit="cover" nativeControls={false} /> : media ? <Image source={{ uri: media.url }} style={{ position: 'absolute', width, height }} contentFit="cover" /> : null}
-      <Pressable style={{ position: 'absolute', width, height }} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Clip. Tap to pause, double tap to like." />
+      <Pressable style={{ position: 'absolute', width, height }} onPress={(e) => tap(e.nativeEvent.locationX, e.nativeEvent.locationY)} accessibilityLabel="Short. Tap to pause, double tap to like." />
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']} locations={[0, 0.2, 0.55, 1]} style={{ position: 'absolute', width, height }} />
 
       {paused ? (

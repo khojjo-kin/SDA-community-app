@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { fetchHighlights, listPeople, peopleToMessage } from '../lib/api';
+import { COPYRIGHT_REASON } from '../lib/copyright-report';
 import { useSession } from '../lib/session';
 import { C, errText, fmt } from '../lib/theme';
 import type { Highlight, Profile, StoryItem } from '../lib/types';
@@ -92,7 +93,7 @@ export function confirmAlert(title: string, message: string | undefined, ok: str
   });
 }
 
-export const REPORT_REASONS = ['Spam', 'Harassment or hate', 'Nudity or something unsuitable', 'Pretending to be someone else', 'Something else'];
+export const REPORT_REASONS = ['Spam', 'Harassment or hate', 'Nudity or something unsuitable', 'Pretending to be someone else', COPYRIGHT_REASON, 'Something else'];
 
 /* ---------- sharing outside the app ---------- */
 

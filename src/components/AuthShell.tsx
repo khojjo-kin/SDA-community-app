@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useT } from '../lib/i18n';
 import { DARK } from '../lib/theme';
-import { Mark } from './Icon';
+import { Icon, Mark } from './Icon';
+import { LinkedSentence } from './LegalDocument';
 
 /** The app's name as a word: a bold, bookish serif rather than a handwritten script. */
 export function Wordmark({ size = 40 }: { size?: number }) {
@@ -61,5 +63,33 @@ export function AuthShell({ children, title, footer }: { children: React.ReactNo
         {footer ? <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.14)', paddingTop: 16, paddingBottom: insets.bottom + 16, alignItems: 'center' }}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+/**
+ * The tick box for explicit consent to use what may show religious belief (a church, using a
+ * Christian app), which UK GDPR (Article 9) needs. Unticked to begin with. On the sign-up page, and in
+ * onboarding for an account made without passing it (Apple or Google from the log-in page).
+ */
+export function ConsentBox({ checked, onToggle, onOpenPrivacy }: { checked: boolean; onToggle: () => void; onOpenPrivacy: () => void }) {
+  const t = useT();
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={t('legal.consentReligion', { privacy: t('legal.privacyLink') })}
+      hitSlop={6}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 4 }}>
+      <View style={{ width: 22, height: 22, marginTop: 1, borderRadius: 6, borderWidth: 1.5, borderColor: checked ? DARK.accent : 'rgba(255,255,255,0.55)', backgroundColor: checked ? DARK.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+        {checked ? <Icon name="check" size={16} color={DARK.onAccent} weight={3} /> : null}
+      </View>
+      <LinkedSentence
+        text={t('legal.consentReligion')}
+        slots={{ privacy: { label: t('legal.privacyLink'), onPress: onOpenPrivacy } }}
+        style={{ flex: 1, color: DARK.fg2, fontSize: 13, lineHeight: 18 }}
+        linkStyle={{ color: DARK.accent2 }}
+      />
+    </Pressable>
   );
 }

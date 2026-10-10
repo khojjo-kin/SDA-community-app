@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getProfile, updateProfile } from './api';
 import { cacheKey, clearCache, readCache, writeCache } from './cache';
+import { retryConsentRecord } from './consent';
 import { listen } from './store';
 import { setTokenGetter } from './supabase';
 import { errText } from './theme';
@@ -13,11 +14,17 @@ type Session = {
   profile: Profile | null;
   /** True until we know whether this person has a profile yet. */
   loading: boolean;
+  /** Why the profile didn't load, in words for the member (errText). */
   error: string;
+  /**
+   * The same failure as the server or library gave it (code and message), for checks on what kind
+   * of failure it was. Never shown: `error` is what the member reads.
+   */
+  errorCode: string;
   refresh: () => Promise<void>;
 };
 
-const Ctx = createContext<Session>({ me: '', profile: null, loading: true, error: '', refresh: async () => {} });
+const Ctx = createContext<Session>({ me: '', profile: null, loading: true, error: '', errorCode: '', refresh: async () => {} });
 export const useSession = () => useContext(Ctx);
 
 /**
@@ -25,7 +32,7 @@ export const useSession = () => useContext(Ctx);
  * the database has answered in this session. `away` is true when the last ask failed for want of a
  * connection.
  */
-type State = { id: string | null; profile: Profile | null; error: string; fresh: boolean; away?: boolean };
+type State = { id: string | null; profile: Profile | null; error: string; errorCode: string; fresh: boolean; away?: boolean };
 
 type ClerkUser = NonNullable<ReturnType<typeof useUser>['user']>;
 
@@ -71,6 +78,15 @@ async function keepClerkInStep(me: string, user: ClerkUser, profile: Profile, se
   }
 }
 
+/** An error's own code and words, before errText turns them into friendly ones ("PGRST301 JWT expired"). */
+function rawError(e: unknown): string {
+  const anyE = e as any;
+  return [anyE?.code, anyE?.message, anyE?.hint, anyE?.details]
+    .filter((x) => typeof x === 'string' || typeof x === 'number')
+    .join(' ')
+    .trim();
+}
+
 /** No connection or no answer in time: worth keeping last session's copy on screen and trying again. */
 function offline(e: unknown): boolean {
   const msg = String((e as any)?.message ?? '');
@@ -80,7 +96,7 @@ function offline(e: unknown): boolean {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, userId, getToken, sessionId } = useAuth();
   const { user } = useUser();
-  const [state, setState] = useState<State>({ id: null, profile: null, error: '', fresh: false });
+  const [state, setState] = useState<State>({ id: null, profile: null, error: '', errorCode: '', fresh: false });
 
   // Hand Supabase the current Clerk session token on every request.
   const tokenRef = useRef(getToken);
@@ -94,14 +110,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   /** Asks the database for the profile. 'offline' when it could not be reached, so it is worth asking again. */
   const load = useCallback(async (): Promise<'ok' | 'offline' | 'failed'> => {
     if (!me) {
-      setState({ id: '', profile: null, error: '', fresh: false });
+      setState({ id: '', profile: null, error: '', errorCode: '', fresh: false });
       return 'ok';
     }
     try {
       const p = await getProfile(me);
       // Signed out or switched account while waiting: this answer belongs to nobody on screen.
       if (meRef.current !== me) return 'ok';
-      setState({ id: me, profile: p, error: '', fresh: true });
+      setState({ id: me, profile: p, error: '', errorCode: '', fresh: true });
       writeCache(cacheKey(me, 'profile'), p);
       return 'ok';
     } catch (e) {
@@ -113,7 +129,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         // the database cannot be reached: any other failure (a sign-in problem above all) shows the
         // error screen, exactly as it did before there was a copy.
         const keep = mine?.profile && (mine.fresh || away) ? mine.profile : null;
-        return { id: me, profile: keep, error: errText(e), fresh: !!mine?.fresh, away };
+        return { id: me, profile: keep, error: errText(e), errorCode: rawError(e), fresh: !!mine?.fresh, away };
       });
       return away ? 'offline' : 'failed';
     }
@@ -133,7 +149,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       readCache<Profile>(cacheKey(me, 'profile')).then((p) => {
         if (!live || !p || p.id !== me || p.deleted_at) return;
         // It never covers an answer from the database, only no answer at all (no connection yet).
-        setState((s) => (s.id !== me ? { id: me, profile: p, error: '', fresh: false } : !s.profile && s.away ? { ...s, profile: p } : s));
+        setState((s) => (s.id !== me ? { id: me, profile: p, error: '', errorCode: '', fresh: false } : !s.profile && s.away ? { ...s, profile: p } : s));
       });
     }
     // While the app runs on last session's copy without a connection, keep asking now and then.
@@ -161,6 +177,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (synced.current === me) return;
     synced.current = me;
     keepClerkInStep(me, user, p, sessionId ?? null).catch(() => {});
+    // Consent given in onboarding that didn't reach the database then: one quiet try per launch.
+    retryConsentRecord(me).catch(() => {});
   }, [me, user, state, sessionId]);
 
   // Signing out forgets what was kept for that account on this phone.
@@ -172,5 +190,5 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, me]);
 
   const ready = isLoaded && state.id === me;
-  return <Ctx.Provider value={{ me, profile: ready ? state.profile : null, loading: !ready, error: ready ? state.error : '', refresh }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ me, profile: ready ? state.profile : null, loading: !ready, error: ready ? state.error : '', errorCode: ready ? state.errorCode : '', refresh }}>{children}</Ctx.Provider>;
 }

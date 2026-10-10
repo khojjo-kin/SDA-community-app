@@ -8,19 +8,42 @@ import { RTCView } from 'react-native-webrtc';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Icon } from '../../src/components/Icon';
 import { LIVE_RED } from '../../src/components/LiveBadge';
-import { ChatLines, Hearts, LiveComposer, LiveHeader, useChatLines, useHearts } from '../../src/components/LiveOverlay';
+import { ChatLine, ChatLines, commentRefusal, Hearts, LiveComposer, LiveHeader, useHearts, useLiveComments } from '../../src/components/LiveOverlay';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { Button, RoundButton, useToast } from '../../src/components/ui';
-import { endLive, fetchLives, setLiveViewers, startLive } from '../../src/lib/api';
-import { PeerSession, IceCandidateInit, SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, stopStream, switchCamera } from '../../src/lib/rtc';
+import { addLiveComment, deleteLiveComment, endLive, fetchLives, liveCommentExists, setLiveViewers, startLive } from '../../src/lib/api';
+import { t } from '../../src/lib/i18n';
+import { ChannelRefusedError, NONCE, PeerSession, IceCandidateInit, SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, stopStream, switchCamera } from '../../src/lib/rtc';
 import { useSession } from '../../src/lib/session';
 import { DARK, errText } from '../../src/lib/theme';
 
 /**
  * Broadcasting. One peer connection per viewer (a mesh), each fed the same camera and microphone
  * tracks, so the phone's upload is what sets the limit: fine for a small congregation, not a stadium.
+ *
+ * Two private channels carry the signalling, and the database's rules decide who may use them:
+ * viewers write to the broadcaster on "live:<id>" (join, answer, ice, leave, hearts), where only the
+ * broadcaster can listen, and only the broadcaster writes to the viewers on "livehost:<id>" (offer,
+ * ice, full, bye, hearts, removed comments). Comments themselves are database rows (useLiveComments).
+ *
+ * Any viewer can write to "live:<id>" and every viewer's id is visible to the others, so ids alone
+ * prove nothing. Each viewer makes a secret token (a nonce) when it joins and puts it on everything
+ * it sends. The token from a viewer's first 'join' is kept, and an answer, candidate, leave or heart
+ * in that viewer's name without it is ignored. A 'join' with a new token for a viewer already here is
+ * taken only when their connection has closed, failed or dropped (they really are reconnecting).
  */
 const MAX_VIEWERS = 25;
+
+/** A viewer's connection in these states is over, or on its way out: a fresh 'join' may replace it. */
+const GONE = new Set(['closed', 'failed', 'disconnected']);
+
+/** How long a viewer has to answer and connect before their place is given up. */
+const CONNECT_MS = 30000;
+
+/** Viewers' hearts are passed on to everyone, but no more often than this, however fast they come. */
+const HEART_RELAY_MS = 150;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function GoLive() {
   const { profile } = useSession();
@@ -35,9 +58,9 @@ function NotForUnder14() {
     <View style={{ flex: 1, backgroundColor: DARK.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
       <DarkStatusBar />
       <Icon name="live" size={44} color={DARK.fg2} />
-      <Text style={{ color: DARK.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>Live isn't available on your account</Text>
-      <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 21 }}>To keep younger members safe, accounts of members under 14 can watch but not broadcast live. You can still share posts and stories.</Text>
-      <Button label="Go back" onPress={() => router.back()} style={{ alignSelf: 'stretch', marginTop: 6 }} />
+      <Text style={{ color: DARK.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{t('goLive.notAvailable')}</Text>
+      <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 21 }}>{t('goLive.notAvailableBody')}</Text>
+      <Button label={t('goLive.goBack')} onPress={() => router.back()} style={{ alignSelf: 'stretch', marginTop: 6 }} />
     </View>
   );
 }
@@ -55,13 +78,20 @@ function Broadcast() {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewers, setViewers] = useState(0);
-  const { lines, add: addLine } = useChatLines();
+  const comments = useLiveComments(liveId);
   const { hearts, add: addHeart } = useHearts();
 
   const streamRef = useRef<MediaStream | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  // "livehost:<id>": what I send to every viewer.
+  const hostRef = useRef<RealtimeChannel | null>(null);
+  // "live:<id>": what viewers send to me.
+  const inboxRef = useRef<RealtimeChannel | null>(null);
+  const heartRelayedAt = useRef(0);
+  const removeCheckedAt = useRef(new Map<string, number>());
   const liveIdRef = useRef<string | null>(null);
   const peers = useRef(new Map<string, PeerSession>());
+  // Each viewer's token, from the 'join' that was let in.
+  const nonces = useRef(new Map<string, string>());
   const dropTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const viewersTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullToldAt = useRef(0);
@@ -81,7 +111,9 @@ function Broadcast() {
         setStream(s);
       })
       .catch((e) => {
-        if (alive) setCameraError(/permission|denied|not allowed/i.test(errText(e)) ? 'Community needs the camera and microphone to go live. Turn them on in Settings.' : errText(e));
+        // The camera's refusal is read from the error itself, since errText keeps its technical words off screen.
+        const raw = `${(e as any)?.name ?? ''} ${(e as any)?.message ?? ''}`;
+        if (alive) setCameraError(/permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw) ? t('goLive.needsCamera') : errText(e));
       });
     // A broadcast left open by a crash would show as live forever; close any of mine before starting another.
     fetchLives()
@@ -123,7 +155,7 @@ function Broadcast() {
   /** Someone has joined the channel: give them their own peer and send the offer. */
   const onJoin = useCallback(
     async (viewer: string) => {
-      const channel = channelRef.current;
+      const channel = hostRef.current;
       const local = streamRef.current;
       if (!viewer || viewer === me || !channel || !local || ending.current) return;
       // Back again (a reload, a flaky network): start them afresh.
@@ -132,12 +164,12 @@ function Broadcast() {
         send(channel, 'full', { to: viewer });
         if (Date.now() - fullToldAt.current > 10000) {
           fullToldAt.current = Date.now();
-          toast(`Your live is full: ${MAX_VIEWERS} people can watch at once.`);
+          toast(t('goLive.full', { count: MAX_VIEWERS }));
         }
         return;
       }
       const peer = new PeerSession({
-        onIce: (candidate: IceCandidateInit) => send(channelRef.current, 'ice', { to: viewer, candidate }),
+        onIce: (candidate: IceCandidateInit) => send(hostRef.current, 'ice', { to: viewer, candidate }),
         onTrack: () => {},
         onState: (state) => {
           if (state === 'failed' || state === 'closed') dropPeer(viewer, peer);
@@ -152,10 +184,12 @@ function Broadcast() {
       });
       attachStream(peer.pc, local);
       peers.current.set(viewer, peer);
+      // A viewer that never answers (gone, or someone else's 'join' in their name) doesn't keep a place.
+      dropTimers.current.set(viewer, setTimeout(() => dropPeer(viewer, peer), CONNECT_MS));
       bumpViewers();
       try {
         const offer = await peer.makeOffer();
-        send(channelRef.current, 'offer', { to: viewer, sdp: offer });
+        send(hostRef.current, 'offer', { to: viewer, sdp: offer });
       } catch {
         dropPeer(viewer, peer);
       }
@@ -163,7 +197,51 @@ function Broadcast() {
     [me, dropPeer, bumpViewers, toast],
   );
 
+  /** True when a message in `viewer`'s name carries the token from the 'join' that let them in. */
+  const fromViewer = useCallback((viewer: string, nonce: unknown) => !!viewer && typeof nonce === 'string' && nonces.current.get(viewer) === nonce, []);
+
+  /**
+   * A 'join'. The first from a viewer sets their token. The same token again is the viewer asking
+   * again while it waits for an offer, as before. A new token is a reload or a new visit, taken only
+   * when their connection here has ended; otherwise it is someone else using their id, and ignored.
+   */
+  const onJoinMessage = useCallback(
+    (viewer: string, nonce: unknown) => {
+      if (!viewer || typeof nonce !== 'string' || !NONCE.test(nonce)) return;
+      const known = nonces.current.get(viewer);
+      if (known && known !== nonce) {
+        const peer = peers.current.get(viewer);
+        if (peer && !GONE.has(String(peer.pc.connectionState))) return;
+      }
+      nonces.current.set(viewer, nonce);
+      onJoin(viewer);
+    },
+    [onJoin],
+  );
+
   /* ----- start and end ----- */
+
+  /**
+   * A viewer says they removed their own comment. Only I can tell everyone (on livehost), so the
+   * database is asked first: a comment that is still there stays, whoever claims otherwise.
+   */
+  const { has: hasComment, drop: dropComment } = comments;
+  const checkRemoved = useCallback(
+    (commentId: string) => {
+      if (!UUID.test(commentId) || !hasComment(commentId)) return;
+      const now = Date.now();
+      if (now - (removeCheckedAt.current.get(commentId) ?? 0) < 5000) return;
+      removeCheckedAt.current.set(commentId, now);
+      liveCommentExists(commentId)
+        .then((still) => {
+          if (still) return;
+          dropComment(commentId);
+          send(hostRef.current, 'remove', { id: commentId });
+        })
+        .catch(() => {});
+    },
+    [hasComment, dropComment],
+  );
 
   async function start() {
     if (!streamRef.current || busy || liveIdRef.current) return;
@@ -171,32 +249,68 @@ function Broadcast() {
     let id: string | null = null;
     try {
       id = await startLive(me, title);
+      // Closed while the live was being made: it ends at once.
+      if (ending.current) {
+        endLive(id).catch(() => {});
+        return;
+      }
       liveIdRef.current = id;
-      channelRef.current = await joinChannel(`live:${id}`, {
-        join: (p) => {
-          onJoin(String(p.viewer ?? ''));
+      // My channel to the viewers first, so I can answer the moment the first one asks to join.
+      const host = await joinChannel(`livehost:${id}`, {}, undefined, { private: true });
+      if (ending.current) {
+        leaveChannel(host);
+        return;
+      }
+      hostRef.current = host;
+      const liveFor = id;
+      const inbox = await joinChannel(
+        `live:${id}`,
+        {
+          join: (p) => {
+            onJoinMessage(String(p.viewer ?? ''), p.nonce);
+          },
+          // From here on, only what carries the viewer's own token counts.
+          answer: (p) => {
+            const from = String(p.from ?? '');
+            if (p.sdp && fromViewer(from, p.nonce)) peers.current.get(from)?.acceptAnswer(p.sdp as SessionDescription).catch(() => {});
+          },
+          ice: (p) => {
+            // Only viewers write here, and their candidates carry `from`.
+            const from = String(p.from ?? '');
+            if (p.candidate && fromViewer(from, p.nonce)) peers.current.get(from)?.addIce(p.candidate as IceCandidateInit);
+          },
+          leave: (p) => {
+            const viewer = String(p.viewer ?? '');
+            if (fromViewer(viewer, p.nonce)) dropPeer(viewer);
+          },
+          heart: (p) => {
+            if (!fromViewer(String(p.from ?? ''), p.nonce)) return;
+            addHeart();
+            // Viewers can't write to each other, so their hearts reach the others through me.
+            const now = Date.now();
+            if (now - heartRelayedAt.current < HEART_RELAY_MS) return;
+            heartRelayedAt.current = now;
+            send(hostRef.current, 'heart', { from: String(p.from ?? '') });
+          },
+          remove: (p) => {
+            checkRemoved(String(p.id ?? ''));
+          },
         },
-        answer: (p) => {
-          if (p.from && p.sdp) peers.current.get(String(p.from))?.acceptAnswer(p.sdp as SessionDescription).catch(() => {});
-        },
-        ice: (p) => {
-          // Viewers' candidates carry `from`; our own carry `to` and come back to us too, so leave those.
-          if (p.from && !p.to && p.candidate) peers.current.get(String(p.from))?.addIce(p.candidate as IceCandidateInit);
-        },
-        leave: (p) => {
-          if (p.viewer) dropPeer(String(p.viewer));
-        },
-        chat: (p) => {
-          if (p.from !== me) addLine(String(p.username ?? ''), String(p.text ?? ''));
-        },
-        heart: (p) => {
-          if (p.from !== me) addHeart();
-        },
-      });
+        (channel) => comments.listen(channel, liveFor),
+        { private: true },
+      );
+      if (ending.current) {
+        leaveChannel(inbox);
+        return;
+      }
+      inboxRef.current = inbox;
       setLiveId(id);
     } catch (e) {
-      toast(errText(e));
-      if (id) {
+      leaveChannel(hostRef.current);
+      hostRef.current = null;
+      // My own live turned away by its channel's rules is not something to explain; trying again usually works.
+      toast(e instanceof ChannelRefusedError ? t('goLive.couldNotStart') : errText(e));
+      if (id && !ending.current) {
         liveIdRef.current = null;
         endLive(id).catch(() => {});
       }
@@ -210,25 +324,29 @@ function Broadcast() {
     if (ending.current) return;
     ending.current = true;
     const id = liveIdRef.current;
-    const channel = channelRef.current;
-    channelRef.current = null;
+    const host = hostRef.current;
+    const inbox = inboxRef.current;
+    hostRef.current = null;
+    inboxRef.current = null;
     liveIdRef.current = null;
     if (viewersTimer.current) clearTimeout(viewersTimer.current);
     viewersTimer.current = null;
     dropTimers.current.forEach(clearTimeout);
     dropTimers.current.clear();
-    const goodbye = channel ? send(channel, 'bye', {}) : Promise.resolve();
+    nonces.current.clear();
+    const goodbye = host ? send(host, 'bye', {}) : Promise.resolve();
     peers.current.forEach((p) => p.close());
     peers.current.clear();
     stopStream(streamRef.current);
     streamRef.current = null;
-    // The screen goes at once; the database and the channel are tidied behind it.
+    // The screen goes at once; the database and the channels are tidied behind it.
     if (goBack) {
       if (router.canGoBack()) router.back();
       else router.replace('/');
     }
     await Promise.all([id ? endLive(id).catch(() => {}) : Promise.resolve(), goodbye]);
-    leaveChannel(channel);
+    leaveChannel(host);
+    leaveChannel(inbox);
   }, [router]);
 
   // Leaving the screen any other way still ends the broadcast and frees the camera. The latest `end` is
@@ -247,9 +365,9 @@ function Broadcast() {
       end(true);
       return;
     }
-    Alert.alert('End your live?', `${viewers === 1 ? '1 person is' : `${viewers} people are`} watching.`, [
-      { text: 'Keep going', style: 'cancel' },
-      { text: 'End live', style: 'destructive', onPress: () => end(true) },
+    Alert.alert(t('goLive.endQuestion'), t(viewers === 1 ? 'goLive.watchingOne' : 'goLive.watching', { count: viewers }), [
+      { text: t('goLive.keepGoing'), style: 'cancel' },
+      { text: t('goLive.endLive'), style: 'destructive', onPress: () => end(true) },
     ]);
   }
 
@@ -258,13 +376,33 @@ function Broadcast() {
     setFront((f) => !f);
   }
 
-  function sendChat(text: string) {
-    send(channelRef.current, 'chat', { from: me, username: profile?.username ?? 'you', text });
-    addLine(profile?.username ?? 'you', text);
+  /** True once posted. Otherwise says why (the box then gets the words back). */
+  async function sendChat(text: string): Promise<boolean> {
+    const id = liveIdRef.current;
+    if (!id) return false;
+    try {
+      comments.add([await addLiveComment(me, id, text)]);
+      return true;
+    } catch (e) {
+      // Too many in a minute, or the live has ended (closed from another phone, say): in plain words.
+      toast((await commentRefusal(e, id)).text);
+      return false;
+    }
+  }
+
+  /** On my own live I can take down any comment; everyone watching is told to drop it too. */
+  async function removeComment(line: ChatLine) {
+    try {
+      await deleteLiveComment(line.id);
+      comments.drop(line.id);
+      send(hostRef.current, 'remove', { id: line.id });
+    } catch (e) {
+      toast(errText(e));
+    }
   }
 
   function sendHeart() {
-    send(channelRef.current, 'heart', { from: me });
+    send(hostRef.current, 'heart', { from: me });
     addHeart();
   }
 
@@ -279,7 +417,7 @@ function Broadcast() {
       {cameraError ? (
         <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 }}>
           <Icon name="videooff" size={44} color={DARK.fg2} />
-          <Text style={{ color: DARK.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>Camera not available</Text>
+          <Text style={{ color: DARK.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{t('goLive.cameraUnavailable')}</Text>
           <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{cameraError}</Text>
         </View>
       ) : !stream ? (
@@ -300,15 +438,15 @@ function Broadcast() {
               viewers={viewers}
               title={title.trim()}
               right={
-                <Pressable onPress={confirmEnd} accessibilityRole="button" accessibilityLabel="End live" style={({ pressed }) => ({ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>End</Text>
+                <Pressable onPress={confirmEnd} accessibilityRole="button" accessibilityLabel={t('goLive.endLive')} style={({ pressed }) => ({ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>{t('goLive.end')}</Text>
                 </Pressable>
               }
             />
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
-              <RoundButton name="close" label="Close" bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={() => end(true)} />
-              <RoundButton name="flip" label="Flip camera" bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={flip} />
+              <RoundButton name="close" label={t('common.close')} bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={() => end(true)} />
+              <RoundButton name="flip" label={t('goLive.flip')} bg="rgba(0,0,0,0.45)" color={DARK.fg} onPress={flip} />
             </View>
           )}
         </View>
@@ -320,22 +458,22 @@ function Broadcast() {
           {live ? (
             <>
               <View style={{ paddingHorizontal: 14 }}>
-                <ChatLines lines={lines} />
+                <ChatLines lines={comments.lines} canRemove={() => true} onRemove={removeComment} />
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
-                  <LiveComposer onSend={sendChat} onHeart={sendHeart} placeholder="Say something…" />
+                  <LiveComposer onSend={sendChat} onHeart={sendHeart} placeholder={t('goLive.saySomething')} />
                 </View>
-                <Pressable onPress={flip} hitSlop={8} accessibilityRole="button" accessibilityLabel="Flip camera" style={({ pressed }) => ({ width: 42, height: 42, marginRight: 8, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                <Pressable onPress={flip} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('goLive.flip')} style={({ pressed }) => ({ width: 42, height: 42, marginRight: 8, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
                   <Icon name="flip" size={26} color="#fff" weight={2} />
                 </Pressable>
               </View>
             </>
           ) : (
             <View style={{ paddingHorizontal: 20, gap: 14 }}>
-              <TextInput value={title} onChangeText={setTitle} placeholder="Add a title (optional)" placeholderTextColor="rgba(255,255,255,0.65)" maxLength={120} keyboardAppearance="dark" accessibilityLabel="Live title" style={{ color: '#fff', fontSize: 16, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }} />
-              <Button label="Go live" busy={busy} disabled={!stream} onPress={start} textColor="#ffffff" style={{ backgroundColor: LIVE_RED, height: 50, borderRadius: 25 }} />
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12.5, textAlign: 'center' }}>Your followers will see you at the front of the story tray. Up to {MAX_VIEWERS} people can watch at once.</Text>
+              <TextInput value={title} onChangeText={setTitle} placeholder={t('goLive.titlePlaceholder')} placeholderTextColor="rgba(255,255,255,0.65)" maxLength={120} keyboardAppearance="dark" accessibilityLabel={t('goLive.titleLabel')} style={{ color: '#fff', fontSize: 16, paddingHorizontal: 16, paddingVertical: 13, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }} />
+              <Button label={t('goLive.goLive')} busy={busy} disabled={!stream} onPress={start} textColor="#ffffff" style={{ backgroundColor: LIVE_RED, height: 50, borderRadius: 25 }} />
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12.5, textAlign: 'center' }}>{t('goLive.note', { count: MAX_VIEWERS })}</Text>
             </View>
           )}
         </View>

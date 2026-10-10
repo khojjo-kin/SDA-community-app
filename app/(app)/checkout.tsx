@@ -4,9 +4,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { confirmPayment, confirmPlatformPayPayment, confirmPlatformPaySetupIntent, confirmSetupIntent, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
 import { CardChip, CardInput, CardPreview, cardTitle, expiryLabel, isExpired, PaymentsOff } from '../../src/components/CardPreview';
 import { Icon } from '../../src/components/Icon';
+import { RenewalTerms } from '../../src/components/RenewalTerms';
 import { Button, ErrorNote, Loading, Radio, Screen, ScreenHeader, SectionLabel, Toggle } from '../../src/components/ui';
 import { fetchSavedCards, startSubscription, syncSubscription } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
+import { type Key, tSplit, useT } from '../../src/lib/i18n';
 import { applePayAvailable, ensureStripe, money } from '../../src/lib/payments';
 import { useSession } from '../../src/lib/session';
 import { C, errText, monthName } from '../../src/lib/theme';
@@ -17,8 +19,8 @@ const NEW = 'new';
 
 type Plan = 'monthly' | 'yearly';
 
-/* The tick is not a Plus feature (it comes from an identity check), so it is not listed here. */
-const PERKS = ['Preview stories quietly and see who rewatched', 'Story alerts, story priority and screenshot alerts', 'Profile style, app fonts and chat wallpapers', 'Erha without daily limits'];
+/* The tick is not a Plus feature (it comes from an identity check), so it is not listed here. Keys, looked up as the page draws. */
+const PERKS: Key[] = ['checkout.perkPreview', 'checkout.perkAlerts', 'checkout.perkStyle', 'plus.allErha'];
 
 type Failure = { code: string; message: string; localizedMessage?: string };
 
@@ -36,7 +38,8 @@ function longDay(iso: string | Date | null): string {
 }
 
 const priceOf = (c: PaymentsConfig, plan: Plan) => (plan === 'yearly' ? c.yearly_pence : c.price_pence);
-const perOf = (plan: Plan) => (plan === 'yearly' ? 'a year' : 'a month');
+/** The words around a plan's price: "{price} a month" or "{price} a year". */
+const perKey = (plan: Plan): Key => (plan === 'yearly' ? 'plus.perYear' : 'plus.perMonth');
 
 /**
  * Paying for Plus, in the app's own screens: Apple Pay, a saved card, or a new card typed into
@@ -51,6 +54,7 @@ export default function Checkout() {
   const plan: Plan = params.plan === 'yearly' ? 'yearly' : 'monthly';
   const router = useRouter();
   const { profile, refresh } = useSession();
+  const t = useT();
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [error, setError] = useState('');
   const [applePay, setApplePay] = useState(false);
@@ -99,6 +103,8 @@ export default function Checkout() {
     else router.replace(from as any);
   };
   const name = profile?.full_name?.trim() ?? '';
+  /** "£4.99 a month" or "£49.99 a year". */
+  const cost = (p: Plan, price: string) => t(perKey(p), { price });
 
   // A renewal that failed is paid at the plan it is on, whatever the link asked for.
   const shownPlan: Plan = config?.status === 'past_due' && config.plan ? config.plan : plan;
@@ -147,9 +153,9 @@ export default function Checkout() {
         applePay: {
           cartItems: [
             // What happens after the free week, so Apple's sheet says it as plainly as this page does.
-            { label: `Community Plus from ${longDay(startsOn)}`, amount: (priceOf(config, plan) / 100).toFixed(2), paymentType: PlatformPay.PaymentType.Recurring, intervalUnit: plan === 'yearly' ? PlatformPay.IntervalUnit.Year : PlatformPay.IntervalUnit.Month, intervalCount: 1, startDate: Math.floor(startsOn.getTime() / 1000) },
+            { label: t('checkout.applePayFrom', { day: longDay(startsOn) }), amount: (priceOf(config, plan) / 100).toFixed(2), paymentType: PlatformPay.PaymentType.Recurring, intervalUnit: plan === 'yearly' ? PlatformPay.IntervalUnit.Year : PlatformPay.IntervalUnit.Month, intervalCount: 1, startDate: Math.floor(startsOn.getTime() / 1000) },
             // The last line is the total: nothing today.
-            { label: addingCard ? `Community Plus (free until ${longDay(startsOn)})` : `Community Plus (free for ${days} days)`, amount: '0.00', paymentType: PlatformPay.PaymentType.Immediate },
+            { label: addingCard ? t('checkout.applePayFreeUntil', { day: longDay(startsOn) }) : t('checkout.applePayFreeFor', { days }), amount: '0.00', paymentType: PlatformPay.PaymentType.Immediate },
           ],
           merchantCountryCode: 'GB',
           currencyCode: currency,
@@ -183,7 +189,7 @@ export default function Checkout() {
 
   function showFailure(failure: Failure) {
     // Closing the Apple Pay sheet or the bank's check is not an error worth showing.
-    if (String(failure.code) !== 'Canceled' && alive.current) setPayError(failure.localizedMessage || failure.message || 'The payment did not go through. Try again.');
+    if (String(failure.code) !== 'Canceled' && alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
   }
 
   async function pay(via: 'apple' | 'card') {
@@ -199,12 +205,12 @@ export default function Checkout() {
       // The server sends trial_days only when the free week has started.
       const kind: Done['kind'] = addingCard ? 'card' : r.trial_days ? 'trial' : 'paid';
       if (!r.already) {
-        if (!r.client_secret) throw new Error('The payment could not be started. Try again.');
+        if (!r.client_secret) throw new Error(t('checkout.couldNotStart'));
         // Adding a card promises nothing is charged today. If the server would charge (the free week has
         // ended meanwhile), stop and read the subscription again, so the page shows where things stand.
         if (addingCard && r.intent !== 'setup') {
           if (alive.current) {
-            setPayError(`Your free week has ended, so this would charge ${money(r.amount ?? priceOf(config, plan), r.currency ?? config.currency)} now. Nothing has been charged. Check the details, then press Pay to go ahead.`);
+            setPayError(t('checkout.trialEnded', { amount: money(r.amount ?? priceOf(config, plan), r.currency ?? config.currency) }));
             load();
           }
           return;
@@ -218,7 +224,7 @@ export default function Checkout() {
           if (trial && (r.amount ?? 0) > 0) {
             if (alive.current) {
               setNoTrial(true);
-              setPayError(`The free week isn't available on this account any more, so Plus would start at ${money(r.amount ?? priceOf(config, plan), r.currency ?? config.currency)} today. Nothing has been charged. Press Pay to go ahead.`);
+              setPayError(t('checkout.trialUnavailable', { amount: money(r.amount ?? priceOf(config, plan), r.currency ?? config.currency) }));
             }
             return;
           }
@@ -254,7 +260,7 @@ export default function Checkout() {
         return;
       }
       // Only an unpaid renewal comes back with something to pay: that has to be settled first.
-      if (!r.already) throw new Error('Your last renewal needs paying first. Go back to Plus and choose Pay now.');
+      if (!r.already) throw new Error(t('checkout.payRenewalFirst'));
       await finish('switched');
     } catch (e) {
       if (alive.current) setPayError(errText(e));
@@ -277,104 +283,112 @@ export default function Checkout() {
     if (current !== plan) {
       const price = money(priceOf(config, plan), config.currency);
       const was = money(priceOf(config, current), config.currency);
+      // The price drawn large, wherever the language puts it among its words.
+      const [perBefore, perAfter] = tSplit(perKey(plan), 'price');
+      const carriesOn = t(plan === 'yearly' ? (day ? 'checkout.switchTrialYearlyOn' : 'checkout.switchTrialYearly') : day ? 'checkout.switchTrialMonthlyOn' : 'checkout.switchTrialMonthly', { day });
+      const switchTo = plan === 'yearly' ? t('plus.switchToYearly') : t('plus.switchToMonthly');
       body = (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 40, gap: 14 }}>
           <View style={{ padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={34} />
-              <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>Switch to {plan}</Text>
+              <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{switchTo}</Text>
             </View>
             <Text style={{ color: C.fg, fontSize: 15.5 }}>
-              <Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text> {perOf(plan)}
+              {perBefore}<Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text>{perAfter}
             </Text>
             <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>
-              Instead of {was} {perOf(current)}.{config.cancel_at_period_end ? ' Switching also turns renewal back on.' : ''}
+              {t(config.cancel_at_period_end ? 'checkout.insteadOfRenew' : 'checkout.insteadOf', { cost: cost(current, was) })}
             </Text>
             <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>
               {config.status === 'trialing'
-                ? `Your free week carries on. You'll pay the ${plan} price when it ends${day ? ` on ${day}` : ''}.${addingCard ? ' Next, add a card for after it.' : ''}`
-                : 'Your new plan starts today. The unused part of your current plan is taken off, and any difference is charged to your card on file.'}
+                ? addingCard ? t('checkout.nextAddCard', { text: carriesOn }) : carriesOn
+                : t('checkout.switchNow')}
             </Text>
           </View>
           {payError ? <PayError message={payError} /> : null}
-          <Button label={`Switch to ${plan}`} busy={!!busy} onPress={switchPlan} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>Plus renews at {price} {perOf(plan)} until you cancel. Cancel any time from the Plus page.</Text>
+          <Button label={switchTo} busy={!!busy} onPress={switchPlan} />
+          <RenewalTerms kind="plus" pricePence={priceOf(config, plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} freeUntil={config.status === 'trialing' ? day : ''} />
         </ScrollView>
       );
     } else {
       body = (
         <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 40, gap: 10 }}>
           <PlusBadge size={92} />
-          <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>You're already a member</Text>
+          <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>{t('checkout.alreadyMember')}</Text>
           <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
-            {config.cancel_at_period_end ? `Plus is set to end on ${day}. Resume it from the Plus page to keep it going.` : day ? `Plus renews on ${day}. Thank you for supporting the community.` : 'Thank you for supporting the community.'}
+            {config.cancel_at_period_end ? t('checkout.setToEnd', { day }) : day ? t('checkout.renewsOn', { day }) : t('checkout.thanks')}
           </Text>
-          <Button label={from ? 'Done' : 'Go to Plus'} onPress={leave} style={{ alignSelf: 'stretch', marginTop: 14 }} />
+          <Button label={from ? t('checkout.done') : t('checkout.goToPlus')} onPress={leave} style={{ alignSelf: 'stretch', marginTop: 14 }} />
         </View>
       );
     }
   } else {
     const price = money(priceOf(config, shownPlan), config.currency);
-    const per = perOf(shownPlan);
+    // "£4.99 a month", and the words around the price for when it is drawn large.
+    const per = cost(shownPlan, price);
+    const [perBefore, perAfter] = tSplit(perKey(shownPlan), 'price');
     const ends = longDay(startsOn);
     const canPay = !busy && !!method && (method !== NEW || !!card?.complete);
-    const payLabel = addingCard ? 'Save card' : trial ? 'Start free week' : `Pay ${price}`;
+    const payLabel = addingCard ? t('checkout.saveCard') : trial ? t('checkout.startFreeWeek') : t('checkout.pay', { price });
     // Nothing is charged today: a new free week, or a card saved for after the one running.
     const freeNow = trial || addingCard;
+    // How it renews and where to cancel, next to each button that starts it (Apple Pay, and Pay).
+    const terms = <RenewalTerms kind="plus" pricePence={priceOf(config, shownPlan)} currency={config.currency} cadence={shownPlan === 'yearly' ? 'year' : 'month'} trialDays={trial ? trialDays : 0} freeUntil={addingCard ? ends : ''} />;
     body = (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}>
           {config.test_mode ? (
-            <Notice color={C.warn} icon="info">Test mode — no real money moves. Use card 4242 4242 4242 4242, any future date, any CVC.</Notice>
+            <Notice color={C.warn} icon="info">{t('checkout.testMode')}</Notice>
           ) : null}
-          {config.status === 'past_due' ? <Notice color={C.like} icon="info">Your last renewal did not go through. Pay now to keep Plus.</Notice> : null}
+          {config.status === 'past_due' ? <Notice color={C.like} icon="info">{t('checkout.renewalFailed')}</Notice> : null}
           {addingCard ? (
             <Notice color={C.accent2} icon="info">
-              {switched ? `You're on the ${plan} plan now. Add a card so Plus carries on after your free week.` : `No card is saved for after your free week, so Plus ends on ${ends}. Add one to keep it going.`}
+              {switched ? t(plan === 'yearly' ? 'checkout.switchedAddCardYearly' : 'checkout.switchedAddCardMonthly') : t('checkout.noCardEndsOn', { day: ends })}
             </Notice>
           ) : null}
 
           <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={30} />
-              <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>Community Plus</Text>
+              <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{t('common.communityPlus')}</Text>
               <View style={{ height: 24, paddingHorizontal: 10, borderRadius: 12, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
-                <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{shownPlan === 'yearly' ? 'Yearly' : 'Monthly'}</Text>
+                <Text style={{ color: C.accent2, fontSize: 12.5, fontWeight: '700' }}>{shownPlan === 'yearly' ? t('plus.yearly') : t('plus.monthly')}</Text>
               </View>
             </View>
             {trial ? (
               <View style={{ gap: 4 }}>
-                <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>Free for {trialDays} days</Text>
-                <Text style={{ color: C.fg, fontSize: 15.5 }}>then {price} {per}</Text>
+                <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>{t('checkout.freeForDays', { days: trialDays })}</Text>
+                <Text style={{ color: C.fg, fontSize: 15.5 }}>{t('checkout.then', { cost: per })}</Text>
                 <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 4 }}>
-                  Free for {trialDays} days, then {price} {per}. Cancel any time before {ends} and you won't be charged.
+                  {t('checkout.trialNote', { days: trialDays, cost: per, day: ends })}
                 </Text>
               </View>
             ) : addingCard ? (
               <View style={{ gap: 4 }}>
-                <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>Free until {ends}</Text>
-                <Text style={{ color: C.fg, fontSize: 15.5 }}>then {price} {per}</Text>
+                <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800' }}>{t('checkout.freeUntil', { day: ends })}</Text>
+                <Text style={{ color: C.fg, fontSize: 15.5 }}>{t('checkout.then', { cost: per })}</Text>
                 <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, marginTop: 4 }}>
-                  Your free week carries on. The card you add is first charged on {ends}. Cancel before then and you won't be charged.
+                  {t('checkout.addingCardNote', { day: ends })}
                 </Text>
               </View>
             ) : (
               <Text style={{ color: C.fg, fontSize: 15.5 }}>
-                <Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text> {per}
+                {perBefore}<Text style={{ fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{price}</Text>{perAfter}
               </Text>
             )}
             <View style={{ gap: 8 }}>
               {PERKS.map((p) => (
                 <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Icon name="check" size={18} color={C.accent2} weight={2.4} />
-                  <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5 }}>{p}</Text>
+                  <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5 }}>{t(p)}</Text>
                 </View>
               ))}
             </View>
-            <Text style={{ color: C.fg3, fontSize: 13 }}>Cancel any time · renews {shownPlan === 'yearly' ? 'yearly' : 'monthly'}</Text>
+            <Text style={{ color: C.fg3, fontSize: 13 }}>{t(shownPlan === 'yearly' ? 'checkout.cancelRenewsYearly' : 'checkout.cancelRenewsMonthly')}</Text>
           </View>
 
-          <SectionLabel>{freeNow ? 'Card for after your free week' : 'Pay with'}</SectionLabel>
+          <SectionLabel>{freeNow ? t('checkout.cardForAfter') : t('checkout.payWith')}</SectionLabel>
           {applePay ? (
             <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 14 }}>
               <PlatformPayButton
@@ -383,12 +397,13 @@ export default function Checkout() {
                 borderRadius={12}
                 disabled={!!busy}
                 onPress={() => pay('apple')}
-                accessibilityLabel={addingCard ? `Use Apple Pay after your free week, ${price} ${per} from ${ends}` : trial ? `Start your free week with Apple Pay, then ${price} ${per}` : `Subscribe with Apple Pay, ${price} ${per}`}
+                accessibilityLabel={addingCard ? t('checkout.applePayCard', { cost: per, day: ends }) : trial ? t('checkout.applePayTrial', { cost: per }) : t('checkout.applePaySubscribe', { cost: per })}
                 style={{ height: 48, width: '100%' }}
               />
+              {terms}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.fg3 }} />
-                <Text style={{ color: C.fg3, fontSize: 13 }}>or use a card</Text>
+                <Text style={{ color: C.fg3, fontSize: 13 }}>{t('checkout.orCard')}</Text>
                 <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.fg3 }} />
               </View>
             </View>
@@ -405,13 +420,13 @@ export default function Checkout() {
                   onPress={expired ? undefined : () => choose(c.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on, disabled: expired }}
-                  accessibilityLabel={`${cardTitle(c)}, ${expired ? 'expired' : 'expires'} ${exp}${c.is_default ? ', default card' : ''}`}
+                  accessibilityLabel={`${cardTitle(c)}, ${expired ? t('checkout.expired', { date: exp }) : t('checkout.expires', { date: exp })}${c.is_default ? `, ${t('checkout.defaultCard')}` : ''}`}
                   style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, opacity: expired ? 0.5 : 1, backgroundColor: pressed && !expired ? C.press : 'transparent' })}>
                   <Radio on={on} />
                   <CardChip brand={c.brand} />
                   <View style={{ flex: 1 }}>
                     <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{cardTitle(c)}</Text>
-                    <Text style={{ color: expired ? C.like : C.fg2, fontSize: 13.5, marginTop: 1 }}>{expired ? `Expired ${exp}` : `Expires ${exp}`}</Text>
+                    <Text style={{ color: expired ? C.like : C.fg2, fontSize: 13.5, marginTop: 1 }}>{expired ? t('checkout.expired', { date: exp }) : t('checkout.expires', { date: exp })}</Text>
                   </View>
                   {c.is_default ? <DefaultPill /> : null}
                 </Pressable>
@@ -421,15 +436,15 @@ export default function Checkout() {
               onPress={() => choose(NEW)}
               accessibilityRole="radio"
               accessibilityState={{ checked: method === NEW }}
-              accessibilityLabel="New credit or debit card"
+              accessibilityLabel={t('checkout.newCardLabel')}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: cards.length ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? C.press : 'transparent' })}>
               <Radio on={method === NEW} />
               <View style={{ width: 46, height: 31, borderRadius: 6, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="plus" size={18} color={C.fg} weight={2.2} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>New card</Text>
-                <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>Credit or debit card</Text>
+                <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{t('checkout.newCard')}</Text>
+                <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>{t('checkout.creditOrDebit')}</Text>
               </View>
             </Pressable>
           </View>
@@ -440,12 +455,12 @@ export default function Checkout() {
               <CardInput onChange={setCard} disabled={!!busy} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.surface }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '600' }}>Keep this card on file for renewals</Text>
+                  <Text style={{ color: C.fg, fontSize: 15.5, fontWeight: '600' }}>{t('checkout.keepOnFile')}</Text>
                   <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 18, marginTop: 2 }}>
-                    {freeNow ? `Plus starts charging this card on ${ends}, after your free week.` : `Plus renews each ${shownPlan === 'yearly' ? 'year' : 'month'} with this card.`} Change or remove it any time in Payment methods.
+                    {freeNow ? t('checkout.keepOnFileTrial', { day: ends }) : t(shownPlan === 'yearly' ? 'checkout.keepOnFileYearly' : 'checkout.keepOnFileMonthly')}
                   </Text>
                 </View>
-                <Toggle value onChange={() => {}} disabled label="Keep this card on file for renewals" />
+                <Toggle value onChange={() => {}} disabled label={t('checkout.keepOnFile')} />
               </View>
             </View>
           ) : null}
@@ -467,11 +482,9 @@ export default function Checkout() {
                 </>
               )}
             </Pressable>
+            {terms}
             <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>
-              Payments are processed securely by Stripe. Your card details never touch our servers.
-            </Text>
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>
-              {freeNow ? `Nothing is charged today. From ${ends}, Plus renews at ${price} ${per} until you cancel.` : `Plus renews at ${price} ${per} until you cancel.`} Cancel any time from the Plus page.
+              {t('checkout.stripeNote')}
             </Text>
           </View>
         </ScrollView>
@@ -481,7 +494,7 @@ export default function Checkout() {
 
   return (
     <Screen>
-      <ScreenHeader title="Checkout" />
+      <ScreenHeader title={t('checkout.title')} />
       {body}
     </Screen>
   );
@@ -515,15 +528,17 @@ function Notice({ color, icon, children }: { color: string; icon: 'info'; childr
 }
 
 function DefaultPill() {
+  const t = useT();
   return (
     <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
-      <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>Default</Text>
+      <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>{t('checkout.default')}</Text>
     </View>
   );
 }
 
 /** Shown in place of the checkout once Plus is paid for, the free week has started, or the plan has changed. */
 function Welcome({ done, plan, fallbackEnds, onDone }: { done: Done; plan: Plan; fallbackEnds: Date; onDone: () => void }) {
+  const t = useT();
   const pop = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
     tap('success');
@@ -531,15 +546,15 @@ function Welcome({ done, plan, fallbackEnds, onDone }: { done: Done; plan: Plan;
   }, [pop]);
   // A trialling subscription's period ends when the free week does.
   const ends = longDay(done.ends ?? fallbackEnds);
-  const title = done.kind === 'trial' ? 'Your free week has started' : done.kind === 'switched' ? `You're on the ${plan} plan` : done.kind === 'card' ? 'Your card is saved' : 'Welcome to Plus';
+  const title = done.kind === 'trial' ? t('checkout.trialStarted') : done.kind === 'switched' ? t(plan === 'yearly' ? 'checkout.onYearly' : 'checkout.onMonthly') : done.kind === 'card' ? t('checkout.cardSaved') : t('checkout.welcome');
   const body =
     done.kind === 'trial'
-      ? `Every Plus feature is on. You won't be charged until ${ends}. Cancel before then from the Plus page and you pay nothing.`
+      ? t('checkout.trialStartedBody', { day: ends })
       : done.kind === 'switched'
-        ? 'Thank you for supporting the community.'
+        ? t('checkout.thanks')
         : done.kind === 'card'
-          ? `Plus carries on after your free week. Your card is first charged on ${ends}. Change it any time in Payment methods.`
-          : 'Every Plus feature is on. Thank you for supporting the community.';
+          ? t('checkout.cardSavedBody', { day: ends })
+          : t('checkout.welcomeBody');
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 60, gap: 10 }}>
       <Animated.View style={{ transform: [{ scale: pop }] }}>
@@ -547,8 +562,8 @@ function Welcome({ done, plan, fallbackEnds, onDone }: { done: Done; plan: Plan;
       </Animated.View>
       <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 26, fontWeight: '800', marginTop: 8, textAlign: 'center' }}>{title}</Text>
       <Text style={{ color: C.fg2, fontSize: 16, textAlign: 'center', lineHeight: 22 }}>{body}</Text>
-      {done.slow ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 20 }}>It can take a minute for everything to switch on.</Text> : null}
-      <Button label="Done" onPress={onDone} style={{ alignSelf: 'stretch', marginTop: 18 }} />
+      {done.slow ? <Text style={{ color: C.fg3, textAlign: 'center', lineHeight: 20 }}>{t('checkout.slow')}</Text> : null}
+      <Button label={t('checkout.done')} onPress={onDone} style={{ alignSelf: 'stretch', marginTop: 18 }} />
     </View>
   );
 }

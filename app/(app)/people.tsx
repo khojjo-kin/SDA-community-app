@@ -3,7 +3,8 @@ import { Alert, Animated, Easing, FlatList, Pressable, RefreshControl, Text, use
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { followLabel, hideSuggestion, isHidden, type SuggestionFollow, suggestionReason, useSuggestionFollows } from '../../src/components/DiscoverCarousel';
 import { Icon, VerifiedTick } from '../../src/components/Icon';
-import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, Screen, SearchField, useToast } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, SearchField, useToast } from '../../src/components/ui';
 import { fetchSuggestedPeople, getProfile, isOnline, listPeople, mySubscriptions, removeFollowRequest, requestFollow, setFollow } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
 import { money } from '../../src/lib/payments';
@@ -337,7 +338,7 @@ export default function People() {
         ListHeaderComponent={subs?.length ? <Text style={{ color: C.fg2, fontSize: 13.5, lineHeight: 19, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 }}>Creators you support each month. Tap one to see your subscription.</Text> : null}
         ListEmptyComponent={
           subs === null ? (
-            error ? <ErrorNote message={error} onRetry={() => loadTab('subscriptions')} /> : <Loading />
+            error ? <ErrorNote message={error} onRetry={() => loadTab('subscriptions')} /> : <RowsSkeleton count={5} />
           ) : error ? (
             <ErrorNote message={error} onRetry={() => loadTab('subscriptions')} />
           ) : (
@@ -362,7 +363,7 @@ export default function People() {
           hidden ? (
             <Empty icon="lock" title="This list is private" body={`${owner?.username ?? 'This account'} keeps who they follow and who follows them to themselves.`} />
           ) : list === undefined ? (
-            error ? <ErrorNote message={error} onRetry={() => loadTab(tab)} /> : <Loading />
+            error ? <ErrorNote message={error} onRetry={() => loadTab(tab)} /> : <RowsSkeleton padY={7} trailing="button" />
           ) : error ? (
             <ErrorNote message={error} onRetry={() => loadTab(tab)} />
           ) : needle ? (

@@ -16,7 +16,7 @@ import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
 import { OnceToggle, SnapBubble, SnapViewer } from '../../../src/components/SnapBubble';
 import { AssistantThinking } from '../../../src/components/ThinkingOrb';
 import { TypingDots } from '../../../src/components/TypingDots';
-import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useToast } from '../../../src/components/ui';
+import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useChoices, useToast } from '../../../src/components/ui';
 import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
 import { useCalls } from '../../../src/lib/calls';
 import { tap } from '../../../src/lib/haptics';
@@ -404,6 +404,8 @@ export default function Chat() {
   const calls = useCalls();
   const router = useRouter();
   const toast = useToast();
+  // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
+  const choices = useChoices();
   const insets = useSafeAreaInsets();
   const font = useAppFont();
   const fontBold = useAppFont('bold');
@@ -962,10 +964,12 @@ export default function Chat() {
 
   function reportThem() {
     if (!thread) return;
-    Alert.alert('Report this account', 'Why are you reporting it?', [
-      ...['Spam', 'Harassment or hate', 'Pretending to be someone else', 'Something else'].map((r) => ({ text: r, onPress: () => { report(me, { userId: thread.other_id }, r).then(() => toast('Thanks. We will review this account.')).catch((e) => toast(errText(e))); } })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
+    choices.ask({
+      title: 'Report this account',
+      message: 'Why are you reporting it?',
+      icon: 'flag',
+      choices: ['Spam', 'Harassment or hate', 'Pretending to be someone else', 'Something else'].map((r) => ({ label: r, onPress: () => { report(me, { userId: thread.other_id }, r).then(() => toast('Thanks. We will review this account.')).catch((e) => toast(errText(e))); } })),
+    });
   }
 
   async function ask(f: Faq) {
@@ -1364,6 +1368,7 @@ export default function Chat() {
 
       {/* a view-once photo, full screen: no forwarding and no saving */}
       <SnapViewer url={snap?.url ?? null} onClose={closeSnap} />
+      {choices.element}
     </Screen>
   );
 }

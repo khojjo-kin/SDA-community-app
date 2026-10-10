@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, Text, TextInput, View } from 'react-native';
-import { DARK, fmt } from '../lib/theme';
+import { ActivityIndicator, Alert, Animated, Easing, Pressable, Text, TextInput, View } from 'react-native';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { fetchLive, fetchLiveComments, profilesInOrder } from '../lib/api';
+// Plain t(): every screen is drawn again from the root when the language changes.
+import { t } from '../lib/i18n';
+import { DARK, errText, fmt } from '../lib/theme';
+import type { LiveComment } from '../lib/types';
 import { Icon, VerifiedTick } from './Icon';
 import { LIVE_RED, LiveBadge } from './LiveBadge';
 import { Avatar } from './ui';
@@ -12,34 +17,134 @@ import { Avatar } from './ui';
 
 /* ---------- comments ---------- */
 
-export type ChatLine = { id: string; username: string; text: string };
+export type ChatLine = { id: string; userId: string; username: string; text: string; at: string };
 
-/** Keeps the last few comments; older ones fall off the top. */
-export function useChatLines(max = 6) {
+/**
+ * The last few comments on a live. They are rows in the database (community_live_comments), so the
+ * database decides who wrote each one: the latest are loaded when the screen opens, new ones arrive
+ * as database changes on the live's channel (`listen`, before it subscribes), and each name is looked
+ * up from the commenter's profile, never taken from a message.
+ */
+export function useLiveComments(liveId: string | null, max = 6) {
   const [lines, setLines] = useState<ChatLine[]>([]);
+  // Usernames already looked up; '' for an account I can't see, so it isn't asked for again.
+  const names = useRef(new Map<string, string>());
+  // Removed comments, so one arriving late (or still in a load) doesn't come back.
+  const removed = useRef(new Set<string>());
+  const shown = useRef(new Set<string>());
+
+  useEffect(() => {
+    shown.current = new Set(lines.map((l) => l.id));
+  }, [lines]);
+
   const add = useCallback(
-    (username: string, text: string) => {
-      const t = String(text ?? '').trim().slice(0, 200);
-      if (!t) return;
-      setLines((l) => [...l, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), username: String(username || 'someone'), text: t }].slice(-max));
+    async (rows: LiveComment[]) => {
+      const fresh = rows.filter((r) => r?.id && r.user_id && String(r.text ?? '').trim() && !removed.current.has(r.id));
+      if (!fresh.length) return;
+      const unknown = [...new Set(fresh.map((r) => r.user_id))].filter((id) => !names.current.has(id));
+      if (unknown.length) {
+        try {
+          for (const p of await profilesInOrder(unknown)) names.current.set(p.id, p.username);
+          // Accounts I can't see stay nameless, and aren't asked for again.
+          for (const id of unknown) if (!names.current.has(id)) names.current.set(id, '');
+        } catch {
+          // Shown as "someone" this time; asked again with their next comment.
+        }
+      }
+      setLines((cur) => {
+        const byId = new Map(cur.map((l) => [l.id, l]));
+        for (const r of fresh) {
+          if (removed.current.has(r.id)) continue;
+          byId.set(r.id, { id: r.id, userId: r.user_id, username: names.current.get(r.user_id) ?? '', text: String(r.text).trim(), at: String(r.created_at ?? '') });
+        }
+        const when = (l: ChatLine) => Date.parse(l.at) || 0;
+        return [...byId.values()].sort((a, b) => when(a) - when(b)).slice(-max);
+      });
     },
     [max],
   );
-  return { lines, add };
+
+  const drop = useCallback((id: string) => {
+    if (!id) return;
+    removed.current.add(id);
+    setLines((cur) => cur.filter((l) => l.id !== id));
+  }, []);
+
+  /** Whether a comment is on screen now. */
+  const has = useCallback((id: string) => shown.current.has(id), []);
+
+  /** Registers the listener for new comments on a channel; call it before the channel subscribes. */
+  const listen = useCallback(
+    (channel: RealtimeChannel, id: string) => {
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_live_comments', filter: `live_id=eq.${id}` }, (payload) => {
+        add([payload.new as LiveComment]);
+      });
+    },
+    [add],
+  );
+
+  useEffect(() => {
+    if (!liveId) return;
+    let alive = true;
+    fetchLiveComments(liveId, max)
+      .then((rows) => {
+        if (alive) add(rows);
+      })
+      .catch(() => {
+        // New comments still arrive; the earlier ones are only a nicety.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [liveId, max, add]);
+
+  return { lines, add, drop, has, listen };
 }
 
-/** The last comments, bottom-left, the oldest fading out. */
-export function ChatLines({ lines }: { lines: ChatLine[] }) {
+/**
+ * The last comments, bottom-left, the oldest fading out. A comment `canRemove` allows can be long
+ * pressed (or, with a screen reader, given its Remove action) to take it down.
+ */
+export function ChatLines({ lines, canRemove, onRemove }: { lines: ChatLine[]; canRemove?: (line: ChatLine) => boolean; onRemove?: (line: ChatLine) => void }) {
+  function ask(line: ChatLine) {
+    Alert.alert(t('live.removeQuestion'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('live.remove'), style: 'destructive', onPress: () => onRemove?.(line) },
+    ]);
+  }
   return (
-    <View pointerEvents="none" style={{ gap: 6, paddingRight: 70 }} accessibilityLabel="Comments">
-      {lines.map((l, i) => (
-        <View key={l.id} style={{ opacity: 0.45 + (0.55 * (i + 1)) / Math.max(1, lines.length) }}>
+    <View pointerEvents="box-none" style={{ gap: 6, paddingRight: 70 }} accessibilityLabel={t('live.comments')}>
+      {lines.map((l, i) => {
+        const name = l.username || t('live.someone');
+        const style = { opacity: 0.45 + (0.55 * (i + 1)) / Math.max(1, lines.length) };
+        const words = (
           <Text numberOfLines={3} style={{ color: '#fff', fontSize: 14.5, lineHeight: 19, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 }}>
-            <Text style={{ fontWeight: '700', color: 'rgba(255,255,255,0.85)' }}>{l.username} </Text>
+            <Text style={{ fontWeight: '700', color: 'rgba(255,255,255,0.85)' }}>{name} </Text>
             {l.text}
           </Text>
-        </View>
-      ))}
+        );
+        if (!onRemove || !canRemove?.(l)) {
+          return (
+            <View key={l.id} pointerEvents="none" style={style}>
+              {words}
+            </View>
+          );
+        }
+        return (
+          <Pressable
+            key={l.id}
+            onLongPress={() => ask(l)}
+            delayLongPress={350}
+            accessibilityLabel={`${name}: ${l.text}`}
+            accessibilityActions={[{ name: 'remove', label: t('live.removeComment') }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'remove') ask(l);
+            }}
+            style={({ pressed }) => [style, pressed ? { opacity: 0.6 } : null]}>
+            {words}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -116,7 +221,7 @@ export function LiveHeader({ avatar, name, username, verified, viewers, title, r
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '700', fontSize: 15, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4, flexShrink: 1 }}>
-            {username || name || 'Live'}
+            {username || name || t('live.noName')}
           </Text>
           {verified ? <VerifiedTick size={14} /> : null}
         </View>
@@ -127,7 +232,7 @@ export function LiveHeader({ avatar, name, username, verified, viewers, title, r
         ) : null}
       </View>
       <LiveBadge />
-      <View accessibilityLabel={`${fmt(viewers)} watching`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingHorizontal: 8, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.45)' }}>
+      <View accessibilityLabel={t('live.watchingCount', { count: fmt(viewers) })} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingHorizontal: 8, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.45)' }}>
         <Icon name="eye" size={14} color="#fff" weight={2.2} />
         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12.5 }}>{fmt(viewers)}</Text>
       </View>
@@ -138,25 +243,70 @@ export function LiveHeader({ avatar, name, username, verified, viewers, title, r
 
 /* ---------- the comment box ---------- */
 
-export function LiveComposer({ onSend, onHeart, placeholder = 'Comment…' }: { onSend: (text: string) => void; onHeart: () => void; placeholder?: string }) {
+const MAX_COMMENT = 200;
+
+/**
+ * Why a comment wasn't posted, in words for the person. The database turns a comment away once the
+ * live has ended with the same refusal as for a live this account can't see, so the live is looked
+ * up to tell which: an ended one says so (`ended`), rather than a puzzling "isn't available".
+ */
+export async function commentRefusal(e: unknown, liveId: string): Promise<{ ended: boolean; text: string }> {
+  const code = String((e as any)?.code ?? '');
+  // 42501: refused by the access rules. 23503: the live itself is gone.
+  if (code === '42501' || code === '23503') {
+    try {
+      const card = await fetchLive(liveId);
+      if (!card || card.ended_at) return { ended: true, text: t('live.hasEnded') };
+    } catch {
+      // Not known: the general reason below.
+    }
+  }
+  return { ended: false, text: errText(e) };
+}
+
+/**
+ * The comment box and the heart. `onSend` resolves true once the comment is posted; on false (the
+ * screen has said why) the words go back in the box, so nothing typed is lost.
+ */
+export function LiveComposer({ onSend, onHeart, placeholder }: { onSend: (text: string) => Promise<boolean>; onHeart: () => void; placeholder?: string }) {
   const [text, setText] = useState('');
-  function submit() {
-    const t = text.trim();
-    if (!t) return;
-    onSend(t);
+  const [sending, setSending] = useState(false);
+  // State lands a frame late, so a quick second tap could slip past `sending`: the ref cannot.
+  const busy = useRef(false);
+  async function submit() {
+    const words = text.trim();
+    if (!words || busy.current) return;
+    busy.current = true;
+    setSending(true);
+    // Emptied at once, so the next comment can be typed while this one goes.
     setText('');
+    let sent = false;
+    try {
+      sent = await onSend(words);
+    } catch {
+      sent = false;
+    } finally {
+      busy.current = false;
+      setSending(false);
+    }
+    // Anything typed meanwhile stays, after the words that didn't go.
+    if (!sent) setText((now) => (now.trim() ? `${words} ${now}` : words).slice(0, MAX_COMMENT));
   }
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 }}>
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', paddingLeft: 16, paddingRight: 4, backgroundColor: 'rgba(0,0,0,0.25)' }}>
-        <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.7)" style={{ flex: 1, color: '#fff', fontSize: 15, paddingVertical: 0 }} returnKeyType="send" onSubmitEditing={submit} blurOnSubmit={false} maxLength={200} keyboardAppearance="dark" accessibilityLabel="Comment" />
-        {text.trim() ? (
-          <Pressable onPress={submit} hitSlop={6} accessibilityRole="button" accessibilityLabel="Send comment" style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: DARK.accent, opacity: pressed ? 0.7 : 1 })}>
+        <TextInput value={text} onChangeText={setText} placeholder={placeholder ?? t('live.commentPlaceholder')} placeholderTextColor="rgba(255,255,255,0.7)" style={{ flex: 1, color: '#fff', fontSize: 15, paddingVertical: 0 }} returnKeyType="send" onSubmitEditing={submit} blurOnSubmit={false} maxLength={MAX_COMMENT} keyboardAppearance="dark" accessibilityLabel={t('live.commentLabel')} />
+        {sending ? (
+          <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : text.trim() ? (
+          <Pressable onPress={submit} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('live.sendComment')} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: DARK.accent, opacity: pressed ? 0.7 : 1 })}>
             <Icon name="send" size={17} color="#fff" weight={2.2} />
           </Pressable>
         ) : null}
       </View>
-      <Pressable onPress={onHeart} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send a heart" style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 1.15 : 1 }] })}>
+      <Pressable onPress={onHeart} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('live.sendHeart')} style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 1.15 : 1 }] })}>
         <Icon name="heart" size={28} color="#fff" weight={2} />
       </Pressable>
     </View>

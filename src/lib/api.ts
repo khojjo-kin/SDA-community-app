@@ -4,7 +4,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
 import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
-import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
+import { FriendlyError } from './theme';
+import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, LiveComment, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -40,6 +41,14 @@ export async function createProfile(row: { id: string; username: string; full_na
   ok(await supabase.from('community_profiles').insert({ avatar_url: '', ...row }));
 }
 
+/**
+ * Records, with the time, my consent to Community using information that may show my religious
+ * beliefs. Only once my profile exists; asking again changes nothing (the first time stands).
+ */
+export async function recordConsent() {
+  ok(await supabase.rpc('community_record_consent'));
+}
+
 type ProfilePatch = Partial<Pick<Profile, 'username' | 'full_name' | 'bio' | 'website' | 'avatar_url' | 'account_type' | 'category' | 'show_view_counts' | 'story_replies' | 'faq_enabled' | 'pronouns' | 'gender' | 'contact_email' | 'contact_phone' | 'church_id' | 'is_private' | 'read_receipts' | 'streaks_enabled' | 'ring_color' | 'profile_theme' | 'show_activity' | 'country' | 'sub_price_pence' | 'sensitive_filter'> & { interests_more: string[]; interests_less: string[] }>;
 
 export async function updateProfile(id: string, patch: ProfilePatch) {
@@ -54,14 +63,23 @@ export async function updateProfile(id: string, patch: ProfilePatch) {
   announce('profile');
 }
 
-async function profilesInOrder(ids: string[]): Promise<Profile[]> {
+/** The profiles behind a list of account ids, in that order; accounts I can't see are left out. */
+export async function profilesInOrder(ids: string[]): Promise<Profile[]> {
   if (!ids.length) return [];
   const people: Profile[] = ok(await supabase.from('community_profile_cards').select('*').in('id', ids)) ?? [];
   return ids.map((id) => people.find((p) => p.id === id)).filter(Boolean) as Profile[];
 }
 
+/**
+ * Typed search words made safe to put inside a filter list (.or): commas, brackets, quotes and the
+ * like would otherwise end the filter and let the words add filters of their own.
+ */
+function searchWords(q: string): string {
+  return q.trim().toLowerCase().replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
+}
+
 export async function searchProfiles(q: string): Promise<Profile[]> {
-  const clean = q.trim().toLowerCase().replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
+  const clean = searchWords(q);
   let query = supabase.from('community_profile_cards').select('*').limit(30);
   if (clean) query = query.or(`username.ilike.%${clean}%,full_name.ilike.%${clean}%`);
   else query = query.order('followers_count', { ascending: false });
@@ -1104,7 +1122,7 @@ export async function decideReport(me: string, id: string, status: 'dismissed' |
 
 export async function fetchMembers(q = ''): Promise<MemberCard[]> {
   let query = supabase.from('community_member_cards').select('*').order('created_at', { ascending: false }).limit(100);
-  const needle = q.trim().toLowerCase();
+  const needle = searchWords(q);
   if (needle) query = query.or(`username.ilike.%${needle}%,full_name.ilike.%${needle}%`);
   return ok(await query) ?? [];
 }
@@ -1185,9 +1203,9 @@ export async function askErhaInThread(threadId: string, text: string): Promise<{
     const ctx = (error as any)?.context;
     try {
       const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
-      if (body?.error) throw new Error(body.error);
+      if (typeof body?.error === 'string' && body.error) throw new FriendlyError(body.error);
     } catch (e) {
-      if (e instanceof Error && e.message && !/JSON/.test(e.message)) throw e;
+      if (e instanceof FriendlyError) throw e;
     }
     throw error;
   }
@@ -1211,9 +1229,9 @@ export async function askErha(text: string): Promise<{ reply: string; remaining:
     const ctx = (error as any)?.context;
     try {
       const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
-      if (body?.error) throw new Error(body.error);
+      if (typeof body?.error === 'string' && body.error) throw new FriendlyError(body.error);
     } catch (e) {
-      if (e instanceof Error && e.message && !/JSON/.test(e.message)) throw e;
+      if (e instanceof FriendlyError) throw e;
     }
     throw error;
   }
@@ -1337,8 +1355,15 @@ export async function addPodItem(me: string, item: Pick<PodItem, 'kind' | 'title
   return (await fetchPodItem(row.id))!;
 }
 
-export async function updatePodItem(id: string, patch: Partial<Pick<PodItem, 'title' | 'artist' | 'description' | 'cover_url'>>) {
-  ok(await supabase.from('community_pod_items').update(patch).eq('id', id));
+/** What the owner of a Pod item may change. The database refuses an update that names any other column (the play count, the owner). */
+const POD_EDITABLE = ['kind', 'title', 'artist', 'description', 'cover_url', 'audio_url', 'duration_seconds'] as const;
+
+export async function updatePodItem(id: string, patch: Partial<Pick<PodItem, (typeof POD_EDITABLE)[number]>>) {
+  // Copied field by field, so a whole PodItem passed in by mistake can't carry plays or user_id along.
+  const row: Record<string, unknown> = {};
+  for (const key of POD_EDITABLE) if (patch[key] !== undefined) row[key] = patch[key];
+  if (!Object.keys(row).length) return;
+  ok(await supabase.from('community_pod_items').update(row).eq('id', id));
 }
 
 export async function deletePodItem(id: string) {
@@ -1382,6 +1407,35 @@ export async function setLiveViewers(id: string, viewers: number) {
   await supabase.from('community_lives').update({ viewers: Math.max(0, viewers) }).eq('id', id);
 }
 
+/*
+ * Live comments are rows, not channel messages, so the database decides who wrote each one (and who
+ * may comment at all). Only the commenter's id is in a row: the name shown comes from their profile.
+ */
+
+const LIVE_COMMENT_COLUMNS = 'id, live_id, user_id, text, created_at';
+
+/** The latest comments on a live, oldest first. */
+export async function fetchLiveComments(liveId: string, limit = 20): Promise<LiveComment[]> {
+  const rows: LiveComment[] = ok(await supabase.from('community_live_comments').select(LIVE_COMMENT_COLUMNS).eq('live_id', liveId).order('created_at', { ascending: false }).limit(limit)) ?? [];
+  return rows.reverse();
+}
+
+/** Comments under my own name only. The database also turns away a live that has ended, and more than 20 a minute. */
+export async function addLiveComment(me: string, liveId: string, text: string): Promise<LiveComment> {
+  return ok(await supabase.from('community_live_comments').insert({ live_id: liveId, user_id: me, text: text.trim().slice(0, 300) }).select(LIVE_COMMENT_COLUMNS).single());
+}
+
+/** My own comment, or any comment on my live. */
+export async function deleteLiveComment(id: string) {
+  ok(await supabase.from('community_live_comments').delete().eq('id', id));
+}
+
+/** Whether a comment is still there, so a viewer's word that they removed theirs can be checked before it is passed on. */
+export async function liveCommentExists(id: string): Promise<boolean> {
+  const row: { id: string } | null = ok(await supabase.from('community_live_comments').select('id').eq('id', id).maybeSingle());
+  return !!row;
+}
+
 /* ---------- calls (in the app, over WebRTC) ---------- */
 
 /** Rings the other person. The call row is what their phone sees arrive over Realtime. */
@@ -1394,7 +1448,8 @@ export async function fetchCall(id: string): Promise<Call | null> {
 }
 
 export async function setCallStatus(id: string, status: Call['status']) {
-  const patch: Partial<Call> = { status };
+  // The only columns a member may change on a call; the database refuses an update naming any other.
+  const patch: Partial<Pick<Call, 'status' | 'answered_at' | 'ended_at'>> = { status };
   if (status === 'accepted') patch.answered_at = new Date().toISOString();
   if (status === 'ended' || status === 'declined' || status === 'missed' || status === 'busy') patch.ended_at = new Date().toISOString();
   ok(await supabase.from('community_calls').update(patch).eq('id', id));
@@ -1466,7 +1521,8 @@ async function payments<T>(action: string, extra: Record<string, unknown> = {}):
     } catch {
       // Not JSON: fall back to the generic error below.
     }
-    throw new Error(message || 'The payment service could not be reached. Check your connection and try again.');
+    // The function's own reason is written for members, so errText shows it as it is.
+    throw new FriendlyError(message || 'The payment service could not be reached. Check your connection and try again.');
   }
   return data as T;
 }

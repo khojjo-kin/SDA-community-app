@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { explainCopyrightReport } from '../lib/copyright-report';
 import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { en, type Key, tSplit, useT } from '../lib/i18n';
@@ -21,8 +22,10 @@ import { DarkStatusBar } from './OnDark';
 import { GridCell } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
 import { Icon, IconName, VerifiedTick } from './Icon';
+import { useLegalSheet } from './LegalDocument';
+import { ProfileSkeleton } from './Skeleton';
 import { ShimmerText } from './ThinkingOrb';
-import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Loading, Screen, Sheet, SheetRow, Toggle, useToast } from './ui';
+import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
 
 type Tab = 'grid' | 'reels' | 'reposts';
 // Labels here and in ALERT_ROWS are keys, looked up as the profile draws, so they follow the app's language.
@@ -72,7 +75,7 @@ const ALERT_ROWS: { key: keyof FollowAlerts; label: Key; icon: IconName }[] = [
 ];
 
 /** Why a member can report an account. The English goes to the server, so admins read every report alike. */
-const REPORT_REASONS: Key[] = ['profile.reportSpam', 'profile.reportPretending', 'profile.reportHarassment', 'profile.reportOther'];
+const REPORT_REASONS: Key[] = ['profile.reportSpam', 'profile.reportPretending', 'profile.reportHarassment', 'report.copyright', 'profile.reportOther'];
 
 /**
  * The bell's menu: a frosted card that grows out of the bell, with a switch for each kind of
@@ -254,6 +257,10 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const toast = useToast();
   const t = useT();
   const insets = useSafeAreaInsets();
+  // The Copyright policy, offered after a copyright report.
+  const legal = useLegalSheet();
+  // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
+  const choices = useChoices();
   const mine = userId === me;
   const [discover, setDiscover] = useState(discoverOpen);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -434,7 +441,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       right={mine ? <IconButton name="menu" size={26} label={t('settings.title')} onPress={() => router.push('/settings')} /> : undefined}
     />
   );
-  if (status === 'loading') return <Screen>{bareBar}<Loading /></Screen>;
+  if (status === 'loading') return <Screen>{bareBar}<ProfileSkeleton /></Screen>;
   if (status === 'error') return <Screen>{bareBar}<ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} /></Screen>;
   if (status === 'missing' || !profile) return <Screen><Header /><Empty icon="user" title={t('profile.unavailable')} body={t('profile.unavailableBody')} /></Screen>;
 
@@ -771,10 +778,20 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
               label={t('profile.report')}
               danger
               onPress={later(() =>
-                Alert.alert(t('profile.reportTitle'), t('profile.reportWhy'), [
-                  ...REPORT_REASONS.map((r) => ({ text: t(r), onPress: () => { report(me, { userId }, en[r]).then(() => toast(t('profile.reportThanks'))).catch((e) => toast(errText(e))); } })),
-                  { text: t('common.cancel'), style: 'cancel' as const },
-                ]),
+                choices.ask({
+                  title: t('profile.reportTitle'),
+                  message: t('profile.reportWhy'),
+                  icon: 'flag',
+                  choices: REPORT_REASONS.map((r) => ({
+                    label: t(r),
+                    onPress: () => {
+                      report(me, { userId }, en[r])
+                        // A copyright report also says how to send a formal notice.
+                        .then(() => (r === 'report.copyright' ? explainCopyrightReport().then((read) => { if (read) legal.open('copyright'); }) : toast(t('profile.reportThanks'))))
+                        .catch((e) => toast(errText(e)));
+                    },
+                  })),
+                }),
               )}
             />
             <SheetRow
@@ -824,6 +841,8 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           onChange={(on) => setProfile((p) => (p ? { ...p, alerts_on: on } : p))}
         />
       ) : null}
+      {choices.element}
+      {legal.element}
     </Screen>
   );
 }

@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { confirmPayment, confirmPlatformPayPayment, PlatformPay, PlatformPayButton, type CardFieldInput } from '@stripe/stripe-react-native';
 import { fetchSavedCards, settlePayment } from '../lib/api';
+// Plain t(): every screen is drawn again from the root when the language changes. The card and
+// payment lines are shared with the Plus checkout (checkout.*).
+import { t } from '../lib/i18n';
 import { applePayAvailable, ensureStripe } from '../lib/payments';
 import { useSession } from '../lib/session';
 import { C, errText } from '../lib/theme';
@@ -46,6 +49,8 @@ export type PayProps = {
   wallet?: 'buy' | 'support';
   /** Small print under the Pay button. */
   note?: string;
+  /** Drawn under the note, such as a subscription's renewal terms (RenewalTerms). */
+  footer?: React.ReactNode;
   /** Told when a payment starts and ends, so whatever holds the panel can refuse to close meanwhile. */
   onBusy?: (busy: boolean) => void;
   /** Shown instead of paying when card payments are off. */
@@ -56,7 +61,7 @@ export type PayProps = {
  * The paying part on its own, for a sheet that has steps of its own before it (the donation sheet).
  * Mount it only while it is showing: each visit starts fresh.
  */
-export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walletLabel, wallet = 'buy', note, onBusy, onClose }: PayProps) {
+export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walletLabel, wallet = 'buy', note, footer, onBusy, onClose }: PayProps) {
   const { profile } = useSession();
   const [config, setConfig] = useState<PaymentsConfig | null>(null);
   const [error, setError] = useState('');
@@ -150,7 +155,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
         onPaid(p.payment_intent_id || '', false);
         return;
       }
-      if (!p?.client_secret || !p.payment_intent_id) throw new Error('The payment could not be started. Try again.');
+      if (!p?.client_secret || !p.payment_intent_id) throw new Error(t('checkout.couldNotStart'));
       const failure = await confirm(via, saved, p);
       if (failure && String(failure.code) === 'Canceled') return; // Closing Apple Pay or the bank's check is not an error.
       if (onConfirmed) {
@@ -162,7 +167,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
           synced = false;
         }
         if (failure) {
-          if (alive.current) setPayError(failure.localizedMessage || failure.message || 'The payment did not go through. Try again.');
+          if (alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
           return;
         }
         onPaid(p.payment_intent_id, !synced);
@@ -172,7 +177,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
       // this finds it, rather than asking the member to pay a second time.
       const settled = await settlePayment(p.payment_intent_id).catch(() => null);
       if (failure && settled?.status !== 'succeeded') {
-        if (alive.current) setPayError(failure.localizedMessage || failure.message || 'The payment did not go through. Try again.');
+        if (alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
         return;
       }
       onPaid(p.payment_intent_id, !settled?.settled);
@@ -191,9 +196,9 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
     return (
       <Empty
         icon="card"
-        title="Card payments aren't switched on yet"
-        body="Paying in the app isn't available just yet. Nothing has been charged. Please try again a little later."
-        action={onClose ? <Button label="Close" kind="ghost" onPress={onClose} style={{ marginTop: 10, alignSelf: 'stretch' }} /> : undefined}
+        title={t('pay.off')}
+        body={t('pay.offBody')}
+        action={onClose ? <Button label={t('common.close')} kind="ghost" onPress={onClose} style={{ marginTop: 10, alignSelf: 'stretch' }} /> : undefined}
       />
     );
   }
@@ -204,7 +209,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
       <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 14, lineHeight: 19 }}>{title}</Text>
-          <Text style={{ color: C.fg, fontSize: 13, marginTop: 2, fontWeight: '600' }}>Total</Text>
+          <Text style={{ color: C.fg, fontSize: 13, marginTop: 2, fontWeight: '600' }}>{t('pay.total')}</Text>
         </View>
         <Text style={{ color: C.fg, fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{amountLabel}</Text>
       </View>
@@ -212,11 +217,11 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
       {config.test_mode ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: C.warn, backgroundColor: C.warn + '1f' }}>
           <Icon name="info" size={16} color={C.warn} />
-          <Text style={{ flex: 1, color: C.warn, fontSize: 13, lineHeight: 18 }}>Test mode — no real money moves. Use card 4242 4242 4242 4242, any future date, any CVC.</Text>
+          <Text style={{ flex: 1, color: C.warn, fontSize: 13, lineHeight: 18 }}>{t('checkout.testMode')}</Text>
         </View>
       ) : null}
 
-      <Text accessibilityRole="header" style={{ color: C.fg2, fontSize: 15.5, fontWeight: '700', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 10 }}>Pay with</Text>
+      <Text accessibilityRole="header" style={{ color: C.fg2, fontSize: 15.5, fontWeight: '700', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 10 }}>{t('checkout.payWith')}</Text>
       {applePay ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 14 }}>
           <PlatformPayButton
@@ -225,12 +230,12 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
             borderRadius={12}
             disabled={!!busy}
             onPress={() => pay('apple')}
-            accessibilityLabel={`Pay ${amountLabel} with Apple Pay`}
+            accessibilityLabel={t('pay.applePay', { amount: amountLabel })}
             style={{ height: 48, width: '100%' }}
           />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.fg3 }} />
-            <Text style={{ color: C.fg3, fontSize: 13 }}>or pay by card</Text>
+            <Text style={{ color: C.fg3, fontSize: 13 }}>{t('checkout.orCard')}</Text>
             <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.fg3 }} />
           </View>
         </View>
@@ -247,17 +252,17 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
               onPress={expired ? undefined : () => choose(c.id)}
               accessibilityRole="radio"
               accessibilityState={{ checked: on, disabled: expired }}
-              accessibilityLabel={`${cardTitle(c)}, ${expired ? 'expired' : 'expires'} ${exp}${c.is_default ? ', default card' : ''}`}
+              accessibilityLabel={`${cardTitle(c)}, ${expired ? t('checkout.expired', { date: exp }) : t('checkout.expires', { date: exp })}${c.is_default ? `, ${t('checkout.defaultCard')}` : ''}`}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, opacity: expired ? 0.5 : 1, backgroundColor: pressed && !expired ? C.press : 'transparent' })}>
               <Radio on={on} />
               <CardChip brand={c.brand} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{cardTitle(c)}</Text>
-                <Text style={{ color: expired ? C.like : C.fg2, fontSize: 13.5, marginTop: 1 }}>{expired ? `Expired ${exp}` : `Expires ${exp}`}</Text>
+                <Text style={{ color: expired ? C.like : C.fg2, fontSize: 13.5, marginTop: 1 }}>{expired ? t('checkout.expired', { date: exp }) : t('checkout.expires', { date: exp })}</Text>
               </View>
               {c.is_default ? (
                 <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.accentSoft, justifyContent: 'center' }}>
-                  <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>Default</Text>
+                  <Text style={{ color: C.accent2, fontSize: 11.5, fontWeight: '700' }}>{t('checkout.default')}</Text>
                 </View>
               ) : null}
             </Pressable>
@@ -267,15 +272,15 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
           onPress={() => choose(NEW)}
           accessibilityRole="radio"
           accessibilityState={{ checked: method === NEW }}
-          accessibilityLabel="Add a new card"
+          accessibilityLabel={t('pay.addCard')}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: cards.length ? 1 : 0, borderTopColor: C.line, backgroundColor: pressed ? C.press : 'transparent' })}>
           <Radio on={method === NEW} />
           <View style={{ width: 46, height: 31, borderRadius: 6, backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="plus" size={18} color={C.fg} weight={2.2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>Add a new card</Text>
-            <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>Credit or debit card</Text>
+            <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600' }}>{t('pay.addCard')}</Text>
+            <Text style={{ color: C.fg2, fontSize: 13.5, marginTop: 1 }}>{t('checkout.creditOrDebit')}</Text>
           </View>
         </Pressable>
       </View>
@@ -296,7 +301,7 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
         <Pressable
           onPress={canPay ? () => pay('card') : undefined}
           accessibilityRole="button"
-          accessibilityLabel={`Pay ${amountLabel}`}
+          accessibilityLabel={t('checkout.pay', { price: amountLabel })}
           accessibilityState={{ disabled: !canPay, busy: busy === 'card' }}
           style={({ pressed }) => ({ height: 52, borderRadius: 14, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: busy === 'card' ? 1 : !canPay ? 0.45 : pressed ? 0.8 : 1 })}>
           {busy === 'card' ? (
@@ -304,12 +309,13 @@ export function PayPanel({ title, amountLabel, start, onPaid, onConfirmed, walle
           ) : (
             <>
               <Icon name="lock" size={18} color={C.onAccent} weight={2.2} />
-              <Text style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700' }}>Pay {amountLabel}</Text>
+              <Text style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700' }}>{t('checkout.pay', { price: amountLabel })}</Text>
             </>
           )}
         </Pressable>
-        <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>Payments are processed securely by Stripe. Your card details never touch our servers.</Text>
+        <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{t('checkout.stripeNote')}</Text>
         {note ? <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{note}</Text> : null}
+        {footer}
       </View>
     </ScrollView>
   );
@@ -322,7 +328,7 @@ export function PaySheet({ visible, onClose, ...props }: PayProps & { visible: b
   useEffect(() => { if (!visible) setBusy(false); }, [visible]);
   const close = () => (busy ? undefined : onClose());
   return (
-    <Sheet visible={visible} onClose={close} title="Payment" tall>
+    <Sheet visible={visible} onClose={close} title={t('pay.title')} tall>
       {visible ? (
         <View style={{ flex: 1 }}>
           <PayPanel

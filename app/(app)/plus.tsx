@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName, Mark, VerifiedTick } from '../../src/components/Icon';
+import { RenewalTerms } from '../../src/components/RenewalTerms';
 import { Button, IconButton, Row, Screen, SectionLabel, Sheet, Toggle, useToast } from '../../src/components/ui';
 import { cancelSubscription, myPlusRequests, requestPlus, resumeSubscription, setTickHidden, updateProfile } from '../../src/lib/api';
 import { fontById, useAppFont } from '../../src/lib/fonts';
@@ -279,8 +280,6 @@ export default function Plus() {
   }
   // The trial headline keeps "Community Plus" in green wherever the language puts it.
   const [headBefore, headAfter] = tSplit(profile?.username ? 'plus.trialHeadlineNamed' : 'plus.trialHeadline', 'plus', { username: profile?.username ?? '', time: trialWords });
-  // The same for the Terms of Service link in the small print.
-  const [agreeBefore, agreeAfter] = tSplit('plus.agree', 'terms');
 
   return (
     <Screen>
@@ -331,9 +330,9 @@ export default function Plus() {
               {needsCard ? (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 10 }}>
                   <Text style={{ color: C.fg2, fontSize: 14, lineHeight: 20, fontFamily: font }}>
-                    {`No card is saved for after your free week, so Plus ends with it${billing.current_period_end ? ` on ${longDay(billing.current_period_end)}` : ''}. Add one to keep Plus going. Nothing is charged until then.`}
+                    {billing.current_period_end ? t('plus.needsCardOn', { day: longDay(billing.current_period_end) }) : t('plus.needsCard')}
                   </Text>
-                  <Button label="Add a card for after your free week" onPress={addCard} />
+                  <Button label={t('plus.addCard')} onPress={addCard} />
                 </View>
               ) : null}
               {failed || billing.status === 'incomplete' ? (
@@ -477,18 +476,15 @@ export default function Plus() {
               />
             </View>
           ) : null}
-          {member ? null : (
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', fontFamily: font }}>
-              {trialOffer && config ? `${t('plus.trialTerms', { days: config.trial_days, price: priceLine(plan) })} ` : ''}
-              {agreeBefore}
-              <Text style={{ color: C.accent2, fontWeight: '600' }} onPress={() => router.push('/about')} accessibilityRole="link">
-                {t('plus.terms')}
-              </Text>
-              {agreeAfter}{' '}
-              <Text style={{ color: C.accent2, fontWeight: '600' }} onPress={() => router.push('/help')} accessibilityRole="link">
-                {t('plus.learnMore')}
-              </Text>
-            </Text>
+          {/* The renewal terms of the plan chosen, right above the button that starts it. */}
+          {member || !config?.ready ? null : (
+            <RenewalTerms
+              kind="plus"
+              pricePence={plan === 'yearly' ? config.yearly_pence : config.price_pence}
+              currency={config.currency}
+              cadence={plan === 'yearly' ? 'year' : 'month'}
+              trialDays={trialOffer ? config.trial_days : 0}
+            />
           )}
           {member && plan !== currentPlan ? (
             <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', fontFamily: font }}>

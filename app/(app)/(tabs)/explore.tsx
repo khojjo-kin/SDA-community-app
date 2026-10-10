@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { PostGrid, SectionTitle } from '../../../src/components/Grid';
 import { Icon } from '../../../src/components/Icon';
 import { PersonRow } from '../../../src/components/PersonRow';
-import { Avatar, Empty, ErrorNote, Loading, RoundButton, Screen } from '../../../src/components/ui';
+import { GridSkeleton, RowsSkeleton, SlowLine } from '../../../src/components/Skeleton';
+import { Avatar, Empty, ErrorNote, RoundButton, Screen } from '../../../src/components/ui';
 import { fetchExplore, fetchLives, searchProfiles } from '../../../src/lib/api';
 import { useSession } from '../../../src/lib/session';
 import { listen } from '../../../src/lib/store';
@@ -144,6 +145,7 @@ export default function Explore() {
           </>
         )}
       </View>
+      <SlowLine active={refreshing && !searching} />
 
       {searching ? (
         <FlatList
@@ -151,12 +153,12 @@ export default function Explore() {
           keyExtractor={(p) => p.id}
           renderItem={({ item }) => <PersonRow person={item} />}
           ListHeaderComponent={<SectionTitle>{q.trim() ? 'Results' : 'Suggested'}</SectionTitle>}
-          ListEmptyComponent={people === null ? <Loading /> : <Empty title="No one found" body={q.trim() ? 'Check the spelling, or try part of a username.' : 'When more people join, you can find them here.'} />}
+          ListEmptyComponent={people === null ? <RowsSkeleton count={6} avatar={50} padY={8} trailing="button" /> : <Empty title="No one found" body={q.trim() ? 'Check the spelling, or try part of a username.' : 'When more people join, you can find them here.'} />}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 110 }}
         />
       ) : status === 'loading' ? (
-        <Loading />
+        <GridSkeleton />
       ) : status === 'error' ? (
         <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} />
       ) : (

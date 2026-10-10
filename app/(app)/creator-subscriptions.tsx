@@ -3,9 +3,11 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, Sc
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
 import { PaySheet, type PayStart } from '../../src/components/PaySheet';
+import { RenewalTerms } from '../../src/components/RenewalTerms';
 import { Avatar, Button, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
 import { cancelCreatorSubscription, fetchPayouts, mySubscribers, mySubscriptions, startCreatorSubscription, syncCreatorSubscription, syncCreatorSubscriptionUntilOn, updateProfile } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
+import { t, tSplit } from '../../src/lib/i18n';
 import { ensureStripe, money } from '../../src/lib/payments';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
@@ -28,9 +30,9 @@ function parsePounds(text: string): number | null {
 /** Where one subscription stands, in a few words. */
 function standing(s: CreatorSub): string {
   const day = s.current_period_end ? dayLabel(new Date(s.current_period_end)) : '';
-  if (s.status === 'past_due') return 'Payment due';
-  if (s.cancel_at_period_end) return day ? `Ends ${day}` : 'Ending';
-  return day ? `Renews ${day}` : 'Active';
+  if (s.status === 'past_due') return t('creatorSubs.paymentDue');
+  if (s.cancel_at_period_end) return day ? t('creatorSubs.ends', { day }) : t('creatorSubs.ending');
+  return day ? t('creatorSubs.renews', { day }) : t('creatorSubs.active');
 }
 
 /**
@@ -119,7 +121,7 @@ export default function CreatorSubscriptions() {
       await refresh();
       if (!alive.current) return;
       setChoice(null);
-      toast(wasOff ? `Subscriptions are on at ${money(chosenPence)} a month` : `Your price is now ${money(chosenPence)} a month`);
+      toast(wasOff ? t('creatorSubs.nowOn', { price: money(chosenPence) }) : t('creatorSubs.priceNow', { price: money(chosenPence) }));
     } catch (e) {
       toast(errText(e));
     } finally {
@@ -130,10 +132,10 @@ export default function CreatorSubscriptions() {
 
   function turnOff() {
     if (working.current) return;
-    Alert.alert('Turn off subscriptions?', "No one new can subscribe. Anyone already subscribed stays subscribed until they cancel, and keeps seeing your subscriber posts until then.", [
-      { text: 'Keep them on', style: 'cancel' },
+    Alert.alert(t('creatorSubs.turnOffQuestion'), t('creatorSubs.turnOffBody'), [
+      { text: t('creatorSubs.keepOn'), style: 'cancel' },
       {
-        text: 'Turn off',
+        text: t('creatorSubs.turnOffConfirm'),
         style: 'destructive',
         onPress: async () => {
           if (working.current) return;
@@ -145,7 +147,7 @@ export default function CreatorSubscriptions() {
             if (!alive.current) return;
             setChoice(null);
             setCustom('');
-            toast('Subscriptions are off');
+            toast(t('creatorSubs.off'));
           } catch (e) {
             toast(errText(e));
           } finally {
@@ -160,14 +162,14 @@ export default function CreatorSubscriptions() {
   /** Stops (or restarts) renewing one of my subscriptions to someone else. */
   function changeMine(s: CreatorSub) {
     if (changing) return;
-    const name = s.profile?.username ?? 'this creator';
+    const name = s.profile?.username ?? t('creatorSubs.thisCreator');
     const resume = s.cancel_at_period_end;
     const day = s.current_period_end ? dayLabel(new Date(s.current_period_end)) : '';
     const run = async () => {
       setChanging(s.creator_id);
       try {
         await cancelCreatorSubscription(s.creator_id, resume);
-        toast(resume ? `Your subscription to ${name} will renew` : day ? `Your subscription to ${name} ends on ${day}` : `Your subscription to ${name} will end`);
+        toast(resume ? t('creatorSubs.willRenew', { username: name }) : day ? t('creatorSubs.endsOn', { username: name, day }) : t('creatorSubs.willEnd', { username: name }));
         loadMine();
       } catch (e) {
         toast(errText(e));
@@ -179,9 +181,9 @@ export default function CreatorSubscriptions() {
       run();
       return;
     }
-    Alert.alert(`Cancel your subscription to ${name}?`, `You won't be charged again. You keep seeing their subscriber posts${day ? ` until ${day}` : ' until the end of the month you paid for'}.`, [
-      { text: 'Keep it', style: 'cancel' },
-      { text: 'Cancel subscription', style: 'destructive', onPress: run },
+    Alert.alert(t('creatorSubs.cancelQuestion', { username: name }), day ? t('subscribe.cancelBody', { day }) : t('subscribe.cancelBodyPeriod'), [
+      { text: t('subscribe.keepIt'), style: 'cancel' },
+      { text: t('plus.cancelSubscription'), style: 'destructive', onPress: run },
     ]);
   }
 
@@ -195,7 +197,7 @@ export default function CreatorSubscriptions() {
 
   const startOverdue = useCallback(async (): Promise<PayStart> => {
     known.current = null;
-    if (!overdue) throw new Error('Choose the subscription to pay.');
+    if (!overdue) throw new Error(t('creatorSubs.choose'));
     const r = await startCreatorSubscription(overdue.creator_id);
     // Paid already (Stripe may not have caught up yet): the read-back below starts from what the server saw.
     if (r.already) known.current = r.status ?? null;
@@ -214,63 +216,65 @@ export default function CreatorSubscriptions() {
     const s = overdue;
     setPaying(false);
     if (!s) return;
-    const name = s.profile?.username ?? 'this creator';
+    const name = s.profile?.username ?? t('creatorSubs.thisCreator');
     setChanging(s.creator_id);
     const on = await syncCreatorSubscriptionUntilOn(s.creator_id, known.current);
     if (!alive.current) return;
     setChanging(null);
     if (on) {
       tap('success');
-      toast(`Paid. Your subscription to ${name} carries on`);
+      toast(t('subscribe.paidCarriesOn', { username: name }));
     } else {
-      toast("Payment received. It's taking a moment to show here, so check back in a minute.");
+      toast(t('subscribe.paymentReceived'));
     }
     loadMine();
   }
 
   let payoutRow: { icon: IconName; color: string; title: string; body: string } | null = null;
-  if (payoutsError) payoutRow = { icon: 'info', color: C.fg2, title: 'Payouts', body: "Your payout status didn't load. Tap to open Payouts." };
-  else if (config && !config.ready) payoutRow = { icon: 'card', color: C.fg2, title: "Card payments aren't switched on yet", body: 'You can set your price now. People can subscribe once payments are on and your payouts are ready.' };
+  if (payoutsError) payoutRow = { icon: 'info', color: C.fg2, title: t('creatorSubs.payouts'), body: t('creatorSubs.payoutsDidNotLoad') };
+  else if (config && !config.ready) payoutRow = { icon: 'card', color: C.fg2, title: t('creatorSubs.paymentsOff'), body: t('creatorSubs.paymentsOffBody') };
   else if (payouts) {
-    if (ready) payoutRow = { icon: 'check', color: C.accent2, title: 'Payouts ready', body: 'Subscriptions are paid into your own payout account.' };
-    else if (payouts.has_account) payoutRow = { icon: 'info', color: C.warn, title: 'Finish setting up payouts', body: "Subscriptions can't be taken until your payouts are ready." };
-    else payoutRow = { icon: 'card', color: C.warn, title: 'Set up payouts', body: "Subscriptions can't be taken until your payouts are ready." };
+    if (ready) payoutRow = { icon: 'check', color: C.accent2, title: t('creatorSubs.payoutsReady'), body: t('creatorSubs.payoutsReadyBody') };
+    else if (payouts.has_account) payoutRow = { icon: 'info', color: C.warn, title: t('creatorSubs.finishPayouts'), body: t('creatorSubs.payoutsNotReady') };
+    else payoutRow = { icon: 'card', color: C.warn, title: t('creatorSubs.setUpPayouts'), body: t('creatorSubs.payoutsNotReady') };
   }
+  // "You offer subscriptions at £4.99 a month.", with the price and how often in bold wherever the language puts it.
+  const [offerBefore, offerAfter] = tSplit('creatorSubs.youOffer', 'cost');
 
   return (
     <Screen>
-      <ScreenHeader title="Subscriptions" />
+      <ScreenHeader title={t('settings.subscriptions')} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
           <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 6 }}>
             <Icon name="crown" size={22} color={C.accent2} />
             <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 21 }}>
-              Subscribers pay you every month to see the posts and clips you share only with them. The money goes to your own payout account, and Community keeps {fee != null ? `${fee}%` : 'a small share'} to keep the app running.
+              {fee != null ? t('creatorSubs.intro', { percent: fee }) : t('creatorSubs.introNoFee')}
             </Text>
           </View>
 
-          <SectionLabel>Your price</SectionLabel>
+          <SectionLabel>{t('creatorSubs.yourPrice')}</SectionLabel>
           {restricted ? (
             <View style={{ marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: C.surface, flexDirection: 'row', gap: 12 }}>
               <Icon name="lock" size={22} color={C.fg2} />
-              <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>Offering subscriptions is for members 14 and over.</Text>
+              <Text style={{ flex: 1, color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{t('creatorSubs.under14')}</Text>
             </View>
           ) : (
             <View style={{ paddingHorizontal: 16, gap: 12 }}>
               <Text style={{ color: C.fg, fontSize: 15.5 }}>
                 {current != null ? (
                   <>
-                    You offer subscriptions at <Text style={{ fontWeight: '800' }}>{money(current)} a month</Text>.
+                    {offerBefore}<Text style={{ fontWeight: '800' }}>{t('plus.perMonth', { price: money(current) })}</Text>{offerAfter}
                   </>
                 ) : (
-                  "You don't offer subscriptions yet. Choose a monthly price to start."
+                  t('creatorSubs.notOffering')
                 )}
               </Text>
               <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {PRESETS.map((p) => (
                   <Chip key={p} label={money(p)} on={selected === p} onPress={() => { tap('select'); setChoice(p); }} />
                 ))}
-                <Chip label="Custom" on={selected === 'custom'} onPress={() => { tap('select'); setChoice('custom'); }} />
+                <Chip label={t('creatorSubs.custom')} on={selected === 'custom'} onPress={() => { tap('select'); setChoice('custom'); }} />
               </View>
               {selected === 'custom' ? (
                 <View style={{ gap: 6 }}>
@@ -286,22 +290,22 @@ export default function CreatorSubscriptions() {
                       maxLength={6}
                       editable={!saving}
                       style={{ flex: 1, color: C.fg, fontSize: 17, fontVariant: ['tabular-nums'] }}
-                      accessibilityLabel="Monthly price in pounds"
+                      accessibilityLabel={t('creatorSubs.priceLabel')}
                     />
-                    <Text style={{ color: C.fg2, fontSize: 15 }}>a month</Text>
+                    <Text style={{ color: C.fg2, fontSize: 15 }}>{t('plus.aMonth')}</Text>
                   </View>
-                  <Text style={{ color: customBad ? C.like : C.fg3, fontSize: 12.5 }}>Between {money(MIN_PENCE)} and {money(MAX_PENCE)} a month.</Text>
+                  <Text style={{ color: customBad ? C.like : C.fg3, fontSize: 12.5 }}>{t('creatorSubs.between', { min: money(MIN_PENCE), max: money(MAX_PENCE) })}</Text>
                 </View>
               ) : null}
-              <Button label={saving ? 'Saving' : current == null ? 'Start offering subscriptions' : 'Save price'} busy={saving} disabled={!canSave} onPress={save} />
-              {current != null ? <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18 }}>A new price applies to people who subscribe after you change it.</Text> : null}
-              {current != null ? <Button label="Turn off subscriptions" kind="ghost" disabled={saving} onPress={turnOff} textColor={C.like} /> : null}
+              <Button label={saving ? t('creatorSubs.saving') : current == null ? t('creatorSubs.start') : t('creatorSubs.save')} busy={saving} disabled={!canSave} onPress={save} />
+              {current != null ? <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18 }}>{t('creatorSubs.newPriceNote')}</Text> : null}
+              {current != null ? <Button label={t('creatorSubs.turnOff')} kind="ghost" disabled={saving} onPress={turnOff} textColor={C.like} /> : null}
             </View>
           )}
 
           {restricted ? null : (
             <>
-              <SectionLabel>Payouts</SectionLabel>
+              <SectionLabel>{t('creatorSubs.payouts')}</SectionLabel>
               {payoutRow ? (
                 <Pressable
                   onPress={() => router.push('/payouts')}
@@ -325,18 +329,18 @@ export default function CreatorSubscriptions() {
 
           {restricted && !subscribers?.length ? null : (
             <>
-              <SectionLabel>{subscribers?.length ? `Your subscribers · ${subscribers.length}` : 'Your subscribers'}</SectionLabel>
+              <SectionLabel>{subscribers?.length ? t('creatorSubs.subscribersCount', { count: subscribers.length }) : t('creatorSubs.subscribers')}</SectionLabel>
               {subscribers === null ? (
                 <Loading />
               ) : subscribers.length === 0 ? (
-                <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>No one subscribes to you yet. People can subscribe from your profile once your price is set and your payouts are ready.</Text>
+                <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noSubscribers')}</Text>
               ) : (
                 subscribers.map((s) => (
                   <PersonLine
                     key={s.id}
                     sub={s}
-                    line={s.status === 'past_due' ? 'Payment due' : s.cancel_at_period_end ? `Since ${dayLabel(new Date(s.created_at))} · ${standing(s)}` : `Since ${dayLabel(new Date(s.created_at))}`}
-                    right={<Text style={{ color: C.fg2, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{money(s.amount_pence)}/mo</Text>}
+                    line={s.status === 'past_due' ? t('creatorSubs.paymentDue') : s.cancel_at_period_end ? `${t('creatorSubs.since', { day: dayLabel(new Date(s.created_at)) })} · ${standing(s)}` : t('creatorSubs.since', { day: dayLabel(new Date(s.created_at)) })}
+                    right={<Text style={{ color: C.fg2, fontSize: 13.5, fontVariant: ['tabular-nums'] }}>{t('creatorSubs.perMo', { price: money(s.amount_pence) })}</Text>}
                     onPress={s.profile ? () => router.push(`/user/${s.subscriber_id}`) : undefined}
                   />
                 ))
@@ -344,25 +348,25 @@ export default function CreatorSubscriptions() {
             </>
           )}
 
-          <SectionLabel>Your subscriptions</SectionLabel>
+          <SectionLabel>{t('subscribe.yourSubscriptions')}</SectionLabel>
           {mine === null ? (
             <Loading />
           ) : mine.length === 0 ? (
-            <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>You don't subscribe to anyone. Look for Subscribe on a creator's profile.</Text>
+            <Text style={{ color: C.fg2, paddingHorizontal: 16, lineHeight: 20 }}>{t('creatorSubs.noneMine')}</Text>
           ) : (
             mine.map((s) => (
               <PersonLine
                 key={s.id}
                 sub={s}
-                line={`${money(s.amount_pence)} a month · ${standing(s)}`}
+                line={`${t('plus.perMonth', { price: money(s.amount_pence) })} · ${standing(s)}`}
                 onPress={() => router.push(`/subscribe/${s.creator_id}`)}
                 right={
                   changing === s.creator_id ? (
                     <ActivityIndicator color={C.fg2} />
                   ) : s.status === 'past_due' ? (
-                    <Button small label="Pay now" disabled={!!changing} onPress={() => payOverdue(s)} />
+                    <Button small label={t('plus.payNow')} disabled={!!changing} onPress={() => payOverdue(s)} />
                   ) : (
-                    <Button small kind="ghost" label={s.cancel_at_period_end ? 'Resume' : 'Cancel'} disabled={!!changing} onPress={() => changeMine(s)} />
+                    <Button small kind="ghost" label={s.cancel_at_period_end ? t('plus.resume') : t('common.cancel')} disabled={!!changing} onPress={() => changeMine(s)} />
                   )
                 }
               />
@@ -374,14 +378,15 @@ export default function CreatorSubscriptions() {
       <PaySheet
         visible={paying}
         onClose={() => setPaying(false)}
-        title={`Subscription to @${overdue?.profile?.username ?? ''} · payment due`}
+        title={t('subscribe.sheetDue', { username: overdue?.profile?.username ?? '' })}
         amountLabel={money(overdue?.amount_pence ?? 0)}
         start={startOverdue}
         onConfirmed={confirmedOverdue}
         onPaid={paidOverdue}
-        walletLabel={`Subscription to @${overdue?.profile?.username ?? ''}`}
+        walletLabel={t('subscribe.sheetWallet', { username: overdue?.profile?.username ?? '' })}
         wallet="support"
-        note={`Pays the month that didn't go through. Then it renews every month at ${money(overdue?.amount_pence ?? 0)} until you cancel.`}
+        note={t('subscribe.paysMissed')}
+        footer={<RenewalTerms kind="creator" pricePence={overdue?.amount_pence ?? 0} currency={config?.currency} />}
       />
     </Screen>
   );
@@ -393,7 +398,7 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: on }}
-      accessibilityLabel={label === 'Custom' ? 'Custom price' : `${label} a month`}
+      accessibilityLabel={label === t('creatorSubs.custom') ? t('creatorSubs.customPrice') : t('plus.perMonth', { price: label })}
       style={({ pressed }) => ({ height: 38, paddingHorizontal: 16, borderRadius: 19, borderWidth: 2, borderColor: on ? C.accent : C.line, backgroundColor: on ? C.accentSoft : C.surface, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}>
       <Text style={{ color: on ? C.accent2 : C.fg, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{label}</Text>
     </Pressable>
@@ -405,11 +410,11 @@ function PersonLine({ sub, line, right, onPress }: { sub: CreatorSub; line: stri
   const p = sub.profile;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}>
-      <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${p?.full_name ?? 'Someone'}, ${p?.username ?? ''}. ${line}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${p?.full_name ?? t('creatorSubs.someone')}, ${p?.username ?? ''}. ${line}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Avatar uri={p?.avatar_url} name={p?.full_name} size={46} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{p?.username ?? 'Account unavailable'}</Text>
+            <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', flexShrink: 1 }}>{p?.username ?? t('creatorSubs.accountUnavailable')}</Text>
             {p?.verified ? <VerifiedTick size={14} /> : null}
           </View>
           <Text numberOfLines={1} style={{ color: sub.status === 'past_due' ? C.warn : C.fg2, fontSize: 13.5 }}>{line}</Text>

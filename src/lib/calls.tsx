@@ -360,7 +360,10 @@ class CallSession {
   private fail(e: unknown) {
     if (this.done) return;
     const text = errText(e);
-    const denied = /permission|denied|not allowed|NotAllowed|SecurityError/i.test(text);
+    // The camera's refusal is read from the error itself, since errText keeps its technical words off
+    // screen. A database refusal (which has a code) is not the camera's.
+    const raw = `${(e as any)?.name ?? ''} ${(e as any)?.message ?? ''}`;
+    const denied = !(e as any)?.code && /permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw);
     const incoming = this.view.phase === 'incoming';
     this.finish(denied ? 'Camera or microphone not allowed. Turn them on in Settings.' : text, incoming ? 'declined' : 'ended', { linger: 3200, tellPeer: !incoming });
   }

@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
+import { AgeStep } from '../../src/components/AgeGate';
+import { AuthShell, ConsentBox, DARK_FIELD } from '../../src/components/AuthShell';
+import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
+import { blockDeviceForAge, isDeviceAgeBlocked, rememberSignUpBirthDate } from '../../src/lib/age';
+import { rememberSignUpConsent } from '../../src/lib/consent';
 import { useT } from '../../src/lib/i18n';
 import { DARK, errText } from '../../src/lib/theme';
 
@@ -17,16 +21,50 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [stage, setStage] = useState<'form' | 'verify'>('form');
+  // The date of birth comes first, before an email, a password or Apple or Google (see AgeStep).
+  const [stage, setStage] = useState<'age' | 'form' | 'verify'>('age');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // Explicit consent to use what may show religious belief (a church, using a Christian app), which
+  // UK GDPR (Article 9) needs. Unticked to begin with; every way of making an account on this page
+  // waits for it, and the yes is kept for onboarding to record once the profile exists. (Apple or
+  // Google on the log-in page can make an account without this page, so onboarding asks there.)
+  const [consent, setConsent] = useState(false);
+  // The Terms and Privacy Policy open in a sheet, so the form keeps what has been typed.
+  const legal = useLegalSheet();
+
+  // Someone on this phone said they were under 13 in the last day: the answer stands.
+  useEffect(() => {
+    isDeviceAgeBlocked().then((blocked) => {
+      if (blocked) router.replace('/cannot-join');
+    });
+  }, [router]);
+
+  async function adult(iso: string) {
+    if (await isDeviceAgeBlocked()) {
+      router.replace('/cannot-join');
+      return;
+    }
+    // Carried to onboarding, which saves it with the new profile instead of asking again.
+    rememberSignUpBirthDate(iso);
+    setStage('form');
+  }
+
+  function child() {
+    // Nothing has been sent anywhere. The phone remembers for a day, so another date doesn't get round it.
+    blockDeviceForAge();
+    router.replace('/cannot-join');
+  }
 
   async function create() {
     if (!isLoaded || busy) return;
+    // The keyboard's Go key reaches here even while the button is greyed out.
+    if (!consent) return setErr(t('legal.consentNeeded'));
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setErr(t('auth.enterValidEmail'));
     if (password.length < 8) return setErr(t('auth.passwordTooShort'));
     setBusy(true);
     setErr('');
+    rememberSignUpConsent();
     try {
       const res = await signUp!.create({ emailAddress: email.trim(), password });
       if (res.status === 'complete') {
@@ -73,6 +111,18 @@ export default function SignUp() {
     }
   }
 
+  const haveAccount = (
+    <Link href="/sign-in" replace asChild>
+      <Pressable>
+        <Text style={{ color: DARK.fg2 }}>
+          {t('auth.haveAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.logIn')}</Text>
+        </Text>
+      </Pressable>
+    </Link>
+  );
+
+  if (stage === 'age') return <AgeStep onAdult={adult} onChild={child} footer={haveAccount} />;
+
   if (stage === 'verify') {
     return (
       <>
@@ -94,21 +144,26 @@ export default function SignUp() {
   return (
     <>
       <DarkStatusBar />
-      <AuthShell
-        title={t('auth.joinTagline')}
-        footer={
-          <Link href="/sign-in" replace asChild>
-            <Pressable>
-              <Text style={{ color: DARK.fg2 }}>
-                {t('auth.haveAccount')} <Text style={{ color: DARK.accent2, fontWeight: '600' }}>{t('auth.logIn')}</Text>
-              </Text>
-            </Pressable>
-          </Link>
-        }>
+      <AuthShell title={t('auth.joinTagline')} footer={haveAccount}>
         <Field {...DARK_FIELD} value={email} onChangeText={setEmail} placeholder={t('auth.email')} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />
         <Field {...DARK_FIELD} value={password} onChangeText={setPassword} placeholder={t('auth.password')} secureTextEntry textContentType="newPassword" error={err} onSubmitEditing={create} returnKeyType="go" />
-        <Button label={t('auth.signUp')} onPress={create} busy={busy} />
-        <SsoButtons onError={setErr} />
+        <Button label={t('auth.signUp')} onPress={create} busy={busy} disabled={!consent} />
+        <SsoButtons onError={setErr} disabled={!consent} onStart={rememberSignUpConsent} />
+        <ConsentBox
+          checked={consent}
+          onToggle={() => {
+            setConsent((c) => !c);
+            if (err === t('legal.consentNeeded')) setErr('');
+          }}
+          onOpenPrivacy={() => legal.open('privacy')}
+        />
+        <LinkedSentence
+          text={t('legal.agreeSignUp')}
+          slots={{ terms: { label: t('legal.termsLink'), onPress: () => legal.open('terms') }, privacy: { label: t('legal.privacyLink'), onPress: () => legal.open('privacy') } }}
+          style={{ color: DARK.fg2, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 2 }}
+          linkStyle={{ color: DARK.accent2 }}
+        />
+        {legal.element}
       </AuthShell>
     </>
   );

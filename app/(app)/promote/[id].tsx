@@ -6,6 +6,7 @@ import { Icon } from '../../../src/components/Icon';
 import { PaySheet } from '../../../src/components/PaySheet';
 import { Button, Empty, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel, useToast } from '../../../src/components/ui';
 import { fetchPost, promotePost } from '../../../src/lib/api';
+import { t } from '../../../src/lib/i18n';
 import { ensureStripe, money } from '../../../src/lib/payments';
 import { useSession } from '../../../src/lib/session';
 import { usePost } from '../../../src/lib/store';
@@ -147,7 +148,7 @@ export default function Promote() {
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 10 }}>
             <Button label={`Pay ${totalLabel}`} onPress={() => setPaying(true)} />
-            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>A one-off payment. Nothing renews.</Text>
+            <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>{t('legal.oneOff', { amount: totalLabel })}</Text>
           </View>
         )}
       </ScrollView>
@@ -167,7 +168,7 @@ export default function Promote() {
           amountLabel={totalLabel}
           walletLabel={`Community ad · ${plural(days, 'day')}`}
           wallet="buy"
-          note="Your post is promoted as soon as the payment goes through."
+          note={`${t('legal.oneOff', { amount: totalLabel })} Your post is promoted as soon as the payment goes through.`}
           start={() => promotePost(postId, days)}
           onPaid={paid}
         />

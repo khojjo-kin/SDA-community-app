@@ -16,7 +16,7 @@ export default function ViewCounts() {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, gap: 16 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.fg, fontSize: 17.5 }}>Show view counts</Text>
-            <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 4 }}>When this is on, everyone can see how many people have watched each of your clips. When it is off, only you can see the numbers, here and in your dashboard.</Text>
+            <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 20, marginTop: 4 }}>When this is on, everyone can see how many people have watched each of your shorts. When it is off, only you can see the numbers, here and in your dashboard.</Text>
           </View>
           <Toggle value={on} onChange={(v) => updateProfile(me, { show_view_counts: v }).catch((e) => toast(errText(e)))} label="Show view counts on your profile" />
         </View>

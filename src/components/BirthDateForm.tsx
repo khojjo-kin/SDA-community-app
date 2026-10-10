@@ -1,7 +1,9 @@
 import React, { useRef, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13, requestChildClosure } from '../lib/age';
 import { ageFrom, MINOR_AGE, setBirthDate } from '../lib/api';
 import { useAppFont } from '../lib/fonts';
 import { useSession } from '../lib/session';
@@ -47,7 +49,7 @@ export function checkBirthDate(p: BirthParts, now = new Date()): { iso: string; 
  * Day / Month / Year as three small number boxes (there is no date picker in the app). Typing a
  * full day or month moves on to the next box, so the date can be typed in one go.
  */
-export function BirthDateInput({ value, onChange, error, editable = true, dark = false }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; editable?: boolean; dark?: boolean }) {
+export function BirthDateInput({ value, onChange, error, editable = true, dark = false, note = BIRTHDAY_NOTE }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; editable?: boolean; dark?: boolean; note?: string }) {
   // On the sign-up pages (always dark) the boxes use the dark colours whatever the theme.
   const P = dark ? DARK : C;
   const font = useAppFont();
@@ -127,7 +129,7 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
         </View>
       </View>
       {error ? <Text style={{ color: P.like, fontSize: 13, fontFamily: font }} accessibilityLiveRegion="polite">{error}</Text> : null}
-      <Text style={{ color: P.fg3, fontSize: 13, lineHeight: 18, fontFamily: font }}>{BIRTHDAY_NOTE}</Text>
+      <Text style={{ color: P.fg3, fontSize: 13, lineHeight: 18, fontFamily: font }}>{note}</Text>
     </View>
   );
 }
@@ -219,6 +221,7 @@ function Page({ children }: { children: React.ReactNode }) {
 export function BirthDateGate() {
   const { me, refresh } = useSession();
   const { signOut } = useAuth();
+  const router = useRouter();
   const g = useSyncExternalStore(subscribe, snapshot, snapshot);
   const font = useAppFont();
   const fontBold = useAppFont('bold');
@@ -236,7 +239,23 @@ export function BirthDateGate() {
     setErr('');
     setBusy(true);
     try {
+      if (await isDeviceAgeBlocked()) {
+        // Someone on this phone said they were under 13 in the last day, so no date given here counts
+        // and nothing is saved. This account may well be a grown-up's, so it is only signed out, never
+        // deleted (no closure is asked for): the sorry screen explains.
+        router.replace('/cannot-join');
+        signOut().catch(() => {});
+        return;
+      }
       await setBirthDate(me, checked.iso);
+      if (isUnder13(checked.iso)) {
+        // Under 13: the server has just closed the account for good. The sorry screen deletes the
+        // sign-in account and signs out; the app layout would otherwise show it as deactivated.
+        requestChildClosure(me);
+        blockDeviceForAge();
+        router.replace('/cannot-join?closed=1');
+        return;
+      }
       noteBirthDateSaved(me, checked.age);
       // The profile reloads with the under-14 rules (and without needs_birth_date). A failed reload
       // doesn't matter here: the gate already knows it was saved.

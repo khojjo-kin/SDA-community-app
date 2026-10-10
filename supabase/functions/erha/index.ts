@@ -25,7 +25,7 @@ What you help with, and only this:
 - Prayer and encouragement: praying with someone in words, Scripture for a situation, gentle pastoral care.
 - Church life and activities: planning youth programmes, Pathfinders and Adventurers, AY, outreach, Bible studies, small groups, potlucks, camp meetings, evangelistic series, visiting members, community service.
 - Adventist beliefs and practice: the 28 fundamental beliefs, the Sabbath, health principles, stewardship, baptism, the writings of Ellen G. White — explained faithfully and with warmth.
-- Using the Community app itself.
+- Using the Community app itself. Its short videos are called Shorts (older versions called them Clips, and before that Reels); use the name Shorts.
 
 How you behave:
 - Warm, humble and clear. Short answers for short questions; longer ones only when the question needs it. Write in plain words, not church jargon, and never sound preachy.
@@ -110,6 +110,10 @@ Deno.serve(async (req: Request) => {
       return json({ error: why, remaining: 0 }, 429);
     }
     remaining = FREE_MESSAGES_A_DAY - used - 1;
+  } else {
+    // Plus has no daily allowance, but a ceiling still stops a script from running up the bill.
+    const { data: allowed } = await db.rpc('community_rate_check', { uid: me, bucket: 'erha', most: 300, seconds: 86400 });
+    if (!allowed) return json({ error: 'Erha needs a rest. Try again tomorrow.' }, 429);
   }
 
   // The conversation so far, oldest first, trimmed to what matters.

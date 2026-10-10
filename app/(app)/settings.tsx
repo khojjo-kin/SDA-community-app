@@ -182,7 +182,7 @@ export default function Settings() {
         { icon: 'archive', title: 'settings.archive', href: '/archive', words: 'stories old expired' },
         { icon: 'activity', title: 'settings.yourActivity', href: '/activity', words: 'likes comments reposts history' },
         { icon: 'bell', title: 'common.notifications', href: '/notifications', words: 'likes follows comments' },
-        { icon: 'sliders', title: 'settings.yourFeed', sub: 'settings.yourFeedSub', href: '/clips-settings', words: 'feed for you clips reels interests topics more less sensitive recommendations' },
+        { icon: 'sliders', title: 'settings.yourFeed', sub: 'settings.yourFeedSub', href: '/clips-settings', words: 'feed for you shorts clips reels interests topics more less sensitive recommendations' },
         {
           icon: 'flame',
           title: 'settings.chatStreaks',
@@ -215,11 +215,11 @@ export default function Settings() {
       items: [
         { icon: 'sun', title: 'theme.title', value: t(THEME_LABEL[theme] ?? 'theme.dark'), href: '/theme', words: 'theme dark light white green colour color mode appearance look' },
         { icon: 'palette', title: 'settings.profileStyle', sub: 'settings.profileStyleSub', href: '/profile-style', words: 'ring colour color theme look profile style customise', plus: true },
-        { icon: 'camera', title: 'settings.storyCamera', href: '/camera-settings', words: 'camera roll photos front camera toolbar reels sound' },
+        { icon: 'camera', title: 'settings.storyCamera', href: '/camera-settings', words: 'camera roll photos front camera toolbar shorts reels sound' },
         { icon: 'globe', title: 'language.title', value: languageName(languageCode()), href: '/language', words: 'language translate english spanish french words' },
-        { icon: 'text', title: 'settings.captions', sub: 'settings.captionsSub', href: '#captions', words: 'captions subtitles clips reels words deaf hearing accessibility', toggle: 'captions' },
+        { icon: 'text', title: 'settings.captions', sub: 'settings.captionsSub', href: '#captions', words: 'captions subtitles shorts clips reels words deaf hearing accessibility', toggle: 'captions' },
         // Named by the same list as the Language screen and Your feed (i18n's LANGUAGES), so the names can't drift apart.
-        { icon: 'globe', title: 'settings.captionLanguage', value: prefs.captionLang ? languageName(prefs.captionLang) : t('settings.appLanguage'), href: '/clips-settings', words: 'captions subtitles translate language clips reels' },
+        { icon: 'globe', title: 'settings.captionLanguage', value: prefs.captionLang ? languageName(prefs.captionLang) : t('settings.appLanguage'), href: '/clips-settings', words: 'captions subtitles translate language shorts clips reels' },
         { icon: 'pulse', title: 'settings.haptics', sub: 'settings.hapticsSub', href: '#haptics', words: 'haptics vibration vibrate tap feel touch buzz', toggle: 'haptics' },
         { icon: 'grid', title: 'settings.assistive', sub: 'settings.assistiveSub', href: '#assistive', words: 'floating button assistive shortcut bible hymnal pod sabbath school churches communities erha map', toggle: 'assistive' },
       ],
@@ -243,7 +243,7 @@ export default function Settings() {
       label: 'settings.section.support',
       items: [
         { icon: 'lifebuoy', title: 'help.title', sub: 'settings.helpSub', href: '/help', words: 'help support contact chat questions faq problem feedback review rate idea suggest bug' },
-        { icon: 'info', title: 'settings.about', href: '/about', words: 'version privacy data help' },
+        { icon: 'info', title: 'settings.about', href: '/about', words: 'version privacy data help terms legal policy copyright dmca trademark child safety community guidelines rules' },
       ],
     },
   ];

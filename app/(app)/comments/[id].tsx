@@ -3,14 +3,20 @@ import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextI
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../../src/components/Icon';
-import { Avatar, Empty, ErrorNote, Loading, useToast } from '../../../src/components/ui';
-import { addComment, deleteComment, fetchComments, fetchPost, setCommentLike } from '../../../src/lib/api';
+import { useLegalSheet } from '../../../src/components/LegalDocument';
+import { Avatar, Empty, ErrorNote, Loading, useChoices, useToast } from '../../../src/components/ui';
+import { addComment, deleteComment, fetchComments, fetchPost, report, setCommentLike } from '../../../src/lib/api';
+import { explainCopyrightReport } from '../../../src/lib/copyright-report';
+import { en, type Key, t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { usePost } from '../../../src/lib/store';
 import { ago, C, errText, fmt } from '../../../src/lib/theme';
 import type { Comment } from '../../../src/lib/types';
 
 const EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
+
+/** Why a comment can be reported. The English goes to the server, so admins read every report alike. */
+const REPORT_REASONS: Key[] = ['report.spam', 'report.harassment', 'report.nudity', 'report.copyright', 'report.other'];
 
 export default function Comments() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +33,10 @@ export default function Comments() {
   const [sending, setSending] = useState(false);
   const input = useRef<TextInput>(null);
   const listRef = useRef<FlatList<Comment>>(null);
+  // The Copyright policy, offered after a copyright report.
+  const legal = useLegalSheet();
+  // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
+  const choices = useChoices();
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +87,20 @@ export default function Comments() {
     ]);
   }
 
+  function reportComment(c: Comment) {
+    if (!post) return;
+    // A report has no place for a comment of its own, so the reason quotes it, within the 500 characters a reason may have.
+    const file = (r: Key) => {
+      const quote = c.text.replace(/\s+/g, ' ').trim().slice(0, 440);
+      report(me, { postId: post.id, userId: c.user_id }, `${en[r]} (on a comment: "${quote}")`)
+        // A copyright report also says how to send a formal notice.
+        .then(() => (r === 'report.copyright' ? explainCopyrightReport().then((read) => { if (read) legal.open('copyright'); }) : toast(t('report.commentThanks'))))
+        .catch((e) => toast(errText(e)));
+    };
+    // Cancel is added last, on both.
+    choices.ask({ title: t('report.commentTitle'), message: t('report.why'), icon: 'flag', choices: REPORT_REASONS.map((r) => ({ label: t(r), onPress: () => file(r) })) });
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ height: insets.top }} />
@@ -115,6 +139,11 @@ export default function Comments() {
                       <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>Delete</Text>
                     </Pressable>
                   ) : null}
+                  {c.user_id !== me ? (
+                    <Pressable onPress={() => reportComment(c)} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('report.commentTitle')}>
+                      <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>{t('report.report')}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
               <Pressable onPress={() => like(c)} hitSlop={8} style={{ alignItems: 'center', minWidth: 28, paddingTop: 4 }} accessibilityRole="button" accessibilityLabel={c.liked ? 'Unlike comment' : 'Like comment'}>
@@ -141,6 +170,8 @@ export default function Comments() {
           <Text style={{ color: C.accent2, fontWeight: '600', opacity: !text.trim() || sending ? 0.4 : 1 }}>Post</Text>
         </Pressable>
       </View>
+      {choices.element}
+      {legal.element}
     </KeyboardAvoidingView>
   );
 }

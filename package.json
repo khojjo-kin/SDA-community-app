@@ -7,6 +7,7 @@
     "start": "expo start",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
+    "legal": "node scripts/build-legal.mjs",
     "bundle:check": "expo export --platform ios --output-dir .export-check",
     "release:ios": "eas build --platform ios --profile production --auto-submit",
     "android": "expo run:android"
@@ -21,7 +22,6 @@
     "@stripe/stripe-react-native": "0.65.1",
     "@supabase/supabase-js": "2.57.4",
     "expo": "~54.0.37",
-    "expo-apple-authentication": "~8.0.8",
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-auth-session": "~7.0.11",

@@ -13,3 +13,14 @@ android/
 .DS_Store
 npm-debug.*
 expo-env.d.ts
+
+# Secrets and signing material never belong in the repository.
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+*.certSigningRequest
+# Build output
+website/dist/

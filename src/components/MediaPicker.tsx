@@ -399,7 +399,7 @@ export function MediaPicker({ mode, onMode, onNext, onClose }: { mode: PickMode;
         {!current ? (
           <View style={{ alignItems: 'center', gap: 10, paddingHorizontal: 32 }}>
             <Icon name="image" size={44} color={DARK.fg3} />
-            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{`Choose up to ${LIMIT} photos and videos. People swipe through them in one post. A video on its own becomes a clip.`}</Text>
+            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{`Choose up to ${LIMIT} photos and videos. People swipe through them in one post. A video on its own becomes a short.`}</Text>
           </View>
         ) : null}
         {multi && picked.length ? (

@@ -21,7 +21,7 @@ export const WEBHOOK_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'custom
 export const AD_DAY_PENCE = Number(Deno.env.get('AD_DAY_PENCE') ?? '200');
 
 export function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', Connection: 'keep-alive' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', Connection: 'keep-alive' } });
 }
 
 /** The person's id from the session token Supabase already verified (verify_jwt). */

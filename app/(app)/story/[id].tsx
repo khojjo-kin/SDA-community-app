@@ -4,13 +4,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
 import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
+import { useLegalSheet } from '../../../src/components/LegalDocument';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { ActionBar, afterSheet, BarButton, confirmAlert, PeopleSheet, REPORT_REASONS, shareStoryItem, storyWords, useStoryHold } from '../../../src/components/StoryChrome';
 import { PlayerCtx, PlayerGroup, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { StoryReply } from '../../../src/components/StoryReply';
 import { Avatar, Empty, IconButton, Loading, Sheet, SheetRow, useToast } from '../../../src/components/ui';
 import { addToHighlight, coverOf, createHighlight, deleteStory, fetchStoryTray, fetchStoryViewersDetailed, fetchStoryWatchList, fetchUserStories, markStorySeen, report, sendToPeople, setStoryWatch } from '../../../src/lib/api';
+import { COPYRIGHT_REASON, explainCopyrightReport } from '../../../src/lib/copyright-report';
 import { tap } from '../../../src/lib/haptics';
+import { t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { announce } from '../../../src/lib/store';
 import { supabase } from '../../../src/lib/supabase';
@@ -51,6 +54,8 @@ export default function StoryScreen() {
   const router = useRouter();
   const toast = useToast();
   const hold = useStoryHold();
+  // The Copyright policy, offered after a copyright report. The story stays paused while it is open.
+  const legal = useLegalSheet();
   const [groups, setGroups] = useState<PlayerGroup<Story>[] | null>(null);
   const [start, setStart] = useState({ g: 0, s: 0 });
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
@@ -223,7 +228,14 @@ export default function StoryScreen() {
     setSheet(null);
     if (!ctx) return;
     report(me, { userId: ctx.group.user_id }, `${reason} (on a story)`)
-      .then(() => toast('Thanks. We will review this story.'))
+      .then(() => {
+        if (reason !== COPYRIGHT_REASON) return toast('Thanks. We will review this story.');
+        // A copyright report also says how to send a formal notice; the story waits meanwhile.
+        return hold.busy(async () => {
+          await afterSheet();
+          if (await explainCopyrightReport()) legal.open('copyright');
+        });
+      })
       .catch((e) => toast(errText(e)));
   }
 
@@ -250,7 +262,7 @@ export default function StoryScreen() {
         groups={groups}
         startGroup={start.g}
         startEntry={start.s}
-        held={sheet !== null || hold.held}
+        held={sheet !== null || hold.held || legal.visible}
         onClose={close}
         onOpenProfile={openProfile}
         onMention={openProfile}
@@ -348,7 +360,7 @@ export default function StoryScreen() {
         {sheet === 'report' ? (
           <>
             {REPORT_REASONS.map((r, i) => (
-              <SheetRow key={r} first={i === 0} icon="flag" label={r} onPress={() => reportStory(r)} />
+              <SheetRow key={r} first={i === 0} icon="flag" label={r === COPYRIGHT_REASON ? t('report.copyright') : r} onPress={() => reportStory(r)} />
             ))}
             <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
           </>
@@ -370,6 +382,7 @@ export default function StoryScreen() {
       <PeopleSheet visible={sheet === 'mention'} title="Mention" verb="Mention" which="following" onClose={closeSheet} onSend={(ids) => mention(ids)} />
       <PeopleSheet visible={sheet === 'send'} title="Send to" verb="Send" which="recent" note onClose={closeSheet} onSend={send} />
       <HighlightPicker visible={sheet === 'highlight'} onClose={closeSheet} onPick={keep} />
+      {legal.element}
     </>
   );
 }

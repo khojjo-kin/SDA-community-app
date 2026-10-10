@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DarkEmpty, DarkErrorNote, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
+import { DarkEmpty, DarkErrorNote, DarkStatusBar } from '../../../src/components/OnDark';
 import { Reel } from '../../../src/components/Reel';
+import { ShortsSkeleton } from '../../../src/components/Skeleton';
 import { Button, IconButton } from '../../../src/components/ui';
 import { fetchReels } from '../../../src/lib/api';
 import { tap } from '../../../src/lib/haptics';
@@ -110,7 +111,7 @@ export default function Reels() {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <DarkStatusBar />
       {status === 'loading' ? (
-        <View style={{ flex: 1, justifyContent: 'center' }}><DarkLoading /></View>
+        <ShortsSkeleton width={width} height={height} bottomInset={Math.max(insets.bottom - 8, 10) + 68} />
       ) : status === 'error' ? (
         <View style={{ flex: 1, justifyContent: 'center' }}><DarkErrorNote message={error} onRetry={() => { setStatus('loading'); load(true); }} /></View>
       ) : ids.length === 0 ? (

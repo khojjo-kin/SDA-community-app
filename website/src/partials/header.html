@@ -1,0 +1,15 @@
+<a class="skip-link" href="#main">Skip to main content</a>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="{{base}}/" aria-label="Community home">
+      <img src="{{base}}/assets/img/logo-36.png" srcset="{{base}}/assets/img/logo-36.png 1x, {{base}}/assets/img/logo-72.png 2x" width="{{logo_width}}" height="{{logo_height}}" alt="Community logo: the Adventist flame above an open Bible">
+      <span class="brand-name">Community</span>
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <ul>
+        <li><a href="{{base}}/support"{{#if is_support}} aria-current="page"{{/if}}>Support</a></li>
+      </ul>
+    </nav>
+    {{^if is_home}}<a class="btn btn-leaf btn-small header-cta" href="{{cta_url}}">Get Community</a>{{/if}}
+  </div>
+</header>

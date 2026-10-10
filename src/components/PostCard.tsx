@@ -5,17 +5,20 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { deletePost, report, setBlock, setFlag, setFollow, setPostSensitive } from '../lib/api';
 import { useIsActivePost } from '../lib/autoplay';
+import { COPYRIGHT_REASON, explainCopyrightReport } from '../lib/copyright-report';
 // Named feel here because this card has a tap() of its own (the double tap on the photo).
 import { tap as feel } from '../lib/haptics';
+import { t } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { usePost } from '../lib/store';
 import { agoLong, C, dayLabel, errText, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
-import { Avatar, Button, IconButton, Sheet, SheetRow, useToast } from './ui';
+import { useLegalSheet } from './LegalDocument';
+import { Avatar, Button, IconButton, Sheet, SheetRow, useChoices, useToast } from './ui';
 
-const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', 'Something else'];
+const REASONS = ['Spam', 'Nudity or sexual content', 'Harassment or hate', COPYRIGHT_REASON, 'Something else'];
 
 /** The photo frame: a gutter either side and rounded corners, so posts read as cards rather than a full-bleed strip. */
 const MEDIA_GUTTER = 10;
@@ -27,6 +30,10 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
   const toast = useToast();
   const router = useRouter();
   const mine = post.user_id === me;
+  // The Copyright policy, offered after a copyright report.
+  const legal = useLegalSheet();
+  // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
+  const choices = useChoices();
   // A running ad can be topped up: the new days are added on after the current ones.
   const promotedUntil = post.boosted && post.boosted_until && new Date(post.boosted_until) > new Date() ? dayLabel(new Date(post.boosted_until)) : '';
   const act = (fn: () => Promise<void> | void) => async () => {
@@ -39,7 +46,17 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
       toast(errText(e));
     }
   };
+  function fileReport(reason: string) {
+    report(me, { postId: post.id, userId: post.user_id }, reason)
+      .then(() => {
+        // A copyright report also says how to send a formal notice.
+        if (reason !== COPYRIGHT_REASON) toast('Thanks. We will review this post.');
+        else explainCopyrightReport().then((read) => { if (read) legal.open('copyright'); });
+      })
+      .catch((e) => toast(errText(e)));
+  }
   return (
+    <>
     <Sheet visible={visible} onClose={onClose}>
       <SheetRow first icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} onPress={act(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
       <SheetRow icon="link" label="Copy link" onPress={act(async () => { await Clipboard.setStringAsync(`community://post/${post.id}`); toast('Link copied'); })} />
@@ -77,10 +94,12 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
             label="Report"
             danger
             onPress={act(() =>
-              Alert.alert('Report this post', 'Why are you reporting it?', [
-                ...REASONS.map((r) => ({ text: r, onPress: () => { report(me, { postId: post.id, userId: post.user_id }, r).then(() => toast('Thanks. We will review this post.')).catch((e) => toast(errText(e))); } })),
-                { text: 'Cancel', style: 'cancel' as const },
-              ]),
+              choices.ask({
+                title: 'Report this post',
+                message: 'Why are you reporting it?',
+                icon: 'flag',
+                choices: REASONS.map((r) => ({ label: r === COPYRIGHT_REASON ? t('report.copyright') : r, onPress: () => fileReport(r) })),
+              }),
             )}
           />
           <SheetRow
@@ -97,6 +116,9 @@ export function PostMenu({ post, visible, onClose }: { post: Post; visible: bool
         </>
       )}
     </Sheet>
+    {choices.element}
+    {legal.element}
+    </>
   );
 }
 

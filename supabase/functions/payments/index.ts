@@ -341,6 +341,9 @@ async function creatorCancel(ctx: Ctx, body: any) {
 
 /* ---------- the actions ---------- */
 
+/** Actions that create or change something in Stripe. */
+const MAKES = new Set(['add_card', 'remove_card', 'default_card', 'subscribe', 'cancel', 'resume', 'promote', 'donate', 'payouts_onboard', 'payouts_dashboard', 'creator_subscribe', 'creator_cancel']);
+
 async function status(ctx: Ctx) {
   const row = await billingRow(ctx);
   // In the free week with no card saved for after it: the app offers to add one.
@@ -469,6 +472,12 @@ Deno.serve(async (req: Request) => {
   }
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
   const ctx: Ctx = { db, me };
+
+  // Anything that makes something in Stripe is limited per member, against scripts and stuck buttons.
+  if (MAKES.has(body?.action)) {
+    const { data: allowed } = await db.rpc('community_rate_check', { uid: me, bucket: 'payments', most: 40, seconds: 3600 });
+    if (!allowed) return json({ error: 'Too many tries. Try again in a little while.' }, 429);
+  }
 
   try {
     switch (body?.action) {

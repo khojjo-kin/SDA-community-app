@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Slot, SplashScreen, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LaunchCover, LaunchReady, whenCoverDrawn } from '../src/components/LaunchCover';
 import { Button, ToastProvider } from '../src/components/ui';
 import { LanguageWatch, useLanguage } from '../src/lib/i18n';
 import { loadPrefs, usePrefsLoaded, usePrefTheme } from '../src/lib/prefs';
@@ -36,7 +37,8 @@ function useHideLaunchScreen(ready: boolean) {
   useEffect(() => {
     // Wait for the saved theme so the first screen is drawn in the right colours, but never for long.
     if (ready) {
-      SplashScreen.hideAsync().catch(() => {});
+      // Once the logo cover (LaunchCover) has its logo on screen, so the launch screen gives way to the same picture.
+      whenCoverDrawn().then(() => SplashScreen.hideAsync().catch(() => {}));
       return;
     }
     const t = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 1500);
@@ -184,6 +186,8 @@ export default function RootLayout() {
       <ClerkProvider key={attempt} publishableKey={CLERK_KEY} tokenCache={tokenCache}>
         <Gate onRetry={() => setAttempt((n) => n + 1)}>
           <SessionProvider>
+            {/* Lets the logo cover lift once the account is known, so it reveals the first real screen. */}
+            <LaunchReady />
             {/* Keyed on the theme and the language: a new one draws every screen again in its colours and words. */}
             <ToastProvider key={`${theme}:${language}`}>
               <ReturnAfterRedraw />
@@ -193,6 +197,8 @@ export default function RootLayout() {
           </SessionProvider>
         </Gate>
       </ClerkProvider>
+      {/* The logo at start-up and after a long time away, over everything. Outside the keyed parts above, so a new theme or language never plays it again. */}
+      <LaunchCover />
     </GestureHandlerRootView>
   );
 }

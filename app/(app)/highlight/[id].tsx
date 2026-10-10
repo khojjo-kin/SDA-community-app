@@ -2,12 +2,15 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { markMemoryOpened } from '../../../src/components/HighlightsRow';
+import { useLegalSheet } from '../../../src/components/LegalDocument';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
 import { ActionBar, afterSheet, BarButton, confirmAlert, HighlightBrowser, REPORT_REASONS, shareStoryItem, useStoryHold } from '../../../src/components/StoryChrome';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { StoryReply } from '../../../src/components/StoryReply';
 import { IconButton, Sheet, SheetRow, useToast } from '../../../src/components/ui';
 import { coverOf, deleteHighlight, fetchHighlight, getProfile, removeHighlightItem, report, setHighlightCover } from '../../../src/lib/api';
+import { COPYRIGHT_REASON, explainCopyrightReport } from '../../../src/lib/copyright-report';
+import { t } from '../../../src/lib/i18n';
 import { useSession } from '../../../src/lib/session';
 import { ringColors } from '../../../src/lib/styling';
 import { dayLabel, errText } from '../../../src/lib/theme';
@@ -23,6 +26,8 @@ export default function HighlightScreen() {
   const router = useRouter();
   const toast = useToast();
   const hold = useStoryHold();
+  // The Copyright policy, offered after a copyright report. The memory stays paused while it is open.
+  const legal = useLegalSheet();
   const [data, setData] = useState<Data | null | 'missing'>(null);
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   // The story a sheet was opened for. The story is paused while a sheet is open, so it stays current.
@@ -147,7 +152,14 @@ export default function HighlightScreen() {
     setSheet(null);
     if (!cur || cur === 'missing') return;
     report(me, { userId: cur.highlight.user_id }, `${reason} (on a memory)`)
-      .then(() => toast('Thanks. We will review this memory.'))
+      .then(() => {
+        if (reason !== COPYRIGHT_REASON) return toast('Thanks. We will review this memory.');
+        // A copyright report also says how to send a formal notice; the memory waits meanwhile.
+        return hold.busy(async () => {
+          await afterSheet();
+          if (await explainCopyrightReport()) legal.open('copyright');
+        });
+      })
       .catch((e) => toast(errText(e)));
   }
 
@@ -177,7 +189,7 @@ export default function HighlightScreen() {
       <StoryPlayer
         key={highlight.id}
         groups={[{ key: highlight.id, user_id: highlight.user_id, username: owner?.username ?? '', avatar_url: owner?.avatar_url ?? '', verified: !!owner?.verified, entries: items }]}
-        held={sheet !== null || hold.held}
+        held={sheet !== null || hold.held || legal.visible}
         onClose={close}
         onOpenProfile={openProfile}
         onMention={openProfile}
@@ -210,7 +222,7 @@ export default function HighlightScreen() {
         {sheet === 'report' ? (
           <>
             {REPORT_REASONS.map((r, i) => (
-              <SheetRow key={r} first={i === 0} icon="flag" label={r} onPress={() => reportHighlight(r)} />
+              <SheetRow key={r} first={i === 0} icon="flag" label={r === COPYRIGHT_REASON ? t('report.copyright') : r} onPress={() => reportHighlight(r)} />
             ))}
             <SheetRow icon="close" label="Cancel" onPress={closeSheet} />
           </>
@@ -240,6 +252,7 @@ export default function HighlightScreen() {
           onPick={(hid) => (hid === highlight.id ? closeSheet() : fromSheet(() => router.replace(`/highlight/${hid}`))())}
         />
       ) : null}
+      {legal.element}
     </>
   );
 }

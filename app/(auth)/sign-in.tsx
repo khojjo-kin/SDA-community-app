@@ -5,6 +5,7 @@ import { Link, useRouter } from 'expo-router';
 import { AuthShell, DARK_FIELD } from '../../src/components/AuthShell';
 import { Icon } from '../../src/components/Icon';
 import { DarkStatusBar } from '../../src/components/OnDark';
+import { LinkedSentence, useLegalSheet } from '../../src/components/LegalDocument';
 import { SsoButtons } from '../../src/components/SsoButtons';
 import { Button, Field } from '../../src/components/ui';
 import { useT } from '../../src/lib/i18n';
@@ -21,6 +22,10 @@ export default function SignIn() {
   const router = useRouter();
   // The app's own words are translated; what Clerk says when something fails (errText) stays as Clerk sends it.
   const t = useT();
+  // Apple or Google can make a new account from here too, so the Terms and Privacy Policy are a tap away.
+  // There is no consent box here, unlike sign-up: an account made this way is asked for it in
+  // onboarding, before it gets a profile.
+  const legal = useLegalSheet();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -200,6 +205,13 @@ export default function SignIn() {
           </Pressable>
         </Link>
         <SsoButtons onError={setErr} />
+        <LinkedSentence
+          text={t('legal.agreeSignUp')}
+          slots={{ terms: { label: t('legal.termsLink'), onPress: () => legal.open('terms') }, privacy: { label: t('legal.privacyLink'), onPress: () => legal.open('privacy') } }}
+          style={{ color: DARK.fg2, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 2 }}
+          linkStyle={{ color: DARK.accent2 }}
+        />
+        {legal.element}
       </AuthShell>
     </>
   );

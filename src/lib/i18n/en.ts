@@ -8,7 +8,7 @@
  * translation is partly done.
  *
  * Keep the wording plain and friendly, as here. "Community" (the app), "Community Plus", "Erha",
- * "Pod" and "Clips" are names.
+ * "Pod" and "Shorts" (the tab of short videos; one of them is "a short") are names.
  */
 export const en = {
   // ---------- Shared: used on many screens ----------
@@ -42,7 +42,7 @@ export const en = {
 
   // ---------- The tab bar at the bottom (read aloud by screen readers) ----------
   'tabs.home': 'Home',
-  'tabs.clips': 'Clips',
+  'tabs.clips': 'Shorts',
   'tabs.messages': 'Messages',
   'tabs.search': 'Search',
   'tabs.profile': 'Profile',
@@ -113,7 +113,7 @@ export const en = {
   'settings.profileStyle': 'Profile style',
   'settings.profileStyleSub': 'Ring colour and profile theme',
   'settings.storyCamera': 'Story and camera',
-  'settings.captions': 'Captions on clips',
+  'settings.captions': 'Captions on shorts',
   'settings.captionsSub': 'Words on screen as people speak',
   'settings.captionLanguage': 'Caption language',
   'settings.appLanguage': 'App language',
@@ -159,7 +159,7 @@ export const en = {
 
   // ---------- Profiles (your own and other people's) ----------
   'profile.tab.posts': 'Posts',
-  'profile.tab.clips': 'Clips',
+  'profile.tab.clips': 'Shorts',
   'profile.tab.reposts': 'Reposts',
   // The numbers under a name: "12 posts", "40 followers", "35 following".
   'profile.stat.posts': 'posts',
@@ -202,7 +202,7 @@ export const en = {
   'profile.alertsOn': 'Notifications from {username} are on',
   'profile.alertsPosts': 'Posts',
   'profile.alertsStories': 'Stories',
-  'profile.alertsClips': 'Clips',
+  'profile.alertsClips': 'Shorts',
   'profile.alertsLive': 'Live videos',
   // A switch read aloud: "Posts from mary_k".
   'profile.alertsFrom': '{what} from {username}',
@@ -210,13 +210,13 @@ export const en = {
   'profile.subOnly': '{count} subscriber-only posts',
   'profile.subscribeToSee': 'Subscribe to see them',
   'profile.onlySubscribers': 'Only their subscribers can see them',
-  'profile.emptyFirstPhoto': 'Share your first photo or clip',
+  'profile.emptyFirstPhoto': 'Share your first photo or short',
   'profile.emptyFirstPhotoBody': 'Tap + to add a post to your profile.',
   'profile.emptyNoPosts': 'No posts yet',
   'profile.emptyNoPostsBody': 'When {username} posts, it will show up here.',
-  'profile.emptyFirstClip': 'Share your first clip',
+  'profile.emptyFirstClip': 'Share your first short',
   'profile.emptyFirstClipBody': 'Videos you post appear here.',
-  'profile.emptyNoClips': 'No clips yet',
+  'profile.emptyNoClips': 'No shorts yet',
   'profile.emptyNoClipsBody': 'Videos from {username} will show up here.',
   'profile.emptyNoReposts': 'No reposts yet',
   'profile.emptyMyRepostsBody': 'Posts you repost appear here.',
@@ -309,14 +309,14 @@ export const en = {
   'notifications.request': 'wants to follow you.',
   'notifications.accept': 'accepted your follow request.',
   'notifications.newPost': 'shared a new post.',
-  'notifications.newClip': 'shared a new clip.',
+  'notifications.newClip': 'shared a new short.',
   'notifications.newStory': 'added to their story.',
   'notifications.live': 'started a live video.',
   'notifications.storyWatch': 'watched your story.',
   'notifications.subscriber': 'subscribed to you.',
   'notifications.sectionNew': 'New',
   'notifications.sectionEarlier': 'Earlier',
-  'notifications.watchClip': 'Watch clip',
+  'notifications.watchClip': 'Watch short',
   'notifications.openPost': 'Open post',
   'notifications.liveBadge': 'Live',
   'notifications.storyBadge': 'Story',
@@ -331,7 +331,7 @@ export const en = {
 
   // ---------- New post ----------
   'create.newPost': 'New post',
-  'create.newClip': 'New clip',
+  'create.newClip': 'New short',
   'create.backToEditing': 'Back to editing',
   // Read aloud on the small picture: "Photo. Back to editing".
   'create.thumbLabel': '{what}. Back to editing',
@@ -368,7 +368,7 @@ export const en = {
   'create.uploadingN': 'Uploading {n} of {total}…',
   'create.sharingNow': 'Sharing…',
   'create.sharing': 'Sharing',
-  'create.clipLive': 'Your clip is live',
+  'create.clipLive': 'Your short is live',
   'create.postLive': 'Your post is live',
   // {error} is the reason, which may stay in English.
   'create.didNotShare': 'That did not share. {error}',
@@ -541,6 +541,10 @@ export const en = {
   'plus.noteLabel': 'Note for the admins',
   'plus.sendRequest': 'Send request',
   'plus.requestSent': 'Request sent. An admin will activate Plus once your church confirms it.',
+  // In the free week, when no card is saved for after it. {day} is a date such as "17 October".
+  'plus.needsCardOn': 'No card is saved for after your free week, so Plus ends with it on {day}. Add one to keep Plus going. Nothing is charged until then.',
+  'plus.needsCard': 'No card is saved for after your free week, so Plus ends with it. Add one to keep Plus going. Nothing is charged until then.',
+  'plus.addCard': 'Add a card for after your free week',
 
   // ---------- Help and support ----------
   'help.title': 'Help and support',
@@ -619,37 +623,37 @@ export const en = {
   'churchApps.erha': 'Erha',
   'churchApps.map': 'Map',
 
-  // ---------- Clips: the Clips tab, the clips themselves and how they play ----------
-  // The two feeds at the top of the Clips tab are "Clips" (tabs.clips) and this one.
+  // ---------- Shorts: the Shorts tab, the shorts themselves and how they play ----------
+  // The two feeds at the top of the Shorts tab are "Shorts" (tabs.clips) and this one.
   'clips.friends': 'Friends',
   'clips.feedSettings': 'Your feed settings',
-  'clips.emptyTitle': 'No clips yet',
-  'clips.emptyBody': 'Share a short video and it will show up here as a clip for everyone.',
-  'clips.emptyFriendsTitle': 'No clips from people you follow yet',
-  'clips.emptyFriendsBody': 'Follow more people to see their clips here.',
-  'clips.shareClip': 'Share a clip',
+  'clips.emptyTitle': 'No shorts yet',
+  'clips.emptyBody': 'Share a short video and it will show up here for everyone to watch.',
+  'clips.emptyFriendsTitle': 'No shorts from people you follow yet',
+  'clips.emptyFriendsBody': 'Follow more people to see their shorts here.',
+  'clips.shareClip': 'Share a short',
   'clips.captions': 'Captions',
   'clips.captionsOn': 'Captions on',
   'clips.captionsOff': 'Captions off',
   'clips.sound': 'Sound',
-  'clips.startMuted': 'Start clips with the sound off',
-  'clips.startMutedSub': 'Tap the speaker on a clip to hear it. That button changes this too.',
+  'clips.startMuted': 'Start shorts with the sound off',
+  'clips.startMutedSub': 'Tap the speaker on a short to hear it. That button changes this too.',
   'clips.whatYouSee': 'What you see',
   'clips.yourFeedSub': 'Topics you want more or less of, sensitive content and captions',
 
-  // ---------- Your feed: what you want more and less of in For you and Clips ----------
+  // ---------- Your feed: what you want more and less of in For you and Shorts ----------
   // {topics} is a short list of topics, such as "hymns, youth and health".
   'feed.summary': "Lately you're into {topics}.",
   'feed.summaryEmpty': "Tell us what you'd like to see.",
-  'feed.intro': 'These choices shape For you and Clips. Your own posts always show.',
+  'feed.intro': 'These choices shape For you and Shorts. Your own posts always show.',
   // How a list is put together: "hymns, youth and health", or past four, "hymns, youth, health, family and 2 more". listComma goes between the items.
   'feed.listComma': ', ',
   'feed.listAnd': '{items} and {last}',
   'feed.listMore': '{items} and {count} more',
   'feed.moreTitle': 'What you want to see more of',
-  'feed.moreSub': 'Posts and clips about these come first.',
+  'feed.moreSub': 'Posts and shorts about these come first.',
   'feed.lessTitle': 'What you want to see less of',
-  'feed.lessSub': 'Posts and clips about these are left out.',
+  'feed.lessSub': 'Posts and shorts about these are left out.',
   'feed.add': 'Add',
   'feed.addMore': 'Add a topic to see more of',
   'feed.addLess': 'Add a topic to see less of',
@@ -659,9 +663,9 @@ export const en = {
   'feed.standard': 'Standard',
   'feed.standardSub': 'See posts that people have marked sensitive.',
   'feed.less': 'Less',
-  'feed.lessSensitiveSub': 'Leave out posts marked sensitive from For you, Explore and Clips.',
+  'feed.lessSensitiveSub': 'Leave out posts marked sensitive from For you, Explore and Shorts.',
   'feed.showCaptions': 'Show captions',
-  'feed.showCaptionsSub': "Words from a clip's sound, shown over the video when they're ready.",
+  'feed.showCaptionsSub': "Words from a short's sound, shown over the video when they're ready.",
   // Under "App language" in the caption languages.
   'feed.appLanguageSub': 'The language Community is in',
   'feed.seeMoreOf': 'See more of',
@@ -772,6 +776,325 @@ export const en = {
   'bible.hideVerseSub': "Turn it back on from the Bible's menu",
   'bible.hidden': "You can turn it back on in the Bible's menu",
   'bible.options': 'Bible options',
+
+  // ---------- Loading: grey shapes stand in for a screen's content until it arrives ----------
+  // Read aloud by screen readers in place of the shapes.
+  'loading.label': 'Loading',
+
+  // ---------- Legal: the policies, renewal terms by subscribe buttons, copyright reports ----------
+  // The documents themselves stay in English (the screen says so); these are the words around them.
+  // "Settings › Community Plus" and "Settings › Subscriptions" are the names of those places in the app.
+  'legal.title': 'Legal',
+  'legal.terms': 'Terms of use',
+  'legal.privacy': 'Privacy policy',
+  'legal.copyright': 'Copyright policy',
+  'legal.childSafety': 'Child safety',
+  'legal.guidelines': 'Community guidelines',
+  'legal.englishOnly': 'This document is in English.',
+  // {date} is written out, such as "10 October 2026".
+  'legal.updated': 'Last updated {date}',
+  'legal.notFound': "This document isn't available.",
+  'legal.done': 'Done',
+  'legal.couldNotOpen': "This link couldn't be opened",
+  // Under the sign-up form. {terms} and {privacy} are the links "Terms" and "Privacy Policy".
+  'legal.agreeSignUp': 'By continuing you agree to our {terms} and {privacy}.',
+  'legal.termsLink': 'Terms',
+  'legal.privacyLink': 'Privacy Policy',
+  // ---------- Sign-up consent: a tick box just above that line ----------
+  // It starts unticked, and no account can be made until it is ticked: the law asks for a clear yes,
+  // because a church on a profile can show what someone believes. {privacy} is the link "Privacy Policy".
+  'legal.consentReligion': 'I agree that Community can use information that may show my religious beliefs (such as my church) to run my account, as explained in the {privacy}.',
+  // Shown if the form is sent (from the keyboard) before the box is ticked.
+  'legal.consentNeeded': 'Tick the box about your religious beliefs to continue.',
+  // Next to subscribe buttons. {price} is an amount with its currency, such as "£2.99"; {day} a date such as "17 October".
+  'legal.trialMonthly': 'Free for {days} days, then {price} a month',
+  'legal.trialYearly': 'Free for {days} days, then {price} a year',
+  'legal.freeUntilMonthly': 'Free until {day}, then {price} a month',
+  'legal.freeUntilYearly': 'Free until {day}, then {price} a year',
+  'legal.priceMonthly': '{price} a month',
+  'legal.priceYearly': '{price} a year',
+  'legal.plusRenewMonthly': "Renews automatically every month until you cancel. Cancel any time in Settings › Community Plus: Plus stays on until the end of the period you've paid for.",
+  'legal.plusRenewYearly': "Renews automatically every year until you cancel. Cancel any time in Settings › Community Plus: Plus stays on until the end of the period you've paid for.",
+  'legal.plusRenewTrialMonthly': "Then renews automatically every month until you cancel. Cancel any time in Settings › Community Plus: cancel during the free days and you won't be charged.",
+  'legal.plusRenewTrialYearly': "Then renews automatically every year until you cancel. Cancel any time in Settings › Community Plus: cancel during the free days and you won't be charged.",
+  'legal.creatorRenew': "Renews automatically every month until you cancel. Cancel any time on this page or in Settings › Subscriptions: you keep access until the end of the month you've paid for.",
+  // {terms} is the link "Terms of use".
+  'legal.agreeSubscribe': 'By subscribing you agree to the {terms}.',
+  // Under one-off payments (ads, gifts). {amount} is the total, such as "£14.00".
+  'legal.oneOff': "{amount}, one-off. It doesn't renew.",
+  // Report reasons and what follows a copyright report. The English is what admins read.
+  'report.copyright': 'Copyright or trademark',
+  'report.copyrightTitle': 'Thanks for telling us',
+  'report.copyrightBody': "We'll review your report. If you own the copyright or trademark, or act for the owner, you can also send us a formal notice so we can act on it under the law. Our Copyright policy explains what to include and where to send it.",
+  'report.readPolicy': 'Read the Copyright policy',
+  'report.ok': 'OK',
+  'report.report': 'Report',
+  'report.commentTitle': 'Report this comment',
+  'report.why': 'Why are you reporting it?',
+  'report.spam': 'Spam',
+  'report.harassment': 'Harassment or hate',
+  'report.nudity': 'Nudity or sexual content',
+  'report.other': 'Something else',
+  'report.commentThanks': 'Thanks. We will review this comment.',
+
+  // ---------- The age check before sign-up ----------
+  'age.title': 'Enter your date of birth',
+  'age.why': "We ask everyone, to keep younger members safe. It won't be shown on your profile.",
+  'age.continue': 'Continue',
+  'age.sorryTitle': "Sorry, you can't create an account",
+  'age.sorryBody': "Community is for people aged 13 and over, so we can't make an account for you. Nothing you entered has been saved.",
+  'age.closedTitle': "Sorry, you can't use Community yet",
+  'age.closedBody': 'Community is for people aged 13 and over, so this account has been closed. It and everything in it will be deleted within two days.',
+  // {email} is our contact address.
+  'age.parents': 'Parent or guardian? If you think this is a mistake, email us at {email}.',
+  'age.backToStart': 'Back to the start',
+  'age.closing': 'Closing the account…',
+
+  // ---------- Checkout: paying for Community Plus, or switching between monthly and yearly ----------
+  // {cost} is a price and how often, as plus.perMonth and plus.perYear say it: "£4.99 a month".
+  // {day} is a date such as "17 October"; {amount} and {price} are amounts with their currency, such as "£4.99".
+  'checkout.title': 'Checkout',
+  'checkout.testMode': 'Test mode — no real money moves. Use card 4242 4242 4242 4242, any future date, any CVC.',
+  'checkout.renewalFailed': 'Your last renewal did not go through. Pay now to keep Plus.',
+  'checkout.noCardEndsOn': 'No card is saved for after your free week, so Plus ends on {day}. Add one to keep it going.',
+  'checkout.switchedAddCardMonthly': "You're on the monthly plan now. Add a card so Plus carries on after your free week.",
+  'checkout.switchedAddCardYearly': "You're on the yearly plan now. Add a card so Plus carries on after your free week.",
+  'checkout.freeForDays': 'Free for {days} days',
+  'checkout.then': 'then {cost}',
+  'checkout.trialNote': "Free for {days} days, then {cost}. Cancel any time before {day} and you won't be charged.",
+  'checkout.freeUntil': 'Free until {day}',
+  'checkout.addingCardNote': "Your free week carries on. The card you add is first charged on {day}. Cancel before then and you won't be charged.",
+  'checkout.perkPreview': 'Preview stories quietly and see who rewatched',
+  'checkout.perkAlerts': 'Story alerts, story priority and screenshot alerts',
+  'checkout.perkStyle': 'Profile style, app fonts and chat wallpapers',
+  'checkout.cancelRenewsMonthly': 'Cancel any time · renews monthly',
+  'checkout.cancelRenewsYearly': 'Cancel any time · renews yearly',
+  'checkout.cardForAfter': 'Card for after your free week',
+  'checkout.payWith': 'Pay with',
+  // Read aloud on the Apple Pay button.
+  'checkout.applePayCard': 'Use Apple Pay after your free week, {cost} from {day}',
+  'checkout.applePayTrial': 'Start your free week with Apple Pay, then {cost}',
+  'checkout.applePaySubscribe': 'Subscribe with Apple Pay, {cost}',
+  // Lines on Apple Pay's own sheet: what is charged after the free week, then today's total.
+  'checkout.applePayFrom': 'Community Plus from {day}',
+  'checkout.applePayFreeUntil': 'Community Plus (free until {day})',
+  'checkout.applePayFreeFor': 'Community Plus (free for {days} days)',
+  'checkout.orCard': 'or use a card',
+  // {date} is the card's expiry month and year, such as "04/28".
+  'checkout.expires': 'Expires {date}',
+  'checkout.expired': 'Expired {date}',
+  'checkout.default': 'Default',
+  // Read aloud after a saved card's name and expiry: "Visa •••• 4242, Expires 04/28, default card".
+  'checkout.defaultCard': 'default card',
+  'checkout.newCard': 'New card',
+  'checkout.newCardLabel': 'New credit or debit card',
+  'checkout.creditOrDebit': 'Credit or debit card',
+  'checkout.keepOnFile': 'Keep this card on file for renewals',
+  'checkout.keepOnFileTrial': 'Plus starts charging this card on {day}, after your free week. Change or remove it any time in Payment methods.',
+  'checkout.keepOnFileMonthly': 'Plus renews each month with this card. Change or remove it any time in Payment methods.',
+  'checkout.keepOnFileYearly': 'Plus renews each year with this card. Change or remove it any time in Payment methods.',
+  'checkout.saveCard': 'Save card',
+  'checkout.startFreeWeek': 'Start free week',
+  'checkout.pay': 'Pay {price}',
+  'checkout.stripeNote': 'Payments are processed securely by Stripe. Your card details never touch our servers.',
+  'checkout.didNotGoThrough': 'The payment did not go through. Try again.',
+  'checkout.couldNotStart': 'The payment could not be started. Try again.',
+  'checkout.trialEnded': 'Your free week has ended, so this would charge {amount} now. Nothing has been charged. Check the details, then press Pay to go ahead.',
+  'checkout.trialUnavailable': "The free week isn't available on this account any more, so Plus would start at {amount} today. Nothing has been charged. Press Pay to go ahead.",
+  'checkout.payRenewalFirst': 'Your last renewal needs paying first. Go back to Plus and choose Pay now.',
+  // Switching plans. The title and button are plus.switchToMonthly and plus.switchToYearly.
+  'checkout.insteadOf': 'Instead of {cost}.',
+  'checkout.insteadOfRenew': 'Instead of {cost}. Switching also turns renewal back on.',
+  'checkout.switchTrialMonthlyOn': "Your free week carries on. You'll pay the monthly price when it ends on {day}.",
+  'checkout.switchTrialMonthly': "Your free week carries on. You'll pay the monthly price when it ends.",
+  'checkout.switchTrialYearlyOn': "Your free week carries on. You'll pay the yearly price when it ends on {day}.",
+  'checkout.switchTrialYearly': "Your free week carries on. You'll pay the yearly price when it ends.",
+  // {text} is one of the four lines above.
+  'checkout.nextAddCard': '{text} Next, add a card for after it.',
+  'checkout.switchNow': 'Your new plan starts today. The unused part of your current plan is taken off, and any difference is charged to your card on file.',
+  'checkout.alreadyMember': "You're already a member",
+  'checkout.setToEnd': 'Plus is set to end on {day}. Resume it from the Plus page to keep it going.',
+  'checkout.renewsOn': 'Plus renews on {day}. Thank you for supporting the community.',
+  'checkout.thanks': 'Thank you for supporting the community.',
+  'checkout.goToPlus': 'Go to Plus',
+  'checkout.done': 'Done',
+  // Once it has gone through.
+  'checkout.trialStarted': 'Your free week has started',
+  'checkout.onMonthly': "You're on the monthly plan",
+  'checkout.onYearly': "You're on the yearly plan",
+  'checkout.cardSaved': 'Your card is saved',
+  'checkout.welcome': 'Welcome to Plus',
+  'checkout.trialStartedBody': "Every Plus feature is on. You won't be charged until {day}. Cancel before then from the Plus page and you pay nothing.",
+  'checkout.cardSavedBody': 'Plus carries on after your free week. Your card is first charged on {day}. Change it any time in Payment methods.',
+  'checkout.welcomeBody': 'Every Plus feature is on. Thank you for supporting the community.',
+  'checkout.slow': 'It can take a minute for everything to switch on.',
+
+  // ---------- Paying in the app's own sheet: ads, gifts to fundraisers, a creator's first month ----------
+  // Its other lines (Pay with, the saved cards, Pay, the note about Stripe) are the checkout's own.
+  'pay.title': 'Payment',
+  'pay.total': 'Total',
+  'pay.off': "Card payments aren't switched on yet",
+  'pay.offBody': "Paying in the app isn't available just yet. Nothing has been charged. Please try again a little later.",
+  // Read aloud on the Apple Pay button. {amount} is the total with its currency, such as "£14.00".
+  'pay.applePay': 'Pay {amount} with Apple Pay',
+  'pay.addCard': 'Add a new card',
+
+  // ---------- Subscribing to a creator ----------
+  // {username} is the creator's username and {name} their first name. {day} is a date such as "17 Oct".
+  'subscribe.title': 'Subscribe',
+  'subscribe.subscribedTo': "You're subscribed to {username}",
+  'subscribe.paidCarriesOn': 'Paid. Your subscription to {username} carries on',
+  // Stands in for the username in the two lines above if it can't be read.
+  'subscribe.them': 'them',
+  'subscribe.paymentReceived': "Payment received. It's taking a moment to show here, so check back in a minute.",
+  'subscribe.willRenew': 'Your subscription will renew',
+  'subscribe.endsOn': 'Your subscription ends on {day}',
+  'subscribe.willEnd': 'Your subscription will end',
+  'subscribe.cancelQuestion': 'Cancel your subscription?',
+  'subscribe.cancelBody': "You won't be charged again. You keep seeing their subscriber posts until {day}.",
+  'subscribe.cancelBodyPeriod': "You won't be charged again. You keep seeing their subscriber posts until the end of the month you paid for.",
+  'subscribe.keepIt': 'Keep it',
+  'subscribe.thisIsYou': 'This is you',
+  'subscribe.setYourPrice': 'Set your own subscription price in Subscriptions.',
+  'subscribe.yourSubscriptions': 'Your subscriptions',
+  'subscribe.perkPosts': 'Subscriber-only posts and Shorts',
+  'subscribe.perkPostsBodyOne': 'See the {count} post {name} keeps for subscribers, and every new one.',
+  'subscribe.perkPostsBody': 'See the {count} posts {name} keeps for subscribers, and every new one.',
+  'subscribe.perkPostsBodyNone': 'See everything {name} shares only with subscribers.',
+  'subscribe.perkSupport': 'Support {name} directly',
+  'subscribe.perkSupportBody': "Your payment goes to {name}'s own account each month, less Community's {percent}% share.",
+  'subscribe.perkSupportBodyNoFee': "Your payment goes to {name}'s own account each month, less a small share for Community.",
+  'subscribe.perkCancel': 'Cancel any time',
+  'subscribe.perkCancelBody': "Stop it renewing whenever you like. You keep access until the end of the month you've paid for.",
+  'subscribe.pastDue': "Your last payment didn't go through",
+  'subscribe.pastDueBody': 'Pay now to keep your subscription. Otherwise Stripe will try your card again in a few days.',
+  'subscribe.subscribed': "You're subscribed",
+  'subscribe.subscribedEnds': "You're subscribed · ends {day}",
+  'subscribe.subscribedRenews': "You're subscribed · renews {day}",
+  'subscribe.givesYou': 'Your subscription gives you',
+  'subscribe.whatYouGet': "What you'll get",
+  'subscribe.notOffered': "{name} doesn't offer subscriptions",
+  'subscribe.notOfferedBody': "When they do, you'll be able to subscribe here.",
+  'subscribe.confirming': 'Confirming your payment',
+  'subscribe.confirmingBody': 'Checking with Stripe that your subscription is on. This takes a few seconds.',
+  'subscribe.payNow': 'Pay now · {price}',
+  'subscribe.button': 'Subscribe · {price} a month',
+  // The payment sheet's title, and the line on Apple Pay's sheet.
+  'subscribe.sheetFirst': 'Subscription to @{username} · first month',
+  'subscribe.sheetDue': 'Subscription to @{username} · payment due',
+  'subscribe.sheetWallet': 'Subscription to @{username}',
+  'subscribe.paysMissed': "Pays the month that didn't go through.",
+
+  // ---------- Settings → Subscriptions: offering subscriptions, and the ones you pay for ----------
+  'creatorSubs.intro': 'Subscribers pay you every month to see the posts and shorts you share only with them. The money goes to your own payout account, and Community keeps {percent}% to keep the app running.',
+  'creatorSubs.introNoFee': 'Subscribers pay you every month to see the posts and shorts you share only with them. The money goes to your own payout account, and Community keeps a small share to keep the app running.',
+  'creatorSubs.yourPrice': 'Your price',
+  'creatorSubs.under14': 'Offering subscriptions is for members 14 and over.',
+  // {cost} is drawn in bold: "£4.99 a month".
+  'creatorSubs.youOffer': 'You offer subscriptions at {cost}.',
+  'creatorSubs.notOffering': "You don't offer subscriptions yet. Choose a monthly price to start.",
+  'creatorSubs.custom': 'Custom',
+  'creatorSubs.customPrice': 'Custom price',
+  'creatorSubs.priceLabel': 'Monthly price in pounds',
+  // {min} and {max} are amounts with their currency.
+  'creatorSubs.between': 'Between {min} and {max} a month.',
+  'creatorSubs.saving': 'Saving',
+  'creatorSubs.start': 'Start offering subscriptions',
+  'creatorSubs.save': 'Save price',
+  'creatorSubs.newPriceNote': 'A new price applies to people who subscribe after you change it.',
+  'creatorSubs.nowOn': 'Subscriptions are on at {price} a month',
+  'creatorSubs.priceNow': 'Your price is now {price} a month',
+  'creatorSubs.turnOff': 'Turn off subscriptions',
+  'creatorSubs.turnOffQuestion': 'Turn off subscriptions?',
+  'creatorSubs.turnOffBody': 'No one new can subscribe. Anyone already subscribed stays subscribed until they cancel, and keeps seeing your subscriber posts until then.',
+  'creatorSubs.keepOn': 'Keep them on',
+  'creatorSubs.turnOffConfirm': 'Turn off',
+  'creatorSubs.off': 'Subscriptions are off',
+  'creatorSubs.payouts': 'Payouts',
+  'creatorSubs.payoutsDidNotLoad': "Your payout status didn't load. Tap to open Payouts.",
+  'creatorSubs.paymentsOff': "Card payments aren't switched on yet",
+  'creatorSubs.paymentsOffBody': 'You can set your price now. People can subscribe once payments are on and your payouts are ready.',
+  'creatorSubs.payoutsReady': 'Payouts ready',
+  'creatorSubs.payoutsReadyBody': 'Subscriptions are paid into your own payout account.',
+  'creatorSubs.finishPayouts': 'Finish setting up payouts',
+  'creatorSubs.setUpPayouts': 'Set up payouts',
+  'creatorSubs.payoutsNotReady': "Subscriptions can't be taken until your payouts are ready.",
+  'creatorSubs.subscribers': 'Your subscribers',
+  'creatorSubs.subscribersCount': 'Your subscribers · {count}',
+  'creatorSubs.noSubscribers': 'No one subscribes to you yet. People can subscribe from your profile once your price is set and your payouts are ready.',
+  'creatorSubs.since': 'Since {day}',
+  // A subscriber's monthly price, short: "£4.99/mo".
+  'creatorSubs.perMo': '{price}/mo',
+  'creatorSubs.noneMine': "You don't subscribe to anyone. Look for Subscribe on a creator's profile.",
+  // Where one subscription stands, in a few words.
+  'creatorSubs.paymentDue': 'Payment due',
+  'creatorSubs.ends': 'Ends {day}',
+  'creatorSubs.ending': 'Ending',
+  'creatorSubs.renews': 'Renews {day}',
+  'creatorSubs.active': 'Active',
+  // {username} is the creator's username; creatorSubs.thisCreator stands in for it if it can't be read.
+  'creatorSubs.thisCreator': 'this creator',
+  'creatorSubs.cancelQuestion': 'Cancel your subscription to {username}?',
+  'creatorSubs.willRenew': 'Your subscription to {username} will renew',
+  'creatorSubs.endsOn': 'Your subscription to {username} ends on {day}',
+  'creatorSubs.willEnd': 'Your subscription to {username} will end',
+  'creatorSubs.choose': 'Choose the subscription to pay.',
+  'creatorSubs.someone': 'Someone',
+  'creatorSubs.accountUnavailable': 'Account unavailable',
+
+  // ---------- Watching someone's live ----------
+  'live.joining': 'Joining…',
+  'live.reconnecting': 'Reconnecting…',
+  'live.connectionLost': 'Connection lost. Leave and join again.',
+  'live.notAnswering': 'The broadcaster is not answering. Try again in a moment.',
+  'live.cannotWatch': "You can't watch this live",
+  'live.cannotWatchBody': "This live isn't open to your account.",
+  'live.full': 'This live is full',
+  'live.fullBody': 'Only a small number of people can watch at once. Try again in a little while.',
+  'live.ended': 'The live has ended',
+  // {name} is the broadcaster's name.
+  'live.endedBody': '{name} has finished broadcasting.',
+  'live.endedNoName': 'Nothing is being broadcast here any more.',
+  'live.done': 'Done',
+  'live.leave': 'Leave',
+  // Over a live, on both the broadcaster's and a viewer's screen.
+  // Stands in for the broadcaster's name if it can't be read.
+  'live.noName': 'Live',
+  // Read aloud by screen readers. {count} is a number, such as "12".
+  'live.watchingCount': '{count} watching',
+  'live.comments': 'Comments',
+  // Stands in, before a comment, for the name of someone whose account can't be seen.
+  'live.someone': 'someone',
+  'live.removeQuestion': 'Remove this comment?',
+  'live.remove': 'Remove',
+  'live.removeComment': 'Remove comment',
+  'live.commentPlaceholder': 'Comment…',
+  'live.commentLabel': 'Comment',
+  'live.sendComment': 'Send comment',
+  'live.sendHeart': 'Send a heart',
+  // When a comment can't be posted because the broadcast is over.
+  'live.hasEnded': 'This live has ended.',
+
+  // ---------- Going live ----------
+  'goLive.notAvailable': "Live isn't available on your account",
+  'goLive.notAvailableBody': 'To keep younger members safe, accounts of members under 14 can watch but not broadcast live. You can still share posts and stories.',
+  'goLive.goBack': 'Go back',
+  'goLive.needsCamera': 'Community needs the camera and microphone to go live. Turn them on in Settings.',
+  'goLive.cameraUnavailable': 'Camera not available',
+  'goLive.full': 'Your live is full: {count} people can watch at once.',
+  'goLive.couldNotStart': "Your live couldn't start. Try again.",
+  'goLive.endQuestion': 'End your live?',
+  'goLive.watchingOne': '{count} person is watching.',
+  'goLive.watching': '{count} people are watching.',
+  'goLive.keepGoing': 'Keep going',
+  'goLive.endLive': 'End live',
+  'goLive.end': 'End',
+  'goLive.flip': 'Flip camera',
+  'goLive.saySomething': 'Say something…',
+  'goLive.titlePlaceholder': 'Add a title (optional)',
+  'goLive.titleLabel': 'Live title',
+  'goLive.goLive': 'Go live',
+  'goLive.note': 'Your followers will see you at the front of the story tray. Up to {count} people can watch at once.',
 } as const;
 
 /** The name of one line of words. A typo in a key is caught by the type check. */

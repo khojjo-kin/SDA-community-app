@@ -59,7 +59,7 @@ export default function CameraSettings() {
       <ScreenHeader title="Camera settings" noBack right={<RoundButton name="check" label="Done" bg={C.accent} color={C.onAccent} onPress={done} />} />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         <Row icon="story" title="Story" onPress={() => router.push('/story-settings')} />
-        <Row icon="reels" title="Clips" onPress={() => router.push('/reel-settings')} />
+        <Row icon="reels" title="Shorts" onPress={() => router.push('/reel-settings')} />
         <Divider thin />
 
         <SectionLabel strong>Controls</SectionLabel>

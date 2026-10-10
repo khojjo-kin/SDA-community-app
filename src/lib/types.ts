@@ -495,6 +495,16 @@ export type LiveCard = {
   following: boolean;
 };
 
+/** A comment on a live. The row carries who wrote it; their name is looked up from their profile. */
+export type LiveComment = {
+  id: string;
+  live_id: string;
+  user_id: string;
+  text: string;
+  /** Set by the server, so the order can't be faked. */
+  created_at: string;
+};
+
 /** A voice or video call between two people. Signalling goes over Realtime; this row says who is calling whom. */
 export type Call = {
   id: string;

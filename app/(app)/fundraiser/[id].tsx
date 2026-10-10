@@ -8,6 +8,7 @@ import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { PayPanel } from '../../../src/components/PaySheet';
 import { Avatar, Button, Empty, ErrorNote, Field, Loading, RoundButton, Screen, ScreenHeader, SectionLabel, Sheet, Toggle, useToast } from '../../../src/components/ui';
 import { closeFundraiser, deleteFundraiser, fetchFundraiser, fetchSupporters, refreshFundraiserReady, startDonation } from '../../../src/lib/api';
+import { t } from '../../../src/lib/i18n';
 import { money } from '../../../src/lib/payments';
 import { useSession } from '../../../src/lib/session';
 import { ago, C, dayLabel, errText, fmt } from '../../../src/lib/theme';
@@ -369,7 +370,7 @@ export default function FundraiserScreen() {
               amountLabel={amountLabel}
               walletLabel={`Gift · ${f.title}`.slice(0, 60)}
               wallet="support"
-              note={anonymous ? "You're giving anonymously: your name won't appear on the fundraiser." : message.trim() ? 'Your name and message will appear on the fundraiser.' : 'Your name will appear on the fundraiser.'}
+              note={`${t('legal.oneOff', { amount: amountLabel })} ${anonymous ? "You're giving anonymously: your name won't appear on the fundraiser." : message.trim() ? 'Your name and message will appear on the fundraiser.' : 'Your name will appear on the fundraiser.'}`}
               start={() => startDonation(f.id, gift!, message.trim(), anonymous)}
               onPaid={paid}
               onBusy={setPaying}

@@ -1,0 +1,56 @@
+{
+  "photos": {
+    "church": {
+      "widths": [
+        400,
+        600,
+        800
+      ],
+      "formats": [
+        "avif",
+        "webp",
+        "jpg"
+      ],
+      "aspect": [
+        1080,
+        1350
+      ]
+    },
+    "bible": {
+      "widths": [
+        400,
+        600,
+        800
+      ],
+      "formats": [
+        "avif",
+        "webp",
+        "jpg"
+      ],
+      "aspect": [
+        1080,
+        1350
+      ]
+    },
+    "desk": {
+      "widths": [
+        400,
+        600,
+        800
+      ],
+      "formats": [
+        "avif",
+        "webp",
+        "jpg"
+      ],
+      "aspect": [
+        1080,
+        1350
+      ]
+    }
+  },
+  "logo": {
+    "width": 40,
+    "height": 36
+  }
+}

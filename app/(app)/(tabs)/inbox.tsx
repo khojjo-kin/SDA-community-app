@@ -4,7 +4,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { NotesRow } from '../../../src/components/NotesRow';
-import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, Screen, SearchField, useToast } from '../../../src/components/ui';
+import { RowsSkeleton, SlowLine } from '../../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, SearchField, useToast } from '../../../src/components/ui';
 import { activeLabel, ERHA_ID, fetchThreads, getProfile, hideThread, isOnline, openThread, setThreadMuted } from '../../../src/lib/api';
 import { cacheKey, peekCache, readCache, writeCache } from '../../../src/lib/cache';
 import { useT } from '../../../src/lib/i18n';
@@ -161,6 +162,7 @@ export default function Inbox() {
       <View style={{ marginBottom: 8 }}>
         <SearchField value={q} onChangeText={setQ} label={t('inbox.search')} />
       </View>
+      <SlowLine active={refreshing} />
       <FlatList
         data={items}
         keyExtractor={(it) => (it.kind === 'thread' ? it.t.id : 'erha')}
@@ -213,7 +215,7 @@ export default function Inbox() {
         }}
         ListEmptyComponent={
           status === 'loading' ? (
-            <Loading />
+            <RowsSkeleton avatar={56} gap={14} padY={9} />
           ) : status === 'error' ? (
             <ErrorNote message={error} onRetry={() => { setStatus('loading'); load(); }} />
           ) : needle ? (

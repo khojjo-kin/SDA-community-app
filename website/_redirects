@@ -1,0 +1,18 @@
+# Short addresses that are easy to say or put in App Store Connect. Cloudflare Pages and Netlify
+# read this file; GitHub Pages does not (there, use the full addresses).
+#
+# The build copies these lines to dist/_redirects and adds, for every page, a redirect from the
+# address with a trailing slash to the one without, plus http:// and www. to https:// rules.
+
+/dmca                     /report-copyright      301
+/copyright/report         /report-copyright      301
+/privacy-policy           /privacy               301
+/terms-of-use             /terms                 301
+/terms-of-service         /terms                 301
+/guidelines               /community-guidelines  301
+/child-safety-standards   /child-safety          301
+/csae                     /child-safety          301
+/help                     /support               301
+/contact                  /support               301
+/delete                   /delete-account        301
+/account-deletion         /delete-account        301
