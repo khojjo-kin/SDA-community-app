@@ -1,8 +1,11 @@
-// The admin CRM's data: everything here calls the admin-only database functions added in
-// desktop/supabase/migrations/202610100100_community_admin_crm.sql. The database checks that the
-// caller is an admin on every call; the desktop only decides what to show.
+// The admin CRM's data: most of this calls the admin-only database functions added in
+// desktop/supabase/migrations/202610100100_community_admin_crm.sql. The waiting counts at the end
+// use the iPhone app's own tables and functions, so they work without that update. The database
+// checks that the caller is an admin on every call; the desktop only decides what to show.
+import { useEffect, useState } from 'react';
 import { supabase } from 'shared/supabase';
-import { withTimeout } from 'shared/api';
+import { countPendingPublishers, fetchAdminQueue, fetchAdminStats, fetchPlusRequests, withTimeout } from 'shared/api';
+import type { SupportChat } from 'shared/types';
 
 declare const __VERSION__: string;
 
@@ -176,12 +179,6 @@ export const fetchBlockedWords = () => table<{ word: string; created_at: string 
 export const addBlockedWord = (w: string) => table(supabase.from('community_blocked_words').insert({ word: w.trim().toLowerCase().slice(0, 60) }));
 export const removeBlockedWord = (w: string) => table(supabase.from('community_blocked_words').delete().eq('word', w));
 
-export const fetchChurchesForReview = () =>
-  table<any[]>(supabase.from('community_churches').select('*').order('created_at', { ascending: false }).limit(300) as any);
-export const reviewChurch = (id: string, status: 'approved' | 'rejected', me: string) =>
-  table(supabase.from('community_churches').update({ status, reviewed_by: me, reviewed_at: new Date().toISOString() }).eq('id', id));
-export const removeChurch = (id: string) => table(supabase.from('community_churches').delete().eq('id', id));
-
 export const fetchRecentContent = (kind: 'posts' | 'comments' | 'stories', q = '') => {
   if (kind === 'comments') {
     let query = supabase.from('community_comments').select('*').order('created_at', { ascending: false }).limit(150);
@@ -287,3 +284,86 @@ export async function usernames(ids: string[]): Promise<Record<string, string>> 
 }
 
 export const fetchQueue = () => call<{ churches_pending: number; verifications_pending: number; ads_active: number; fundraisers_active: number }>('community_admin_queue');
+
+/* ---------- what is waiting for the admins (the iPhone app's own tables, no update needed) ---------- */
+
+/**
+ * The numbers beside the console's sections and on the dashboard: publisher requests, open support
+ * chats, identity checks and Plus requests, churches to approve, open reports and help requests.
+ * Each comes from the same functions the iPhone console uses; a number that fails to load stays 0.
+ */
+export type AdminCounts = { publishers: number; chats: number; verifications: number; plus: number; churches: number; reports: number; tickets: number };
+
+const EMPTY_COUNTS: AdminCounts = { publishers: 0, chats: 0, verifications: 0, plus: 0, churches: 0, reports: 0, tickets: 0 };
+let counts: AdminCounts | null = null;
+let counting: Promise<void> | null = null;
+let countAgain = false;
+const countListeners = new Set<(c: AdminCounts) => void>();
+
+/** Open support chats. The stats' support_open counts the older help requests, so chats are counted here, as on the iPhone. */
+export async function countOpenSupportChats(): Promise<number> {
+  const { count: n, error } = await withTimeout(supabase.from('community_support_chats').select('id', { count: 'exact', head: true }).eq('status', 'open') as any, 20000) as { count: number | null; error: any };
+  if (error) throw error;
+  return n ?? 0;
+}
+
+/**
+ * One support chat, for the team's side. The shared code has no fetch for a single chat, so it is
+ * read here as the iPhone's admin-support/[id] screen does (admins can read every chat). Null when gone.
+ */
+export async function fetchSupportChat(id: string): Promise<SupportChat | null> {
+  const { data, error } = await withTimeout(supabase.from('community_support_chats').select('*').eq('id', id).maybeSingle() as any, 20000) as { data: SupportChat | null; error: any };
+  if (error) throw new Error(error.message || 'The database refused that.');
+  return data ?? null;
+}
+
+/** Counts everything again and tells every screen showing a number. Call it after deciding something. */
+export function refreshAdminCounts(): Promise<void> {
+  // Asked again while counting (a decision just made): count once more afterwards, so it shows.
+  if (counting) {
+    countAgain = true;
+    return counting;
+  }
+  const quiet = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
+  counting = Promise.all([
+    quiet(countPendingPublishers(), 0),
+    quiet(countOpenSupportChats(), 0),
+    quiet(fetchAdminQueue(), null),
+    quiet(fetchAdminStats(), null),
+    quiet(fetchPlusRequests('plus').then((r) => r.length), 0),
+  ])
+    .then(([publishers, chats, queue, stats, plus]) => {
+      counts = {
+        publishers,
+        chats,
+        verifications: queue?.verifications_pending ?? 0,
+        plus,
+        churches: queue?.churches_pending ?? 0,
+        reports: stats?.reports_open ?? 0,
+        tickets: stats?.support_open ?? 0,
+      };
+      countListeners.forEach((l) => l(counts!));
+    })
+    .finally(() => {
+      counting = null;
+      if (countAgain) {
+        countAgain = false;
+        refreshAdminCounts();
+      }
+    });
+  return counting;
+}
+
+/** The waiting counts, kept up to date; counted afresh when a screen using them opens (and `active`). */
+export function useAdminCounts(active = true): AdminCounts {
+  const [c, setC] = useState<AdminCounts>(counts ?? EMPTY_COUNTS);
+  useEffect(() => {
+    if (!active) return;
+    countListeners.add(setC);
+    refreshAdminCounts();
+    return () => {
+      countListeners.delete(setC);
+    };
+  }, [active]);
+  return c;
+}

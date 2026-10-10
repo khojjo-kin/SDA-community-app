@@ -6,14 +6,15 @@ import { fetchAdminActivity, fetchAdminStats, fetchMembers } from 'shared/api';
 import { ago, fmt } from 'shared/theme';
 import {
   type Action, type Person360, type PersonRow, NeedsUpdate, PLATFORM_LABEL, act, addBlockedWord, adminSearch, banAddress, bytes, closeFundraiser, countryName,
-  deleteAnnouncement, downloadCsv, endAnnouncement, endLive, endPromotion, fetchAnalytics, fetchAnnouncements, fetchAudit, fetchBlockedWords, fetchChurchesForReview,
-  fetchLivesNow, fetchMoney, fetchPeople, fetchPerson, fetchQueue, fetchRecentContent, fetchSecurity, fetchSystem, flag, pounds, removeBlockedWord, removeChurch,
-  removeContent, resolveAllEvents, resolveEvent, reviewChurch, saveAnnouncement, unbanAddress, usernames,
+  deleteAnnouncement, downloadCsv, endAnnouncement, endLive, endPromotion, fetchAnalytics, fetchAnnouncements, fetchAudit, fetchBlockedWords,
+  fetchLivesNow, fetchMoney, fetchPeople, fetchPerson, fetchQueue, fetchRecentContent, fetchSecurity, fetchSystem, flag, pounds, refreshAdminCounts, removeBlockedWord,
+  removeContent, resolveAllEvents, resolveEvent, saveAnnouncement, unbanAddress, useAdminCounts, usernames,
 } from '../lib/admin';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { ColumnChart, Donut, HBars, LineChart, SERIES, Spark } from '../ui/charts';
 import { Avatar, Empty, Failed, Icon, type IconName, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { MemberBasic } from './admin-member';
 
 /* ------------------------------------------------------------------ shared bits */
 
@@ -140,6 +141,8 @@ export function Dashboard() {
   const queue = useLoad(() => fetchQueue().catch(() => null), []);
   const sec = useLoad(() => fetchSecurity().catch(() => null), []);
   const activity = useLoad(() => fetchAdminActivity(30), []);
+  // Publisher requests, open chats and the two kinds of request, counted as the iPhone console does.
+  const waiting = useAdminCounts();
   const s = stats.data;
   const d = a.data;
   const series = d?.series ?? [];
@@ -152,8 +155,11 @@ export function Dashboard() {
   };
   add(s?.reports_open, 'open report', 'open reports', '/admin/reports', 'bad');
   add(sec.data?.open_by_severity?.high, 'high security alert', 'high security alerts', '/admin/security', 'bad');
-  add(s?.requests_open, 'tick or Plus request', 'tick and Plus requests', '/admin/requests', 'warn');
-  add(s?.support_open, 'support request', 'support requests', '/admin/support', 'warn');
+  add(waiting.verifications, 'identity check', 'identity checks', '/admin/requests', 'warn');
+  add(waiting.plus, 'Plus request', 'Plus requests', '/admin/requests/plus', 'warn');
+  add(waiting.publishers, 'publisher request', 'publisher requests', '/admin/publishers', 'warn');
+  add(waiting.chats, 'open support chat', 'open support chats', '/admin/support', 'warn');
+  add(s?.support_open, 'help request', 'help requests', '/admin/support/requests', 'warn');
   add(queue.data?.churches_pending, 'church to review', 'churches to review', '/admin/churches', 'warn');
 
   return (
@@ -173,7 +179,7 @@ export function Dashboard() {
         </div>
         <div className="head-tools">
           <Seg value={days} onChange={setDays} options={[{ v: 7, label: '7 days' }, { v: 30, label: '30 days' }, { v: 90, label: '90 days' }, { v: 365, label: 'Year' }]} />
-          <button className="icon-btn" aria-label="Refresh" onClick={() => { a.reload(); stats.reload(); sec.reload(); activity.reload(); queue.reload(); }}>
+          <button className="icon-btn" aria-label="Refresh" onClick={() => { a.reload(); stats.reload(); sec.reload(); activity.reload(); queue.reload(); refreshAdminCounts(); }}>
             <Icon name="undo" size={18} />
           </button>
         </div>
@@ -318,9 +324,36 @@ export function Dashboard() {
   );
 }
 
+/** An activity kind as words. Short videos are Shorts everywhere in the app. */
+const kindText = (k: string) => (k === 'reel' ? 'Short' : k.replace('_', ' '));
+
+/** What happened, in the iPhone console's words, when a line has no detail of its own. */
+const ACT_WORD: Record<string, string> = {
+  joined: 'joined', post: 'posted', reel: 'shared a Short', live: 'went live', report: 'reported', transaction: 'transaction',
+  support: 'wrote to support', plus_request: 'asked for Plus', group: 'group',
+};
+/** The activity filters' names. */
+const ACT_FILTER: Record<string, string> = {
+  all: 'Everything', joined: 'Joined', post: 'Posts', reel: 'Shorts', live: 'Live', report: 'Reports', transaction: 'Payments',
+  support: 'Support', plus_request: 'Requests', group: 'Groups',
+};
+
 const ACT_ICON: Record<string, IconName> = { joined: 'user', report: 'flag', transaction: 'receipt', support: 'lifebuoy', live: 'live', group: 'people', plus_request: 'verified', reel: 'reels', post: 'image' };
 
-function ActivityList({ rows }: { rows: { at: string; kind: string; user_id: string | null; username: string | null; detail: string | null }[] }) {
+type ActRow = { at: string; kind: string; user_id: string | null; username: string | null; detail: string | null };
+
+/** "Today", "Yesterday", or "9 Oct" (with the year when it isn't this one). */
+function dayTitle(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(d)) / 86400e3);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(d.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }) });
+}
+
+function ActivityList({ rows }: { rows: ActRow[] }) {
   if (!rows.length) return <p className="muted-text small">Nothing yet.</p>;
   return (
     <div className="activity-list">
@@ -330,7 +363,7 @@ function ActivityList({ rows }: { rows: { at: string; kind: string; user_id: str
             <Icon name={ACT_ICON[a.kind] ?? 'activity'} size={16} />
           </span>
           <span className="row-text wrap inline">
-            <b>{a.username ? '@' + a.username : 'Someone'}</b> <span>{a.kind.replace('_', ' ')}{a.detail ? ': ' + a.detail : ''}</span>
+            <b>{a.username ? '@' + a.username : 'Someone'}</b> <span>· {a.detail?.trim() || ACT_WORD[a.kind] || kindText(a.kind)}</span>
           </span>
           <span className="muted-text small nowrap">{ago(a.at)}</span>
         </div>
@@ -339,18 +372,39 @@ function ActivityList({ rows }: { rows: { at: string; kind: string; user_id: str
   );
 }
 
+/** Everything that happened across the community, newest first, a day at a time. */
 export function ActivityPage() {
   const [kind, setKind] = useState('all');
   const list = useLoad(() => fetchAdminActivity(300), []);
   const rows = (list.data ?? []).filter((r) => kind === 'all' || r.kind === kind);
+  const days: { title: string; rows: ActRow[] }[] = [];
+  for (const r of rows) {
+    const title = dayTitle(r.at);
+    const last = days[days.length - 1];
+    if (last && last.title === title) last.rows.push(r);
+    else days.push({ title, rows: [r] });
+  }
   return (
     <div className="admin-wide">
       <div className="dash-head">
         <h1 className="page-title">Live activity</h1>
         <button className="btn quiet small" onClick={list.reload}>Refresh</button>
       </div>
-      <Seg value={kind} onChange={setKind} options={['all', 'joined', 'post', 'reel', 'live', 'report', 'transaction', 'support', 'plus_request', 'group'].map((k) => ({ v: k, label: k === 'all' ? 'Everything' : k.replace('_', ' ') }))} />
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : <ActivityList rows={rows} />}
+      <Seg value={kind} onChange={setKind} options={Object.keys(ACT_FILTER).map((k) => ({ v: k, label: ACT_FILTER[k] }))} />
+      {list.loading ? (
+        <Spinner />
+      ) : list.error ? (
+        <Failed error={list.error} retry={list.reload} />
+      ) : !days.length ? (
+        <Empty icon="pulse" title="Nothing yet" body="As people join, post, go live or write in, it shows up here." />
+      ) : (
+        days.map((d) => (
+          <section key={d.title} className="adm-day">
+            <h3 className="adm-day-title">{d.title}</h3>
+            <ActivityList rows={d.rows} />
+          </section>
+        ))
+      )}
     </div>
   );
 }
@@ -599,7 +653,7 @@ const PERSON_TABS = [
 ];
 
 const COUNT_LABELS: [string, string][] = [
-  ['posts', 'Posts'], ['reels', 'Reels'], ['stories', 'Stories'], ['comments', 'Comments'], ['likes_given', 'Likes given'], ['likes_received', 'Likes received'],
+  ['posts', 'Posts'], ['reels', 'Shorts'], ['stories', 'Stories'], ['comments', 'Comments'], ['likes_given', 'Likes given'], ['likes_received', 'Likes received'],
   ['followers', 'Followers'], ['following', 'Following'], ['messages', 'Messages sent'], ['chats', 'Chats'], ['calls', 'Calls'], ['lives', 'Lives'],
   ['groups', 'Groups'], ['profile_views', 'Profile views'], ['blocks_made', 'People they blocked'], ['blocked_by', 'Blocked by'], ['reports_made', 'Reports made'], ['reports_against', 'Reports against'],
 ];
@@ -612,6 +666,8 @@ export function Person({ id }: { id: string }) {
   const owner = me.admin_role === 'owner';
 
   if (p.loading && !p.data) return <Spinner />;
+  // Without the admin database update, the iPhone console's controls for one member still work.
+  if (p.error instanceof NeedsUpdate) return <MemberBasic id={id} />;
   if (p.error) {
     return (
       <div className="admin-wide">
@@ -871,7 +927,7 @@ function PersonActivity({ d }: { d: Person360 }) {
             <Icon name={TL_ICON[t.kind] ?? 'activity'} size={15} />
           </span>
           <span className="grow">
-            <b>{t.kind.replace('_', ' ')}</b> {t.detail ? <span className="muted-text">{t.detail}</span> : null}
+            <b>{kindText(t.kind)}</b> {t.detail ? <span className="muted-text">{t.detail}</span> : null}
           </span>
           <span className="muted-text small nowrap" title={dateTime(t.at)}>{ago(t.at)}</span>
         </div>
@@ -1129,7 +1185,7 @@ export function SearchAll() {
     { key: 'posts', title: 'Posts', icon: 'image', rows: r.posts ?? [], go: (x) => nav('/p/' + x.id), render: (x) => <><b>@{x.username}</b> <span>{x.caption}</span></> },
     { key: 'comments', title: 'Comments', icon: 'comment', rows: r.comments ?? [], go: (x) => nav('/p/' + x.post_id), render: (x) => <><b>@{x.username}</b> <span>{x.text}</span></> },
     { key: 'transactions', title: 'Transactions', icon: 'receipt', rows: r.transactions ?? [], go: (x) => (x.user_id ? nav('/admin/people/' + x.user_id) : nav('/admin/money')), render: (x) => <><b>{pounds(x.amount_pence, x.currency)}</b> <span>{x.kind} · {x.status} · {x.username ? '@' + x.username : 'no member'} · {shortDate(x.created_at)}</span></> },
-    { key: 'tickets', title: 'Support', icon: 'lifebuoy', rows: r.tickets ?? [], go: () => nav('/admin/support'), render: (x) => <><b>{x.subject}</b> <span>@{x.username} · {x.status}</span></> },
+    { key: 'tickets', title: 'Support', icon: 'lifebuoy', rows: r.tickets ?? [], go: () => nav('/admin/support/requests'), render: (x) => <><b>{x.subject}</b> <span>@{x.username} · {x.status}</span></> },
     { key: 'groups', title: 'Communities and pages', icon: 'people', rows: r.groups ?? [], go: (x) => nav('/groups/' + x.id), render: (x) => <><b>{x.name}</b> <span>@{x.handle} · {x.kind}</span></> },
     { key: 'churches', title: 'Churches', icon: 'church', rows: r.churches ?? [], go: () => nav('/admin/churches'), render: (x) => <><b>{x.name}</b> <span>{[x.city, x.country].filter(Boolean).join(', ')} · {x.status}</span></> },
     { key: 'fundraisers', title: 'Fundraisers', icon: 'heart', rows: r.fundraisers ?? [], go: () => nav('/admin/money'), render: (x) => <><b>{x.title}</b> <span>{x.status}</span></> },
@@ -1490,7 +1546,7 @@ export function Content() {
     <div className="admin-wide xl">
       <div className="dash-head">
         <h1 className="page-title">Content</h1>
-        <Seg value={kind} onChange={(k) => { setKind(k); setNeedle(''); setQ(''); }} options={[{ v: 'posts', label: 'Posts and reels' }, { v: 'comments', label: 'Comments' }, { v: 'stories', label: 'Stories' }, { v: 'live', label: 'Live now' }]} />
+        <Seg value={kind} onChange={(k) => { setKind(k); setNeedle(''); setQ(''); }} options={[{ v: 'posts', label: 'Posts and Shorts' }, { v: 'comments', label: 'Comments' }, { v: 'stories', label: 'Stories' }, { v: 'live', label: 'Live now' }]} />
       </div>
       {kind === 'posts' || kind === 'comments' ? (
         <form className="panel-search in-modal flat" onSubmit={(e) => { e.preventDefault(); setNeedle(q); }}>
@@ -1508,7 +1564,7 @@ export function Content() {
                 <button className="thumb" onClick={() => (kind === 'posts' ? nav('/p/' + x.id) : undefined)}>
                   {src ? <img src={src} alt="" /> : <span className="ph">{media?.overlays?.[0]?.text ?? ''}</span>}
                   {x.sensitive ? <span className="pill warn tag">Sensitive</span> : null}
-                  {x.kind === 'reel' ? <span className="pill tag">Reel</span> : null}
+                  {x.kind === 'reel' ? <span className="pill tag">Short</span> : null}
                 </button>
                 <div className="mod-meta">
                   <button className="link-btn" onClick={() => nav('/admin/people/' + x.user_id)}>{who(x.user_id)}</button>
@@ -1545,41 +1601,6 @@ export function Content() {
           </div>
         ))
       )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ churches */
-
-export function Churches() {
-  const { me } = useMe();
-  const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const list = useLoad(() => fetchChurchesForReview(), []);
-  const rows = (list.data ?? []).filter((c) => (c.status ?? 'approved') === status);
-  const counts = (s: string) => (list.data ?? []).filter((c) => (c.status ?? 'approved') === s).length;
-  return (
-    <div className="admin-wide">
-      <div className="dash-head">
-        <h1 className="page-title">Churches</h1>
-        <Seg value={status} onChange={setStatus} options={[{ v: 'pending', label: `To review (${counts('pending')})` }, { v: 'approved', label: `Listed (${counts('approved')})` }, { v: 'rejected', label: `Turned down (${counts('rejected')})` }]} />
-      </div>
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !rows.length ? <Empty icon="church" title="Nothing here" /> : null}
-      {rows.map((c) => (
-        <section key={c.id} className="dash-card report">
-          <span className="hymn-no"><Icon name="church" size={20} /></span>
-          <div className="grow">
-            <b>{c.name}</b>
-            <p className="muted-text small">{[c.address, c.city, c.country].filter(Boolean).join(', ')}{c.website ? ' · ' + c.website : ''}</p>
-            {c.service_times ? <p className="small">{c.service_times}</p> : null}
-            <p className="muted-text small">Added {shortDate(c.created_at)}</p>
-          </div>
-          <div className="btn-col">
-            {status !== 'approved' ? <button className="btn small" onClick={() => reviewChurch(c.id, 'approved', me.id).then(list.reload, toastError)}>Approve</button> : null}
-            {status !== 'rejected' ? <button className="btn quiet small" onClick={() => reviewChurch(c.id, 'rejected', me.id).then(list.reload, toastError)}>Turn down</button> : null}
-            <button className="btn danger-outline small" onClick={async () => { if (await ask('Remove ' + c.name + '?', 'Members who chose it lose it from their profile.', 'Remove')) removeChurch(c.id).then(list.reload, toastError); }}>Remove</button>
-          </div>
-        </section>
-      ))}
     </div>
   );
 }
