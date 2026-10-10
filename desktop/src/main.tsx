@@ -10,6 +10,8 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { MeProvider, useMe } from './lib/me';
 import { nav, parts, useRoute } from './lib/router';
 import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
+import { AnnouncementBar } from './ui/announce';
+import { touchSession } from './lib/admin';
 import { Explore, Home, PeopleToFollow, Reels } from './screens/browse';
 import { Messages } from './screens/messages';
 import { Activity, Churches, Groups, Hymnal, Settings } from './screens/more';
@@ -112,6 +114,14 @@ function Shell() {
     return () => document.removeEventListener('keydown', key);
   }, []);
 
+  // Note this sign-in (app, address, country, time zone) for the admin console's security view.
+  // If the address is blocked the database suspends the account, and the reload shows that.
+  useEffect(() => {
+    touchSession().then((r) => {
+      if (r.blocked) location.reload();
+    });
+  }, []);
+
   const openPost = (id: string) => setPost(id);
   let screen: React.ReactNode;
   switch (seg[0]) {
@@ -183,7 +193,10 @@ function Shell() {
     <div className={'shell' + (['direct', 'live'].includes(seg[0]) ? ' is-direct' : '') + (seg[0] === 'reels' ? ' is-reels' : '')}>
       {__DEMO__ ? <div className="demo-banner">Demo: sample people and photos. Nothing you do here is saved.</div> : null}
       <Sidebar panel={panel} setPanel={setPanel} onCreate={setCreate} />
-      <main className="main">{screen}</main>
+      <main className="main">
+        {seg[0] !== 'admin' ? <AnnouncementBar /> : null}
+        {screen}
+      </main>
       {post ? <PostView id={post} onClose={() => setPost(null)} /> : null}
       {create ? <CreateDialog start={create} onClose={() => setCreate(null)} /> : null}
     </div>

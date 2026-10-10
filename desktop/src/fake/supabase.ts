@@ -4,11 +4,18 @@
 // the community_*_cards views, so the shared data code (src/lib/api.ts in the iPhone app) runs
 // unchanged. Nothing is saved: a reload starts over. The people and pictures are invented samples.
 import { seed, DEMO_ME, ERHA } from './seed';
+import { adminRpc, adminSeed, extraTransactions } from './admin';
 
 type Row = Record<string, any>;
 type Filter = (row: Row) => boolean;
 
 const db: Record<string, Row[]> = seed();
+// The admin console's sample records: sign-ins, alerts, bans, payments, fundraisers and boosts.
+Object.assign(db, adminSeed());
+db.community_transactions.push(...extraTransactions());
+db.community_profiles.push({ id: 'u_kwame', username: 'kwame_deals', full_name: 'Kwame Deals', bio: '', website: '', avatar_url: '', suspended: true, admin_note: 'Signed in from a blocked address', created_at: new Date(Date.now() - 60 * 3600e3).toISOString() });
+db.community_churches.push({ id: 'ch3', name: 'Lakeside SDA Company', address: '9 Shore Road', city: 'Sample Village', country: 'Demo', lat: null, lng: null, website: '', service_times: 'Divine Service 11:00', created_by: 'u_esther', created_at: new Date(Date.now() - 20 * 3600e3).toISOString(), status: 'pending' });
+for (const c of db.community_churches) c.status ??= 'approved';
 const blobs = new Map<string, string>();
 const listeners: { table: string; event: string; filter?: Filter; fn: (payload: any) => void }[] = [];
 
@@ -460,6 +467,8 @@ const RPC: Record<string, (args: any) => any> = {
   },
 };
 
+Object.assign(RPC, adminRpc({ T, profile, insertRow, me }));
+
 const broadcasts: { channel: string; event: string; fn: (m: any) => void }[] = [];
 
 class Channel {
@@ -505,7 +514,12 @@ export function createClient(url: string, key: string, opts?: any) {
       then(ok: any, bad: any) {
         return new Promise((r) => setTimeout(r, 80)).then(() => {
           const fn = RPC[name];
-          return fn ? { data: fn(args), error: null } : { data: null, error: { message: 'Not in the demo: ' + name } };
+          if (!fn) return { data: null, error: { code: 'PGRST202', message: 'Could not find the function ' + name } };
+          try {
+            return { data: fn(args), error: null };
+          } catch (e: any) {
+            return { data: null, error: { message: e?.message ?? String(e) } };
+          }
         }).then(ok, bad);
       },
     }),

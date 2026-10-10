@@ -1,88 +1,88 @@
-// The admin console, the same one the iPhone app has, laid out for a big screen. Only owners and
+// The admin console: a full CRM for running Community, laid out for a big screen. Only owners and
 // admins can open it, and the database refuses everything here for anyone else.
 import React, { useState } from 'react';
-import { addAdmin, addTransaction, adminSetAccount, answerSupportTicket, closeSupportTicket, decidePlusRequest, decideReport, deleteTransaction, fetchAdminActivity, fetchAdminStats, fetchMembers, fetchPlusRequests, fetchReports, fetchSupportTickets, fetchTransactions, listAdmins, removeAdmin, searchProfiles } from 'shared/api';
-import { ago, fmt } from 'shared/theme';
-import type { MemberCard, Profile, SupportTicket } from 'shared/types';
+import { addAdmin, addTransaction, answerSupportTicket, closeSupportTicket, decidePlusRequest, decideReport, deleteTransaction, fetchPlusRequests, fetchReports, fetchSupportTickets, fetchTransactions, listAdmins, removeAdmin, searchProfiles } from 'shared/api';
+import { ago } from 'shared/theme';
+import type { Profile, SupportTicket } from 'shared/types';
 import { useMe } from '../lib/me';
 import { nav, parts } from '../lib/router';
-import { Avatar, Empty, Failed, Icon, type IconName, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { Avatar, Empty, Failed, Icon, type IconName, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
+import { downloadCsv } from '../lib/admin';
+import { ActivityPage, Announcements, AuditLog, Churches, Content, Dashboard, MoneyHub, People, Person, SearchAll, Security, SystemPage } from './admin-crm';
 
-const TABS: { id: string; label: string; icon: IconName }[] = [
-  { id: 'overview', label: 'Overview', icon: 'chart' },
-  { id: 'reports', label: 'Reports', icon: 'flag' },
-  { id: 'members', label: 'Members', icon: 'users' },
-  { id: 'requests', label: 'Tick and Plus requests', icon: 'crown' },
-  { id: 'support', label: 'Support', icon: 'lifebuoy' },
-  { id: 'admins', label: 'Admins', icon: 'shield' },
-  { id: 'money', label: 'Transactions', icon: 'receipt' },
+type Tab = { id: string; label: string; icon: IconName };
+const GROUPS: { title: string; tabs: Tab[] }[] = [
+  { title: 'Overview', tabs: [
+    { id: 'dashboard', label: 'Dashboard', icon: 'chart' },
+    { id: 'activity', label: 'Live activity', icon: 'pulse' },
+    { id: 'search', label: 'Search everything', icon: 'search' },
+  ] },
+  { title: 'People', tabs: [
+    { id: 'people', label: 'People', icon: 'users' },
+    { id: 'requests', label: 'Tick and Plus requests', icon: 'crown' },
+    { id: 'support', label: 'Support', icon: 'lifebuoy' },
+  ] },
+  { title: 'Safety', tabs: [
+    { id: 'security', label: 'Security', icon: 'shield' },
+    { id: 'reports', label: 'Reports', icon: 'flag' },
+    { id: 'content', label: 'Content', icon: 'image' },
+    { id: 'audit', label: 'Audit log', icon: 'gavel' },
+  ] },
+  { title: 'Money', tabs: [{ id: 'money', label: 'Money', icon: 'receipt' }] },
+  { title: 'Community', tabs: [
+    { id: 'churches', label: 'Churches', icon: 'church' },
+    { id: 'announcements', label: 'Announcements', icon: 'bell' },
+    { id: 'admins', label: 'Admins', icon: 'key' },
+    { id: 'system', label: 'System', icon: 'settings' },
+  ] },
 ];
 
 const pounds = (pence: number) => '£' + (pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function Admin({ path }: { path: string }) {
   const { me } = useMe();
-  const tab = parts(path)[1] || 'overview';
+  const bits = parts(path);
+  let tab = bits[1] || 'dashboard';
+  if (tab === 'overview') tab = 'dashboard';
+  if (tab === 'members') tab = 'people';
   if (!me.admin_role) return <Empty icon="shield" title="Admins only" body="The admin console is for Community's owner and admins." />;
+  const body = (() => {
+    if (tab === 'people' && bits[2]) return <Person id={bits[2]} />;
+    switch (tab) {
+      case 'dashboard': return <Dashboard />;
+      case 'activity': return <ActivityPage />;
+      case 'search': return <SearchAll />;
+      case 'people': return <People />;
+      case 'requests': return <Requests />;
+      case 'support': return <Support />;
+      case 'security': return <Security />;
+      case 'reports': return <Reports />;
+      case 'content': return <Content />;
+      case 'audit': return <AuditLog />;
+      case 'money': return <MoneyHub Transactions={Money} />;
+      case 'churches': return <Churches />;
+      case 'announcements': return <Announcements />;
+      case 'admins': return <Admins />;
+      case 'system': return <SystemPage />;
+      default: return <Dashboard />;
+    }
+  })();
   return (
     <div className="settings admin">
-      <nav className="settings-nav">
-        <h2>Admin</h2>
-        {TABS.map((t) => (
-          <Link key={t.id} to={'/admin/' + t.id} className={'settings-link' + (tab === t.id ? ' on' : '')}>
-            <Icon name={t.icon} size={22} /> {t.label}
-          </Link>
+      <nav className="settings-nav admin-nav">
+        <h2>Admin console</h2>
+        {GROUPS.map((g) => (
+          <div key={g.title} className="nav-group">
+            <span className="nav-group-title">{g.title}</span>
+            {g.tabs.map((t) => (
+              <Link key={t.id} to={'/admin/' + t.id} className={'settings-link' + (tab === t.id ? ' on' : '')}>
+                <Icon name={t.icon} size={20} /> {t.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
-      <div className="settings-body">
-        {tab === 'overview' ? <Overview /> : tab === 'reports' ? <Reports /> : tab === 'members' ? <Members /> : tab === 'requests' ? <Requests /> : tab === 'support' ? <Support /> : tab === 'admins' ? <Admins /> : <Money />}
-      </div>
-    </div>
-  );
-}
-
-function Overview() {
-  const stats = useLoad(() => fetchAdminStats(), []);
-  const activity = useLoad(() => fetchAdminActivity(60), []);
-  const s = stats.data;
-  const tile = (label: string, value: React.ReactNode, sub?: string, to?: string) => (
-    <div className="tile-stat" key={label} onClick={to ? () => nav(to) : undefined} style={to ? { cursor: 'pointer' } : undefined}>
-      <span>{label}</span>
-      <b>{value}</b>
-      {sub ? <em>{sub}</em> : null}
-    </div>
-  );
-  return (
-    <div className="admin-wide">
-      <h1 className="page-title">Overview</h1>
-      {stats.loading ? <Spinner /> : stats.error ? <Failed error={stats.error} retry={stats.reload} /> : s ? (
-        <div className="stat-tiles">
-          {tile('Members', fmt(s.members), `+${s.members_week} this week`, '/admin/members')}
-          {tile('Posts', fmt(s.posts), `+${s.posts_week} this week`)}
-          {tile('Messages this week', fmt(s.messages_week))}
-          {tile('Stories live', fmt(s.stories_live))}
-          {tile('Open reports', fmt(s.reports_open), undefined, '/admin/reports')}
-          {tile('Requests waiting', fmt(s.requests_open), undefined, '/admin/requests')}
-          {tile('Support open', fmt(s.support_open), undefined, '/admin/support')}
-          {tile('Verified', fmt(s.verified), `${s.plus} with Plus`)}
-          {tile('Income', pounds(s.income_pence), `${pounds(s.income_month_pence)} this month`, '/admin/money')}
-          {tile('Suspended', fmt(s.suspended), `${s.deactivated} deactivated`)}
-          {tile('Communities and pages', fmt(s.groups))}
-          {tile('Churches', fmt(s.churches), `${s.hymns} hymns`)}
-        </div>
-      ) : null}
-      <h3 className="section-h">Latest activity</h3>
-      {activity.loading ? <Spinner /> : (activity.data ?? []).map((a, i) => (
-        <div key={i} className="row flat">
-          <span className="hymn-no small">
-            <Icon name={a.kind === 'joined' ? 'user' : a.kind === 'report' ? 'flag' : a.kind === 'transaction' ? 'receipt' : a.kind === 'support' ? 'lifebuoy' : a.kind === 'live' ? 'live' : a.kind === 'group' ? 'people' : a.kind === 'plus_request' ? 'verified' : 'image'} size={18} />
-          </span>
-          <span className="row-text wrap">
-            <b>{a.username ? '@' + a.username : 'Someone'}</b> <span>{a.kind.replace('_', ' ')}{a.detail ? ': ' + a.detail : ''}</span>
-          </span>
-          <span className="muted-text small">{ago(a.at)}</span>
-        </div>
-      ))}
+      <div className="settings-body">{body}</div>
     </div>
   );
 }
@@ -109,7 +109,7 @@ function Reports() {
             <b>{r.reason}</b>
             <p className="muted-text">
               {r.reported_post ? 'Post' : 'Account'} by{' '}
-              <Link to={'/u/' + r.reported_username} className="link-btn">@{r.reported_username}</Link> · reported by @{r.reporter_username} · {ago(r.created_at)}
+              <Link to={r.reported_user ? '/admin/people/' + r.reported_user : '/u/' + r.reported_username} className="link-btn">@{r.reported_username}</Link> · reported by @{r.reporter_username} · {ago(r.created_at)}
               {r.reported_post && !r.post_exists ? ' · post deleted' : ''}
             </p>
             {r.post_caption ? <p className="pre clamp2">{r.post_caption}</p> : null}
@@ -128,111 +128,6 @@ function Reports() {
         </section>
       ))}
     </div>
-  );
-}
-
-function Members() {
-  const [q, setQ] = useState('');
-  const [needle, setNeedle] = useState('');
-  const list = useLoad(() => fetchMembers(needle), [needle]);
-  const [open, setOpen] = useState<MemberCard | null>(null);
-  return (
-    <div className="admin-wide">
-      <h1 className="page-title">Members</h1>
-      <form className="panel-search in-modal flat" onSubmit={(e) => { e.preventDefault(); setNeedle(q); }}>
-        <input placeholder="Search by name or username, then press Return" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />
-      </form>
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : null}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Member</th>
-            <th>Joined</th>
-            <th>Posts</th>
-            <th>Reports</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(list.data ?? []).map((m) => (
-            <tr key={m.id} onClick={() => setOpen(m)}>
-              <td>
-                <span className="cell-person">
-                  <Avatar src={m.avatar_url} name={m.username} size={32} />
-                  <span>
-                    <b>
-                      {m.username}
-                      {m.verified ? <Verified size={12} /> : null}
-                    </b>
-                    <span className="muted-text">{m.full_name}</span>
-                  </span>
-                </span>
-              </td>
-              <td>{new Date(m.created_at).toLocaleDateString('en-GB')}</td>
-              <td>{m.posts_count}</td>
-              <td>{m.reports_count}</td>
-              <td>
-                {m.admin_role ? <span className="pill">{m.admin_role}</span> : null} {m.plus ? <span className="pill plus">Plus</span> : null} {m.suspended ? <span className="pill danger">Suspended</span> : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {open ? <MemberDialog m={open} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
-    </div>
-  );
-}
-
-function MemberDialog({ m, onClose, onChanged }: { m: MemberCard; onClose: () => void; onChanged: () => void }) {
-  const [note, setNote] = useState(m.admin_note);
-  const set = async (patch: Parameters<typeof adminSetAccount>[1], label: string) => {
-    try {
-      await adminSetAccount(m.id, patch);
-      toast(label);
-      onChanged();
-      onClose();
-    } catch (e) {
-      toastError(e);
-    }
-  };
-  const month = () => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    return d.toISOString();
-  };
-  return (
-    <Modal title={'@' + m.username} onClose={onClose} wide>
-      <div className="form-pad">
-        <div className="cell-person">
-          <Avatar src={m.avatar_url} name={m.username} size={56} />
-          <span>
-            <b>{m.full_name}</b>
-            <span className="muted-text">
-              Joined {new Date(m.created_at).toLocaleDateString('en-GB')} · {m.posts_count} posts · {m.reports_count} reports{m.church_name ? ' · ' + m.church_name : ''}
-            </span>
-          </span>
-        </div>
-        <div className="btn-row left">
-          <button className="btn quiet" onClick={() => nav('/u/' + m.username)}>Open profile</button>
-          <button className="btn quiet" onClick={() => set({ verified: !m.verified }, m.verified ? 'Tick removed' : 'Tick given')}>{m.verified ? 'Remove tick' : 'Give the tick'}</button>
-          <button className="btn quiet" onClick={() => set(m.plus ? { plus_until: null } : { plus_until: month(), verified: true }, m.plus ? 'Plus ended' : 'Plus given for a month')}>{m.plus ? 'End Plus' : 'Give Plus for a month'}</button>
-          <button
-            className={'btn ' + (m.suspended ? 'quiet' : 'danger-outline')}
-            onClick={async () => {
-              if (!m.suspended && !(await ask('Suspend @' + m.username + '?', 'They are logged out of the app and cannot use it until you lift the suspension.', 'Suspend'))) return;
-              set({ suspended: !m.suspended }, m.suspended ? 'Suspension lifted' : 'Suspended');
-            }}
-          >
-            {m.suspended ? 'Lift suspension' : 'Suspend'}
-          </button>
-        </div>
-        <label className="form-row">
-          <span>Admin note (only admins see this)</span>
-          <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-        <button className="btn" disabled={note === m.admin_note} onClick={() => set({ admin_note: note }, 'Note saved')}>Save note</button>
-      </div>
-    </Modal>
   );
 }
 
@@ -371,10 +266,13 @@ function Money() {
   const [form, setForm] = useState({ kind: 'donation' as 'plus' | 'donation' | 'refund' | 'other', amount: '', note: '' });
   const total = (list.data ?? []).filter((t) => t.status === 'succeeded').reduce((s, t) => s + (t.kind === 'refund' ? -t.amount_pence : t.amount_pence), 0);
   return (
-    <div className="admin-wide">
+    <div>
       <div className="dash-head">
-        <h1 className="page-title">Transactions</h1>
-        <button className="btn" onClick={() => setAdd(true)}>Record a payment</button>
+        <h3>Transactions</h3>
+        <div className="head-tools">
+          <button className="btn quiet small" disabled={!list.data?.length} onClick={() => downloadCsv('transactions.csv', list.data ?? [])}>Export CSV</button>
+          <button className="btn small" onClick={() => setAdd(true)}>Record a payment</button>
+        </div>
       </div>
       <p className="muted-text">Total of the lines below: {pounds(total)}</p>
       {list.loading ? <Spinner /> : null}
@@ -393,7 +291,7 @@ function Money() {
           {(list.data ?? []).map((t) => (
             <tr key={t.id}>
               <td>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
-              <td>{t.username ? '@' + t.username : '—'}</td>
+              <td>{t.username && t.user_id ? <Link to={'/admin/people/' + t.user_id} className="link-btn">@{t.username}</Link> : '—'}</td>
               <td>{t.kind}</td>
               <td className="num">{(t.kind === 'refund' ? '−' : '') + pounds(t.amount_pence)}</td>
               <td>{t.provider === 'stripe' ? t.method || 'Card' : 'Recorded by @' + (t.created_by_username ?? 'admin')}</td>

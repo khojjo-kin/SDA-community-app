@@ -40,10 +40,39 @@ root `tsconfig.json` that keeps the iPhone type check out of this folder.
 | Settings | Edit profile and photo, professional account, saved replies, privacy, close friends, blocked accounts, profile viewers, email and password (Clerk), log out, deactivate |
 | Creators | Dashboard with views and followers, Plus, verification requests, Help tickets |
 | Church | Bible with translations, Sabbath School lessons, Pod (podcasts with a player that keeps playing while you browse), Hymnal with favourites and text size, Churches, Communities and pages |
-| Admin | The admin console for people with an admin role: reports, users, verification and Plus requests, support |
+| Admin console | A full CRM for owners and admins (see below) |
 
 Still iPhone-only: going live yourself, recording voice messages, the story editor's stickers and
 drawing, payments, switching accounts, and chat wallpapers and fonts.
+
+## The admin console
+
+Owners and admins open it from **More → Admin console**. Everything is checked by the database, so
+nobody else can read or change any of it.
+
+| Section | What it does |
+| --- | --- |
+| Dashboard | Members, active today/week/month, 7-day retention, income, subscribers, posts and messages; an activity chart (active people, sign-ups, posts, messages, comments, likes, calls, reports) for 7, 30, 90 or 365 days; income per day; busiest hours; platform, content and income donuts; countries, time zones and account types; top creators, top posts, churches by members; what needs attention |
+| People | Every account in one table: search by name, username, email, phone, account ID or IP address; filters (active, new, verified, Plus, paying, reported, security alerts, suspended, closing, under 14, dormant, admins); eight sorts; bulk actions; CSV export |
+| A person's record | Profile, status, last seen, country and time zone, contact details, account ID; 18 counts; 30-day activity chart; recent posts; a full timeline; every sign-in (app, version, device, address, country, time zone, first and last seen); other accounts on the same addresses; payments, donations, boosts, fundraisers and subscription; reports, alerts, suspensions and what admins did. Actions: give or remove the tick, give or end Plus, admin note, end live, suspend for a set time or until lifted, lift, close the account (30 days to restore), restore, remove all content, block their addresses, and (owner only) delete now |
+| Search everything | People, addresses and devices, posts, comments, payments and Stripe IDs, support tickets, groups, churches and fundraisers at once |
+| Security | Alerts (sign-in from a new country, many addresses in a day, sign-in from a blocked address) with resolve; live warnings (message, follow and comment bursts, heavily reported, widely blocked, new and very busy); addresses shared by several accounts; blocking addresses and ranges; suspended accounts; admin activity; blocked words; row-level security on every table |
+| Reports, Content | Decide reports; review and remove posts, reels, comments and stories; see and end lives |
+| Money | Income, donations, boosts, subscribers, failed and refunded payments; charts by day, kind, method and result; top supporters; transactions (record, export), donations, fundraisers (close), boosts (end), subscriptions |
+| Churches, Announcements | Approve, turn down or remove churches; publish a banner everyone sees at the top of the app |
+| Audit log | Every admin change to an account, from the iPhone or the desktop, with CSV export |
+| System | Database size, largest tables, rows, storage, scheduled jobs and their last results |
+
+Locations are approximate on purpose: the country comes from the network address and the time zone
+from the device. Message contents stay private; admins see counts only.
+
+The console needs one database update,
+[`supabase/migrations/202610100100_community_admin_crm.sql`](supabase/migrations/202610100100_community_admin_crm.sql).
+It only adds admin-only tables and functions, plus a trigger that writes admin changes to the
+audit log. To apply it, open the Supabase project → SQL Editor, paste the file and click Run. Until
+then the console shows the parts that work and says which need the update. Sign-ins are recorded
+when the desktop app opens; the iPhone app can do the same with one call to
+`community_touch_session` (`p_platform: 'ios'`).
 
 ## Build and run
 
