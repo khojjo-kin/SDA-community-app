@@ -1,9 +1,11 @@
-// One chat: the header (who, "Active now", streak, voice and video calls), the messages, and the
-// message box with emoji, photos (sent normally or as view once), saved replies and a heart.
-// Used full size on /direct and small inside the corner inbox (compact). New messages, "Seen" and
-// typing arrive live over Supabase Realtime, on the same channels as the iPhone app.
+// One chat: the header (who, "Active now", streak, voice and video calls), the messages over the
+// chosen wallpaper (Plus), and the message box with emoji, photos (sent normally or as view once),
+// voice messages, saved replies and a heart. Used full size on /direct and small inside the corner
+// inbox (compact). New messages, "Seen" and typing arrive live over Supabase Realtime, on the same
+// channels as the iPhone app, with a refresh every few seconds in case the connection drops.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, setBlock, setThreadMuted, uploadImage } from 'shared/api';
+import { usePrefs } from 'shared/prefs';
 import { supabase } from 'shared/supabase';
 import { useCalls } from 'shared/calls';
 import { errText } from 'shared/theme';
@@ -11,9 +13,11 @@ import type { Faq, Message, SavedReply, Thread } from 'shared/types';
 import { rememberSize } from '../shims/expo-file-system';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
+import { ForwardPhotos } from '../screens/messages-new';
 import { Avatar, Empty, Icon, Link, Modal, Spinner, Verified, ask, toast, toastError } from './kit';
 import { ActiveFace, STREAK_FROM, StreakBadge } from './chat-threads';
-import { CallLog, EmojiPop, OnceMark, ScreenshotLine, SharedPost, SnapBubble, SnapViewer, TypingBubble, VoiceMessage, buildRows, firstName, takeDraft, timeOf, type Row } from './chat-bits';
+import { CallLog, EmojiPop, OnceMark, PhotoPile, PhotoViewer, RecordingBar, ScreenshotLine, SharedPost, SnapBubble, SnapViewer, TypingBubble, VOICE_LIMIT_MS, VOICE_MIN_MS, VoiceMessage, VoiceRecorder, buildRows, firstName, micProblem, pauseVoice, takeDraft, timeOf, uploadVoice, type RecPhase, type Row, type VoiceClip } from './chat-bits';
+import { WallpaperPicker, useChatWallpaper, wallpaperCss } from './chat-wallpaper';
 import { NoteBubble } from './notes';
 
 /** Ways to start a chat with Erha, offered while it is still nearly empty. */
@@ -21,14 +25,23 @@ const ERHA_OPENERS = ["What is this week's Sabbath School lesson about?", 'Sugge
 /** How often "typing" is sent while you keep typing, and how long their bubble stays after the last one. */
 const TYPING_EVERY_MS = 2000;
 const TYPING_LINGER_MS = 4000;
+/** The chat is asked for again this often, as on the iPhone, in case a live update was missed. */
+const REFRESH_MS = 6000;
+/** Held this long, the microphone button records until you let go, then sends. A click records until Send. */
+const HOLD_MS = 450;
 /** Said when the database turns a message away under the under-14 rules (as on the iPhone). */
 const MINOR_RULE = 'Members under 14 can only message people they follow, and be messaged by people they follow.';
+/** Why you can report someone, as the iPhone asks. */
+const REPORT_REASONS = ['Spam', 'Harassment or hate', 'Pretending to be someone else', 'Something else'];
 
 type Pending = { photos: { url: string; size: number }[]; once: boolean };
+type Rec = { phase: RecPhase; ms: number; levels: number[]; clip?: VoiceClip };
 
 export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand, onClose }: { threadId: string; openPost?: (id: string) => void; onChanged?: () => void; compact?: boolean; onBack?: () => void; onExpand?: () => void; onClose?: () => void }) {
   const { me } = useMe();
+  const prefs = usePrefs();
   const calls = useCalls();
+  const wall = useChatWallpaper();
   const [thread, setThread] = useState<Thread | null | undefined>(undefined);
   const [msgs, setMsgs] = useState<Message[] | null>(null);
   const [theirRead, setTheirRead] = useState<string | null>(null);
@@ -39,13 +52,17 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [replies, setReplies] = useState<SavedReply[] | null>(null);
   const [details, setDetails] = useState(false);
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string[] | null>(null);
+  const [forwarding, setForwarding] = useState<string[] | null>(null);
   const [snap, setSnap] = useState<{ id: string; url: string } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [emoji, setEmoji] = useState(false);
   const [limit, setLimit] = useState('');
+  const [rec, setRec] = useState<Rec | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const log = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const threadRef = useRef<Thread | null>(null);
   threadRef.current = thread ?? null;
@@ -58,19 +75,45 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   const typingSentAt = useRef(0);
   const typingTold = useRef(false);
   const typingHide = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each load is numbered, so a slow, older answer never replaces a newer one.
+  const asked = useRef(0);
+  const shown = useRef(0);
+  const loadedOnce = useRef(false);
+  // Their newest message that has been marked read.
+  const markedId = useRef('');
+  // The recording in progress, if any.
+  const recorder = useRef<VoiceRecorder | null>(null);
   const isErha = thread?.other_id === ERHA_ID;
+  // Plus: read without the other person seeing "Seen" (Settings → Read quietly). Nothing is marked read meanwhile.
+  const quiet = !!me.plus && prefs.readQuietly;
+  const quietRef = useRef(quiet);
+  quietRef.current = quiet;
   const changed = () => onChanged?.();
   const showPost = openPost ?? ((id: string) => nav('/p/' + id));
 
   const load = useCallback(async () => {
+    const mine = ++asked.current;
     try {
       const rows = await fetchMessages(threadId, threadRef.current?.hidden_before);
+      if (mine < shown.current) return;
+      shown.current = mine;
+      loadedOnce.current = true;
       const opened = openedHere.current;
       setMsgs(rows.map((m) => (opened.has(m.id) ? { ...m, media_url: '', opened_at: m.opened_at ?? opened.get(m.id)! } : m)));
-      if (rows.some((m) => m.sender_id !== me.id)) markThreadRead(me.id, threadId).catch(() => {});
+      // Their newest message is marked read once, while this window is in front and you aren't reading quietly.
+      const theirs = [...rows].reverse().find((m) => m.sender_id !== me.id);
+      if (theirs && theirs.id !== markedId.current && !quietRef.current && !document.hidden) {
+        markedId.current = theirs.id;
+        markThreadRead(me.id, threadId).catch(() => {
+          markedId.current = '';
+        });
+      }
     } catch (e) {
-      toastError(e);
-      setMsgs((cur) => cur ?? []);
+      // The first load says why it failed; a refresh that fails quietly tries again shortly.
+      if (!loadedOnce.current) {
+        toastError(e);
+        setMsgs((cur) => cur ?? []);
+      }
     }
   }, [threadId, me.id]);
 
@@ -94,7 +137,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             load();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'community_thread_reads', filter: `thread_id=eq.${threadId}` }, (payload: any) => {
-            if (payload?.new?.user_id === t.other_id) setTheirRead(payload.new.last_read_at);
+            // Their read marker only ever moves forward.
+            if (payload?.new?.user_id === t.other_id) setTheirRead((cur) => (cur && cur >= payload.new.last_read_at ? cur : payload.new.last_read_at));
           })
           .subscribe();
       },
@@ -108,6 +152,27 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       if (channel) supabase.removeChannel(channel);
     };
   }, [threadId]);
+
+  // Asked for again every few seconds while the window is in front, and when it comes back to the front.
+  useEffect(() => {
+    if (!thread) return;
+    const timer = setInterval(() => !document.hidden && load(), REFRESH_MS);
+    const back = () => {
+      if (document.hidden) return;
+      load();
+      fetchTheirLastRead(threadId, thread.other_id).then((r) => r && setTheirRead((cur) => (cur && cur >= r ? cur : r)), () => {});
+    };
+    document.addEventListener('visibilitychange', back);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', back);
+    };
+  }, [thread?.id, load]);
+
+  // Turning "Read quietly" off marks the chat read then.
+  useEffect(() => {
+    if (!quiet && thread) load();
+  }, [quiet]);
 
   // "Active now" and the streak go stale, so the card is asked for again every minute while open.
   useEffect(() => {
@@ -170,7 +235,15 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     const el = log.current;
     if (el && atBottom.current) el.scrollTop = el.scrollHeight;
   }, []);
-  useEffect(stick, [msgs?.length, thinking, theirTyping, pending, limit, theirRead]);
+  useEffect(stick, [msgs?.length, thinking, theirTyping, pending, limit, theirRead, rec?.phase]);
+
+  // The message box grows with what you write, up to a few lines.
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, [text, rec]);
 
   /** Puts a refused send into words: the under-14 rule when that is the likely reason. */
   const explain = (e: unknown) => {
@@ -261,6 +334,146 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     }
   };
 
+  /* ----- voice messages: click the microphone to record until Send, or hold it and let go to send ----- */
+
+  const startRecording = async () => {
+    if (sending || recorder.current || rec || isErha) return;
+    pauseVoice();
+    setEmoji(false);
+    const r = new VoiceRecorder();
+    recorder.current = r;
+    setRec({ phase: 'starting', ms: 0, levels: [] });
+    try {
+      await r.start();
+      // Discarded (or the chat closed) while the microphone was being asked for.
+      if (recorder.current !== r) return r.cancel();
+      atBottom.current = true;
+      setRec({ phase: 'recording', ms: 0, levels: [] });
+    } catch (e) {
+      r.cancel();
+      if (recorder.current === r) {
+        recorder.current = null;
+        setRec(null);
+        toast(micProblem(e));
+      }
+    }
+  };
+
+  /** Uploads a recording and sends it. A failed send keeps it, to try again or discard. */
+  const sendClip = async (clip: VoiceClip) => {
+    setRec((cur) => ({ phase: 'sending', ms: clip.ms, levels: cur?.levels ?? [], clip }));
+    setSending(true);
+    atBottom.current = true;
+    try {
+      const url = await uploadVoice(me.id, clip);
+      try {
+        await sendMessage(me.id, threadId, { audio_url: url, audio_seconds: Math.max(1, Math.round(clip.ms / 1000)) });
+      } catch (e) {
+        throw new Error(explain(e));
+      }
+      setRec(null);
+      await load();
+      changed();
+    } catch (e) {
+      setRec((cur) => (cur ? { ...cur, phase: 'failed' } : cur));
+      toastError(e);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  /** Stops recording: `keep` sends it (if it's long enough), otherwise it is thrown away. */
+  const finishRecording = async (keep: boolean) => {
+    const r = recorder.current;
+    if (!r) {
+      // A recording that didn't send: Send tries again, discard drops it.
+      if (keep && rec?.phase === 'failed' && rec.clip) sendClip(rec.clip);
+      else if (!keep && rec?.phase !== 'sending') setRec(null);
+      return;
+    }
+    recorder.current = null;
+    if (!keep) {
+      r.cancel();
+      setRec(null);
+      return;
+    }
+    if (r.elapsed() < VOICE_MIN_MS) {
+      r.cancel();
+      setRec(null);
+      toast('That was too short. Record a little longer.');
+      return;
+    }
+    setRec((cur) => (cur ? { ...cur, phase: 'sending' } : cur));
+    let clip: VoiceClip;
+    try {
+      clip = await r.stop();
+    } catch (e) {
+      setRec(null);
+      toastError(e);
+      return;
+    }
+    await sendClip(clip);
+  };
+  const finishRef = useRef(finishRecording);
+  finishRef.current = finishRecording;
+
+  // While recording: the time and the microphone's level, and it sends itself at two minutes.
+  useEffect(() => {
+    if (rec?.phase !== 'recording') return;
+    const timer = setInterval(() => {
+      const r = recorder.current;
+      if (!r) return;
+      const ms = r.elapsed();
+      const level = r.level();
+      setRec((cur) => (cur && cur.phase === 'recording' ? { ...cur, ms, levels: [...cur.levels, level].slice(-64) } : cur));
+      if (ms >= VOICE_LIMIT_MS) finishRef.current(true);
+    }, 100);
+    return () => clearInterval(timer);
+  }, [rec?.phase]);
+
+  // Enter sends the recording and Escape discards it (unless a dialog is open over the chat).
+  useEffect(() => {
+    if (!rec || rec.phase === 'sending') return;
+    const key = (e: KeyboardEvent) => {
+      if (document.querySelector('.scrim')) return;
+      // Enter on a focused button (Discard, say) is that button's own.
+      if (e.key === 'Enter' && (e.target as HTMLElement | null)?.closest?.('button, a, input, textarea')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finishRef.current(false);
+      } else if (e.key === 'Enter' && (rec.phase === 'recording' || rec.phase === 'failed')) {
+        e.preventDefault();
+        finishRef.current(true);
+      }
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [rec?.phase]);
+
+  // A recording never carries on after the chat closes: it is thrown away, as on the iPhone.
+  useEffect(
+    () => () => {
+      recorder.current?.cancel();
+      recorder.current = null;
+    },
+    [],
+  );
+
+  /** The microphone button: pressed and held, it sends when you let go; a quick click keeps recording. */
+  const micDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const at = performance.now();
+    window.addEventListener(
+      'pointerup',
+      () => {
+        if (performance.now() - at >= HOLD_MS && recorder.current && recorder.current.elapsed() > 0) finishRef.current(true);
+      },
+      { once: true },
+    );
+    startRecording();
+  };
+
   /* ----- view-once photos ----- */
 
   /** Opens a view-once photo sent to you. The server hands over its address only now, once. */
@@ -305,9 +518,11 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     );
   }
 
-  // In-app calls, the same as on the iPhone: the other person's phone or Mac rings.
+  // In-app calls, the same as on the iPhone: the other person's phone or Mac rings. Not while recording.
+  const callsOff = calls.inCall || !!rec;
   const call = (kind: 'voice' | 'video') => {
-    if (calls.inCall) return;
+    if (callsOff) return;
+    pauseVoice();
     calls.startCall(thread.other_id, kind, threadId).catch(toastError);
   };
   const name = thread.full_name || thread.username;
@@ -321,9 +536,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       changed();
     }, toastError);
   const removeChat = async () => {
-    if (!(await ask('Delete this chat?', 'The messages are removed for you only. A new message starts the chat again.', 'Delete'))) return;
+    if (!(await ask('Delete this chat?', 'The messages are removed for you only. The other person keeps their copy, and a new message starts the chat again.', 'Delete'))) return;
     try {
       await hideThread(threadId);
+      toast('Chat deleted');
       changed();
       if (compact) onBack?.();
       else nav('/direct');
@@ -332,10 +548,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     }
   };
   const blockThem = async () => {
-    if (!(await ask(`Block ${thread.username}?`, "They won't be able to message you or find your profile. They won't be told.", 'Block'))) return;
+    if (!(await ask(`Block ${thread.username}?`, 'You will stop seeing their posts, stories and comments, and they can no longer message you. They are not told.', 'Block'))) return;
     try {
       await setBlock(me.id, thread.other_id, true);
-      toast(`${thread.username} is blocked`);
+      toast(`Blocked ${thread.username}`);
       changed();
       if (compact) onBack?.();
       else nav('/direct');
@@ -343,10 +559,11 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       toastError(e);
     }
   };
-  const reportThem = async () => {
-    if (!(await ask(`Report ${thread.username}?`, "Community's team will look at this account. They won't know who reported it.", 'Report'))) return;
-    report(me.id, { userId: thread.other_id }, 'Reported from a chat').then(() => toast('Thanks for letting us know'), toastError);
+  const reportThem = (reason: string) => {
+    setReporting(false);
+    report(me.id, { userId: thread.other_id }, reason).then(() => toast('Thanks. We will review this account.'), toastError);
   };
+  const copy = (words: string) => navigator.clipboard?.writeText(words).then(() => toast('Copied'), () => toast("Couldn't copy that."));
 
   const piece = (r: Row) => {
     const m = r.m;
@@ -354,20 +571,39 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       case 'snap':
         return <SnapBubble mine={r.mine} opened={!!m.opened_at} onOpen={() => openSnap(m)} />;
       case 'call':
-        return <CallLog m={m} mine={r.mine} onCall={isErha ? undefined : () => call(m.call_kind === 'video' ? 'video' : 'voice')} />;
+        return <CallLog m={m} mine={r.mine} onCall={isErha || callsOff ? undefined : () => call(m.call_kind === 'video' ? 'video' : 'voice')} />;
       case 'voice':
-        return <VoiceMessage m={m} mine={r.mine} />;
+        return <VoiceMessage m={m} mine={r.mine} locked={!!rec} />;
       case 'post':
         return <SharedPost id={m.post_id!} onOpen={showPost} />;
       case 'photo':
-        return (
-          <button type="button" className="msg-photo" onClick={() => setViewing(m.media_url)} aria-label="Photo">
-            <img src={m.media_url} alt="" onLoad={stick} />
-          </button>
-        );
+        return <PhotoPile urls={r.urls ?? [m.media_url]} onOpen={() => setViewing(r.urls ?? [m.media_url])} onLoad={stick} />;
       default:
         return r.big ? <span className="emoji-only">{m.text}</span> : <span className={'bubble' + (r.mine ? ' mine' : '')}>{m.text}</span>;
     }
+  };
+
+  /** What you can do with a message from its side, on hover: copy words, forward photos. */
+  const acts = (r: Row) => {
+    if (r.kind === 'text' && !r.big) {
+      return (
+        <span className="cv-acts">
+          <button type="button" className="icon-btn" aria-label="Copy message" title="Copy" onClick={() => copy(r.m.text)}>
+            <Icon name="copy" size={16} />
+          </button>
+        </span>
+      );
+    }
+    if (r.kind === 'photo' && !isErha) {
+      return (
+        <span className="cv-acts">
+          <button type="button" className="icon-btn" aria-label="Forward" title="Forward" onClick={() => setForwarding(r.urls ?? [r.m.media_url])}>
+            <Icon name="send" size={16} />
+          </button>
+        </span>
+      );
+    }
+    return null;
   };
 
   const head = compact ? (
@@ -385,10 +621,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       <span className="grow" />
       {!isErha ? (
         <>
-          <button className="icon-btn" aria-label="Voice call" disabled={calls.inCall} onClick={() => call('voice')}>
+          <button className="icon-btn" aria-label="Voice call" disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={20} />
           </button>
-          <button className="icon-btn" aria-label="Video call" disabled={calls.inCall} onClick={() => call('video')}>
+          <button className="icon-btn" aria-label="Video call" disabled={callsOff} onClick={() => call('video')}>
             <Icon name="video" size={22} />
           </button>
         </>
@@ -413,10 +649,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       <span className="grow" />
       {!isErha ? (
         <>
-          <button className="icon-btn" aria-label="Voice call" disabled={calls.inCall} onClick={() => call('voice')}>
+          <button className="icon-btn" aria-label="Voice call" disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={24} />
           </button>
-          <button className="icon-btn" aria-label="Video call" disabled={calls.inCall} onClick={() => call('video')}>
+          <button className="icon-btn" aria-label="Video call" disabled={callsOff} onClick={() => call('video')}>
             <Icon name="video" size={26} />
           </button>
         </>
@@ -427,6 +663,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     </header>
   );
 
+  const empty = !text.trim();
   return (
     <div className={'chat cv' + (compact ? ' compact' : '') + (details && !compact ? ' with-details' : '')}>
       <div
@@ -441,8 +678,16 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         }}
       >
         {head}
+        {quiet && !isErha ? (
+          <button type="button" className="cv-quiet" onClick={() => toast("They won't see “Seen” while you read. Change it in Settings.")}>
+            <Icon name="eye" size={13} stroke={2} />
+            Reading quietly
+          </button>
+        ) : null}
         <div
-          className="chat-log"
+          className={'chat-log' + (wall ? ' cv-walled' : '')}
+          style={wall ? { backgroundImage: wallpaperCss(wall) } : undefined}
+          data-wallpaper={wall?.id}
           ref={log}
           onScroll={(e) => {
             const el = e.currentTarget;
@@ -472,11 +717,14 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
           {rows.map((r) => {
             if (r.kind === 'stamp') return <div key={r.key} className="chat-stamp">{r.label}</div>;
             if (r.kind === 'notice') return <ScreenshotLine key={r.key} mine={r.mine} name={firstName(thread)} />;
+            const a = acts(r);
             return (
               <React.Fragment key={r.key}>
                 <div className={'msg' + (r.mine ? ' mine' : '') + (r.joinNext ? ' grouped join-next' : '') + (r.joinPrev ? ' join-prev' : '')} title={timeOf(r.m.created_at)}>
                   {!r.mine ? <span className="msg-avatar">{!r.joinNext ? <Avatar src={thread.avatar_url} name={thread.username} size={28} /> : null}</span> : null}
+                  {r.mine ? a : null}
                   <span className="msg-stack">{piece(r)}</span>
+                  {!r.mine ? a : null}
                 </div>
                 {r.seen ? <div className="seen">Seen</div> : null}
               </React.Fragment>
@@ -501,11 +749,13 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             ))}
           </div>
         ) : faqs.length && !compact ? (
-          <div className="chips">
+          <div className="chips cv-faqs" aria-label="Frequently asked questions">
+            <span className="cv-faqs-h">Frequently asked questions</span>
             {faqs.map((f) => (
               <button
                 key={f.id}
                 className="chip-btn"
+                disabled={sending}
                 onClick={async () => {
                   try {
                     await askFaq(f.id);
@@ -563,7 +813,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
           </div>
         ) : null}
 
-        {pending ? (
+        {pending && !rec ? (
           <div className="cv-pending" aria-label="Photos to send">
             <button type="button" className="cv-round quiet" aria-label="Don't send these photos" disabled={sending} onClick={() => setPending(null)}>
               <Icon name="close" size={14} stroke={2.4} />
@@ -583,77 +833,92 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
           </div>
         ) : null}
 
-        <form
-          className="composer cv-composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (text.trim()) send({ text });
-          }}
-          onPaste={(e) => {
-            const files = Array.from(e.clipboardData.files);
-            if (files.length && !isErha) {
+        {rec ? (
+          <RecordingBar phase={rec.phase} ms={rec.ms} levels={rec.levels} onDiscard={() => finishRecording(false)} onSend={() => finishRecording(true)} />
+        ) : (
+          <form
+            className="composer cv-composer"
+            onSubmit={(e) => {
               e.preventDefault();
-              addPhotos(files);
-            }
-          }}
-        >
-          <span className="cv-emoji-wrap">
-            <button type="button" className="icon-btn" aria-label="Emoji" aria-expanded={emoji} onClick={() => setEmoji(!emoji)}>
-              <Icon name="smile" size={24} />
-            </button>
-            {emoji ? (
-              <EmojiPop
-                onClose={() => setEmoji(false)}
-                onPick={(e) => {
-                  setText((t) => (t + e).slice(0, 5000));
-                  input.current?.focus();
-                }}
-              />
-            ) : null}
-          </span>
-          <input
-            ref={input}
-            placeholder={isErha ? 'Ask Erha…' : 'Message…'}
-            value={text}
-            autoFocus={!!text}
-            onChange={(e) => {
-              const t = e.target.value;
-              setText(t);
-              if (t.trim()) tellTyping();
-              else tellStopped();
-              // Typing /shortcut fills in a saved reply, as on the iPhone.
-              const m = /^\/(\w+)$/.exec(t.trim());
-              if (m) fetchSavedReplies(me.id).then((rs) => { const hit = rs.find((r) => r.shortcut.toLowerCase() === m[1].toLowerCase()); if (hit) setText(hit.body); }, () => {});
+              if (text.trim()) send({ text });
             }}
-            onBlur={tellStopped}
-            aria-label={'Message ' + thread.username}
-            maxLength={5000}
-          />
-          {text.trim() ? (
-            <button className="link-btn" disabled={sending}>
-              Send
-            </button>
-          ) : (
-            <>
-              {!isErha ? (
-                <>
-                  {!compact ? (
-                    <button type="button" className="icon-btn" aria-label="Saved replies" onClick={() => fetchSavedReplies(me.id).then(setReplies, toastError)}>
-                      <Icon name="reply" size={22} />
-                    </button>
-                  ) : null}
-                  <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => file.current?.click()}>
-                    <Icon name="image" size={24} />
-                  </button>
-                  <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) addPhotos(f); }} />
-                </>
-              ) : null}
-              <button type="button" className="icon-btn" aria-label="Send a heart" disabled={sending} onClick={() => send({ text: '❤️' })}>
-                <Icon name="heart" size={24} />
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData.files);
+              if (files.length && !isErha) {
+                e.preventDefault();
+                addPhotos(files);
+              }
+            }}
+          >
+            <span className="cv-emoji-wrap">
+              <button type="button" className="icon-btn" aria-label="Emoji" aria-expanded={emoji} onClick={() => setEmoji(!emoji)}>
+                <Icon name="smile" size={24} />
               </button>
-            </>
-          )}
-        </form>
+              {emoji ? (
+                <EmojiPop
+                  onClose={() => setEmoji(false)}
+                  onPick={(e) => {
+                    setText((t) => (t + e).slice(0, 5000));
+                    input.current?.focus();
+                  }}
+                />
+              ) : null}
+            </span>
+            <textarea
+              ref={input}
+              rows={1}
+              placeholder={isErha ? 'Ask Erha…' : 'Message…'}
+              value={text}
+              autoFocus={!!text}
+              onChange={(e) => {
+                const t = e.target.value;
+                setText(t);
+                if (t.trim()) tellTyping();
+                else tellStopped();
+                // Typing /shortcut fills in a saved reply, as on the iPhone.
+                const m = /^\/(\w+)$/.exec(t.trim());
+                if (m) fetchSavedReplies(me.id).then((rs) => { const hit = rs.find((r) => r.shortcut.toLowerCase() === m[1].toLowerCase()); if (hit) setText(hit.body); }, () => {});
+              }}
+              onKeyDown={(e) => {
+                // Enter sends; Shift+Enter starts a new line.
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  if (text.trim()) send({ text });
+                }
+              }}
+              onBlur={tellStopped}
+              aria-label={'Message ' + thread.username}
+              maxLength={5000}
+            />
+            {!empty ? (
+              <button className="link-btn" disabled={sending}>
+                Send
+              </button>
+            ) : (
+              <>
+                {!isErha ? (
+                  <>
+                    <button type="button" className="icon-btn" aria-label="Record a voice message" title="Click to record, or hold and let go to send" disabled={sending} onPointerDown={micDown} onClick={(e) => e.detail === 0 && startRecording()}>
+                      <Icon name="mic" size={24} />
+                    </button>
+                    <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => file.current?.click()}>
+                      <Icon name="image" size={24} />
+                    </button>
+                    {!compact ? (
+                      <button type="button" className="icon-btn" aria-label="Saved replies" onClick={() => fetchSavedReplies(me.id).then(setReplies, toastError)}>
+                        <Icon name="reply" size={22} />
+                      </button>
+                    ) : null}
+                    <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) addPhotos(f); }} />
+                  </>
+                ) : null}
+                <button type="button" className="icon-btn" aria-label="Send a heart" disabled={sending} onClick={() => send({ text: '❤️' })}>
+                  <Icon name="heart" size={24} />
+                </button>
+              </>
+            )}
+          </form>
+        )}
       </div>
 
       {details && !compact ? (
@@ -666,6 +931,12 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
               <i />
             </button>
           </div>
+          <button type="button" className="cv-detail-row cv-detail-link" onClick={() => setPicker(true)}>
+            <Icon name="wallpaper" size={22} />
+            <span className="grow">Wallpaper</span>
+            <span className="cv-detail-value">{me.plus ? wall?.name ?? 'None' : 'Plus'}</span>
+            <Icon name="right" size={16} stroke={2} />
+          </button>
           <div className="cv-detail-sec">
             <b>Members</b>
             <button type="button" className="row full hover" onClick={() => nav('/u/' + thread.username)}>
@@ -682,7 +953,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
           <div className="cv-detail-foot">
             {!isErha ? (
               <>
-                <button type="button" onClick={reportThem}>
+                <button type="button" onClick={() => setReporting(true)}>
                   Report
                 </button>
                 <button type="button" onClick={blockThem}>
@@ -698,11 +969,42 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       ) : null}
 
       {viewing ? (
-        <Modal onClose={() => setViewing(null)} bare className="photo-viewer">
-          <img src={viewing} alt="" />
+        <PhotoViewer
+          urls={viewing}
+          onClose={() => setViewing(null)}
+          onForward={
+            isErha
+              ? undefined
+              : () => {
+                  setForwarding(viewing);
+                  setViewing(null);
+                }
+          }
+        />
+      ) : null}
+      {forwarding ? <ForwardPhotos media={forwarding} onClose={() => setForwarding(null)} onSent={changed} /> : null}
+      {snap ? <SnapViewer url={snap.url} onClose={closeSnap} /> : null}
+      {picker ? (
+        <Modal title="Chat wallpaper" onClose={() => setPicker(false)} className="mx-wall-modal">
+          <WallpaperPicker onDone={() => setPicker(false)} />
         </Modal>
       ) : null}
-      {snap ? <SnapViewer url={snap.url} onClose={closeSnap} /> : null}
+      {reporting ? (
+        <Modal onClose={() => setReporting(false)} className="choices confirm">
+          <div className="confirm-text">
+            <h3>Report this account</h3>
+            <p>Why are you reporting {thread.username}? They won't know who reported them.</p>
+          </div>
+          {REPORT_REASONS.map((r) => (
+            <button key={r} type="button" onClick={() => reportThem(r)}>
+              {r}
+            </button>
+          ))}
+          <button type="button" onClick={() => setReporting(false)}>
+            Cancel
+          </button>
+        </Modal>
+      ) : null}
     </div>
   );
 }

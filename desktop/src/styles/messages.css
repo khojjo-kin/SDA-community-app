@@ -8,6 +8,7 @@
 body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
 .main > .direct.mx { flex: 1; min-height: 0; height: auto !important; }
 .direct.mx .threads-head { padding: 32px 24px 14px; }
+.mx-head-btns { display: flex; align-items: center; gap: 2px; margin-right: -8px; }
 .mx-search { display: flex; align-items: center; gap: 8px; height: 38px; margin: 0 20px 6px; padding: 0 12px; border-radius: 10px; background: var(--surface); color: var(--fg2); }
 .mx-search input { flex: 1; min-width: 0; height: 100%; color: var(--fg); }
 .mx-search input::placeholder { color: var(--fg3); }
@@ -224,11 +225,120 @@ body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
 .cv-once-toggle.on { background: var(--accent); color: var(--on-accent); }
 .cv-mini-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: spin 0.8s linear infinite; }
 
-/* The message box. */
-.cv-composer { padding: 0 10px 0 6px; gap: 2px; }
-.cv-composer input { padding: 0 6px; font-size: 14.5px; }
-.cv-composer .icon-btn { padding: 7px; }
-.cv-composer .link-btn { padding: 0 8px; }
+/* The message box. It grows with what you write (Shift+Enter for a new line), its buttons staying at the bottom. */
+.cv-composer { align-items: flex-end; padding: 1px 10px 1px 6px; gap: 2px; }
+.cv-composer textarea { flex: 1; min-width: 0; height: 40px; max-height: 120px; padding: 10px 6px; resize: none; font-size: 14.5px; line-height: 20px; color: var(--fg); overflow-y: auto; scrollbar-width: thin; }
+.cv-composer textarea::placeholder { color: var(--fg2); }
+.cv-composer .icon-btn { padding: 7px; margin-bottom: 1px; }
+.cv-composer .link-btn { height: 40px; padding: 0 8px; }
+.cv-composer .cv-emoji-wrap { margin-bottom: 1px; }
+
+/* Recording a voice message: it takes the message box's place. */
+.cv-rec { display: flex; align-items: center; gap: 8px; margin: 16px; min-height: 44px; padding: 4px; border-radius: 24px; background: var(--surface); }
+.cv-rec .cv-round.quiet:hover:not(:disabled) { background: var(--quiet-hover); color: var(--like); }
+.cv-rec-pill { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px 0 12px; border-radius: 18px; background: var(--accent); color: var(--on-accent); }
+.cv-rec.failed .cv-rec-pill { background: var(--surface2); color: var(--fg); }
+.cv-rec-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: currentColor; opacity: 0.55; }
+.cv-rec-dot.on { background: var(--like); opacity: 1; box-shadow: 0 0 0 2px var(--on-accent); animation: cv-rec-blink 1.2s ease-in-out infinite; }
+@keyframes cv-rec-blink { 50% { opacity: 0.6; } }
+.cv-rec-wave { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 2px; height: 26px; overflow: hidden; }
+.cv-rec-wave i { width: 3px; flex: none; border-radius: 2px; background: currentColor; opacity: 0.85; transition: height 0.1s linear; }
+.cv-rec-time { flex: none; min-width: 34px; text-align: right; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cv-rec-time.near { padding: 1px 6px; border-radius: 8px; background: var(--on-accent); color: var(--like); }
+.cv.compact .cv-rec { margin: 8px 10px 10px; }
+.cv.compact .cv-rec-wave i:nth-child(-n + 20) { display: none; }
+
+/* Hover actions beside a message: copy its words, forward its photos. */
+.cv-acts { display: flex; align-items: center; align-self: center; opacity: 0; transition: opacity 0.1s; }
+.cv-acts .icon-btn { padding: 6px; border-radius: 50%; color: var(--fg2); }
+.cv-acts .icon-btn:hover { color: var(--fg); background: var(--hover); }
+.msg:hover .cv-acts, .cv-acts:focus-within { opacity: 1; }
+.cv-walled .cv-acts .icon-btn { color: rgba(255, 255, 255, 0.75); }
+.cv-walled .cv-acts .icon-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+
+/* Several photos sent together: a small fanned pile, the first two showing. */
+.cv .msg-photo.cv-pile { position: relative; display: block; width: 236px; height: 300px; overflow: visible; border-radius: 0; }
+.cv-pile img { position: absolute; width: 172px; height: 222px; border-radius: 18px; object-fit: cover; background: var(--surface2); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); }
+.cv-pile .cv-pile-a { left: 2px; top: 4px; transform: rotate(-4deg); }
+.cv-pile .cv-pile-b { left: 58px; top: 72px; transform: rotate(3deg); }
+.cv-pile:hover img { filter: brightness(1.06); }
+.cv-pile-more { position: absolute; right: 10px; bottom: 14px; padding: 4px 9px; border-radius: 12px; background: var(--scrim); color: #fff; font-size: 13px; font-weight: 700; line-height: 16px; }
+.cv.compact .msg-photo.cv-pile { width: 190px; height: 240px; }
+.cv.compact .cv-pile img { width: 138px; height: 178px; }
+.cv.compact .cv-pile .cv-pile-b { left: 46px; top: 56px; }
+
+/* Photos, full window: always dark, like the iPhone's viewer. */
+.cv-viewer { position: fixed; inset: 0; z-index: 140; display: grid; place-items: center; background: rgba(0, 0, 0, 0.92); color: #fff; animation: fade 0.15s ease; }
+.cv-viewer > img { max-width: calc(100vw - 160px); max-height: calc(100vh - 120px); border-radius: 4px; object-fit: contain; }
+.cv-viewer-top { position: absolute; top: 12px; left: 16px; right: 12px; display: flex; align-items: center; gap: 4px; }
+.cv-viewer-count { flex: 1; font-weight: 600; font-size: 14px; }
+.cv-viewer .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.cv-viewer-step { position: absolute; top: 50%; width: 36px; height: 36px; margin-top: -18px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, 0.85); color: #0b1014; }
+.cv-viewer-step:hover { background: #fff; }
+.cv-viewer-step.prev { left: 24px; }
+.cv-viewer-step.next { right: 24px; }
+
+/* Forwarding photos. */
+.mx-fwd-photos { display: flex; gap: 8px; padding: 12px 16px 4px; overflow-x: auto; flex: none; }
+.mx-fwd-photos img { width: 54px; height: 72px; flex: none; border-radius: 10px; object-fit: cover; background: var(--surface); }
+.mx-fwd-foot { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line2); }
+.mx-fwd-note { height: 36px; padding: 0 4px; color: var(--fg); }
+.mx-fwd-note::placeholder { color: var(--fg3); }
+
+/* "Reading quietly" (Plus): under the header while they can't see "Seen". */
+.cv-quiet { align-self: center; display: inline-flex; align-items: center; gap: 5px; margin: 8px 0 0; padding: 3px 10px; border-radius: 11px; background: var(--surface); color: var(--fg2); font-size: 12px; font-weight: 600; flex: none; }
+.cv-quiet:hover { background: var(--surface2); }
+
+/* A creator's frequently asked questions. */
+.cv-faqs { align-items: center; }
+.cv-faqs-h { width: 100%; color: var(--fg2); font-size: 12.5px; }
+
+/* ---------- chat wallpapers (Plus) ---------- */
+/* The wallpapers are all dark, so words drawn straight on one (times, "Seen", notices, the name at the
+   top) are light in both themes, as the iPhone draws them with its dark colours. Bubbles stay as they are. */
+.chat-log.cv-walled { background-color: #0b1014; background-size: 100% 100%; }
+.cv-walled .chat-stamp, .cv-walled .seen, .cv-walled .cv-notice { color: rgba(243, 245, 247, 0.72); }
+.cv-walled .cv-notice svg { color: rgba(243, 245, 247, 0.5); }
+.cv-walled .chat-intro > b { color: #f3f5f7; }
+.cv-walled .chat-intro .muted-text { color: rgba(243, 245, 247, 0.72); }
+.cv-walled .chat-intro .btn.quiet { background: rgba(255, 255, 255, 0.14); color: #f3f5f7; }
+.cv-walled .chat-intro .btn.quiet:hover { background: rgba(255, 255, 255, 0.22); }
+.cv-walled > .spinner { border-color: rgba(255, 255, 255, 0.2); border-top-color: #fff; }
+
+/* The chooser: a preview of each wallpaper with a small sample chat. */
+.mx-wall-modal { width: min(640px, 100%); }
+.mx-wall { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 18px; }
+.mx-wall-sub { color: var(--fg2); font-size: 13.5px; }
+.mx-wall-upsell { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 14px; background: var(--surface); text-align: left; }
+.mx-wall-upsell:hover { background: var(--surface2); }
+.mx-wall-upsell > svg { color: var(--fg2); flex: none; }
+.mx-wall-crown { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+.mx-wall-upsell-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 18px; }
+.mx-wall-upsell-text b { font-size: 15px; }
+.mx-wall-upsell-text span { color: var(--fg2); font-size: 13px; }
+.mx-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
+.mx-wall-tile { display: flex; flex-direction: column; gap: 6px; text-align: center; border-radius: 16px; }
+.mx-wall-preview { position: relative; display: block; aspect-ratio: 3 / 4; border-radius: 14px; overflow: hidden; background: var(--bg); border: 1px solid var(--line2); transition: transform 0.12s, box-shadow 0.12s; }
+.mx-wall-preview.walled { border-color: transparent; }
+.mx-wall-tile:hover .mx-wall-preview { transform: translateY(-2px); box-shadow: var(--shadow); }
+.mx-wall-tile.on .mx-wall-preview { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.mx-wall-check { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--on-accent); border: 2px solid var(--bg); }
+.mx-wall-name { font-size: 13.5px; color: var(--fg2); }
+.mx-wall-tile.on .mx-wall-name { color: var(--fg); font-weight: 700; }
+.mx-wall-sample { position: absolute; inset: auto 0 0 0; display: flex; flex-direction: column; gap: 5px; padding: 10px; font-size: 10.5px; line-height: 13px; text-align: left; }
+.mx-wall-stamp { align-self: center; color: var(--fg2); font-size: 8.5px; font-weight: 600; letter-spacing: 0.2px; margin-bottom: 2px; }
+.mx-wall-bubble { align-self: flex-start; max-width: 82%; padding: 5px 9px; border-radius: 12px; background: var(--surface2); color: var(--fg); }
+.mx-wall-bubble.mine { align-self: flex-end; background: linear-gradient(135deg, #1fbf5a, #149a62); color: #fff; }
+.mx-wall-seen { align-self: flex-end; color: var(--fg2); font-size: 9px; margin-top: -2px; }
+.walled .mx-wall-stamp, .walled .mx-wall-seen { color: rgba(243, 245, 247, 0.72); }
+.mx-wall-foot { display: flex; justify-content: flex-end; }
+.mx-wall-foot .btn { height: 36px; min-width: 96px; }
+
+/* The Wallpaper row in a chat's details. */
+.cv-detail-link { width: 100%; text-align: left; }
+.cv-detail-link:hover { background: var(--hover); }
+.cv-detail-link > svg:last-child { color: var(--fg3); }
+.cv-detail-value { color: var(--fg2); font-size: 14px; }
 .cv-emoji-wrap { position: relative; display: inline-flex; }
 .cv-emoji { position: absolute; z-index: 5; left: -4px; bottom: 48px; display: grid; grid-template-columns: repeat(8, 34px); gap: 2px; padding: 8px; border-radius: 14px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); animation: zoom 0.12s ease; }
 .cv-emoji button { width: 34px; height: 34px; border-radius: 8px; font-size: 20px; line-height: 34px; }
@@ -275,6 +385,7 @@ body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
 /* Narrow windows: the chat list shrinks to pictures, as Instagram's does. */
 @media (max-width: 900px) {
   .direct.mx .mx-search, .direct.mx .nt-row { display: none; }
+  .mx-head-btns { flex-direction: column; margin: 0 auto; }
   .cv-details { position: absolute; right: 0; top: 0; bottom: 0; z-index: 4; background: var(--bg); box-shadow: var(--shadow); }
   .chat.cv { position: relative; }
 }

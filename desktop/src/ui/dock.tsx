@@ -1,14 +1,18 @@
 // The floating Messages button in the bottom corner, and the small inbox it opens, as on Instagram
 // on a computer. A chat opens inside the small inbox (no page change); expand goes to the full chat.
 // Shown on every page except the full inbox (/direct) and live videos, which have their own messages.
+// It is always there (even when hidden), so it also keeps a shared location fresh on every page.
 import React, { useEffect, useState } from 'react';
+import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
+import { useLiveLocation } from '../screens/map';
 import { Avatar, Icon, Spinner } from './kit';
 import { Chat } from './chat-view';
 import { ThreadRow, usePresence, useThreads } from './chat-threads';
 import '../styles/messages.css';
 
 export function MessagesDock() {
+  const { me } = useMe();
   const route = useRoute();
   const hidden = route.startsWith('/direct') || route.startsWith('/live');
   const [open, setOpen] = useState(false);
@@ -17,6 +21,8 @@ export function MessagesDock() {
   const { threads, reload } = useThreads();
   // The app is open on this page, so friends see you as active.
   usePresence(!hidden);
+  // While you share your location (the friends' map), it is sent again every couple of minutes, as on the iPhone.
+  useLiveLocation(me.id, !me.restricted && !me.deleted_at);
 
   // The full inbox takes over: the small one starts closed again afterwards.
   useEffect(() => {
