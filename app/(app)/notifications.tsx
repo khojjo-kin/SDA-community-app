@@ -194,7 +194,8 @@ export default function Notifications() {
             const verb = t(VERB[n.kind]);
             return (
               <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${n.username} ${verb}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: pressed ? C.press : 'transparent' })}>
-                <Pressable onPress={() => router.push(n.kind === 'new_story' ? `/story/${n.actor_id}` : `/user/${n.actor_id}`)} accessibilityLabel={t(n.kind === 'new_story' ? 'notifications.openStory' : 'notifications.openProfile', { username: n.username })}>
+                {/* One width for every face, ringed or not, so the words all start in the same place. */}
+                <Pressable onPress={() => router.push(n.kind === 'new_story' ? `/story/${n.actor_id}` : `/user/${n.actor_id}`)} accessibilityLabel={t(n.kind === 'new_story' ? 'notifications.openStory' : 'notifications.openProfile', { username: n.username })} style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
                   {n.kind === 'live' || n.kind === 'live_soon' ? (
                     <View style={{ padding: 2, borderRadius: 30, borderWidth: 2, borderColor: C.like }}>
                       <Avatar uri={n.avatar_url} name={n.full_name} size={42} />
@@ -203,7 +204,7 @@ export default function Notifications() {
                     <Avatar uri={n.avatar_url} name={n.full_name} size={ring ? 42 : 46} ring={ring} />
                   )}
                 </Pressable>
-                <Text style={{ flex: 1, color: C.fg, lineHeight: 20 }}>
+                <Text numberOfLines={4} style={{ flex: 1, color: C.fg, lineHeight: 20 }}>
                   <Text style={{ fontWeight: '600' }} onPress={() => router.push(`/user/${n.actor_id}`)}>{n.username}</Text>
                   {n.verified ? <Text> <VerifiedTick size={13} /></Text> : null} {verb}
                   {n.kind === 'comment' && n.body ? ` ${n.body}` : ''} <Text style={{ color: C.fg2 }}>{ago(n.created_at)}</Text>

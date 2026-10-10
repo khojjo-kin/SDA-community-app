@@ -4,7 +4,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { AdminFrame, money, useWide } from '../../src/components/AdminFrame';
 import { Icon, IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
-import { fetchAdminQueue, fetchAdminStats } from '../../src/lib/api';
+import { countPendingPublishers, fetchAdminQueue, fetchAdminStats } from '../../src/lib/api';
+import { t } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { supabase } from '../../src/lib/supabase';
 import { C, count, errText, fmt } from '../../src/lib/theme';
@@ -46,6 +47,7 @@ export default function Admin() {
   const [error, setError] = useState('');
   // Open support chats. The stats' support_open counts the old tickets, so chats are counted here.
   const [chatsOpen, setChatsOpen] = useState<number | undefined>(undefined);
+  const [publishersPending, setPublishersPending] = useState<number | undefined>(undefined);
 
   useFocusEffect(
     useCallback(() => {
@@ -53,6 +55,7 @@ export default function Admin() {
       setError('');
       fetchAdminStats().then(setStats).catch((e) => setError(errText(e)));
       fetchAdminQueue().then(setQueue).catch((e) => setError(errText(e)));
+      countPendingPublishers().then(setPublishersPending, () => {});
       supabase
         .from('community_support_chats')
         .select('id', { count: 'exact', head: true })
@@ -130,6 +133,7 @@ export default function Admin() {
         <Row icon="flag" title="Reports" sub="What members have flagged" value={badge(stats?.reports_open)} onPress={() => router.push('/admin-reports')} />
         <Row icon="idcard" title="Identity checks" sub="Document and selfie checks for the blue tick" value={badge(queue?.verifications_pending)} onPress={() => router.push('/admin-requests')} />
         <Row icon="crown" title="Plus requests" sub="Plus arranged through a church: approve or decline" value={badge(plusOpen)} onPress={() => router.push('/admin-requests?kind=plus' as any)} />
+        <Row icon="lesson" title={t('adminPub.title')} sub={t('adminPub.sub')} value={badge(publishersPending)} onPress={() => router.push('/admin-publishers' as any)} />
         <Row icon="church" title="Churches to approve" sub="Churches suggested by members" value={badge(queue?.churches_pending)} onPress={() => router.push('/admin-churches' as any)} />
         <Row icon="lifebuoy" title="Support chats" sub="Members asking for help: the assistant answers first, you can step in" value={badge(chatsOpen)} onPress={() => router.push('/admin-support')} />
         <Row icon="star" title="Feedback and reviews" sub="Ratings, ideas and problems members send" onPress={() => router.push('/admin-feedback' as any)} />

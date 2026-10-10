@@ -276,7 +276,7 @@ export default function Settings() {
       <View style={{ paddingTop: 4, paddingBottom: 4 }}>
         <SearchField value={q} onChangeText={setQ} label={t('settings.search')} />
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {needle ? (
           matches.length ? (
             <View style={{ paddingTop: 8 }}>{matches.map(row)}</View>
@@ -293,7 +293,7 @@ export default function Settings() {
               </View>
             ))}
             <SectionLabel>{t('settings.section.login')}</SectionLabel>
-            <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? C.surface : 'transparent' })}>
+            <Pressable onPress={logOut} accessibilityRole="button" style={({ pressed }) => ({ paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? C.press : 'transparent' })}>
               <Text style={{ color: C.danger, fontSize: 17.5 }}>{t('settings.logOut')}</Text>
             </Pressable>
             <Text style={{ color: C.fg3, fontSize: 13, paddingHorizontal: 16, paddingTop: 6 }}>{t('settings.loggedInAs', { username: profile?.username ?? '' })}</Text>

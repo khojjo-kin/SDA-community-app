@@ -725,3 +725,37 @@ export type FriendLocation = { user_id: string; lat: number; lng: number; accura
 
 /** A subscription between a member and a creator. */
 export type CreatorSub = { id: string; creator_id: string; subscriber_id: string; status: string; current_period_end: string | null; cancel_at_period_end: boolean; amount_pence: number; created_at: string; profile?: Profile | null };
+
+/* ---------- v21: Sabbath School publishers, Bible highlights and notes ---------- */
+
+/** A member's request to publish in Sabbath School, and what the admins decided. */
+export type Publisher = { user_id: string; status: 'pending' | 'approved' | 'rejected' | 'revoked'; note: string; decided_by: string | null; decided_at: string | null; created_at: string; profile?: Profile | null };
+
+export type SabbathPostKind = 'study' | 'lesson' | 'announcement' | 'resource';
+
+/** A study, lesson help, announcement or resource from an approved publisher (community_sabbath_post_cards). */
+export type SabbathPost = {
+  id: string;
+  author_id: string;
+  kind: SabbathPostKind;
+  title: string;
+  body: string;
+  /** Like "Lesson 2 · Oct 11", or ''. */
+  lesson_ref: string;
+  media: Media[];
+  /** '' or an https:// address. */
+  link: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  mine: boolean;
+};
+
+export type BibleMarkColor = '' | 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+
+/** My highlight (a colour) and/or note on one verse. Private to me. */
+export type BibleMark = { user_id: string; translation: string; book: string; chapter: number; verse: number; color: BibleMarkColor; note: string; updated_at: string };

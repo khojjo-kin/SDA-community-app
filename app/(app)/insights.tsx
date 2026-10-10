@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { GridCell } from '../../src/components/Grid';
+import { GridCell, useOpenFromGrid } from '../../src/components/Grid';
 import { PersonRow } from '../../src/components/PersonRow';
 import { Divider, Empty, ErrorNote, Loading, Screen, ScreenHeader, SectionLabel } from '../../src/components/ui';
 import { fetchStats, fetchUserPosts, listNewFollowers } from '../../src/lib/api';
@@ -58,6 +58,7 @@ export default function Insights() {
   const [people, setPeople] = useState<Profile[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState('');
+  const openPost = useOpenFromGrid(posts);
 
   const asked = useRef(0);
   const load = useCallback(async () => {
@@ -177,7 +178,7 @@ export default function Insights() {
                     <SectionLabel strong>Posts and shorts from this period</SectionLabel>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2 }}>
                       {posts.map((p) => (
-                        <GridCell key={p.id} post={p} size={cell} />
+                        <GridCell key={p.id} post={p} size={cell} onOpen={openPost} />
                       ))}
                     </View>
                   </>

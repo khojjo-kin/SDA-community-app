@@ -90,21 +90,22 @@ export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refresh
           <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, maxWidth: 76, marginTop: 2 }}>{l.username}</Text>
         </Pressable>
       ))}
-      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={{ width: 76, alignItems: 'center', gap: 5 }}>
-        <View>
+      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+        {/* The same 76 square as a ringed circle, so "Your story" lines up with the names beside it. */}
+        <View style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
           <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? (mine.seen ? 'seen' : 'new') : null} />
           {!mine ? (
-            <View style={{ position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ position: 'absolute', right: 0, bottom: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: C.fg, borderWidth: 3, borderColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="plus" size={14} color={C.bg} weight={3} />
             </View>
           ) : null}
         </View>
-        <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12 }}>Your story</Text>
+        <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, marginTop: 2 }}>Your story</Text>
       </Pressable>
       {others.map((g) => (
-        <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} onLongPress={() => preview(g)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} accessibilityHint="Hold to preview quietly" style={{ width: 76, alignItems: 'center', gap: 5 }}>
+        <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} onLongPress={() => preview(g)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} accessibilityHint="Hold to preview quietly" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <Avatar uri={g.avatar_url} name={g.username} size={66} ring={g.seen ? 'seen' : g.close ? 'close' : 'new'} />
-          <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76 }}>{g.username}</Text>
+          <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76, marginTop: 2 }}>{g.username}</Text>
         </Pressable>
       ))}
       {loaded ? null : [1, 2, 3, 4, 5].map((i) => <StoryCircleSkeleton key={i} index={i} />)}

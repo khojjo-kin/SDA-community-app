@@ -1339,7 +1339,7 @@ export default function Chat() {
             {tray ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={{ gap: 6, paddingHorizontal: 6, paddingBottom: 8 }}>
                 {QUICK.map((e) => (
-                  <Pressable key={e} onPress={() => send({ text: e })} disabled={sending} accessibilityRole="button" accessibilityLabel={`Send ${e}`} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.inputBar, alignItems: 'center', justifyContent: 'center' }}>
+                  <Pressable key={e} onPress={() => send({ text: e })} disabled={sending} accessibilityRole="button" accessibilityLabel={`Send ${e}`} style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: C.inputBar, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
                     <Text style={{ fontSize: 26 }}>{e}</Text>
                   </Pressable>
                 ))}

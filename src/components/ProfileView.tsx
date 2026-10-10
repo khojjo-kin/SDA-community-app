@@ -16,19 +16,20 @@ import { prefetchLibrary } from '../lib/library';
 import { listen } from '../lib/store';
 import { profileTheme, ringColors } from '../lib/styling';
 import { C, errText, fmt, monthName } from '../lib/theme';
+import type { GridSource } from '../lib/grid-open';
 import type { FollowAlerts, Post, Profile } from '../lib/types';
 import { AccountSwitcher } from './AccountSwitcher';
 import { type Accent, AccentButton, DiscoverCarousel, prefetchSuggestions } from './DiscoverCarousel';
 import { FundraiserCard } from './FundraiserCard';
 import { DarkStatusBar } from './OnDark';
-import { GridCell } from './Grid';
+import { GridCell, useOpenFromGrid } from './Grid';
 import { HighlightsRow } from './HighlightsRow';
 import { ScheduledLiveCard } from './LiveSchedule';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
 import { ProfileSkeleton } from './Skeleton';
-import { ShimmerText } from './ThinkingOrb';
 import { Avatar, Button, Empty, ErrorNote, Header, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
+import { WritingText } from './WritingText';
 
 type Tab = 'grid' | 'reels' | 'reposts';
 // Labels here and in ALERT_ROWS are keys, looked up as the profile draws, so they follow the app's language.
@@ -49,8 +50,8 @@ const BAND_HEIGHT = 190;
 function Stat({ n, label, onPress, color }: { n: number; label: string; onPress?: () => void; color: string }) {
   const body = (
     <>
-      <Text style={{ color, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{fmt(n)}</Text>
-      <Text style={{ color, fontSize: 14 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{fmt(n)}</Text>
+      <Text numberOfLines={1} style={{ color, fontSize: 14 }}>{label}</Text>
     </>
   );
   if (!onPress) {
@@ -214,29 +215,30 @@ function AboutRow({ icon, title, value }: { icon: React.ReactNode; title: string
 }
 
 /**
- * "Share your first photo or clip" (and "Share your first clip" on the Clips tab): on your own empty
- * profile a band of the app's green passes through the words. The words are the theme's text colour,
- * which reads on Dark and White alike; the band is C.accent, the app's green in every theme
- * (#1fbf5a on Dark, deeper on White so it shows on white).
+ * "Share your first photo or short" (and "Share your first short" on the Shorts tab): on your own empty
+ * profile the words write themselves in the app's green (WritingText). A tap opens Create.
  */
-function ShareFirst({ title, body }: { title: string; body: string }) {
+function ShareFirst({ title, body, onPress }: { title: string; body: string; onPress: () => void }) {
   return (
-    <View style={{ padding: 36, alignItems: 'center', gap: 8 }}>
-      <ShimmerText text={title} size={20} bold center color={C.fg} shine={C.accent} />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title} style={({ pressed }) => ({ paddingHorizontal: 32, paddingVertical: 36, alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
+      <WritingText text={title} size={20} />
       <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 20 }}>{body}</Text>
-    </View>
+    </Pressable>
   );
 }
 
 const GRID_GAP = 2;
+const LIST_SOURCE: GridSource = { from: 'list' };
 const GridGap = () => <View style={{ height: GRID_GAP }} />;
 const keyOfPost = (p: Post) => p.id;
 
 /** The profile's grid: the shared grid cells, with room after them for the subscriber-only card. */
-function ProfileGrid({ posts, header, empty, footer, refreshing, onRefresh }: { posts: Post[]; header: React.ReactElement; empty: React.ReactElement; footer: React.ReactElement | null; refreshing: boolean; onRefresh: () => void }) {
+function ProfileGrid({ posts, header, empty, footer, refreshing, onRefresh, source, subtitle }: { posts: Post[]; header: React.ReactElement; empty: React.ReactElement; footer: React.ReactElement | null; refreshing: boolean; onRefresh: () => void; source: GridSource; subtitle: string }) {
   const { width } = useWindowDimensions();
   const size = Math.floor((width - GRID_GAP * 2) / 3);
-  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} />, [size]);
+  // A post opens a feed of this tab's posts at that one; a Short opens the Shorts player (src/lib/grid-open.ts).
+  const open = useOpenFromGrid(posts, source, subtitle);
+  const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} onOpen={open} />, [size, open]);
   return (
     <FlatList
       data={posts}
@@ -740,6 +742,9 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       </View>
       <ProfileGrid
         posts={profile.is_blocked || locked ? [] : list}
+        // Reposts are other people's posts: that tab's feed is just what it shows.
+        source={tab === 'reposts' ? LIST_SOURCE : { from: 'user', userId }}
+        subtitle={profile.username}
         header={head}
         footer={lockedCard}
         refreshing={refreshing}
@@ -750,7 +755,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           ) : locked ? (
             <Empty icon="lock" title={t('profile.private')} body={t('profile.privateBody')} />
           ) : mine && tab !== 'reposts' ? (
-            <ShareFirst title={emptyFor[tab][0]} body={emptyFor[tab][1]} />
+            <ShareFirst title={emptyFor[tab][0]} body={emptyFor[tab][1]} onPress={() => { prefetchLibrary(); router.push(tab === 'reels' ? '/create?mode=shorts' : '/create?mode=post'); }} />
           ) : lockedCard ? (
             // Everything they've posted is for subscribers: the card below says so, rather than "No posts yet".
             <View style={{ height: 16 }} />
@@ -843,9 +848,6 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
             <Text numberOfLines={1} style={{ color: C.fg, fontSize: 17, fontWeight: '700', flexShrink: 1 }}>{profile.username}</Text>
             {profile.verified ? <VerifiedTick /> : null}
           </View>
-          <Text style={{ color: C.fg2, fontSize: 13.5, textAlign: 'center', lineHeight: 19, marginTop: 8 }}>
-            {t('profile.aboutIntro')}
-          </Text>
         </View>
         {Number.isNaN(joined.getTime()) ? null : <AboutRow icon={<Icon name="calendar" size={21} color={C.fg} />} title={t('profile.dateJoined')} value={`${monthName(joined)} ${joined.getFullYear()}`} />}
         {profile.country ? <AboutRow icon={<Icon name="location" size={21} color={C.fg} />} title={t('profile.basedIn')} value={profile.country} /> : null}

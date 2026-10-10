@@ -130,7 +130,6 @@ export default function Reels() {
           <DarkEmpty
             icon="reels"
             title={t(friends ? 'clips.emptyFriendsTitle' : 'clips.emptyTitle')}
-            body={t(friends ? 'clips.emptyFriendsBody' : 'clips.emptyBody')}
             action={<Button small label={t('clips.shareClip')} onPress={create} style={{ marginTop: 8 }} />}
           />
         </View>
