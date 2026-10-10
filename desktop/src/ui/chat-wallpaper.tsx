@@ -5,6 +5,7 @@
 import React from 'react';
 import { loadPrefs, setPrefs, usePrefs } from 'shared/prefs';
 import { WALLPAPERS, wallpaperById } from 'shared/wallpapers';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Icon, toast } from './kit';
@@ -15,6 +16,17 @@ import '../styles/messages.css';
 loadPrefs();
 
 export type Wallpaper = (typeof WALLPAPERS)[number];
+
+/** Each wallpaper's name in the app's language (a wallpaper added later shows its own name until it has one). */
+const NAMES: Record<string, string> = {
+  dusk: 'd.messages.wallDusk',
+  olive: 'd.messages.wallOlive',
+  sea: 'd.messages.wallSea',
+  sand: 'd.messages.wallSand',
+  rose: 'd.messages.wallRose',
+  royal: 'd.messages.wallRoyal',
+};
+export const wallName = (w: Wallpaper) => (NAMES[w.id] ? t(NAMES[w.id]) : w.name);
 
 /** The gradient a wallpaper is drawn with: from the top left corner to the bottom right, as on the iPhone. */
 export const wallpaperCss = (w: Wallpaper) => `linear-gradient(to bottom right, ${w.colors.join(', ')})`;
@@ -34,7 +46,7 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
   const { me } = useMe();
   const prefs = usePrefs();
   const plus = !!me.plus;
-  const choices: { id: string; name: string; wall: Wallpaper | null }[] = [{ id: '', name: 'None', wall: null }, ...WALLPAPERS.map((w) => ({ id: w.id, name: w.name, wall: w }))];
+  const choices: { id: string; name: string; wall: Wallpaper | null }[] = [{ id: '', name: t('create.none'), wall: null }, ...WALLPAPERS.map((w) => ({ id: w.id, name: wallName(w), wall: w }))];
 
   const toPlus = () => {
     onDone?.();
@@ -42,7 +54,7 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
   };
   const choose = (id: string) => {
     if (!plus) {
-      toast('Chat wallpapers are part of Community Plus');
+      toast(t('d.messages.wallPlusOnly'));
       toPlus();
       return;
     }
@@ -52,20 +64,20 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
   return (
     <div className="mx-wall">
       {plus ? (
-        <p className="mx-wall-sub">The look behind every chat on this computer. Only you see it.</p>
+        <p className="mx-wall-sub">{t('d.messages.wallSub')}</p>
       ) : (
         <button type="button" className="mx-wall-upsell" onClick={toPlus}>
           <span className="mx-wall-crown">
             <Icon name="crown" size={22} />
           </span>
           <span className="mx-wall-upsell-text">
-            <b>A Community Plus perk</b>
-            <span>Choose the look behind every chat with Community Plus.</span>
+            <b>{t('d.messages.wallPerk')}</b>
+            <span>{t('d.messages.wallPerkBody')}</span>
           </span>
           <Icon name="right" size={18} stroke={2} />
         </button>
       )}
-      <div className="mx-wall-grid" role="radiogroup" aria-label="Chat wallpaper">
+      <div className="mx-wall-grid" role="radiogroup" aria-label={t('settings.chatWallpaper')}>
         {choices.map((c) => {
           const on = plus && (prefs.chatWallpaper || '') === c.id;
           return (
@@ -86,7 +98,7 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
       {onDone ? (
         <div className="mx-wall-foot">
           <button type="button" className="btn" onClick={onDone}>
-            Done
+            {t('feed.done')}
           </button>
         </div>
       ) : null}
@@ -98,10 +110,10 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
 function SampleChat() {
   return (
     <span className="mx-wall-sample" aria-hidden="true">
-      <span className="mx-wall-stamp">TODAY AT 09:41</span>
-      <span className="mx-wall-bubble">Happy Sabbath!</span>
-      <span className="mx-wall-bubble mine">See you at church 🙏</span>
-      <span className="mx-wall-seen">Seen</span>
+      <span className="mx-wall-stamp">{t('d.messages.stampToday', { time: '09:41' })}</span>
+      <span className="mx-wall-bubble">{t('d.messages.sampleTheirs')}</span>
+      <span className="mx-wall-bubble mine">{t('d.messages.sampleMine')}</span>
+      <span className="mx-wall-seen">{t('d.messages.seen')}</span>
     </span>
   );
 }

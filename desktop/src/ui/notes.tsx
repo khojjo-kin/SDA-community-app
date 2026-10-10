@@ -4,26 +4,27 @@
 // NotesRow sits at the top of the inbox; NoteBubble sits over a profile picture.
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { deleteNote, fetchNotes, fetchPod, openThread, saveNote } from 'shared/api';
-import { agoLong, clock } from 'shared/theme';
+import { clock } from 'shared/theme';
 import type { Note, PodItem } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, Verified, ask, toast, toastError } from './kit';
 import { usePlayer } from './player';
-import { firstName, setDraft } from './chat-bits';
+import { firstName, longAgo, setDraft } from './chat-bits';
 import '../styles/messages.css';
 
 export const NOTE_MAX = 60;
 export const PLACE_MAX = 80;
-/** The bubble colours, as on the iPhone. '' is the theme's own. */
+/** The bubble colours, as on the iPhone. '' is the theme's own. `label` is the key of its name. */
 export const NOTE_COLORS: { value: string; label: string }[] = [
-  { value: '', label: 'Theme colour' },
-  { value: '#1fbf5a', label: 'Green' },
-  { value: '#3d8bff', label: 'Blue' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#ff3d6e', label: 'Pink' },
-  { value: '#ff8a00', label: 'Orange' },
-  { value: '#ffd23f', label: 'Yellow' },
+  { value: '', label: 'd.messages.themeColour' },
+  { value: '#1fbf5a', label: 'bibleMarks.green' },
+  { value: '#3d8bff', label: 'bibleMarks.blue' },
+  { value: '#8b5cf6', label: 'bibleMarks.purple' },
+  { value: '#ff3d6e', label: 'bibleMarks.pink' },
+  { value: '#ff8a00', label: 'd.messages.orange' },
+  { value: '#ffd23f', label: 'bibleMarks.yellow' },
 ];
 /** How long a friend's song plays when you open their note. */
 const PREVIEW_MS = 15000;
@@ -141,12 +142,12 @@ export function NotesRow() {
   const mine = list?.find((n) => n.mine && live(n)) ?? null;
   const others = (list ?? []).filter((n) => !n.mine && live(n));
   return (
-    <div className="nt-row" role="group" aria-label="Notes">
-      <NoteFace src={me.avatar_url} name={me.username} label="Your note" onClick={() => setEditing(true)} adding={!mine} a11y={mine ? `Your note: ${noteWords(mine)}. Change or delete it` : 'Leave a note'}>
-        {mine ? <NoteShape size="sm" text={mine.text} song={songLine(mine)} place={mine.place} color={mine.color} /> : <NoteShape size="sm" text="Note…" placeholder />}
+    <div className="nt-row" role="group" aria-label={t('bibleMarks.notes')}>
+      <NoteFace src={me.avatar_url} name={me.username} label={t('noteNew.label')} onClick={() => setEditing(true)} adding={!mine} a11y={mine ? t('d.messages.yourNoteLabel', { note: noteWords(mine) }) : t('d.messages.leaveNote')}>
+        {mine ? <NoteShape size="sm" text={mine.text} song={songLine(mine)} place={mine.place} color={mine.color} /> : <NoteShape size="sm" text={t('d.messages.notePlaceholderShort')} placeholder />}
       </NoteFace>
       {others.map((n) => (
-        <NoteFace key={n.user_id} src={n.avatar_url} name={n.username} label={firstName(n)} onClick={() => setViewing(n)} a11y={`Note from ${n.full_name || n.username}: ${noteWords(n)}`}>
+        <NoteFace key={n.user_id} src={n.avatar_url} name={n.username} label={firstName(n)} onClick={() => setViewing(n)} a11y={t('d.messages.noteFrom', { name: n.full_name || n.username, note: noteWords(n) })}>
           <NoteShape size="sm" text={n.text} song={songLine(n)} place={n.place} color={n.color} />
         </NoteFace>
       ))}
@@ -167,8 +168,8 @@ export function NoteBubble({ userId, mine }: { userId: string; mine: boolean }) 
   if (!list || (!mine && !note)) return null;
   return (
     <span className="nt-anchor">
-      <button type="button" className="nt-anchor-btn" onClick={() => setOpen(true)} aria-label={mine ? (note ? `Your note: ${noteWords(note)}. Change or delete it` : 'Leave a note') : `Note from ${note!.full_name || note!.username}: ${noteWords(note!)}`}>
-        {note ? <NoteShape size="sm" text={note.text} song={songLine(note)} place={note.place} color={note.color} /> : <NoteShape size="sm" text="Note…" placeholder />}
+      <button type="button" className="nt-anchor-btn" onClick={() => setOpen(true)} aria-label={mine ? (note ? t('d.messages.yourNoteLabel', { note: noteWords(note) }) : t('d.messages.leaveNote')) : t('d.messages.noteFrom', { name: note!.full_name || note!.username, note: noteWords(note!) })}>
+        {note ? <NoteShape size="sm" text={note.text} song={songLine(note)} place={note.place} color={note.color} /> : <NoteShape size="sm" text={t('d.messages.notePlaceholderShort')} placeholder />}
       </button>
       {open && mine ? <NoteEditor onClose={() => setOpen(false)} /> : null}
       {open && !mine && note ? <NoteCard note={note} onClose={() => setOpen(false)} /> : null}
@@ -207,7 +208,7 @@ export function NoteCard({ note, onClose }: { note: Note; onClose: () => void })
     setBusy(true);
     try {
       const tid = await openThread(note.user_id);
-      setDraft(tid, `Replying to your note: ‘${noteWords(note)}’ `);
+      setDraft(tid, t('d.messages.replyingToNote', { note: noteWords(note) }) + ' ');
       onClose();
       nav('/direct/t/' + tid);
     } catch (e) {
@@ -218,7 +219,7 @@ export function NoteCard({ note, onClose }: { note: Note; onClose: () => void })
   const playing = !!songItem && player.item?.id === songItem.id && player.playing;
   return (
     <Modal onClose={onClose} className="nt-card">
-      <button className="icon-btn nt-card-close" aria-label="Close" onClick={onClose}>
+      <button className="icon-btn nt-card-close" aria-label={t('common.close')} onClick={onClose}>
         <Icon name="close" size={20} />
       </button>
       <div className="nt-card-body">
@@ -231,15 +232,15 @@ export function NoteCard({ note, onClose }: { note: Note; onClose: () => void })
           {note.verified ? <Verified size={14} /> : null}
         </b>
         <span className="nt-card-meta">
-          {agoLong(note.created_at)}
+          {longAgo(note.created_at)}
           {note.audience === 'close_friends' ? (
             <span className="nt-close-badge">
-              <Icon name="star" size={11} fill="currentColor" /> Close friends
+              <Icon name="star" size={11} fill="currentColor" /> {t('noteNew.closeFriends')}
             </span>
           ) : null}
         </span>
         {songItem ? (
-          <button type="button" className="nt-song-row" onClick={() => player.play(songItem)} aria-label={playing ? 'Pause song' : 'Play song'}>
+          <button type="button" className="nt-song-row" onClick={() => player.play(songItem)} aria-label={t(playing ? 'd.messages.pauseSong' : 'd.messages.playSong')}>
             <span className="nt-song-cover">{note.song_cover ? <img src={note.song_cover} alt="" /> : <Icon name="music" size={18} />}</span>
             <span className="row-text">
               <b>{note.song_title}</b>
@@ -249,7 +250,7 @@ export function NoteCard({ note, onClose }: { note: Note; onClose: () => void })
           </button>
         ) : null}
         <button className="btn block big" onClick={reply} disabled={busy}>
-          Reply to {firstName(note)}
+          {t('d.messages.replyTo', { name: firstName(note) })}
         </button>
       </div>
     </Modal>
@@ -311,7 +312,7 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
     try {
       await saveNote(me.id, text, audience, { song_id: song?.id ?? null, place, color });
       await refreshNotes(me.id);
-      toast('Note shared');
+      toast(t('noteNew.shared'));
       onClose();
     } catch (e) {
       toastError(e);
@@ -319,12 +320,12 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
     }
   };
   const remove = async () => {
-    if (busy || !(await ask('Delete your note?', 'Your friends will no longer see it.', 'Delete'))) return;
+    if (busy || !(await ask(t('noteNew.deleteQuestion'), t('d.messages.noteGone'), t('common.delete')))) return;
     setBusy(true);
     try {
       await deleteNote(me.id);
       await refreshNotes(me.id);
-      toast('Note deleted');
+      toast(t('noteNew.deleted'));
       onClose();
     } catch (e) {
       toastError(e);
@@ -334,7 +335,7 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
 
   if (view === 'music') {
     return (
-      <Modal onClose={onClose} className="nt-editor" title="Music">
+      <Modal onClose={onClose} className="nt-editor" title={t('noteNew.music')}>
         <SongPicker
           chosen={song?.id ?? null}
           onBack={() => setView('main')}
@@ -351,7 +352,7 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
 
   const ink = noteInk(color);
   return (
-    <Modal onClose={onClose} className="nt-editor" title={existing ? 'Your note' : 'New note'}>
+    <Modal onClose={onClose} className="nt-editor" title={existing ? t('noteNew.label') : t('d.messages.newNote')}>
       <div className="nt-editor-body">
         <div className="nt-compose">
           <span className="nt-bubble nt-lg nt-input-bubble" style={color ? ({ background: color, color: ink, '--nt-bg': color } as React.CSSProperties) : undefined}>
@@ -361,8 +362,8 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
               rows={2}
               value={text}
               maxLength={NOTE_MAX}
-              placeholder="Share a thought…"
-              aria-label="Your note"
+              placeholder={t('d.messages.shareThought')}
+              aria-label={t('noteNew.label')}
               onChange={(e) => {
                 touch();
                 setText(e.target.value.replace(/\n/g, ' ').slice(0, NOTE_MAX));
@@ -389,16 +390,16 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="nt-field">
-          <span className="nt-label">Bubble colour</span>
-          <span className="nt-swatches" role="radiogroup" aria-label="Bubble colour">
+          <span className="nt-label">{t('noteNew.colour')}</span>
+          <span className="nt-swatches" role="radiogroup" aria-label={t('noteNew.colour')}>
             {NOTE_COLORS.map((c) => (
               <button
                 key={c.label}
                 type="button"
                 role="radio"
                 aria-checked={color === c.value}
-                aria-label={c.label}
-                title={c.label}
+                aria-label={t(c.label)}
+                title={t(c.label)}
                 className={'nt-swatch' + (color === c.value ? ' on' : '') + (c.value ? '' : ' theme')}
                 style={c.value ? { background: c.value } : undefined}
                 onClick={() => {
@@ -415,8 +416,8 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
             <Icon name="music" size={18} />
           </span>
           <span className="row-text">
-            <b>Music</b>
-            <span>{song ? `${song.title}${song.artist ? ' · ' + song.artist : ''}` : 'Add a song from Pod'}</span>
+            <b>{t('noteNew.music')}</b>
+            <span>{song ? `${song.title}${song.artist ? ' · ' + song.artist : ''}` : t('d.messages.addSong')}</span>
           </span>
           {song ? (
             <span
@@ -436,7 +437,7 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
                 }
               }}
             >
-              Remove
+              {t('noteNew.removePlace')}
             </span>
           ) : (
             <Icon name="right" size={16} />
@@ -448,12 +449,12 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
             <Icon name="location" size={18} />
           </span>
           <span className="row-text">
-            <b>Location</b>
+            <b>{t('noteNew.location')}</b>
             <input
               value={place}
               maxLength={PLACE_MAX}
-              placeholder="Add a place"
-              aria-label="Location"
+              placeholder={t('noteNew.placePlaceholder')}
+              aria-label={t('noteNew.location')}
               onChange={(e) => {
                 touch();
                 setPlace(e.target.value.replace(/\n/g, ' ').slice(0, PLACE_MAX));
@@ -464,12 +465,12 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="nt-field">
-          <span className="nt-label">Share with</span>
-          <div className="nt-audience" role="radiogroup" aria-label="Share with">
+          <span className="nt-label">{t('noteNew.audienceTitle')}</span>
+          <div className="nt-audience" role="radiogroup" aria-label={t('noteNew.audienceTitle')}>
             {(
               [
-                { value: 'mutuals', label: 'Mutual followers', sub: 'Followers you follow back', icon: 'people' },
-                { value: 'close_friends', label: 'Close friends', sub: 'Only your close friends list', icon: 'star' },
+                { value: 'mutuals', label: 'noteNew.friendsSub', sub: 'd.messages.followBackSub', icon: 'people' },
+                { value: 'close_friends', label: 'noteNew.closeFriends', sub: 'd.messages.closeListSub', icon: 'star' },
               ] as const
             ).map((o) => (
               <button
@@ -487,8 +488,8 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
                   <Icon name={o.icon} size={16} fill={o.value === 'close_friends' ? 'currentColor' : undefined} />
                 </span>
                 <span className="row-text">
-                  <b>{o.label}</b>
-                  <span>{o.sub}</span>
+                  <b>{t(o.label)}</b>
+                  <span>{t(o.sub)}</span>
                 </span>
                 <span className="nt-radio" aria-hidden="true" />
               </button>
@@ -497,15 +498,15 @@ export function NoteEditor({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="nt-editor-foot">
-        <span className="muted-text">Notes disappear after 24 hours</span>
+        <span className="muted-text">{t('d.messages.notesExpire')}</span>
         <span className="grow" />
         {existing ? (
           <button type="button" className="btn quiet" disabled={busy} onClick={remove}>
-            Delete note
+            {t('noteNew.delete')}
           </button>
         ) : null}
         <button type="button" className="btn" disabled={!canShare} onClick={share}>
-          Share
+          {t('common.share')}
         </button>
       </div>
     </Modal>
@@ -519,7 +520,7 @@ function SongPicker({ chosen, onPick, onBack, onPreview }: { chosen: string | nu
   const [songs, setSongs] = useState<PodItem[] | null>(null);
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(
+    const timer = setTimeout(
       () =>
         fetchPod('song', q).then(
           (r) => alive && setSongs(r),
@@ -533,30 +534,30 @@ function SongPicker({ chosen, onPick, onBack, onPreview }: { chosen: string | nu
     );
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [q]);
   return (
     <div className="nt-songs">
       <div className="nt-songs-search">
-        <button type="button" className="icon-btn" aria-label="Back" onClick={onBack}>
+        <button type="button" className="icon-btn" aria-label={t('common.back')} onClick={onBack}>
           <Icon name="back" size={20} />
         </button>
         <span className="mx-search">
           <Icon name="search" size={16} />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search songs on Pod" aria-label="Search songs on Pod" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('noteNew.searchSongs')} aria-label={t('noteNew.searchSongs')} />
         </span>
       </div>
       <div className="nt-songs-list">
         {songs === null ? <Spinner /> : null}
-        {songs && !songs.length ? <p className="muted-text pad center">No songs found</p> : null}
+        {songs && !songs.length ? <p className="muted-text pad center">{t('noteNew.noSongs')}</p> : null}
         {chosen && songs?.length ? (
           <button type="button" className="nt-song-pick" onClick={() => onPick(null)}>
             <span className="nt-song-cover">
               <Icon name="mute" size={18} />
             </span>
             <span className="row-text">
-              <b className="danger-text">No music</b>
+              <b className="danger-text">{t('noteNew.noMusic')}</b>
             </span>
           </button>
         ) : null}
@@ -568,7 +569,7 @@ function SongPicker({ chosen, onPick, onBack, onPreview }: { chosen: string | nu
               <button
                 type="button"
                 className="nt-song-cover"
-                aria-label={(playing ? 'Pause ' : 'Preview ') + s.title}
+                aria-label={t(playing ? 'd.messages.pauseTitle' : 'd.messages.previewTitle', { title: s.title })}
                 onClick={() => {
                   onPreview(s.id);
                   player.play(s);
@@ -579,7 +580,7 @@ function SongPicker({ chosen, onPick, onBack, onPreview }: { chosen: string | nu
                   <Icon name={playing ? 'pause' : 'play'} size={16} color="#fff" />
                 </span>
               </button>
-              <button type="button" className="nt-song-choose" onClick={() => onPick({ id: s.id, title: s.title, artist: s.artist, cover: s.cover_url, url: s.audio_url })} aria-label={`Choose ${s.title} by ${s.artist}`}>
+              <button type="button" className="nt-song-choose" onClick={() => onPick({ id: s.id, title: s.title, artist: s.artist, cover: s.cover_url, url: s.audio_url })} aria-label={t('d.messages.chooseSong', { title: s.title, artist: s.artist })}>
                 <span className="row-text">
                   <b>{s.title}</b>
                   <span>

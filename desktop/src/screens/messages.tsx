@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ERHA_ID, getProfile, openThread } from 'shared/api';
 import type { Profile } from 'shared/types';
 import { profileByUsername } from '../lib/extra';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, parts } from '../lib/router';
 import { Avatar, Icon, Spinner, Verified, toastError } from '../ui/kit';
@@ -32,7 +33,7 @@ export function Messages({ path, openPost }: { path: string; openPost: (id: stri
     if (seg[1] === 'erha') target = openThread(ERHA_ID);
     if (seg[1] === 'u' && seg[2]) {
       target = profileByUsername(seg[2]).then((p) => {
-        if (!p) throw new Error('There is no account called ' + seg[2] + '.');
+        if (!p) throw new Error(t('d.messages.noAccount', { username: seg[2] }));
         return openThread(p.id);
       });
     }
@@ -60,19 +61,19 @@ export function Messages({ path, openPost }: { path: string; openPost: (id: stri
           <h2>{me.username}</h2>
           <span className="mx-head-btns">
             {/* The friends' map: where friends who share their location are (as on the iPhone's inbox). */}
-            <button className="icon-btn" aria-label="Map" title="Map: where your friends are" onClick={() => nav('/map')}>
+            <button className="icon-btn" aria-label={t('churchApps.map')} title={t('inbox.map')} onClick={() => nav('/map')}>
               <Icon name="location" size={24} />
             </button>
-            <button className="icon-btn" aria-label="New message" onClick={() => nav('/direct/new')}>
+            <button className="icon-btn" aria-label={t('inbox.newMessage')} onClick={() => nav('/direct/new')}>
               <Icon name="newchat" size={24} />
             </button>
           </span>
         </header>
         <label className="mx-search">
           <Icon name="search" size={16} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search messages" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('common.search')} aria-label={t('inbox.search')} />
           {q ? (
-            <button type="button" className="icon-btn tiny" aria-label="Clear search" onClick={() => setQ('')}>
+            <button type="button" className="icon-btn tiny" aria-label={t('d.messages.clearSearch')} onClick={() => setQ('')}>
               <Icon name="close" size={12} stroke={2.6} />
             </button>
           ) : null}
@@ -81,21 +82,21 @@ export function Messages({ path, openPost }: { path: string; openPost: (id: stri
           {/* Notes sit above the chats and scroll with them; they step aside while you search. */}
           {!needle ? <NotesRow /> : null}
           <div className="threads-sub">
-            <b>Messages</b>
+            <b>{t('tabs.messages')}</b>
           </div>
           {threads === null ? <Spinner /> : null}
-          {threads && !shown.length && !(offerErha && !needle) ? <p className="muted-text pad">{needle ? 'No chats found' : 'No messages yet.'}</p> : null}
-          {shown.map((t) => (
-            <ThreadRow key={t.id} t={t} className="thread-row" active={t.id === threadId} href={'#/direct/t/' + t.id} onOpen={() => nav('/direct/t/' + t.id)} />
+          {threads && !shown.length && !(offerErha && !needle) ? <p className="muted-text pad">{needle ? t('inbox.noneFound') : t('d.messages.noMessages')}</p> : null}
+          {shown.map((th) => (
+            <ThreadRow key={th.id} t={th} className="thread-row" active={th.id === threadId} href={'#/direct/t/' + th.id} onOpen={() => nav('/direct/t/' + th.id)} />
           ))}
           {offerErha && (!needle || 'erha'.includes(needle)) ? (
-            <button type="button" className="thread-row" onClick={() => nav('/direct/erha')} aria-label="Chat with Erha, your church assistant">
+            <button type="button" className="thread-row" onClick={() => nav('/direct/erha')} aria-label={t('inbox.erhaLabel')}>
               <Avatar src={erha?.avatar_url} name="Erha" size={56} />
               <span className="row-text">
                 <b>
                   Erha <Verified size={12} />
                 </b>
-                <span>Your church assistant · say hello</span>
+                <span>{t('inbox.erhaSub')}</span>
               </span>
             </button>
           ) : null}
@@ -109,10 +110,10 @@ export function Messages({ path, openPost }: { path: string; openPost: (id: stri
             <span className="empty-ring big">
               <Icon name="send" size={44} stroke={1.4} />
             </span>
-            <h2>Your messages</h2>
-            <p className="muted-text">Send a message to start a chat.</p>
+            <h2>{t('inbox.emptyTitle')}</h2>
+            <p className="muted-text">{t('d.messages.startChat')}</p>
             <button className="btn" onClick={() => nav('/direct/new')}>
-              Send message
+              {t('inbox.sendMessage')}
             </button>
           </div>
         )}

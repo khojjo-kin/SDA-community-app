@@ -4,11 +4,12 @@
 // as the iPhone's chat (app/(app)/chat/[id].tsx).
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { uploadAudio } from 'shared/api';
+import { ONLINE_MS, uploadAudio } from 'shared/api';
 import { getPostNow } from 'shared/store';
 import { MEDIA_BUCKET, supabase } from 'shared/supabase';
-import { chatStamp, clock } from 'shared/theme';
+import { clock, dayLabel } from 'shared/theme';
 import type { Message } from 'shared/types';
+import { dateLocale, languageCode, t, tn } from '../lib/i18n';
 import { Avatar, Icon, Spinner } from './kit';
 
 // The shared errText (src/lib/theme.ts) reads React Native's __DEV__, which the desktop build doesn't
@@ -65,7 +66,7 @@ export function buildRows(messages: Message[], me: string, theirRead: string | n
   for (const m of messages) {
     const at = new Date(m.created_at).getTime();
     const mine = m.sender_id === me;
-    if (!prevAt || at - prevAt > 3600e3 || !sameDay(at, prevAt)) rows.push({ key: 's' + m.id, kind: 'stamp', mine, m, label: chatStamp(m.created_at) });
+    if (!prevAt || at - prevAt > 3600e3 || !sameDay(at, prevAt)) rows.push({ key: 's' + m.id, kind: 'stamp', mine, m, label: stampOf(m.created_at) });
     prevAt = at;
     if (m.system === 'screenshot') {
       rows.push({ key: m.id, kind: 'notice', mine, m });
@@ -120,6 +121,57 @@ export function timeOf(iso: string): string {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+/* ---------- times, in the app's language (the iPhone's chatStamp, ago, agoLong and activeLabel) ---------- */
+
+/** The line between groups of messages: "TODAY AT 08:24", "21 MAR AT 06:14", "21 MAR 2025 AT 06:14". */
+export function stampOf(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const time = timeOf(iso);
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(d)) / 86400e3);
+  if (days === 0) return t('d.messages.stampToday', { time });
+  if (days === 1) return t('d.messages.stampYesterday', { time });
+  const thisYear = d.getFullYear() === now.getFullYear();
+  // English keeps the iPhone's own short months ("21 Mar"); other languages take the browser's names.
+  const date =
+    languageCode() === 'en'
+      ? dayLabel(d) + (thisYear ? '' : ' ' + d.getFullYear())
+      : d.toLocaleDateString(dateLocale(), thisYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+  return t('d.messages.stampDate', { date: date.toLocaleUpperCase(dateLocale()), time });
+}
+
+/** How long ago, short: "now", "5m", "3h", "2d", "1w". */
+export function shortAgo(iso: string): string {
+  const d = Math.max(0, Date.now() - new Date(iso).getTime());
+  if (d < 60e3) return t('d.messages.agoNow');
+  if (d < 3600e3) return t('d.messages.agoMinutes', { count: Math.floor(d / 60e3) });
+  if (d < 86400e3) return t('d.messages.agoHours', { count: Math.floor(d / 3600e3) });
+  if (d < 7 * 86400e3) return t('d.messages.agoDays', { count: Math.floor(d / 86400e3) });
+  return t('d.messages.agoWeeks', { count: Math.floor(d / (7 * 86400e3)) });
+}
+
+/** How long ago, written out: "Just now", "5 minutes ago", "1 day ago". */
+export function longAgo(iso: string): string {
+  const d = Math.max(0, Date.now() - new Date(iso).getTime());
+  if (d < 60e3) return t('d.messages.justNow');
+  if (d < 3600e3) return tn('d.messages.minutesAgo', Math.floor(d / 60e3));
+  if (d < 86400e3) return tn('d.messages.hoursAgo', Math.floor(d / 3600e3));
+  if (d < 7 * 86400e3) return tn('d.messages.daysAgo', Math.floor(d / 86400e3));
+  return tn('d.messages.weeksAgo', Math.floor(d / (7 * 86400e3)));
+}
+
+/** "Active now", "Active 5m ago", "Active yesterday"… or '' when unknown or longer ago. */
+export function activeWords(activeAt: string | null | undefined): string {
+  if (!activeAt) return '';
+  const d = Date.now() - new Date(activeAt).getTime();
+  if (d < ONLINE_MS) return t('common.activeNow');
+  if (d < 3600e3) return t('d.messages.activeMinutes', { count: Math.round(d / 60e3) });
+  if (d < 86400e3) return t('d.messages.activeHours', { count: Math.round(d / 3600e3) });
+  if (d < 2 * 86400e3) return t('d.messages.activeYesterday');
+  return '';
+}
+
 /** "Grace" from "Grace Mensah"; the username when there is no name. */
 export function firstName(p: { full_name?: string | null; username: string }): string {
   return (p.full_name || '').trim().split(/\s+/)[0] || p.username;
@@ -130,7 +182,7 @@ export function firstName(p: { full_name?: string | null; username: string }): s
 /** Three dots in a grey bubble: the other person is typing (or Erha is thinking). */
 export function TypingBubble() {
   return (
-    <span className="bubble typing" aria-label="Typing">
+    <span className="bubble typing" aria-label={t('d.messages.typing')}>
       <i />
       <i />
       <i />
@@ -140,7 +192,7 @@ export function TypingBubble() {
 
 /** "Grace took a screenshot of the chat": a quiet line across the middle, not a bubble. */
 export function ScreenshotLine({ mine, name }: { mine: boolean; name: string }) {
-  const words = mine ? 'You took a screenshot of the chat' : `${name} took a screenshot of the chat`;
+  const words = mine ? t('d.messages.youScreenshot') : t('d.messages.theyScreenshot', { name });
   return (
     <div className="cv-notice" role="note">
       <Icon name="camera" size={14} stroke={2} />
@@ -152,7 +204,7 @@ export function ScreenshotLine({ mine, name }: { mine: boolean; name: string }) 
 /** A call noted in the chat ("Video call · 3 min", "Missed voice call"); Call back starts a new one. */
 export function CallLog({ m, mine, onCall }: { m: Message; mine: boolean; onCall?: () => void }) {
   const video = m.call_kind === 'video';
-  const title = m.text.trim() || (video ? 'Video call' : 'Voice call');
+  const title = m.text.trim() || t(video ? 'd.messages.videoCall' : 'd.messages.voiceCall');
   const missed = !mine && /\/(missed|declined)$/.test(m.call_url);
   // Older calls were a meeting room link both people opened.
   const room = m.call_url.startsWith('https://');
@@ -167,11 +219,11 @@ export function CallLog({ m, mine, onCall }: { m: Message; mine: boolean; onCall
       </span>
       {room ? (
         <a className="cv-call-btn" href={m.call_url} target="_blank" rel="noreferrer">
-          Join
+          {t('d.messages.join')}
         </a>
       ) : onCall ? (
         <button type="button" className="cv-call-btn" onClick={onCall}>
-          Call back
+          {t('d.messages.callBack')}
         </button>
       ) : null}
     </span>
@@ -181,7 +233,7 @@ export function CallLog({ m, mine, onCall }: { m: Message; mine: boolean; onCall
 /** A post shared into the chat. */
 export function SharedPost({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
   const p = getPostNow(id);
-  if (!p) return <span className="bubble">This post is no longer available</span>;
+  if (!p) return <span className="bubble">{t('d.messages.postGone')}</span>;
   const cover = p.media[0]?.type === 'video' ? p.media[0].poster : p.media[0]?.url;
   return (
     <button className="shared-post" onClick={() => onOpen(p.id)}>
@@ -259,7 +311,7 @@ export function VoiceMessage({ m, mine, locked }: { m: Message; mine: boolean; l
   const done = pos.d ? pos.t / pos.d : 0;
   return (
     <span className={'bubble voice' + (mine ? ' mine' : '')}>
-      <button type="button" className="cv-voice-play" onClick={toggle} disabled={locked && !playing} aria-label={playing ? 'Pause voice message' : 'Play voice message'}>
+      <button type="button" className="cv-voice-play" onClick={toggle} disabled={locked && !playing} aria-label={t(playing ? 'd.messages.pauseVoice' : 'd.messages.playVoice')}>
         <Icon name={playing ? 'pause' : 'play'} size={16} />
       </button>
       <span className="cv-wave" aria-hidden="true">
@@ -307,7 +359,7 @@ export class VoiceRecorder {
 
   async start() {
     const md = navigator.mediaDevices;
-    if (!md?.getUserMedia) throw new Error("This computer can't record sound here.");
+    if (!md?.getUserMedia) throw new Error(t('d.messages.cantRecord'));
     const stream = await md.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     this.stream = stream;
     if (this.done) return this.release();
@@ -332,7 +384,7 @@ export class VoiceRecorder {
     await this.listen(!this.aacSure);
     if (!this.rec && !this.pcm) {
       this.release();
-      throw new Error("This computer can't record sound here.");
+      throw new Error(t('d.messages.cantRecord'));
     }
     this.startedAt = performance.now();
   }
@@ -426,7 +478,7 @@ export class VoiceRecorder {
     this.release();
     if (mp4 && mp4.size > 0 && (this.aacSure || (await holdsAac(mp4)))) return { blob: mp4, ms, kind: 'm4a' };
     if (pcm?.length) return { blob: wavFrom(pcm, rate), ms, kind: 'wav' };
-    throw new Error("The recording didn't work. Try again.");
+    throw new Error(t('d.messages.recordingFailed'));
   }
 
   /** Stops and throws the recording away. */
@@ -538,10 +590,10 @@ export async function uploadVoice(me: string, clip: VoiceClip): Promise<string> 
 /** Puts a microphone problem into words. */
 export function micProblem(e: unknown): string {
   const name = (e as { name?: string } | null)?.name ?? '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone access is off. Allow Community to use the microphone (on a Mac: System Settings → Privacy & Security → Microphone), then try again.';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone was found. Connect one and try again.';
-  if (name === 'NotReadableError' || name === 'AbortError') return 'The microphone is busy in another app. Close it there and try again.';
-  return (e as Error)?.message || "The recording didn't start. Try again.";
+  if (name === 'NotAllowedError' || name === 'SecurityError') return t('d.messages.micOff');
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return t('d.messages.noMic');
+  if (name === 'NotReadableError' || name === 'AbortError') return t('d.messages.micBusy');
+  return (e as Error)?.message || t('d.messages.recordingDidNotStart');
 }
 
 export type RecPhase = 'starting' | 'recording' | 'sending' | 'failed';
@@ -554,10 +606,10 @@ const REC_BARS = 48;
 export function RecordingBar({ phase, ms, levels, onDiscard, onSend }: { phase: RecPhase; ms: number; levels: number[]; onDiscard: () => void; onSend: () => void }) {
   const bars = Array.from({ length: REC_BARS }, (_, i) => levels[levels.length - REC_BARS + i] ?? 0);
   const near = phase === 'recording' && ms >= VOICE_LIMIT_MS - 15e3;
-  const status = phase === 'starting' ? 'Starting…' : phase === 'sending' ? 'Sending…' : phase === 'failed' ? "Didn't send" : clock(ms / 1000);
+  const status = phase === 'starting' ? t('d.messages.starting') : phase === 'sending' ? t('d.messages.sending') : phase === 'failed' ? t('d.messages.didNotSend') : clock(ms / 1000);
   return (
-    <div className={'cv-rec' + (phase === 'failed' ? ' failed' : '')} role="group" aria-label="Voice message">
-      <button type="button" className="cv-round quiet" aria-label="Discard recording" title="Discard (Esc)" disabled={phase === 'sending'} onClick={onDiscard}>
+    <div className={'cv-rec' + (phase === 'failed' ? ' failed' : '')} role="group" aria-label={t('d.messages.voiceMessage')}>
+      <button type="button" className="cv-round quiet" aria-label={t('d.messages.discardRecording')} title={t('d.messages.discardKey')} disabled={phase === 'sending'} onClick={onDiscard}>
         <Icon name="trash" size={17} />
       </button>
       <span className="cv-rec-pill">
@@ -567,11 +619,11 @@ export function RecordingBar({ phase, ms, levels, onDiscard, onSend }: { phase: 
             <i key={i} style={{ height: 3 + Math.round(v * 22) }} />
           ))}
         </span>
-        <span className={'cv-rec-time' + (near ? ' near' : '')} role="timer" title={near ? 'Voice messages can be up to 2 minutes' : undefined}>
+        <span className={'cv-rec-time' + (near ? ' near' : '')} role="timer" title={near ? t('d.messages.voiceLimit') : undefined}>
           {status}
         </span>
       </span>
-      <button type="button" className="cv-round accent" aria-label={phase === 'failed' ? 'Try sending again' : 'Send voice message'} title="Send (Enter)" disabled={phase === 'starting' || phase === 'sending'} onClick={onSend}>
+      <button type="button" className="cv-round accent" aria-label={t(phase === 'failed' ? 'd.messages.trySendAgain' : 'd.messages.sendVoice')} title={t('d.messages.sendKey')} disabled={phase === 'starting' || phase === 'sending'} onClick={onSend}>
         {phase === 'sending' ? <span className="cv-mini-spin" /> : <Icon name="send" size={16} />}
       </button>
     </div>
@@ -584,13 +636,13 @@ export function RecordingBar({ phase, ms, levels, onDiscard, onSend }: { phase: 
 export function PhotoPile({ urls, onOpen, onLoad }: { urls: string[]; onOpen: () => void; onLoad?: () => void }) {
   if (urls.length < 2) {
     return (
-      <button type="button" className="msg-photo" onClick={onOpen} aria-label="Photo">
+      <button type="button" className="msg-photo" onClick={onOpen} aria-label={t('snap.photo')}>
         <img src={urls[0]} alt="" onLoad={onLoad} />
       </button>
     );
   }
   return (
-    <button type="button" className="msg-photo cv-pile" onClick={onOpen} aria-label={`${urls.length} photos`}>
+    <button type="button" className="msg-photo cv-pile" onClick={onOpen} aria-label={t('create.photos', { count: urls.length })}>
       <img src={urls[0]} alt="" className="cv-pile-a" onLoad={onLoad} />
       <img src={urls[1]} alt="" className="cv-pile-b" onLoad={onLoad} />
       {urls.length > 2 ? <span className="cv-pile-more">+{urls.length - 2}</span> : null}
@@ -633,29 +685,29 @@ export function PhotoViewer({ urls, onClose, onForward }: { urls: string[]; onCl
     }
   };
   return createPortal(
-    <div className="cv-viewer" role="dialog" aria-modal="true" aria-label="Photo" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="cv-viewer" role="dialog" aria-modal="true" aria-label={t('snap.photo')} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="cv-viewer-top">
-        <span className="cv-viewer-count">{many ? `${at + 1} of ${urls.length}` : ''}</span>
-        <button type="button" className="icon-btn" aria-label="Save photo" title="Save photo" onClick={save}>
+        <span className="cv-viewer-count">{many ? t('d.messages.nOf', { n: at + 1, total: urls.length }) : ''}</span>
+        <button type="button" className="icon-btn" aria-label={t('d.messages.savePhoto')} title={t('d.messages.savePhoto')} onClick={save}>
           <Icon name="download" size={22} color="#fff" />
         </button>
         {onForward ? (
-          <button type="button" className="icon-btn" aria-label="Forward" title="Forward" onClick={onForward}>
+          <button type="button" className="icon-btn" aria-label={t('d.messages.forward')} title={t('d.messages.forward')} onClick={onForward}>
             <Icon name="send" size={22} color="#fff" />
           </button>
         ) : null}
-        <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+        <button type="button" className="icon-btn" aria-label={t('common.close')} onClick={onClose}>
           <Icon name="close" size={26} color="#fff" />
         </button>
       </div>
-      <img key={urls[at]} src={urls[at]} alt={many ? `Photo ${at + 1} of ${urls.length}` : 'Photo'} />
+      <img key={urls[at]} src={urls[at]} alt={many ? t('d.messages.photoOf', { n: at + 1, total: urls.length }) : t('snap.photo')} />
       {many && at > 0 ? (
-        <button type="button" className="cv-viewer-step prev" aria-label="Previous photo" onClick={() => step(-1)}>
+        <button type="button" className="cv-viewer-step prev" aria-label={t('d.messages.previousPhoto')} onClick={() => step(-1)}>
           <Icon name="back" size={20} stroke={2.4} />
         </button>
       ) : null}
       {many && at < urls.length - 1 ? (
-        <button type="button" className="cv-viewer-step next" aria-label="Next photo" onClick={() => step(1)}>
+        <button type="button" className="cv-viewer-step next" aria-label={t('d.messages.nextPhoto')} onClick={() => step(1)}>
           <Icon name="right" size={20} stroke={2.4} />
         </button>
       ) : null}
@@ -682,13 +734,13 @@ export function OnceMark({ size = 20, on }: { size?: number; on?: boolean }) {
  */
 export function SnapBubble({ mine, opened, onOpen }: { mine: boolean; opened: boolean; onOpen?: () => void }) {
   const waiting = !mine && !opened;
-  const status = waiting ? 'View once' : opened ? 'Opened' : 'Delivered';
+  const status = t(waiting ? 'snap.viewOnce' : opened ? 'snap.opened' : 'snap.delivered');
   return (
-    <button type="button" className={'cv-snap' + (mine ? ' mine' : '') + (waiting ? ' waiting' : '')} onClick={waiting ? onOpen : undefined} disabled={!waiting} aria-label={'View-once photo. ' + (waiting ? 'Click to view' : status)}>
+    <button type="button" className={'cv-snap' + (mine ? ' mine' : '') + (waiting ? ' waiting' : '')} onClick={waiting ? onOpen : undefined} disabled={!waiting} aria-label={t('snap.bubbleLabel', { status: waiting ? t('d.messages.clickToView') : status })}>
       <span className={'cv-snap-square' + (waiting ? ' filled' : '')}>{waiting ? '1' : null}</span>
       <span className="cv-snap-text">
-        <b>Photo</b>
-        <span>{waiting ? 'View once · Click to view' : status}</span>
+        <b>{t('snap.photo')}</b>
+        <span>{waiting ? t('d.messages.viewOnceClick') : status}</span>
       </span>
     </button>
   );
@@ -707,25 +759,25 @@ export function SnapViewer({ url, onClose }: { url: string; onClose: () => void 
     return () => document.removeEventListener('keydown', key);
   }, [onClose]);
   return createPortal(
-    <div className="cv-snapview" role="dialog" aria-modal="true" aria-label="View-once photo" onContextMenu={(e) => e.preventDefault()}>
+    <div className="cv-snapview" role="dialog" aria-modal="true" aria-label={t('snap.viewOncePhoto')} onContextMenu={(e) => e.preventDefault()}>
       <div className="cv-snapview-top">
         <span className="cv-snapview-bar">
           <i style={{ width: state === 'shown' ? '100%' : '0%' }} />
         </span>
         <span className="cv-snapview-row">
           <OnceMark size={22} />
-          <b>View once</b>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+          <b>{t('snap.viewOnce')}</b>
+          <button type="button" className="icon-btn" aria-label={t('common.close')} onClick={onClose}>
             <Icon name="close" size={26} color="#fff" />
           </button>
         </span>
       </div>
-      <img key={attempt} src={url} alt="View-once photo" draggable={false} onLoad={() => setState('shown')} onError={() => setState('failed')} />
+      <img key={attempt} src={url} alt={t('snap.viewOncePhoto')} draggable={false} onLoad={() => setState('shown')} onError={() => setState('failed')} />
       {state === 'loading' ? <Spinner /> : null}
       {state === 'failed' ? (
         <div className="cv-snapview-failed">
-          <b>This photo didn't load</b>
-          <span>Keep this open and try again. Once you close it, it's gone.</span>
+          <b>{t('snap.didNotLoad')}</b>
+          <span>{t('snap.didNotLoadBody')}</span>
           <button
             type="button"
             className="btn quiet"
@@ -734,7 +786,7 @@ export function SnapViewer({ url, onClose }: { url: string; onClose: () => void 
               setAttempt((n) => n + 1);
             }}
           >
-            Try again
+            {t('common.tryAgain')}
           </button>
         </div>
       ) : null}
@@ -764,7 +816,7 @@ export function EmojiPop({ onPick, onClose }: { onPick: (e: string) => void; onC
     };
   }, [onClose]);
   return (
-    <div className="cv-emoji" ref={box} role="menu" aria-label="Emoji">
+    <div className="cv-emoji" ref={box} role="menu" aria-label={t('d.messages.emoji')}>
       {EMOJI.map((e) => (
         <button key={e} type="button" role="menuitem" onClick={() => onPick(e)}>
           {e}

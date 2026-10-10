@@ -389,3 +389,10 @@ body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
   .cv-details { position: absolute; right: 0; top: 0; bottom: 0; z-index: 4; background: var(--bg); box-shadow: var(--shadow); }
   .chat.cv { position: relative; }
 }
+
+/* Other languages: "Active 5m ago" can read much longer than the English. In a chat row it keeps at most
+   60% of the line (cut short at the end past that), so the last message always keeps some room. */
+html:not([lang='en']) .mx-when { flex: 0 0.0001 auto; max-width: 60%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Other languages: who-sees-it choices (notes, the map) can read longer than the English, so they wrap instead of being cut off. */
+html:not([lang='en']) .nt-aud .row-text > b, html:not([lang='en']) .nt-aud .row-text > span { white-space: normal; }

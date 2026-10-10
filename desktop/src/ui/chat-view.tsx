@@ -4,24 +4,25 @@
 // inbox (compact). New messages, "Seen" and typing arrive live over Supabase Realtime, on the same
 // channels as the iPhone app, with a refresh every few seconds in case the connection drops.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, setBlock, setThreadMuted, uploadImage } from 'shared/api';
+import { askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, setBlock, setThreadMuted, uploadImage } from 'shared/api';
 import { usePrefs } from 'shared/prefs';
 import { supabase } from 'shared/supabase';
 import { useCalls } from 'shared/calls';
 import { errText } from 'shared/theme';
 import type { Faq, Message, SavedReply, Thread } from 'shared/types';
 import { rememberSize } from '../shims/expo-file-system';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { ForwardPhotos } from '../screens/messages-new';
 import { Avatar, Empty, Icon, Link, Modal, Spinner, Verified, ask, toast, toastError } from './kit';
 import { ActiveFace, STREAK_FROM, StreakBadge } from './chat-threads';
-import { CallLog, EmojiPop, OnceMark, PhotoPile, PhotoViewer, RecordingBar, ScreenshotLine, SharedPost, SnapBubble, SnapViewer, TypingBubble, VOICE_LIMIT_MS, VOICE_MIN_MS, VoiceMessage, VoiceRecorder, buildRows, firstName, micProblem, pauseVoice, takeDraft, timeOf, uploadVoice, type RecPhase, type Row, type VoiceClip } from './chat-bits';
-import { WallpaperPicker, useChatWallpaper, wallpaperCss } from './chat-wallpaper';
+import { CallLog, EmojiPop, OnceMark, PhotoPile, PhotoViewer, RecordingBar, ScreenshotLine, SharedPost, SnapBubble, SnapViewer, TypingBubble, VOICE_LIMIT_MS, VOICE_MIN_MS, VoiceMessage, VoiceRecorder, activeWords, buildRows, firstName, micProblem, pauseVoice, takeDraft, timeOf, uploadVoice, type RecPhase, type Row, type VoiceClip } from './chat-bits';
+import { WallpaperPicker, useChatWallpaper, wallName, wallpaperCss } from './chat-wallpaper';
 import { NoteBubble } from './notes';
 
-/** Ways to start a chat with Erha, offered while it is still nearly empty. */
-const ERHA_OPENERS = ["What is this week's Sabbath School lesson about?", 'Suggest a hymn for a baptism', 'Pray with me for a friend who is unwell'];
+/** Ways to start a chat with Erha, offered while it is still nearly empty (sent in the app's language). */
+const ERHA_OPENERS = ['d.messages.erhaOpener1', 'd.messages.erhaOpener2', 'd.messages.erhaOpener3'];
 /** How often "typing" is sent while you keep typing, and how long their bubble stays after the last one. */
 const TYPING_EVERY_MS = 2000;
 const TYPING_LINGER_MS = 4000;
@@ -29,10 +30,13 @@ const TYPING_LINGER_MS = 4000;
 const REFRESH_MS = 6000;
 /** Held this long, the microphone button records until you let go, then sends. A click records until Send. */
 const HOLD_MS = 450;
-/** Said when the database turns a message away under the under-14 rules (as on the iPhone). */
-const MINOR_RULE = 'Members under 14 can only message people they follow, and be messaged by people they follow.';
-/** Why you can report someone, as the iPhone asks. */
-const REPORT_REASONS = ['Spam', 'Harassment or hate', 'Pretending to be someone else', 'Something else'];
+/** Why you can report someone, as the iPhone asks. The reason goes to the admins in English; `key` is how it is shown. */
+const REPORT_REASONS = [
+  { reason: 'Spam', key: 'profile.reportSpam' },
+  { reason: 'Harassment or hate', key: 'profile.reportHarassment' },
+  { reason: 'Pretending to be someone else', key: 'profile.reportPretending' },
+  { reason: 'Something else', key: 'profile.reportOther' },
+];
 
 type Pending = { photos: { url: string; size: number }[]; once: boolean };
 type Rec = { phase: RecPhase; ms: number; levels: number[]; clip?: VoiceClip };
@@ -249,7 +253,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   const explain = (e: unknown) => {
     const err = e as { code?: string; message?: string } | null;
     const refused = err?.code === '42501' || /row-level security/i.test(String(err?.message ?? ''));
-    return refused && mutual.current === false && !me.suspended ? MINOR_RULE : errText(e);
+    // Said when the database turns a message away under the under-14 rules (as on the iPhone).
+    return refused && mutual.current === false && !me.suspended ? t('d.messages.minorRule') : errText(e);
   };
 
   const send = async (msg: { text?: string; media_url?: string; view_once?: boolean }) => {
@@ -292,7 +297,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
 
   const addPhotos = (files: File[]) => {
     const imgs = files.filter((f) => f.type.startsWith('image/')).slice(0, 10);
-    if (!imgs.length) return toast('Choose a photo.');
+    if (!imgs.length) return toast(t('d.messages.choosePhoto'));
     const photos = imgs.map((f) => {
       const url = URL.createObjectURL(f);
       rememberSize(url, f.size);
@@ -400,7 +405,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     if (r.elapsed() < VOICE_MIN_MS) {
       r.cancel();
       setRec(null);
-      toast('That was too short. Record a little longer.');
+      toast(t('d.messages.tooShort'));
       return;
     }
     setRec((cur) => (cur ? { ...cur, phase: 'sending' } : cur));
@@ -485,7 +490,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       openedHere.current.set(m.id, new Date().toISOString());
       if (url) setSnap({ id: m.id, url });
       else {
-        toast('This photo has already been opened.');
+        toast(t('d.messages.alreadyOpened'));
         setMsgs((list) => (list ?? []).map((x) => (x.id === m.id ? { ...x, opened_at: x.opened_at ?? new Date().toISOString() } : x)));
       }
     } catch (e) {
@@ -513,7 +518,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     return (
       <div className={'chat cv' + (compact ? ' compact' : '')}>
         {compact ? <CompactHead onBack={onBack} onExpand={onExpand} onClose={onClose} /> : null}
-        <Empty icon="send" title="This chat isn't available" body="The other account may have been deleted." />
+        <Empty icon="send" title={t('d.messages.chatUnavailable')} body={t('d.messages.chatUnavailableBody')} />
       </div>
     );
   }
@@ -527,19 +532,19 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   };
   const name = thread.full_name || thread.username;
   const online = !isErha && isOnline(thread.active_at);
-  const sub = thinking ? 'Thinking…' : theirTyping ? 'Typing…' : isErha ? 'Church assistant' : activeLabel(thread.active_at) || thread.username;
+  const sub = thinking ? t('d.messages.thinking') : theirTyping ? t('d.messages.typingNow') : isErha ? t('d.messages.churchAssistant') : activeWords(thread.active_at) || thread.username;
 
   const toggleMute = () =>
     setThreadMuted(me.id, threadId, !thread.muted).then(() => {
       setThread({ ...thread, muted: !thread.muted });
-      toast(thread.muted ? 'Messages unmuted' : 'Messages muted');
+      toast(t(thread.muted ? 'd.messages.unmuted' : 'd.messages.muted'));
       changed();
     }, toastError);
   const removeChat = async () => {
-    if (!(await ask('Delete this chat?', 'The messages are removed for you only. The other person keeps their copy, and a new message starts the chat again.', 'Delete'))) return;
+    if (!(await ask(t('inbox.deleteQuestion'), t('d.messages.deleteChatBody'), t('common.delete')))) return;
     try {
       await hideThread(threadId);
-      toast('Chat deleted');
+      toast(t('d.messages.chatDeleted'));
       changed();
       if (compact) onBack?.();
       else nav('/direct');
@@ -548,10 +553,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     }
   };
   const blockThem = async () => {
-    if (!(await ask(`Block ${thread.username}?`, 'You will stop seeing their posts, stories and comments, and they can no longer message you. They are not told.', 'Block'))) return;
+    if (!(await ask(t('profile.blockQuestion', { username: thread.username }), t('d.messages.blockBody'), t('profile.block')))) return;
     try {
       await setBlock(me.id, thread.other_id, true);
-      toast(`Blocked ${thread.username}`);
+      toast(t('profile.blocked', { username: thread.username }));
       changed();
       if (compact) onBack?.();
       else nav('/direct');
@@ -561,9 +566,9 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   };
   const reportThem = (reason: string) => {
     setReporting(false);
-    report(me.id, { userId: thread.other_id }, reason).then(() => toast('Thanks. We will review this account.'), toastError);
+    report(me.id, { userId: thread.other_id }, reason).then(() => toast(t('profile.reportThanks')), toastError);
   };
-  const copy = (words: string) => navigator.clipboard?.writeText(words).then(() => toast('Copied'), () => toast("Couldn't copy that."));
+  const copy = (words: string) => navigator.clipboard?.writeText(words).then(() => toast(t('bibleMarks.copied')), () => toast(t('d.messages.copyFailed')));
 
   const piece = (r: Row) => {
     const m = r.m;
@@ -588,7 +593,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     if (r.kind === 'text' && !r.big) {
       return (
         <span className="cv-acts">
-          <button type="button" className="icon-btn" aria-label="Copy message" title="Copy" onClick={() => copy(r.m.text)}>
+          <button type="button" className="icon-btn" aria-label={t('d.messages.copyMessage')} title={t('bibleMarks.copy')} onClick={() => copy(r.m.text)}>
             <Icon name="copy" size={16} />
           </button>
         </span>
@@ -597,7 +602,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     if (r.kind === 'photo' && !isErha) {
       return (
         <span className="cv-acts">
-          <button type="button" className="icon-btn" aria-label="Forward" title="Forward" onClick={() => setForwarding(r.urls ?? [r.m.media_url])}>
+          <button type="button" className="icon-btn" aria-label={t('d.messages.forward')} title={t('d.messages.forward')} onClick={() => setForwarding(r.urls ?? [r.m.media_url])}>
             <Icon name="send" size={16} />
           </button>
         </span>
@@ -621,10 +626,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       <span className="grow" />
       {!isErha ? (
         <>
-          <button className="icon-btn" aria-label="Voice call" disabled={callsOff} onClick={() => call('voice')}>
+          <button className="icon-btn" aria-label={t('d.messages.voiceCall')} disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={20} />
           </button>
-          <button className="icon-btn" aria-label="Video call" disabled={callsOff} onClick={() => call('video')}>
+          <button className="icon-btn" aria-label={t('d.messages.videoCall')} disabled={callsOff} onClick={() => call('video')}>
             <Icon name="video" size={22} />
           </button>
         </>
@@ -632,7 +637,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     </CompactHead>
   ) : (
     <header className="chat-head cv-head">
-      <button type="button" className="avatar-btn" onClick={() => nav('/u/' + thread.username)} aria-label={'Open ' + name + "'s profile"}>
+      <button type="button" className="avatar-btn" onClick={() => nav('/u/' + thread.username)} aria-label={t('notifications.openProfile', { username: name })}>
         <ActiveFace src={thread.avatar_url} name={thread.username} size={44} online={online} />
       </button>
       <Link to={'/u/' + thread.username} className="chat-who">
@@ -643,21 +648,21 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         </b>
         <span className={theirTyping || thinking ? 'cv-typing-word' : ''}>
           {sub}
-          {thread.muted ? ' · muted' : ''}
+          {thread.muted ? ' · ' + t('d.messages.mutedMark') : ''}
         </span>
       </Link>
       <span className="grow" />
       {!isErha ? (
         <>
-          <button className="icon-btn" aria-label="Voice call" disabled={callsOff} onClick={() => call('voice')}>
+          <button className="icon-btn" aria-label={t('d.messages.voiceCall')} disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={24} />
           </button>
-          <button className="icon-btn" aria-label="Video call" disabled={callsOff} onClick={() => call('video')}>
+          <button className="icon-btn" aria-label={t('d.messages.videoCall')} disabled={callsOff} onClick={() => call('video')}>
             <Icon name="video" size={26} />
           </button>
         </>
       ) : null}
-      <button className={'icon-btn' + (details ? ' cv-on' : '')} aria-label="Conversation information" aria-pressed={details} onClick={() => setDetails(!details)}>
+      <button className={'icon-btn' + (details ? ' cv-on' : '')} aria-label={t('d.messages.chatInfo')} aria-pressed={details} onClick={() => setDetails(!details)}>
         <Icon name="info" size={24} />
       </button>
     </header>
@@ -679,9 +684,9 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       >
         {head}
         {quiet && !isErha ? (
-          <button type="button" className="cv-quiet" onClick={() => toast("They won't see “Seen” while you read. Change it in Settings.")}>
+          <button type="button" className="cv-quiet" onClick={() => toast(t('d.messages.quietToast'))}>
             <Icon name="eye" size={13} stroke={2} />
-            Reading quietly
+            {t('d.messages.readingQuietly')}
           </button>
         ) : null}
         <div
@@ -697,8 +702,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
           {isErha ? (
             <div className="chat-intro">
               <Avatar src={thread.avatar_url} name="Erha" size={compact ? 64 : 96} />
-              <b>Hi, I'm Erha</b>
-              <span className="muted-text cv-intro-text">I help with church life: the Bible, Sabbath School, hymns, prayer and planning activities. Ask me anything about it.</span>
+              <b>{t('d.messages.erhaHi')}</b>
+              <span className="muted-text cv-intro-text">{t('d.messages.erhaIntro')}</span>
             </div>
           ) : (
             <div className="chat-intro">
@@ -709,7 +714,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
               <b>{name}</b>
               <span className="muted-text">{thread.username} · Community</span>
               <button className="btn quiet small" onClick={() => nav('/u/' + thread.username)}>
-                View profile
+                {t('d.messages.viewProfile')}
               </button>
             </div>
           )}
@@ -726,7 +731,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
                   <span className="msg-stack">{piece(r)}</span>
                   {!r.mine ? a : null}
                 </div>
-                {r.seen ? <div className="seen">Seen</div> : null}
+                {r.seen ? <div className="seen">{t('d.messages.seen')}</div> : null}
               </React.Fragment>
             );
           })}
@@ -743,14 +748,14 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         {isErha && msgs && msgs.length < 3 ? (
           <div className="chips">
             {ERHA_OPENERS.map((q) => (
-              <button key={q} className="chip-btn" disabled={sending} onClick={() => send({ text: q })}>
-                {q}
+              <button key={q} className="chip-btn" disabled={sending} onClick={() => send({ text: t(q) })}>
+                {t(q)}
               </button>
             ))}
           </div>
         ) : faqs.length && !compact ? (
-          <div className="chips cv-faqs" aria-label="Frequently asked questions">
-            <span className="cv-faqs-h">Frequently asked questions</span>
+          <div className="chips cv-faqs" aria-label={t('d.messages.faqs')}>
+            <span className="cv-faqs-h">{t('d.messages.faqs')}</span>
             {faqs.map((f) => (
               <button
                 key={f.id}
@@ -775,12 +780,12 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         {replies ? (
           <div className="saved-replies">
             <div className="sr-head">
-              <b>Saved replies</b>
-              <button className="icon-btn" aria-label="Close saved replies" onClick={() => setReplies(null)}>
+              <b>{t('d.messages.savedReplies')}</b>
+              <button className="icon-btn" aria-label={t('d.messages.closeSavedReplies')} onClick={() => setReplies(null)}>
                 <Icon name="close" size={16} />
               </button>
             </div>
-            {!replies.length ? <p className="muted-text pad">Save messages you send often, then drop them into any chat from here. Add them in Settings → Saved replies.</p> : null}
+            {!replies.length ? <p className="muted-text pad">{t('d.messages.savedRepliesEmpty')}</p> : null}
             {replies.map((r) => (
               <button
                 key={r.id}
@@ -804,30 +809,30 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             <span>{limit}</span>
             {!me.plus && /Plus/.test(limit) ? (
               <Link to="/plus" className="link-btn">
-                Get Plus
+                {t('d.messages.getPlus')}
               </Link>
             ) : null}
-            <button className="icon-btn tiny" aria-label="Dismiss" onClick={() => setLimit('')}>
+            <button className="icon-btn tiny" aria-label={t('d.messages.dismiss')} onClick={() => setLimit('')}>
               <Icon name="close" size={14} />
             </button>
           </div>
         ) : null}
 
         {pending && !rec ? (
-          <div className="cv-pending" aria-label="Photos to send">
-            <button type="button" className="cv-round quiet" aria-label="Don't send these photos" disabled={sending} onClick={() => setPending(null)}>
+          <div className="cv-pending" aria-label={t('d.messages.photosToSend')}>
+            <button type="button" className="cv-round quiet" aria-label={t('d.messages.dontSendPhotos')} disabled={sending} onClick={() => setPending(null)}>
               <Icon name="close" size={14} stroke={2.4} />
             </button>
             <span className="cv-pending-thumbs">
               {pending.photos.map((p, i) => (
-                <img key={p.url} src={p.url} alt={`Photo ${i + 1} of ${pending.photos.length}`} />
+                <img key={p.url} src={p.url} alt={t('d.messages.photoOf', { n: i + 1, total: pending.photos.length })} />
               ))}
             </span>
-            <button type="button" role="switch" aria-checked={pending.once} aria-label="View once" title="When on, they can open each photo one time" className={'cv-once-toggle' + (pending.once ? ' on' : '')} disabled={sending} onClick={() => setPending((p) => (p ? { ...p, once: !p.once } : p))}>
+            <button type="button" role="switch" aria-checked={pending.once} aria-label={t('snap.viewOnce')} title={t('snap.viewOnceHint')} className={'cv-once-toggle' + (pending.once ? ' on' : '')} disabled={sending} onClick={() => setPending((p) => (p ? { ...p, once: !p.once } : p))}>
               <OnceMark size={18} on={pending.once} />
-              <span>View once</span>
+              <span>{t('snap.viewOnce')}</span>
             </button>
-            <button type="button" className="cv-round accent" aria-label={pending.once ? 'Send as view once' : pending.photos.length > 1 ? `Send ${pending.photos.length} photos` : 'Send photo'} disabled={sending} onClick={sendPending}>
+            <button type="button" className="cv-round accent" aria-label={pending.once ? t('d.messages.sendViewOnce') : pending.photos.length > 1 ? t('d.messages.sendPhotos', { count: pending.photos.length }) : t('d.messages.sendPhoto')} disabled={sending} onClick={sendPending}>
               {sending ? <span className="cv-mini-spin" /> : <Icon name="send" size={16} />}
             </button>
           </div>
@@ -851,7 +856,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             }}
           >
             <span className="cv-emoji-wrap">
-              <button type="button" className="icon-btn" aria-label="Emoji" aria-expanded={emoji} onClick={() => setEmoji(!emoji)}>
+              <button type="button" className="icon-btn" aria-label={t('d.messages.emoji')} aria-expanded={emoji} onClick={() => setEmoji(!emoji)}>
                 <Icon name="smile" size={24} />
               </button>
               {emoji ? (
@@ -867,7 +872,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             <textarea
               ref={input}
               rows={1}
-              placeholder={isErha ? 'Ask Erha…' : 'Message…'}
+              placeholder={t(isErha ? 'd.messages.askErha' : 'd.messages.messagePlaceholder')}
               value={text}
               autoFocus={!!text}
               onChange={(e) => {
@@ -887,32 +892,32 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
                 }
               }}
               onBlur={tellStopped}
-              aria-label={'Message ' + thread.username}
+              aria-label={t('d.messages.messageTo', { name: thread.username })}
               maxLength={5000}
             />
             {!empty ? (
               <button className="link-btn" disabled={sending}>
-                Send
+                {t('common.send')}
               </button>
             ) : (
               <>
                 {!isErha ? (
                   <>
-                    <button type="button" className="icon-btn" aria-label="Record a voice message" title="Click to record, or hold and let go to send" disabled={sending} onPointerDown={micDown} onClick={(e) => e.detail === 0 && startRecording()}>
+                    <button type="button" className="icon-btn" aria-label={t('d.messages.recordVoice')} title={t('d.messages.recordHint')} disabled={sending} onPointerDown={micDown} onClick={(e) => e.detail === 0 && startRecording()}>
                       <Icon name="mic" size={24} />
                     </button>
-                    <button type="button" className="icon-btn" aria-label="Add a photo" onClick={() => file.current?.click()}>
+                    <button type="button" className="icon-btn" aria-label={t('d.messages.addPhoto')} onClick={() => file.current?.click()}>
                       <Icon name="image" size={24} />
                     </button>
                     {!compact ? (
-                      <button type="button" className="icon-btn" aria-label="Saved replies" onClick={() => fetchSavedReplies(me.id).then(setReplies, toastError)}>
+                      <button type="button" className="icon-btn" aria-label={t('d.messages.savedReplies')} onClick={() => fetchSavedReplies(me.id).then(setReplies, toastError)}>
                         <Icon name="reply" size={22} />
                       </button>
                     ) : null}
                     <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) addPhotos(f); }} />
                   </>
                 ) : null}
-                <button type="button" className="icon-btn" aria-label="Send a heart" disabled={sending} onClick={() => send({ text: '❤️' })}>
+                <button type="button" className="icon-btn" aria-label={t('live.sendHeart')} disabled={sending} onClick={() => send({ text: '❤️' })}>
                   <Icon name="heart" size={24} />
                 </button>
               </>
@@ -922,23 +927,23 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       </div>
 
       {details && !compact ? (
-        <aside className="cv-details" aria-label="Details">
-          <h3>Details</h3>
+        <aside className="cv-details" aria-label={t('d.messages.details')}>
+          <h3>{t('d.messages.details')}</h3>
           <div className="cv-detail-row">
             <Icon name="mute" size={22} />
-            <span className="grow">Mute messages</span>
-            <button role="switch" aria-checked={thread.muted} aria-label="Mute messages" className={'switch' + (thread.muted ? ' on' : '')} onClick={toggleMute}>
+            <span className="grow">{t('inbox.mute')}</span>
+            <button role="switch" aria-checked={thread.muted} aria-label={t('inbox.mute')} className={'switch' + (thread.muted ? ' on' : '')} onClick={toggleMute}>
               <i />
             </button>
           </div>
           <button type="button" className="cv-detail-row cv-detail-link" onClick={() => setPicker(true)}>
             <Icon name="wallpaper" size={22} />
-            <span className="grow">Wallpaper</span>
-            <span className="cv-detail-value">{me.plus ? wall?.name ?? 'None' : 'Plus'}</span>
+            <span className="grow">{t('d.messages.wallpaper')}</span>
+            <span className="cv-detail-value">{me.plus ? (wall ? wallName(wall) : t('create.none')) : t('common.plus')}</span>
             <Icon name="right" size={16} stroke={2} />
           </button>
           <div className="cv-detail-sec">
-            <b>Members</b>
+            <b>{t('d.messages.members')}</b>
             <button type="button" className="row full hover" onClick={() => nav('/u/' + thread.username)}>
               <Avatar src={thread.avatar_url} name={thread.username} size={44} />
               <span className="row-text">
@@ -954,15 +959,15 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
             {!isErha ? (
               <>
                 <button type="button" onClick={() => setReporting(true)}>
-                  Report
+                  {t('profile.report')}
                 </button>
                 <button type="button" onClick={blockThem}>
-                  Block
+                  {t('profile.block')}
                 </button>
               </>
             ) : null}
             <button type="button" onClick={removeChat}>
-              Delete chat
+              {t('inbox.deleteChat')}
             </button>
           </div>
         </aside>
@@ -985,23 +990,23 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       {forwarding ? <ForwardPhotos media={forwarding} onClose={() => setForwarding(null)} onSent={changed} /> : null}
       {snap ? <SnapViewer url={snap.url} onClose={closeSnap} /> : null}
       {picker ? (
-        <Modal title="Chat wallpaper" onClose={() => setPicker(false)} className="mx-wall-modal">
+        <Modal title={t('settings.chatWallpaper')} onClose={() => setPicker(false)} className="mx-wall-modal">
           <WallpaperPicker onDone={() => setPicker(false)} />
         </Modal>
       ) : null}
       {reporting ? (
         <Modal onClose={() => setReporting(false)} className="choices confirm">
           <div className="confirm-text">
-            <h3>Report this account</h3>
-            <p>Why are you reporting {thread.username}? They won't know who reported them.</p>
+            <h3>{t('profile.reportTitle')}</h3>
+            <p>{t('d.messages.reportWhy', { username: thread.username })}</p>
           </div>
           {REPORT_REASONS.map((r) => (
-            <button key={r} type="button" onClick={() => reportThem(r)}>
-              {r}
+            <button key={r.reason} type="button" onClick={() => reportThem(r.reason)}>
+              {t(r.key)}
             </button>
           ))}
           <button type="button" onClick={() => setReporting(false)}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </Modal>
       ) : null}
@@ -1013,14 +1018,14 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
 function CompactHead({ children, onBack, onExpand, onClose }: { children?: React.ReactNode; onBack?: () => void; onExpand?: () => void; onClose?: () => void }) {
   return (
     <header className="chat-head cv-head compact">
-      <button className="icon-btn" aria-label="Back to messages" onClick={onBack}>
+      <button className="icon-btn" aria-label={t('d.messages.backToMessages')} onClick={onBack}>
         <Icon name="back" size={20} />
       </button>
       {children ?? <span className="grow" />}
-      <button className="icon-btn" aria-label="Open the full chat" onClick={onExpand}>
+      <button className="icon-btn" aria-label={t('d.messages.openFullChat')} onClick={onExpand}>
         <Icon name="expand" size={18} />
       </button>
-      <button className="icon-btn" aria-label="Close messages" onClick={onClose}>
+      <button className="icon-btn" aria-label={t('d.messages.closeMessages')} onClick={onClose}>
         <Icon name="close" size={18} />
       </button>
     </header>
