@@ -31,11 +31,34 @@ export default function Settings() {
   );
 
   const creator = profile?.account_type === 'creator';
+  const admin = !!profile?.admin_role;
+  const plusValue = profile?.plus ? 'Active' : profile?.verified ? 'Verified' : undefined;
   const sections: Section[] = [
     {
       label: 'Your account',
-      items: [{ icon: 'account', title: 'Account', sub: 'Email, password and deleting your account', href: '/account', words: 'email password security delete personal details profile' }],
+      items: [
+        { icon: 'account', title: 'Account', sub: 'Email, phone, password, other accounts and deleting your account', href: '/account', words: 'email phone password security delete personal details profile add account switch' },
+        { icon: 'verified', title: 'Community Plus', sub: 'The verified tick and more', value: plusValue, href: '/plus', words: 'subscribe subscription verified tick badge premium' },
+      ],
     },
+    {
+      label: 'Church life',
+      items: [
+        { icon: 'bible', title: 'Bible', href: '/bible', words: 'scripture read verse chapter kjv' },
+        { icon: 'hymnal', title: 'Hymnal', sub: 'The Seventh-day Adventist Hymnal', href: '/hymnal', words: 'hymns songs sing worship music' },
+        { icon: 'lesson', title: 'Sabbath School', sub: "This week's lesson", href: '/sabbath-school', words: 'lesson quarterly study guide' },
+        { icon: 'church', title: 'Churches', sub: 'Find churches near you and their members', value: profile?.church_name ?? undefined, href: '/churches', words: 'church near me members find location' },
+        { icon: 'sparkle', title: 'Erha', sub: 'Your church assistant', href: '/erha', words: 'ai assistant help chat ask' },
+      ],
+    },
+    ...(admin
+      ? [
+          {
+            label: 'Admin',
+            items: [{ icon: 'gavel' as IconName, title: 'Admin tools', sub: 'Reports, members, requests and admins', href: '/admin', words: 'admin moderation reports members verify suspend hymns churches' }],
+          },
+        ]
+      : []),
     {
       label: 'How you use Community',
       items: [

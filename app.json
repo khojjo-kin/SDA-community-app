@@ -18,7 +18,8 @@
         "NSPhotoLibraryUsageDescription": "Community shows your photos and videos so you can choose what to share in posts, stories, messages and your profile picture.",
         "NSCameraUsageDescription": "Community uses your camera so you can take photos and videos to share.",
         "NSMicrophoneUsageDescription": "Community uses your microphone when you record a video with sound or a voice message.",
-        "NSPhotoLibraryAddUsageDescription": "Community saves a photo to your library when you tap Save on a photo in a chat."
+        "NSPhotoLibraryAddUsageDescription": "Community saves a photo to your library when you tap Save on a photo in a chat.",
+        "NSLocationWhenInUseUsageDescription": "Community uses your location to show churches near you. It is not stored or shared."
       },
       "appleTeamId": "QRMLKZR9B8"
     },
@@ -56,6 +57,15 @@
         "expo-audio",
         {
           "microphonePermission": "Community uses your microphone when you record a video with sound or a voice message."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Community uses your location to show churches near you. It is not stored or shared.",
+          "locationAlwaysPermission": false,
+          "locationAlwaysAndWhenInUsePermission": false,
+          "isIosBackgroundLocationEnabled": false
         }
       ]
     ]
