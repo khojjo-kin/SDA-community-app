@@ -1,0 +1,205 @@
+/* Churches, and Communities and pages. Colours come only from the app's variables, so Dark and White
+   both work; soft green and blue grounds are mixed from them. */
+
+/* ---------- shared: headings, people, tags, forms ---------- */
+
+.cm-h { font-size: 16px; font-weight: 700; margin: 28px 0 10px; }
+.church.cm-church .cm-h { margin: 32px 0 12px; }
+.cm-hint { color: var(--fg3); font-size: 12.5px; font-weight: 400; line-height: 17px; }
+.cm-count { font-style: normal; font-weight: 400; font-size: 12px; color: var(--fg3); align-self: flex-end; }
+.cm-you { font-size: 12px; font-weight: 600; color: var(--fg2); }
+
+.cm-people { display: grid; }
+.cm-person { display: flex; align-items: center; gap: 12px; padding: 8px 0; min-width: 0; }
+.cm-person-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 18px; }
+.cm-person-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.cm-person-name .uname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-person-sub { color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-row-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+
+.cm-tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent2); font-size: 12px; font-weight: 700; flex: none; }
+.cm-tag.small { height: 18px; padding: 0 6px; font-size: 11px; }
+
+.cm-form { display: flex; flex-direction: column; gap: 16px; }
+.cm-form .form-row { font-weight: 400; font-size: 14px; gap: 6px; }
+.cm-form .form-row > span:first-child { font-size: 13px; font-weight: 600; color: var(--fg2); }
+.cm-form .form-error { font-weight: 400; }
+.cm-form-2 { gap: 12px; }
+.cm-form-foot { display: flex; gap: 8px; margin-top: 8px; }
+.cm-form-foot .btn { min-width: 140px; }
+.cm-select { height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); color: var(--fg); font-size: 14px; font-weight: 400; cursor: pointer; }
+.cm-select:focus { border-color: var(--accent); }
+.cm-select option { background: var(--pop); color: var(--fg); }
+
+.cm-modal .cm-modal-body { padding: 16px 20px 20px; overflow-y: auto; }
+
+.cm-switch-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); cursor: pointer; }
+.cm-switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+.cm-switch-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cm-switch-text b { font-weight: 600; }
+.cm-switch-text span { color: var(--fg2); font-size: 13px; line-height: 18px; }
+
+.cm-handle-input { display: flex; align-items: center; padding-left: 16px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); }
+.cm-handle-input:focus-within { border-color: var(--accent); }
+.cm-handle-input i { font-style: normal; color: var(--fg2); }
+.cm-form .cm-handle-input input { flex: 1; min-width: 0; padding: 14px 16px 14px 2px; border: 0; border-radius: 0; background: none; }
+
+.cm-choices { display: grid; gap: 8px; }
+.cm-choice { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); text-align: left; }
+.cm-choice:hover { border-color: var(--fg3); }
+.cm-choice.on { border-color: var(--accent); }
+.cm-choice-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cm-choice-text b { font-weight: 600; font-size: 15px; }
+.cm-choice-text span { color: var(--fg2); font-size: 13px; line-height: 18px; }
+.cm-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line2); flex: none; }
+.cm-choice.on .cm-radio { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--bg2); }
+
+/* A group's cover, or its mark on a soft green ground. */
+.cm-cover { display: grid; place-items: center; overflow: hidden; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent2); }
+.cm-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.cm-cover-field { display: flex; flex-direction: column; gap: 6px; }
+.cm-cover-pick { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 180px; border-radius: 16px; overflow: hidden; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent2); }
+.cm-cover-pick:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.cm-cover-pick img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cm-cover-label { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; font-weight: 600; }
+.cm-cover-pick.has .cm-cover-label { background: var(--scrim); color: var(--on-accent); }
+.cm-cover-remove { align-self: flex-start; }
+
+/* ---------- churches: the list ---------- */
+
+.split-list header .cm-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 8px; }
+.split-list header .cm-list-head h1 { padding: 0; }
+.cm-list-head .btn { gap: 4px; }
+.cm-sort { display: flex; gap: 6px; padding: 0 16px 8px; }
+.cm-sort button { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 600; }
+.cm-sort button:hover:not(.on):not(:disabled) { background: var(--surface2); }
+.cm-sort button.on { background: var(--fg); color: var(--bg); }
+.cm-note { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 4px 16px 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--fg2); font-size: 13px; line-height: 18px; }
+.cm-note .link-btn { font-size: 13px; }
+
+.cm-church-row { gap: 12px; padding: 10px 20px 10px 24px; }
+.hymn-no.cm-church-icon { border-radius: 50%; background: var(--surface); color: var(--fg2); }
+.hymn-no.cm-church-icon.mine { color: var(--accent2); }
+.row-text > .cm-row-name { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--fg); }
+.cm-row-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.cm-church-row .row-text > .cm-mine-text { color: var(--accent2); }
+.cm-km { flex: none; color: var(--fg2); font-size: 13px; }
+.cm-list-empty { display: grid; justify-items: start; gap: 10px; padding: 16px 24px; }
+
+.cm-status { display: inline-flex; align-items: center; flex: none; height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; }
+.cm-status.pending { color: var(--verified); background: color-mix(in srgb, var(--verified) 16%, transparent); }
+.cm-status.rejected { color: var(--like); background: color-mix(in srgb, var(--like) 14%, transparent); }
+
+/* ---------- churches: a church's page, and the add form ---------- */
+
+.church.cm-church { max-width: 680px; gap: 0; padding: 40px 40px 80px; }
+.cm-banner { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; padding: 14px 16px; border-radius: 14px; }
+.cm-banner.pending { background: color-mix(in srgb, var(--verified) 12%, transparent); }
+.cm-banner.pending > svg { color: var(--verified); }
+.cm-banner.rejected { background: color-mix(in srgb, var(--like) 11%, transparent); }
+.cm-banner.rejected > svg { color: var(--like); }
+.cm-banner > svg { flex: none; margin-top: 1px; }
+.cm-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; line-height: 20px; }
+.cm-banner-text span { color: var(--fg2); font-size: 13px; line-height: 18px; }
+.cm-banner-text a { color: var(--fg); font-weight: 600; }
+.cm-banner-actions { display: flex; gap: 8px; flex: none; }
+
+.cm-church-head { display: flex; align-items: flex-start; gap: 24px; }
+.cm-church-disc { width: 96px; height: 96px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.cm-church-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.cm-church-title h1 { overflow-wrap: anywhere; }
+.cm-church-title p { line-height: 20px; }
+.cm-mine-text { color: var(--accent2); font-weight: 700; }
+.cm-church-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cm-church-actions .btn { gap: 6px; }
+.cm-more { flex: none; margin: -4px -8px 0 0; }
+
+.cm-about { display: grid; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.cm-about-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; color: var(--fg2); }
+.cm-about-row + .cm-about-row { border-top: 1px solid var(--line); }
+.cm-about-row > svg { flex: none; margin-top: 1px; }
+.cm-about-row div { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 19px; }
+.cm-about-row b { color: var(--fg); font-weight: 600; }
+.cm-about-row a { color: var(--accent2); font-weight: 600; overflow-wrap: anywhere; }
+.cm-about-row a:hover { text-decoration: underline; }
+
+.cm-pane { max-width: 640px; margin: 0 auto; padding: 40px 40px 80px; }
+.cm-pane-title { font-size: 24px; line-height: 30px; font-weight: 800; }
+.cm-pane-intro { margin: 8px 0 24px; line-height: 20px; }
+.cm-pin { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); color: var(--fg2); }
+.cm-pin > svg { flex: none; }
+.cm-pin-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cm-pin-text b { color: var(--fg); font-weight: 600; }
+.cm-pin-text span { font-size: 13px; line-height: 18px; }
+.cm-pin .btn, .cm-pin .link-btn { flex: none; }
+
+/* ---------- communities and pages: the list ---------- */
+
+.cm-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.cm-head .btn { gap: 4px; }
+.cm-search { max-width: 420px; }
+.cm-groups .section-h { margin-top: 28px; }
+.cm-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 28px 0 12px; }
+.cm-groups .cm-section-head .section-h { margin: 0; }
+.cm-chips { display: flex; gap: 8px; }
+.cm-none { padding: 2px 0 8px; }
+.cm-grid-cards { gap: 20px 16px; }
+.cm-card { gap: 10px; padding-bottom: 4px; }
+.cm-card-link { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cm-card .group-cover { width: 100%; }
+.cm-card-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cm-card-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.cm-card-mark { display: inline-grid; flex: none; color: var(--fg2); }
+.cm-card-mark.accent { color: var(--accent2); }
+.cm-card .muted-text { font-size: 13px; }
+.cm-waiting { font-style: normal; font-weight: 600; color: var(--like); }
+
+/* ---------- communities and pages: one of them ---------- */
+
+.cm-group { padding-top: 20px; }
+.cm-hero { height: 240px; border-radius: 14px; }
+.cm-ghead { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; padding: 20px 4px 24px; border-bottom: 1px solid var(--line); }
+.cm-ghead-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.cm-ghead-main h1 { font-size: 26px; line-height: 32px; font-weight: 700; overflow-wrap: anywhere; }
+.cm-handle { margin-top: 2px; color: var(--fg2); }
+.cm-meta { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--fg2); }
+.cm-church-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--fg2); font-weight: 600; }
+.cm-church-link:hover { color: var(--fg); }
+.cm-desc { margin-top: 12px; max-width: 560px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cm-ghead-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; max-width: 440px; }
+.cm-ghead-actions .btn { gap: 6px; }
+.cm-owner { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent2); font-weight: 600; }
+.cm-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 2px; border-radius: 10px; background: var(--like); color: var(--on-accent); font-size: 11.5px; font-weight: 700; }
+
+/* Grid or feed, like the tabs on a profile: on the line under the header. */
+.cm-tabs { display: flex; justify-content: center; gap: 56px; margin-top: -1px; }
+.cm-tabs button { display: inline-flex; align-items: center; gap: 6px; height: 52px; border-top: 1px solid transparent; color: var(--fg2); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.cm-tabs button:hover { color: var(--fg); }
+.cm-tabs button.on { border-top-color: var(--fg); color: var(--fg); }
+.cm-group .private-note { border-top: 0; }
+.cm-post-feed { margin-top: 8px; }
+.cm-end { height: 1px; }
+
+/* ---------- communities and pages: members, and creating one ---------- */
+
+.cm-back { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; color: var(--fg2); font-weight: 600; }
+.cm-back:hover { color: var(--fg); }
+.cm-members .page-title { margin: 12px 0 16px; }
+.cm-section { margin-top: 8px; }
+.cm-section-note { margin: -4px 0 6px; font-size: 13px; line-height: 18px; }
+
+.cm-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+.cm-kind { display: flex; align-items: flex-start; gap: 14px; padding: 18px; border-radius: 16px; border: 1px solid var(--line2); background: var(--surface); text-align: left; }
+.cm-kind:hover:not(:disabled) { border-color: var(--fg3); }
+.cm-kind.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.cm-kind-icon { width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent2); }
+.cm-kind-text { display: flex; flex-direction: column; gap: 4px; }
+.cm-kind-text b { font-size: 17px; font-weight: 700; }
+.cm-kind-text span { color: var(--fg2); font-size: 13.5px; line-height: 18px; }
+
+@media (max-width: 900px) {
+  .cm-ghead { flex-direction: column; gap: 16px; }
+  .cm-ghead-actions { justify-content: flex-start; max-width: none; }
+  .church.cm-church, .cm-pane { padding: 32px 24px 60px; }
+}
