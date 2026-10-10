@@ -10,6 +10,7 @@ import { fmt } from 'shared/theme';
 import type { Profile, StoryGroup } from 'shared/types';
 import { useAuth } from '../lib/auth';
 import { profileByUsername } from '../lib/extra';
+import { t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, ChoiceMenu, Empty, Failed, Icon, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
@@ -30,8 +31,29 @@ let ownDiscoverOpen = true;
 // Where the page was scrolled when a tab was picked, so the grid changes without jumping to the top.
 let keepScroll: number | null = null;
 
-/** Why a member can report an account. The English goes to the server, so admins read every report alike. */
-const REPORT_REASONS = ['Spam', 'Pretending to be someone else', 'Harassment or hate', 'Copyright or trademark', 'Something else'];
+/**
+ * Why a member can report an account. The English (`reason`) goes to the server, so admins read every
+ * report alike; the member reads `word` in the app's language.
+ */
+const REPORT_REASONS = [
+  { reason: 'Spam', word: 'profile.reportSpam' },
+  { reason: 'Pretending to be someone else', word: 'profile.reportPretending' },
+  { reason: 'Harassment or hate', word: 'profile.reportHarassment' },
+  { reason: 'Copyright or trademark', word: 'report.copyright' },
+  { reason: 'Something else', word: 'profile.reportOther' },
+];
+
+/** "12 posts" with the number in bold; `word` is a key whose {count} gap is where the number goes. */
+function Count({ n, word }: { n: number; word: string }) {
+  const [before, after] = tSplit(word, 'count');
+  return (
+    <>
+      {before}
+      <b>{fmt(n)}</b>
+      {after}
+    </>
+  );
+}
 
 type Props = { username: string; tab: Tab; openPost: (id: string) => void; onCreate: (m: 'post' | 'story' | 'short') => void; /** /u/<you>/style opens Profile style (linked from the Plus page). */ openStyle?: boolean };
 
@@ -84,7 +106,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
 
   if (loading && !person) return <Spinner />;
   if (error) return <Failed error={error} retry={reload} />;
-  if (!person) return <Empty icon="user" title="Sorry, this page isn't available." body="The link you followed may be broken, or the account may have been removed." />;
+  if (!person) return <Empty icon="user" title={t('d.profile.pageMissing')} body={t('d.profile.pageMissingBody')} />;
 
   const mine = person.id === me.id;
   // A private account I don't follow: the counts show, the photos don't. Under-14 accounts are always
@@ -114,7 +136,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     }
   };
   const unfollow = async () => {
-    if (person.is_private && !(await ask(`Unfollow ${person.username}?`, "If you change your mind, you'll have to request to follow them again.", 'Unfollow'))) return;
+    if (person.is_private && !(await ask(t('d.profile.unfollowQuestion', { username: person.username }), t('d.profile.unfollowBody'), t('d.profile.unfollow')))) return;
     const before = person;
     set({ ...person, is_following: false, alerts_on: false, followers_count: Math.max(0, person.followers_count - 1) });
     try {
@@ -128,14 +150,14 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     set({ ...person, requested: true });
     try {
       await requestFollow(me.id, person.id);
-      toast(`Requested to follow ${person.username}`);
+      toast(t('profile.requestedToFollow', { username: person.username }));
     } catch (e) {
       set({ ...person, requested: false });
       toastError(e);
     }
   };
   const withdraw = async () => {
-    if (!(await ask('Withdraw your request?', `${person.username} will no longer see that you asked to follow them.`, 'Withdraw'))) return;
+    if (!(await ask(t('profile.withdrawQuestion'), t('profile.withdrawBody', { username: person.username }), t('profile.withdraw')))) return;
     set({ ...person, requested: false });
     try {
       await removeFollowRequest(me.id, person.id);
@@ -149,7 +171,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     try {
       if (accept) await acceptFollowRequest(person.id);
       else await removeFollowRequest(person.id, me.id);
-      toast(accept ? `${person.username} now follows you` : 'Request removed');
+      toast(accept ? t('common.nowFollowsYou', { username: person.username }) : t('common.requestRemoved'));
     } catch (e) {
       toastError(e);
       reload();
@@ -160,17 +182,17 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     try {
       await setCloseFriend(me.id, person.id, next);
       set({ ...person, is_close_friend: next });
-      toast(next ? 'Added to close friends' : 'Removed from close friends');
+      toast(next ? t('d.profile.addedCloseFriends') : t('d.profile.removedCloseFriends'));
     } catch (e) {
       toastError(e);
     }
   };
   const block = async () => {
     const next = !person.is_blocked;
-    if (next && !(await ask(`Block ${person.username}?`, 'You will stop seeing their posts, stories and comments. They are not told.', 'Block'))) return;
+    if (next && !(await ask(t('profile.blockQuestion', { username: person.username }), t('profile.blockBody'), t('profile.block')))) return;
     try {
       await setBlock(me.id, person.id, next);
-      toast(next ? `Blocked ${person.username}` : `Unblocked ${person.username}`);
+      toast(next ? t('profile.blocked', { username: person.username }) : t('profile.unblocked', { username: person.username }));
       reload();
     } catch (e) {
       toastError(e);
@@ -180,9 +202,9 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     const link = location.origin + location.pathname + '#/u/' + person.username;
     try {
       await navigator.clipboard.writeText(link);
-      toast('Profile link copied');
+      toast(t('profile.linkCopied'));
     } catch {
-      toast("The link couldn't be copied");
+      toast(t('d.profile.linkNotCopied'));
     }
   };
   const subscribe = async () => {
@@ -226,12 +248,12 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
   if (person.is_live && !blocked) ring = 'live';
   else if (person.has_story && !locked && !blocked) ring = storyState.seen ? 'seen' : storyState.close ? 'close' : 'story';
   const pictureAction = ring === 'live' ? openLive : ring ? openStory : mine ? () => nav('/accounts/edit') : undefined;
-  const pictureLabel = ring === 'live' ? 'Watch live' : ring ? 'View story' : mine ? 'Change profile photo' : 'Profile photo';
+  const pictureLabel = ring === 'live' ? t('profile.watchLive') : ring ? t('profile.viewStory') : mine ? t('d.profile.changePhoto') : t('profile.photo');
 
   /* ---------- buttons ---------- */
 
   const discoverBtn = (
-    <button className={'prof-btn square' + (discover ? ' lit' : '')} aria-label={discover ? 'Hide Discover people' : 'Discover people'} aria-pressed={discover} onClick={toggleDiscover} title="Discover people">
+    <button className={'prof-btn square' + (discover ? ' lit' : '')} aria-label={discover ? t('profile.hideDiscoverPeople') : t('profile.discoverPeople')} aria-pressed={discover} onClick={toggleDiscover} title={t('profile.discoverPeople')}>
       <Icon name="request" size={20} />
     </button>
   );
@@ -240,10 +262,10 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     actions = (
       <>
         <button className={'prof-btn wide' + (look.theme.id ? ' primary' : '')} onClick={() => nav('/accounts/edit')}>
-          Edit profile
+          {t('profile.editProfile')}
         </button>
         <button className="prof-btn wide" onClick={() => nav('/archive')}>
-          View archive
+          {t('d.profile.viewArchive')}
         </button>
         {discoverBtn}
       </>
@@ -251,7 +273,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
   } else if (blocked) {
     actions = (
       <button className="prof-btn wide" onClick={block}>
-        Unblock
+        {t('profile.unblock')}
       </button>
     );
   } else {
@@ -259,30 +281,30 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
       <>
         {person.is_following ? (
           <button className="prof-btn wide" onClick={() => setMenu('following')} aria-haspopup="dialog">
-            Following <Icon name="down" size={14} stroke={2.4} />
+            {t('common.following')} <Icon name="down" size={14} stroke={2.4} />
           </button>
         ) : person.requested ? (
           <button className="prof-btn wide" onClick={withdraw}>
-            Requested
+            {t('profile.requested')}
           </button>
         ) : (
           <button className="prof-btn wide primary" onClick={follow}>
-            {person.follows_me ? 'Follow back' : 'Follow'}
+            {person.follows_me ? t('common.followBack') : t('common.follow')}
           </button>
         )}
         {canMessage ? (
           <button className="prof-btn wide" onClick={() => nav('/direct/u/' + person.username)}>
-            Message
+            {t('profile.message')}
           </button>
         ) : null}
         {person.sub_price_pence || person.subscribed ? (
           person.subscribed ? (
             <button className="prof-btn wide" onClick={() => setDialog('subscription')} aria-haspopup="dialog">
-              Subscribed <Icon name="down" size={14} stroke={2.4} />
+              {t('d.profile.subscribed')} <Icon name="down" size={14} stroke={2.4} />
             </button>
           ) : (
             <button className="prof-btn wide accent-text" onClick={subscribe} disabled={subscribing}>
-              {subscribing ? 'Subscribing…' : 'Subscribe'}
+              {subscribing ? t('d.profile.subscribing') : t('profile.subscribe')}
             </button>
           )
         ) : null}
@@ -293,6 +315,8 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
   }
 
   const theme = look.theme;
+  // "{username} wants to follow you", with the name in bold.
+  const [wantsBefore, wantsAfter] = tSplit('profile.wantsToFollow', 'username');
   return (
     <div className={'prof' + (look.banded ? ' banded' : '') + (theme.id ? ' themed' : '')} style={look.vars}>
       <header className={'profile-head profile-top prof-head' + (look.banded ? ' prof-band' : '')}>
@@ -306,11 +330,11 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
                   {showTick ? <Verified size={18} /> : null}
                 </h1>
                 {person.is_private ? (
-                  <span className="prof-lock" title={mine && me.restricted ? 'Private account (under 14)' : 'Private account'} aria-label="Private account" role="img">
+                  <span className="prof-lock" title={mine && me.restricted ? t('d.profile.privateUnder14') : t('d.profile.privateAccount')} aria-label={t('d.profile.privateAccount')} role="img">
                     <Icon name="lock" size={16} stroke={2} />
                   </span>
                 ) : null}
-                <button className="icon-btn prof-gear" aria-label={mine ? 'Options' : 'More options'} onClick={() => setMenu(mine ? 'gear' : 'more')}>
+                <button className="icon-btn prof-gear" aria-label={mine ? t('d.profile.options') : t('profile.moreOptions')} onClick={() => setMenu(mine ? 'gear' : 'more')}>
                   <Icon name={mine ? 'settings' : 'more'} size={24} />
                 </button>
               </div>
@@ -322,27 +346,27 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
               ) : null}
               <ul className="profile-stats prof-stats">
                 <li>
-                  <b>{fmt(person.posts_count)}</b> {person.posts_count === 1 ? 'post' : 'posts'}
+                  <Count n={person.posts_count} word={person.posts_count === 1 ? 'd.profile.postsOne' : 'd.profile.posts'} />
                 </li>
                 <li>
                   {locked || listsHidden || blocked ? (
                     <span>
-                      <b>{fmt(person.followers_count)}</b> {person.followers_count === 1 ? 'follower' : 'followers'}
+                      <Count n={person.followers_count} word={person.followers_count === 1 ? 'd.profile.followersOne' : 'd.profile.followers'} />
                     </span>
                   ) : (
                     <button onClick={() => setList('followers')}>
-                      <b>{fmt(person.followers_count)}</b> {person.followers_count === 1 ? 'follower' : 'followers'}
+                      <Count n={person.followers_count} word={person.followers_count === 1 ? 'd.profile.followersOne' : 'd.profile.followers'} />
                     </button>
                   )}
                 </li>
                 <li>
                   {locked || listsHidden || blocked ? (
                     <span>
-                      <b>{fmt(person.following_count)}</b> following
+                      <Count n={person.following_count} word="d.profile.following" />
                     </span>
                   ) : (
                     <button onClick={() => setList('following')}>
-                      <b>{fmt(person.following_count)}</b> following
+                      <Count n={person.following_count} word="d.profile.following" />
                     </button>
                   )}
                 </li>
@@ -351,14 +375,14 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
                 <div className="prof-category">
                   {person.account_type === 'creator' && person.category ? <span>{person.category}</span> : null}
                   {person.plus ? (
-                    <button className="prof-pill plus" onClick={() => (mine ? nav('/plus') : undefined)} disabled={!mine} title="Community Plus member">
-                      <Icon name="crown" size={12} stroke={2.2} /> Plus
+                    <button className="prof-pill plus" onClick={() => (mine ? nav('/plus') : undefined)} disabled={!mine} title={t('profile.plusMember')}>
+                      <Icon name="crown" size={12} stroke={2.2} /> {t('common.plus')}
                     </button>
                   ) : null}
                   {/* The owner runs the app quietly: only appointed admins show a badge. */}
                   {person.admin_role === 'admin' ? (
                     <span className="prof-pill admin">
-                      <Icon name="shield" size={12} stroke={2.2} /> Admin
+                      <Icon name="shield" size={12} stroke={2.2} /> {t('common.admin')}
                     </span>
                   ) : null}
                 </div>
@@ -379,13 +403,13 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
                     <Icon name="church" size={14} stroke={2} /> {person.church_name}
                   </Link>
                 ) : null}
-                {!mine && person.follows_me ? <span className="prof-muted small">Follows you</span> : null}
-                {mine && me.restricted ? <span className="prof-muted small">Accounts of members under 14 stay private.</span> : null}
+                {!mine && person.follows_me ? <span className="prof-muted small">{t('profile.followsYou')}</span> : null}
+                {mine && me.restricted ? <span className="prof-muted small">{t('d.profile.under14Private')}</span> : null}
               </div>
               {/* Who looked at your profile is a Plus perk: everyone else sees nothing here at all. */}
               {mine && person.plus ? (
                 <Link to="/accounts/viewers" className="prof-views">
-                  <Icon name="eye" size={15} stroke={2} /> {fmt(person.views_week)} profile {person.views_week === 1 ? 'view' : 'views'} this week · <b>See who</b>
+                  <Icon name="eye" size={15} stroke={2} /> {tn('profile.viewsWeek', person.views_week, { count: fmt(person.views_week) })} · <b>{t('profile.seeWho')}</b>
                 </Link>
               ) : null}
             </section>
@@ -394,13 +418,15 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
           {!mine && !blocked && person.requests_me ? (
             <div className="prof-request">
               <span className="grow">
-                <b>{person.username}</b> wants to follow you
+                {wantsBefore}
+                <b>{person.username}</b>
+                {wantsAfter}
               </span>
               <button className="prof-btn small primary" onClick={() => answer(true)}>
-                Confirm
+                {t('auth.confirm')}
               </button>
               <button className="prof-btn small" onClick={() => answer(false)}>
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           ) : null}
@@ -423,23 +449,23 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
           <span className="prof-private-ring">
             <Icon name="block" size={34} stroke={1.5} />
           </span>
-          <h2>You blocked this account</h2>
-          <p>Unblock them to see their posts.</p>
+          <h2>{t('profile.youBlocked')}</h2>
+          <p>{t('profile.youBlockedBody')}</p>
         </div>
       ) : locked ? (
         <div className="prof-private">
           <span className="prof-private-ring">
             <Icon name="lock" size={34} stroke={1.5} />
           </span>
-          <h2>This account is private</h2>
-          <p>Follow to see their photos and videos.</p>
+          <h2>{t('profile.private')}</h2>
+          <p>{t('d.profile.privateBody')}</p>
           {person.requested ? (
             <button className="prof-btn small" onClick={withdraw}>
-              Requested
+              {t('profile.requested')}
             </button>
           ) : (
             <button className="prof-btn small primary" onClick={follow}>
-              Follow
+              {t('common.follow')}
             </button>
           )}
         </div>
@@ -462,14 +488,14 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
         <ChoiceMenu
           onClose={() => setMenu(null)}
           items={[
-            { label: 'Settings and privacy', onClick: () => nav('/accounts/edit') },
-            { label: 'Profile style', onClick: () => setDialog('style') },
-            { label: 'Archive', onClick: () => nav('/archive') },
-            { label: 'Your activity', onClick: () => nav('/activity') },
-            ...(person.account_type === 'creator' ? [{ label: 'Professional dashboard', onClick: () => nav('/dashboard') }] : []),
-            { label: 'About this account', onClick: () => setDialog('about') },
-            { label: 'Copy profile link', onClick: copyLink },
-            { label: 'Log out', onClick: () => auth.signOut() },
+            { label: t('d.profile.settingsPrivacy'), onClick: () => nav('/accounts/edit') },
+            { label: t('settings.profileStyle'), onClick: () => setDialog('style') },
+            { label: t('settings.archive'), onClick: () => nav('/archive') },
+            { label: t('settings.yourActivity'), onClick: () => nav('/activity') },
+            ...(person.account_type === 'creator' ? [{ label: t('d.profile.proDashboard'), onClick: () => nav('/dashboard') }] : []),
+            { label: t('profile.about'), onClick: () => setDialog('about') },
+            { label: t('profile.copyLink'), onClick: copyLink },
+            { label: t('settings.logOut'), onClick: () => auth.signOut() },
           ]}
         />
       ) : null}
@@ -477,29 +503,29 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
         <ChoiceMenu
           onClose={() => setMenu(null)}
           items={[
-            { label: person.is_blocked ? 'Unblock' : 'Block', danger: true, bold: true, onClick: block },
-            { label: 'Report', danger: true, bold: true, onClick: () => setMenu('report') },
-            ...(person.is_blocked ? [] : [{ label: person.is_close_friend ? 'Remove from close friends' : 'Add to close friends', onClick: closeFriend }]),
-            { label: 'About this account', onClick: () => setDialog('about') },
-            { label: 'Copy profile link', onClick: copyLink },
+            { label: person.is_blocked ? t('profile.unblock') : t('profile.block'), danger: true, bold: true, onClick: block },
+            { label: t('profile.report'), danger: true, bold: true, onClick: () => setMenu('report') },
+            ...(person.is_blocked ? [] : [{ label: person.is_close_friend ? t('profile.removeCloseFriend') : t('profile.addCloseFriend'), onClick: closeFriend }]),
+            { label: t('profile.about'), onClick: () => setDialog('about') },
+            { label: t('profile.copyLink'), onClick: copyLink },
           ]}
         />
       ) : null}
       {menu === 'report' ? (
-        <Modal title="Report" onClose={() => setMenu(null)} className="choices prof-report">
-          <p className="prof-report-why">Why are you reporting this account?</p>
+        <Modal title={t('profile.report')} onClose={() => setMenu(null)} className="choices prof-report">
+          <p className="prof-report-why">{t('d.profile.reportWhy')}</p>
           {REPORT_REASONS.map((r) => (
             <button
-              key={r}
+              key={r.reason}
               onClick={() => {
                 setMenu(null);
-                report(me.id, { userId: person.id }, r).then(() => toast('Thanks. We will review this account.'), toastError);
+                report(me.id, { userId: person.id }, r.reason).then(() => toast(t('profile.reportThanks')), toastError);
               }}
             >
-              {r}
+              {t(r.word)}
             </button>
           ))}
-          <button onClick={() => setMenu(null)}>Cancel</button>
+          <button onClick={() => setMenu(null)}>{t('common.cancel')}</button>
         </Modal>
       ) : null}
       {menu === 'following' ? (
@@ -514,7 +540,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
               closeFriend();
             }}
           >
-            <span className="grow">{person.is_close_friend ? 'Remove from close friends' : 'Add to close friends'}</span>
+            <span className="grow">{person.is_close_friend ? t('profile.removeCloseFriend') : t('profile.addCloseFriend')}</span>
             <Icon name="star" size={20} fill={person.is_close_friend ? 'currentColor' : undefined} />
           </button>
           {person.sub_price_pence || person.subscribed ? (
@@ -524,7 +550,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
                 setDialog('subscription');
               }}
             >
-              <span className="grow">{person.subscribed ? 'Your subscription' : 'Subscribe'}</span>
+              <span className="grow">{person.subscribed ? t('plus.yourSubscription') : t('profile.subscribe')}</span>
               <Icon name="crown" size={20} />
             </button>
           ) : null}
@@ -535,7 +561,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
               unfollow();
             }}
           >
-            <span className="grow">Unfollow</span>
+            <span className="grow">{t('d.profile.unfollow')}</span>
           </button>
         </Modal>
       ) : null}
@@ -561,13 +587,13 @@ function PeopleList({ person, which, onClose }: { person: Profile; which: 'follo
   }, []);
   const shown = (people ?? []).filter((p) => !q || p.username.includes(q.toLowerCase()) || p.full_name.toLowerCase().includes(q.toLowerCase()));
   return (
-    <Modal title={which === 'followers' ? 'Followers' : 'Following'} onClose={onClose} className="people-modal">
+    <Modal title={which === 'followers' ? t('liveSetup.followers') : t('common.following')} onClose={onClose} className="people-modal">
       <div className="panel-search in-modal">
-        <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
+        <input placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('common.search')} />
       </div>
       <div className="list-pad">
         {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text center pad">{q ? 'No results.' : which === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}</p> : null}
+        {people && !shown.length ? <p className="muted-text center pad">{q ? t('d.profile.noResults') : which === 'followers' ? t('d.profile.noFollowers') : t('d.profile.noFollowing')}</p> : null}
         {shown.map((p) => (
           <div className="row" key={p.id}>
             <Avatar src={p.avatar_url} name={p.username} size={44} onClick={() => { onClose(); nav('/u/' + p.username); }} />
@@ -602,7 +628,7 @@ function FollowToggle({ p }: { p: Profile }) {
         }
       }}
     >
-      {on ? 'Following' : 'Follow'}
+      {on ? t('common.following') : t('common.follow')}
     </button>
   );
 }

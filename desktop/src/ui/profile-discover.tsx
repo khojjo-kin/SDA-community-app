@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { dismissSuggestion, fetchSuggestedPeople, removeFollowRequest, requestFollow, setFollow } from 'shared/api';
 import { fmt } from 'shared/theme';
 import type { SuggestedPerson } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Link, Spinner, Verified, toast, toastError } from './kit';
@@ -15,9 +16,9 @@ type FollowState = 'none' | 'following' | 'requested';
 
 /** The short grey line on a card. */
 export function suggestionReason(p: SuggestedPerson): string {
-  if (p.mutual_count > 0) return `${fmt(p.mutual_count)} ${p.mutual_count === 1 ? 'mutual' : 'mutuals'}`;
-  if (p.follows_me) return 'Follows you';
-  return 'Suggested for you';
+  if (p.mutual_count > 0) return tn('d.profile.mutuals', p.mutual_count, { count: fmt(p.mutual_count) });
+  if (p.follows_me) return t('profile.followsYou');
+  return t('d.profile.suggested');
 }
 
 /**
@@ -51,7 +52,7 @@ function Card({ p, onDismiss }: { p: SuggestedPerson; onDismiss: () => void }) {
         setState('following');
         const now = await followSuggested(me.id, p.id);
         setState(now);
-        if (now === 'requested') toast(`Requested to follow ${p.username}`);
+        if (now === 'requested') toast(t('profile.requestedToFollow', { username: p.username }));
       } else {
         setState('none');
         if (was === 'following') await setFollow(me.id, p.id, false);
@@ -64,10 +65,10 @@ function Card({ p, onDismiss }: { p: SuggestedPerson; onDismiss: () => void }) {
       setBusy(false);
     }
   };
-  const label = state === 'following' ? 'Following' : state === 'requested' ? 'Requested' : p.follows_me ? 'Follow back' : 'Follow';
+  const label = state === 'following' ? t('common.following') : state === 'requested' ? t('profile.requested') : p.follows_me ? t('common.followBack') : t('common.follow');
   return (
     <div className="prof-dcard">
-      <button className="prof-dcard-x" aria-label={'Stop suggesting ' + p.username} onClick={onDismiss}>
+      <button className="prof-dcard-x" aria-label={t('d.profile.stopSuggesting', { username: p.username })} onClick={onDismiss}>
         <Icon name="close" size={14} stroke={2.2} />
       </button>
       <Avatar src={p.avatar_url} name={p.username} size={76} onClick={() => nav('/u/' + p.username)} label={p.username} />
@@ -115,9 +116,9 @@ export function DiscoverPeople({ excludeId, onHide }: { excludeId?: string; onHi
   if (list === null) {
     body = error ? (
       <p className="prof-discover-note">
-        Suggestions didn't load.{' '}
+        {t('d.profile.suggestionsFailed')}{' '}
         <button className="link-btn" onClick={load}>
-          Try again
+          {t('common.tryAgain')}
         </button>
       </p>
     ) : (
@@ -126,7 +127,7 @@ export function DiscoverPeople({ excludeId, onHide }: { excludeId?: string; onHi
       </div>
     );
   } else if (!list.length) {
-    body = <p className="prof-discover-note">No one to suggest just now.</p>;
+    body = <p className="prof-discover-note">{t('d.profile.noSuggestions')}</p>;
   } else {
     body = (
       <div className="prof-discover-wrap">
@@ -136,12 +137,12 @@ export function DiscoverPeople({ excludeId, onHide }: { excludeId?: string; onHi
           ))}
         </div>
         {edges.left ? (
-          <button className="prof-arrow left" aria-label="Scroll left" onClick={() => strip.current?.scrollBy({ left: -380, behavior: 'smooth' })}>
+          <button className="prof-arrow left" aria-label={t('d.profile.scrollLeft')} onClick={() => strip.current?.scrollBy({ left: -380, behavior: 'smooth' })}>
             <Icon name="back" size={14} stroke={2.6} />
           </button>
         ) : null}
         {edges.right ? (
-          <button className="prof-arrow right" aria-label="Scroll right" onClick={() => strip.current?.scrollBy({ left: 380, behavior: 'smooth' })}>
+          <button className="prof-arrow right" aria-label={t('d.profile.scrollRight')} onClick={() => strip.current?.scrollBy({ left: 380, behavior: 'smooth' })}>
             <Icon name="right" size={14} stroke={2.6} />
           </button>
         ) : null}
@@ -150,15 +151,15 @@ export function DiscoverPeople({ excludeId, onHide }: { excludeId?: string; onHi
   }
 
   return (
-    <section className="prof-discover" aria-label="Discover people">
+    <section className="prof-discover" aria-label={t('profile.discoverPeople')}>
       <div className="prof-discover-head">
-        <h2>Discover people</h2>
+        <h2>{t('profile.discoverPeople')}</h2>
         <span className="grow" />
         <Link to="/explore/people" className="prof-see-all">
-          See all
+          {t('ssPub.seeAll')}
         </Link>
         {onHide ? (
-          <button className="icon-btn tiny" aria-label="Close Discover people" onClick={onHide}>
+          <button className="icon-btn tiny" aria-label={t('d.profile.closeDiscover')} onClick={onHide}>
             <Icon name="close" size={16} />
           </button>
         ) : null}

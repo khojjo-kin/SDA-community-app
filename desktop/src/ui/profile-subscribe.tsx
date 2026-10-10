@@ -4,11 +4,12 @@
 // is read back from Stripe until it is on. Once subscribed, the same dialog cancels or resumes it.
 import React, { useEffect, useState } from 'react';
 import { cancelCreatorSubscription, mySubscriptions, startCreatorSubscription, syncCreatorSubscriptionUntilOn } from 'shared/api';
-import { dayLabel } from 'shared/theme';
 import type { CreatorSub, Profile } from 'shared/types';
+import { t, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { confirmPay, money } from '../lib/pay';
 import { Avatar, Icon, type IconName, Modal, Spinner, Verified, ask, toast, toastError } from './kit';
+import { shortDay } from './profile-parts';
 import '../styles/profile.css';
 
 /** A subscription that still gives access (a failed renewal keeps it for a little while). */
@@ -25,23 +26,24 @@ export async function subscribeTo(creator: Profile, overdue = false): Promise<bo
     // Already paid, though Stripe may not have marked it active yet.
     known = r.status ?? null;
   } else {
-    if (!r.client_secret) throw new Error('The payment could not start. Try again.');
+    if (!r.client_secret) throw new Error(t('d.profile.paymentNotStarted'));
     const amount = r.amount ?? creator.sub_price_pence ?? 0;
     const currency = (r.currency ?? 'GBP').toUpperCase();
+    const price = money(amount, currency);
     const paid = await confirmPay({
-      title: `Subscription to @${creator.username} · ${overdue ? 'payment due' : 'first month'}`,
-      detail: `${money(amount, currency)} a month · Renews automatically until cancelled`,
+      title: t(overdue ? 'subscribe.sheetDue' : 'subscribe.sheetFirst', { username: creator.username }),
+      detail: t('legal.priceMonthly', { price }) + ' · ' + t('d.profile.renewsAuto'),
       amountPence: amount,
       currency,
       clientSecret: r.client_secret,
       intent: r.intent ?? 'payment',
-      action: overdue ? `Pay now · ${money(amount, currency)}` : `Subscribe · ${money(amount, currency)} a month`,
+      action: overdue ? t('subscribe.payNow', { price }) : t('subscribe.button', { price }),
     });
     if (!paid) return false;
   }
   const on = await syncCreatorSubscriptionUntilOn(creator.id, known);
-  if (on) toast(overdue ? `Paid. Your subscription to ${creator.username} carries on` : `You're subscribed to ${creator.username}`);
-  else toast("Payment received. It's taking a moment to show here, so check back in a minute.");
+  if (on) toast(overdue ? t('subscribe.paidCarriesOn', { username: creator.username }) : t('subscribe.subscribedTo', { username: creator.username }));
+  else toast(t('subscribe.paymentReceived'));
   return on;
 }
 
@@ -49,9 +51,9 @@ export async function subscribeTo(creator: Profile, overdue = false): Promise<bo
 function perks(creator: Profile): { icon: IconName; title: string }[] {
   const first = creator.full_name.trim().split(/\s+/)[0] || creator.username;
   return [
-    { icon: 'lock', title: 'Subscriber-only posts and Shorts' },
-    { icon: 'heart', title: `Support ${first} directly` },
-    { icon: 'repeat', title: 'Cancel any time' },
+    { icon: 'lock', title: t('subscribe.perkPosts') },
+    { icon: 'heart', title: t('subscribe.perkSupport', { name: first }) },
+    { icon: 'repeat', title: t('subscribe.perkCancel') },
   ];
 }
 
@@ -75,7 +77,7 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
   // A subscriber pays what they signed up at, even if the creator has changed the price since.
   const pence = live && sub ? sub.amount_pence : creator.sub_price_pence ?? 0;
   const price = money(pence, 'GBP');
-  const day = sub?.current_period_end ? dayLabel(new Date(sub.current_period_end)) : '';
+  const day = sub?.current_period_end ? shortDay(new Date(sub.current_period_end)) : '';
   const overdue = sub?.status === 'past_due';
 
   const pay = async () => {
@@ -96,11 +98,11 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
   const changeRenewal = async () => {
     if (!sub) return;
     const resume = sub.cancel_at_period_end;
-    if (!resume && !(await ask('Cancel your subscription?', day ? `You won't be charged again. You keep seeing their subscriber posts until ${day}.` : "You won't be charged again. You keep seeing their subscriber posts until the end of the month you paid for.", 'Cancel subscription'))) return;
+    if (!resume && !(await ask(t('subscribe.cancelQuestion'), day ? t('subscribe.cancelBody', { day }) : t('subscribe.cancelBodyPeriod'), t('plus.cancelSubscription')))) return;
     setBusy(true);
     try {
       await cancelCreatorSubscription(creator.id, resume);
-      toast(resume ? 'Your subscription will renew' : day ? `Your subscription ends on ${day}` : 'Your subscription will end');
+      toast(resume ? t('subscribe.willRenew') : day ? t('subscribe.endsOn', { day }) : t('subscribe.willEnd'));
       await load();
       onChanged();
     } catch (e) {
@@ -111,10 +113,12 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
   };
 
   let status = '';
-  if (subscribed) status = overdue ? "Your last payment didn't go through" : sub?.cancel_at_period_end ? `You're subscribed · ends ${day}` : day ? `You're subscribed · renews ${day}` : "You're subscribed";
+  if (subscribed) status = overdue ? t('subscribe.pastDue') : sub?.cancel_at_period_end ? t('subscribe.subscribedEnds', { day }) : day ? t('subscribe.subscribedRenews', { day }) : t('subscribe.subscribed');
+  // "£4.99 a month", with the price in bold.
+  const [priceBefore, priceAfter] = tSplit('legal.priceMonthly', 'price');
 
   return (
-    <Modal title="Subscribe" onClose={() => !busy && onClose()} className="prof-sub" closeOutside={!busy}>
+    <Modal title={t('subscribe.title')} onClose={() => !busy && onClose()} className="prof-sub" closeOutside={!busy}>
       <div className="prof-sub-body">
         <div className="prof-sub-top">
           <Avatar src={creator.avatar_url} name={creator.username} size={84} />
@@ -124,7 +128,9 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
             {creator.verified ? <Verified size={13} /> : null}
           </span>
           <p className="prof-sub-price">
-            <b>{price}</b> a month
+            {priceBefore}
+            <b>{price}</b>
+            {priceAfter}
           </p>
         </div>
         {sub === undefined ? (
@@ -137,7 +143,7 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
                 <b>{status}</b>
               </div>
             ) : null}
-            <h3 className="prof-sub-h">{subscribed ? 'Your subscription gives you' : "What you'll get"}</h3>
+            <h3 className="prof-sub-h">{subscribed ? t('subscribe.givesYou') : t('subscribe.whatYouGet')}</h3>
             <ul className="prof-sub-perks">
               {perks(creator).map((p) => (
                 <li key={p.title}>
@@ -154,15 +160,15 @@ export function SubscribeDialog({ creator, onClose, onChanged }: { creator: Prof
           {!subscribed || overdue ? (
             <>
               <button className="btn block big" disabled={busy} onClick={pay}>
-                {busy ? 'Confirming your payment…' : overdue ? `Pay now · ${price}` : `Subscribe · ${price} a month`}
+                {busy ? t('d.profile.confirmingPayment') : overdue ? t('subscribe.payNow', { price }) : t('subscribe.button', { price })}
               </button>
               <p className="muted-text small center">
-                <b>{price} a month</b> · Renews automatically until cancelled
+                <b>{t('legal.priceMonthly', { price })}</b> · {t('d.profile.renewsAuto')}
               </p>
             </>
           ) : sub ? (
             <button className={'btn block big quiet' + (sub.cancel_at_period_end ? '' : ' prof-danger-text')} disabled={busy} onClick={changeRenewal}>
-              {sub.cancel_at_period_end ? 'Resume subscription' : 'Cancel subscription'}
+              {sub.cancel_at_period_end ? t('plus.resumeSubscription') : t('plus.cancelSubscription')}
             </button>
           ) : null}
         </div>
