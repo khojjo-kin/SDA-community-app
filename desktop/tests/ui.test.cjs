@@ -306,8 +306,8 @@ const check = (label, ok, extra) => {
 
   // Creator tools and account
   await goto('/dashboard');
-  await page.waitForSelector('.tile-stat');
-  check('the professional dashboard shows views and a chart', (await page.locator('.tile-stat').count()) === 4 && (await page.locator('.bar-col').count()) >= 28);
+  await page.waitForSelector('.pro-tile');
+  check('the professional dashboard shows views and a chart', (await page.locator('.pro-tile').count()) === 6 && (await page.locator('.pro-card .chart svg path').count()) >= 2);
   await goto('/archive');
   await page.waitForSelector('.archive-tile');
   check('the archive keeps my expired stories', (await page.locator('.archive-tile').count()) >= 2);
