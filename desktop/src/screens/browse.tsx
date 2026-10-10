@@ -6,6 +6,7 @@ import { type FeedKind, dismissSuggestion, fetchExplore, fetchFeed, fetchLives, 
 import { listen, putPosts } from 'shared/store';
 import { fmt } from 'shared/theme';
 import type { LiveCard, Post, Profile, StoryGroup, SuggestedPerson } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Link, Spinner, Verified, toastError } from '../ui/kit';
@@ -123,10 +124,10 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
     <div className="home">
       <div className="home-main">
         <StoryTray groups={tray} lives={lives} onOpen={setViewing} onAdd={() => onCreate('story')} />
-        <div className="feed-switch" role="tablist" aria-label="Feed">
+        <div className="feed-switch" role="tablist" aria-label={t('d.posts.feed')}>
           {(['foryou', 'following'] as FeedKind[]).map((k) => (
             <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-              {k === 'following' ? 'Following' : 'For you'}
+              {t(k === 'following' ? 'common.following' : 'home.forYou')}
             </button>
           ))}
         </div>
@@ -135,18 +136,18 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
           {ids === null && !error ? <Spinner /> : null}
           {ids && !ids.length ? (
             kind === 'following' ? (
-              <Empty icon="image" title="Welcome to Community" body="Follow people to see their photos and videos here, or switch to For you to see everyone.">
+              <Empty icon="image" title={t('home.welcome')} body={t('d.posts.welcomeBody')}>
                 <div className="btn-row">
                   <button className="btn" onClick={() => setKind('foryou')}>
-                    See For you
+                    {t('d.posts.seeForYou')}
                   </button>
                   <button className="btn quiet" onClick={() => onCreate('post')}>
-                    Share a photo
+                    {t('home.sharePhoto')}
                   </button>
                 </div>
               </Empty>
             ) : (
-              <Empty icon="image" title="Nothing here yet" body="Nobody has posted yet. Share the first photo." />
+              <Empty icon="image" title={t('bibleMarks.emptyFilter')} body={t('d.posts.nobodyPosted')} />
             )
           ) : null}
           {(ids ?? []).map((id) => (
@@ -157,8 +158,8 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
           {ids && ids.length && !more ? (
             <div className="caught-up">
               <Icon name="check" size={40} color="var(--accent)" stroke={1.5} />
-              <b>You're all caught up</b>
-              <span>You've seen all new posts.</span>
+              <b>{t('home.caughtUp')}</b>
+              <span>{t('d.posts.seenAll')}</span>
             </div>
           ) : null}
         </div>
@@ -169,29 +170,30 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
   );
 }
 
+/** The links under Suggested for you: the key of each one's words, and where it goes. */
 const FOOT_LINKS: [string, string][] = [
-  ['About', '/legal/about'],
-  ['Help', '/help'],
-  ['Privacy', '/legal/privacy'],
-  ['Terms', '/legal/terms'],
-  ['Community guidelines', '/legal/guidelines'],
-  ['Child safety', '/legal/child-safety'],
-  ['Copyright', '/legal/copyright'],
-  ['Language', '/accounts/language'],
+  ['settings.about', '/legal/about'],
+  ['d.posts.footHelp', '/help'],
+  ['d.posts.footPrivacy', '/legal/privacy'],
+  ['legal.termsLink', '/legal/terms'],
+  ['legal.guidelines', '/legal/guidelines'],
+  ['legal.childSafety', '/legal/child-safety'],
+  ['d.posts.footCopyright', '/legal/copyright'],
+  ['language.title', '/accounts/language'],
 ];
 
 export function FootLinks() {
   return (
     <footer className="aside-foot">
-      <nav aria-label="About Community">
+      <nav aria-label={t('d.posts.aboutCommunity')}>
         {FOOT_LINKS.map(([label, to], i) => (
           <React.Fragment key={to}>
             {i ? ' · ' : ''}
-            <Link to={to}>{label}</Link>
+            <Link to={to}>{t(label)}</Link>
           </React.Fragment>
         ))}
       </nav>
-      <span>© {new Date().getFullYear()} Community for the church family</span>
+      <span>{t('d.posts.footCopyrightLine', { year: new Date().getFullYear() })}</span>
     </footer>
   );
 }
@@ -214,15 +216,15 @@ function Aside() {
           <span>{me.full_name}</span>
         </span>
         <button className="link-btn" onClick={() => setSwitcher(true)}>
-          Switch
+          {t('d.posts.switch')}
         </button>
       </div>
       {people && people.length ? (
         <>
           <div className="aside-head">
-            <span>Suggested for you</span>
+            <span>{t('d.posts.suggestedForYou')}</span>
             <Link to="/explore/people" className="see-all">
-              See all
+              {t('ssPub.seeAll')}
             </Link>
           </div>
           {people.map((p) => (
@@ -238,9 +240,9 @@ function Aside() {
 
 /** Why someone is suggested: who you know that follows them. */
 export function reason(p: SuggestedPerson): string {
-  if (p.follows_me) return 'Follows you';
-  if (p.mutual_names.length) return 'Followed by ' + p.mutual_names[0] + (p.mutual_count > 1 ? ` + ${p.mutual_count - 1} more` : '');
-  return 'Suggested for you';
+  if (p.follows_me) return t('profile.followsYou');
+  if (p.mutual_names.length) return p.mutual_count > 1 ? t('d.posts.followedByMore', { name: p.mutual_names[0], count: p.mutual_count - 1 }) : t('d.posts.followedBy', { name: p.mutual_names[0] });
+  return t('d.posts.suggestedForYou');
 }
 
 export function Suggestion({ p, big, onDismiss }: { p: SuggestedPerson; big?: boolean; onDismiss?: () => void }) {
@@ -269,10 +271,10 @@ export function Suggestion({ p, big, onDismiss }: { p: SuggestedPerson; big?: bo
           }
         }}
       >
-        {on ? 'Following' : p.follows_me ? 'Follow back' : 'Follow'}
+        {t(on ? 'common.following' : p.follows_me ? 'common.followBack' : 'common.follow')}
       </button>
       {onDismiss ? (
-        <button className="icon-btn tiny" aria-label={'Hide ' + p.username} onClick={onDismiss}>
+        <button className="icon-btn tiny" aria-label={t('d.posts.hideUser', { username: p.username })} onClick={onDismiss}>
           <Icon name="close" size={14} />
         </button>
       ) : null}
@@ -344,7 +346,7 @@ export function Explore({ openPost }: { openPost: (id: string, list?: string[]) 
       <SearchBox />
       {error ? <Failed error={error} retry={load} /> : null}
       {!posts && !error ? <Spinner /> : null}
-      {posts && !posts.length ? <Empty icon="compass" title="Nothing to explore yet" body="Photos and Shorts from everyone on Community will show up here." /> : null}
+      {posts && !posts.length ? <Empty icon="compass" title={t('d.posts.exploreEmpty')} body={t('d.posts.exploreEmptyBody')} /> : null}
       <div className="mosaic">
         {all.map((p, i) => {
           // In each block of five, one tall tile, alternating right and left.
@@ -430,15 +432,15 @@ function SearchBox() {
           </b>
           <span>
             {p.full_name}
-            {p.followers_count ? ` • ${fmt(p.followers_count)} followers` : ''}
-            {p.is_following ? ' • Following' : ''}
+            {p.followers_count ? ' • ' + t('d.posts.followers', { count: fmt(p.followers_count) }) : ''}
+            {p.is_following ? ' • ' + t('common.following') : ''}
           </span>
         </span>
       </button>
       {removable ? (
         <button
           className="icon-btn"
-          aria-label={'Remove ' + p.username}
+          aria-label={t('createFlow.untag', { username: p.username })}
           onClick={() => {
             const next = recent.filter((r) => r.id !== p.id);
             setRecent(next);
@@ -454,9 +456,9 @@ function SearchBox() {
     <div className={'search-box' + (focused ? ' open' : '')} ref={box}>
       <label className="search-field">
         <Icon name="search" size={18} />
-        <input ref={input} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => setFocused(true)} aria-label="Search people" onKeyDown={(e) => e.key === 'Escape' && (setQ(''), input.current?.blur(), setFocused(false))} />
+        <input ref={input} placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => setFocused(true)} aria-label={t('createFlow.searchPeople')} onKeyDown={(e) => e.key === 'Escape' && (setQ(''), input.current?.blur(), setFocused(false))} />
         {q ? (
-          <button className="clear" aria-label="Clear" onClick={() => setQ('')}>
+          <button className="clear" aria-label={t('createFlow.clear')} onClick={() => setQ('')}>
             <Icon name="close" size={10} stroke={3} />
           </button>
         ) : null}
@@ -466,19 +468,19 @@ function SearchBox() {
           {results === null ? (
             <>
               <div className="panel-sub">
-                <b>Recent</b>
+                <b>{t('d.posts.recent')}</b>
                 {recent.length ? (
                   <button className="link-btn" onClick={() => { setRecent([]); writeRecent([]); }}>
-                    Clear all
+                    {t('d.posts.clearAll')}
                   </button>
                 ) : null}
               </div>
-              {recent.length ? recent.map((p) => row(p, true)) : <p className="muted-text center pad">No recent searches.</p>}
+              {recent.length ? recent.map((p) => row(p, true)) : <p className="muted-text center pad">{t('d.posts.noRecent')}</p>}
             </>
           ) : results.length ? (
             results.map((p) => row(p))
           ) : (
-            <p className="muted-text center pad">No results found.</p>
+            <p className="muted-text center pad">{t('d.posts.noResults')}</p>
           )}
         </div>
       ) : null}
@@ -494,9 +496,9 @@ export function PeopleToFollow() {
   }, []);
   return (
     <div className="page suggested-page">
-      <h1 className="page-title">Suggested</h1>
+      <h1 className="page-title">{t('d.posts.suggested')}</h1>
       {!people ? <Spinner /> : null}
-      {people && !people.length ? <p className="muted-text">You're following everyone already.</p> : null}
+      {people && !people.length ? <p className="muted-text">{t('d.posts.followingEveryone')}</p> : null}
       {(people ?? []).map((p) => (
         <Suggestion
           key={p.id}
