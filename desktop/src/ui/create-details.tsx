@@ -10,6 +10,7 @@ import { canPostIn, fetchMyGroups, fetchPod, fetchPopularPod, searchProfiles } f
 import { clock } from 'shared/theme';
 import type { Group, PodItem, PostPoll, Profile } from 'shared/types';
 import '../styles/posts.css';
+import { dateLocale, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, type IconName, Spinner, Verified, toast, toastError } from './kit';
@@ -80,7 +81,7 @@ export function placeRules(extras: Extras, me: Pick<Profile, 'sub_price_pence' |
 export function cleanPoll(poll: PostPoll | null): { poll: PostPoll | null; error?: string } {
   if (!poll) return { poll: null };
   const options = poll.options.map((o) => o.trim()).filter(Boolean);
-  if (options.length < 2) return { poll: null, error: 'A poll needs at least two options.' };
+  if (options.length < 2) return { poll: null, error: t('createFlow.pollNeedsTwo') };
   return { poll: { question: (poll.question ?? '').trim(), options } };
 }
 
@@ -103,54 +104,54 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
         <Avatar src={me.avatar_url} name={me.username} size={28} />
         <b>{me.username}</b>
       </div>
-      <textarea ref={area} className="pp-caption" placeholder="Write a caption…" value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label="Caption" autoFocus disabled={busy} />
+      <textarea ref={area} className="pp-caption" placeholder={t('create.captionPlaceholder')} value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label={t('create.caption')} autoFocus disabled={busy} />
       <div className="pp-count-row">
         <EmojiButton onPick={(e) => insertAt(area.current, caption, e, setCaption)} />
-        <span className="pp-count-text">{caption.length.toLocaleString()}/2,200</span>
+        <span className="pp-count-text">{caption.length.toLocaleString(dateLocale())}/{(2200).toLocaleString(dateLocale())}</span>
       </div>
 
       <div className="pp-chips">
         <button type="button" className={'pp-chip' + (extras.poll ? ' on' : '')} aria-pressed={!!extras.poll} disabled={busy} onClick={() => set({ poll: extras.poll ? null : { question: '', options: ['', ''] } })}>
           <PollIcon size={15} />
-          Poll
+          {t('createFlow.poll')}
         </button>
         <button type="button" className={'pp-chip' + (extras.prompt !== null ? ' on' : '')} aria-pressed={extras.prompt !== null} disabled={busy} onClick={() => set({ prompt: extras.prompt === null ? '' : null })}>
           <Icon name="chatdots" size={15} stroke={2} />
-          Prompt
+          {t('createFlow.prompt')}
         </button>
       </div>
       {extras.poll ? <PollEditor poll={extras.poll} onChange={(poll) => set({ poll })} onRemove={() => set({ poll: null })} /> : null}
       {extras.prompt !== null ? (
-        <EditCard icon={<Icon name="chatdots" size={16} stroke={2} />} title="Prompt" onRemove={() => set({ prompt: null })}>
-          <textarea className="pp-field" value={extras.prompt} maxLength={200} rows={2} autoFocus placeholder="Ask something others can answer…" aria-label="Prompt" onChange={(e) => set({ prompt: e.target.value })} />
-          <span className="pp-field-note">People answer in the comments.</span>
+        <EditCard icon={<Icon name="chatdots" size={16} stroke={2} />} title={t('createFlow.prompt')} removeLabel={t('d.posts.removePrompt')} onRemove={() => set({ prompt: null })}>
+          <textarea className="pp-field" value={extras.prompt} maxLength={200} rows={2} autoFocus placeholder={t('createFlow.promptPlaceholder')} aria-label={t('createFlow.prompt')} onChange={(e) => set({ prompt: e.target.value })} />
+          <span className="pp-field-note">{t('d.posts.peopleAnswer')}</span>
         </EditCard>
       ) : null}
 
-      <Section icon="music" title="Add music" value={extras.song ? extras.song.title : ''} open={open === 'song'} onToggle={() => toggle('song')}>
+      <Section icon="music" title={t('d.posts.addMusic')} value={extras.song ? extras.song.title : ''} open={open === 'song'} onToggle={() => toggle('song')}>
         <SongPicker selected={extras.song} onPick={(song) => { set({ song }); setOpen(''); }} />
       </Section>
       {extras.song && open !== 'song' ? <SongChip song={extras.song} onRemove={() => set({ song: null })} /> : null}
-      <Section icon="tagged" title="Tag people" value={extras.tagged.length ? String(extras.tagged.length) : ''} open={open === 'tags'} onToggle={() => toggle('tags')}>
+      <Section icon="tagged" title={t('createFlow.tagPeople')} value={extras.tagged.length ? String(extras.tagged.length) : ''} open={open === 'tags'} onToggle={() => toggle('tags')}>
         <TagPicker tagged={extras.tagged} onChange={(tagged) => set({ tagged })} />
       </Section>
       {extras.tagged.length && open !== 'tags' ? <PeopleChips people={extras.tagged} onRemove={(p) => set({ tagged: extras.tagged.filter((x) => x.id !== p.id) })} /> : null}
       <label className="side-row pp-side-row">
-        <input placeholder="Add location" value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} aria-label="Location" disabled={busy} />
+        <input placeholder={t('create.addLocation')} value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} aria-label={t('create.location')} disabled={busy} />
         {location ? (
-          <button type="button" className="icon-btn tiny" aria-label="Clear place" onClick={() => setLocation('')}>
+          <button type="button" className="icon-btn tiny" aria-label={t('d.posts.clearPlace')} onClick={() => setLocation('')}>
             <Icon name="close" size={14} />
           </button>
         ) : (
           <Icon name="location" size={18} />
         )}
       </label>
-      <SwitchRow title="AI label" sub="Say it was made or changed with AI" on={extras.ai} onChange={(ai) => set({ ai })} disabled={busy} />
+      <SwitchRow title={t('createFlow.aiLabel')} sub={t('d.posts.aiLabelSub')} on={extras.ai} onChange={(ai) => set({ ai })} disabled={busy} />
       {/* Where it goes: your profile, or a community or page you can post in (a group's Post button picks it). */}
       {groups.length || extras.groupId ? (
-        <Section icon={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} title="Post to" value={group ? group.name : extras.groupId ? '' : 'Your profile'} open={open === 'place'} onToggle={() => toggle('place')}>
-          <div className="pp-place-list" role="radiogroup" aria-label="Post to">
-            {[{ id: null as string | null, name: 'Your profile', sub: 'Everyone who follows you', icon: 'user' as IconName }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: g.kind === 'page' ? 'Page' : g.privacy === 'private' ? 'Private community' : 'Community', icon: (g.kind === 'page' ? 'crown' : 'users') as IconName }))].map((o) => (
+        <Section icon={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} title={t('create.postTo')} value={group ? group.name : extras.groupId ? '' : t('create.yourProfile')} open={open === 'place'} onToggle={() => toggle('place')}>
+          <div className="pp-place-list" role="radiogroup" aria-label={t('create.postTo')}>
+            {[{ id: null as string | null, name: t('create.yourProfile'), sub: t('create.everyoneWhoFollows'), icon: 'user' as IconName }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name, sub: t(g.kind === 'page' ? 'create.page' : g.privacy === 'private' ? 'create.privateCommunity' : 'create.community'), icon: (g.kind === 'page' ? 'crown' : 'users') as IconName }))].map((o) => (
               <button
                 key={o.id ?? 'me'}
                 type="button"
@@ -180,46 +181,46 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
       ) : null}
       {canLimit ? (
         <div className="pp-audience">
-          <span>Audience</span>
-          <div className="pp-seg" role="radiogroup" aria-label="Audience">
+          <span>{t('createFlow.audience')}</span>
+          <div className="pp-seg" role="radiogroup" aria-label={t('createFlow.audience')}>
             <button type="button" role="radio" aria-checked={!extras.subscribersOnly} className={!extras.subscribersOnly ? 'on' : ''} onClick={() => set({ subscribersOnly: false })}>
-              Everyone
+              {t('createFlow.everyone')}
             </button>
             <button type="button" role="radio" aria-checked={extras.subscribersOnly} className={extras.subscribersOnly ? 'on' : ''} onClick={() => set({ subscribersOnly: true })}>
-              <Icon name="lock" size={12} stroke={2.4} /> Subscribers only
+              <Icon name="lock" size={12} stroke={2.4} /> {t('create.subscribersOnly')}
             </button>
           </div>
         </div>
       ) : null}
-      {mode === 'post' && singleVideo ? <SwitchRow title="Share as a Short" sub="Shown in Shorts as well as on your profile" on={extras.asShort} onChange={(asShort) => set({ asShort })} disabled={busy} /> : null}
-      {canStory ? <SwitchRow title="Also share to your story" sub="The first photo or video goes on your story too." on={extras.toStory} onChange={(toStory) => set({ toStory })} disabled={busy} /> : null}
+      {mode === 'post' && singleVideo ? <SwitchRow title={t('d.posts.shareAsShort')} sub={t('d.posts.shareAsShortSub')} on={extras.asShort} onChange={(asShort) => set({ asShort })} disabled={busy} /> : null}
+      {canStory ? <SwitchRow title={t('createFlow.alsoStory')} sub={t('d.posts.alsoStorySub')} on={extras.toStory} onChange={(toStory) => set({ toStory })} disabled={busy} /> : null}
       {photos.length ? (
-        <Section icon="eye" title="Accessibility" value={extras.alts.some((a) => a.trim()) ? 'Alt text added' : ''} open={open === 'alt'} onToggle={() => toggle('alt')}>
-          <p className="pp-sec-note">Alt text describes your photos for people with visual impairments.</p>
+        <Section icon="eye" title={t('d.posts.accessibility')} value={extras.alts.some((a) => a.trim()) ? t('d.posts.altAdded') : ''} open={open === 'alt'} onToggle={() => toggle('alt')}>
+          <p className="pp-sec-note">{t('d.posts.altExplain')}</p>
           {photos.map((p) => (
             <label key={p.i} className="pp-alt-row">
               <img src={p.url} alt="" />
-              <input value={extras.alts[p.i] ?? ''} maxLength={300} placeholder="Write alt text…" aria-label={`Alt text for photo ${p.i + 1}`} onChange={(e) => set({ alts: items.map((_, j) => (j === p.i ? e.target.value : extras.alts[j] ?? '')) })} />
+              <input value={extras.alts[p.i] ?? ''} maxLength={300} placeholder={t('d.posts.writeAlt')} aria-label={t('d.posts.altFor', { n: p.i + 1 })} onChange={(e) => set({ alts: items.map((_, j) => (j === p.i ? e.target.value : extras.alts[j] ?? '')) })} />
             </label>
           ))}
         </Section>
       ) : null}
-      <Section icon="sliders" title="Advanced settings" open={open === 'advanced'} onToggle={() => toggle('advanced')}>
-        <SwitchRow title="Hide like count" sub="Only you will see the total number of likes on this post." on={extras.hideLikes} onChange={(hideLikes) => set({ hideLikes })} />
-        <SwitchRow title="Turn off commenting" sub="Nobody but you can comment. You can change this later from the … menu." on={extras.commentsOff} onChange={(commentsOff) => set({ commentsOff })} />
+      <Section icon="sliders" title={t('d.posts.advanced')} open={open === 'advanced'} onToggle={() => toggle('advanced')}>
+        <SwitchRow title={t('createFlow.hideLikes')} sub={t('d.posts.hideLikesSub')} on={extras.hideLikes} onChange={(hideLikes) => set({ hideLikes })} />
+        <SwitchRow title={t('createFlow.commentsOff')} sub={t('d.posts.commentsOffSub')} on={extras.commentsOff} onChange={(commentsOff) => set({ commentsOff })} />
         {/* Kept to the profile: Plus members switch it on; everyone else is shown where to get it. Not for a post in a group. */}
         {extras.groupId ? null : me.plus ? (
-          <SwitchRow title="Only post to profile" sub="Kept off feeds, Shorts and Explore." on={extras.profileOnly} onChange={(profileOnly) => set({ profileOnly })} />
+          <SwitchRow title={t('createFlow.profileOnly')} sub={t('d.posts.profileOnlySub')} on={extras.profileOnly} onChange={(profileOnly) => set({ profileOnly })} />
         ) : (
           <button type="button" className="pp-switch-row" onClick={() => nav('/plus')}>
             <span className="pp-switch-text">
-              <span>Only post to profile</span>
-              <small>Part of Community Plus</small>
+              <span>{t('createFlow.profileOnly')}</span>
+              <small>{t('d.posts.partOfPlus')}</small>
             </span>
-            <span className="pp-accent">Try Community Plus</span>
+            <span className="pp-accent">{t('createFlow.tryPlus')}</span>
           </button>
         )}
-        <SwitchRow title="Mark as sensitive" sub="Hidden from members under 14, and covered for everyone else until they choose to see it." on={extras.sensitive} onChange={(sensitive) => set({ sensitive })} />
+        <SwitchRow title={t('d.posts.markSensitive')} sub={t('d.posts.markSensitiveSub')} on={extras.sensitive} onChange={(sensitive) => set({ sensitive })} />
       </Section>
       {error ? (
         <p className="form-error pp-share-error" role="alert">
@@ -260,14 +261,14 @@ export function SwitchRow({ title, sub, on, onChange, disabled }: { title: strin
   );
 }
 
-/** A card under the caption with a title and a way to take it off again. */
-function EditCard({ icon, title, onRemove, children }: { icon: React.ReactNode; title: string; onRemove: () => void; children: React.ReactNode }) {
+/** A card under the caption with a title and a way to take it off again (`removeLabel` is read aloud on the cross). */
+function EditCard({ icon, title, removeLabel, onRemove, children }: { icon: React.ReactNode; title: string; removeLabel: string; onRemove: () => void; children: React.ReactNode }) {
   return (
     <div className="pp-edit-card">
       <div className="pp-edit-card-head">
         <span className="pp-accent">{icon}</span>
         <b className="grow">{title}</b>
-        <button type="button" className="icon-btn tiny" aria-label={'Remove ' + title.toLowerCase()} onClick={onRemove}>
+        <button type="button" className="icon-btn tiny" aria-label={removeLabel} onClick={onRemove}>
           <Icon name="close" size={14} />
         </button>
       </div>
@@ -280,13 +281,13 @@ function EditCard({ icon, title, onRemove, children }: { icon: React.ReactNode; 
 function PollEditor({ poll, onChange, onRemove }: { poll: PostPoll; onChange: (p: PostPoll) => void; onRemove: () => void }) {
   const setOption = (i: number, text: string) => onChange({ ...poll, options: poll.options.map((o, j) => (j === i ? text : o)) });
   return (
-    <EditCard icon={<PollIcon size={16} />} title="Poll" onRemove={onRemove}>
-      <input className="pp-field strong" value={poll.question ?? ''} maxLength={140} placeholder="Ask a question (optional)" aria-label="Poll question" onChange={(e) => onChange({ ...poll, question: e.target.value })} />
+    <EditCard icon={<PollIcon size={16} />} title={t('createFlow.poll')} removeLabel={t('d.posts.removePoll')} onRemove={onRemove}>
+      <input className="pp-field strong" value={poll.question ?? ''} maxLength={140} placeholder={t('createFlow.pollQuestion')} aria-label={t('d.posts.pollQuestion')} onChange={(e) => onChange({ ...poll, question: e.target.value })} />
       {poll.options.map((o, i) => (
         <div key={i} className="pp-option">
-          <input className="pp-field" value={o} maxLength={80} placeholder={`Option ${i + 1}`} aria-label={`Option ${i + 1}`} onChange={(e) => setOption(i, e.target.value)} />
+          <input className="pp-field" value={o} maxLength={80} placeholder={t('createFlow.pollOption', { n: i + 1 })} aria-label={t('createFlow.pollOption', { n: i + 1 })} onChange={(e) => setOption(i, e.target.value)} />
           {poll.options.length > 2 ? (
-            <button type="button" className="icon-btn tiny" aria-label={`Remove option ${i + 1}`} onClick={() => onChange({ ...poll, options: poll.options.filter((_, j) => j !== i) })}>
+            <button type="button" className="icon-btn tiny" aria-label={t('createFlow.removeOption', { n: i + 1 })} onClick={() => onChange({ ...poll, options: poll.options.filter((_, j) => j !== i) })}>
               <Icon name="close" size={14} />
             </button>
           ) : null}
@@ -294,7 +295,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PostPoll; onChange: (p
       ))}
       {poll.options.length < 4 ? (
         <button type="button" className="pp-add-option" onClick={() => onChange({ ...poll, options: [...poll.options, ''] })}>
-          <Icon name="plus" size={14} stroke={2.4} /> Add option
+          <Icon name="plus" size={14} stroke={2.4} /> {t('createFlow.addOption')}
         </button>
       ) : null}
     </EditCard>
@@ -306,7 +307,7 @@ function PeopleChips({ people, onRemove }: { people: Profile[]; onRemove: (p: Pr
   return (
     <div className="pp-people-chips">
       {people.map((p) => (
-        <button key={p.id} type="button" className="pp-person-chip" aria-label={`Remove ${p.username}`} onClick={() => onRemove(p)}>
+        <button key={p.id} type="button" className="pp-person-chip" aria-label={t('createFlow.untag', { username: p.username })} onClick={() => onRemove(p)}>
           <Avatar src={p.avatar_url} name={p.username} size={22} />
           <span>{p.username}</span>
           <Icon name="close" size={12} stroke={2.4} />
@@ -333,7 +334,7 @@ function SongChip({ song, onRemove }: { song: PodItem; onRemove: () => void }) {
           <b>{song.title}</b>
           {song.artist ? <span>{song.artist}</span> : null}
         </span>
-        <button type="button" className="icon-btn tiny" aria-label="Remove the music" onClick={onRemove}>
+        <button type="button" className="icon-btn tiny" aria-label={t('d.posts.removeMusic')} onClick={onRemove}>
           <Icon name="close" size={14} />
         </button>
       </span>
@@ -381,25 +382,25 @@ function SongPicker({ selected, onPick }: { selected: PodItem | null; onPick: (s
     <div className="pp-song-picker">
       <label className="pp-search">
         <Icon name="search" size={16} />
-        <input autoFocus value={q} placeholder="Search songs on Pod" aria-label="Search songs on Pod" onChange={(e) => setQ(e.target.value)} />
+        <input autoFocus value={q} placeholder={t('createFlow.searchSongs')} aria-label={t('createFlow.searchSongs')} onChange={(e) => setQ(e.target.value)} />
       </label>
       {selected ? (
         <button type="button" className="pp-tag-row pp-song-off" onClick={() => onPick(null)}>
           <span className="pp-cover" style={{ width: 36, height: 36 }}>
             <Icon name="mute" size={18} />
           </span>
-          <b>Remove the music</b>
+          <b>{t('d.posts.removeMusic')}</b>
         </button>
       ) : null}
       <div className="pp-tag-results">
         {songs === null ? <Spinner size={22} /> : null}
-        {songs && !songs.length ? <p className="muted-text small center pad">No songs found</p> : null}
+        {songs && !songs.length ? <p className="muted-text small center pad">{t('createFlow.noSongs')}</p> : null}
         {(songs ?? []).map((s) => {
           const on = selected?.id === s.id;
           const playing = player.item?.id === s.id && player.playing;
           return (
             <div key={s.id} className={'pp-song-row' + (on ? ' on' : '')}>
-              <button type="button" className="pp-song-play" aria-label={(playing ? 'Pause ' : 'Listen to ') + s.title} onClick={() => player.play(s)}>
+              <button type="button" className="pp-song-play" aria-label={t(playing ? 'd.posts.pauseSong' : 'd.posts.listenTo', { song: s.title })} onClick={() => player.play(s)}>
                 <Cover song={s} size={36} />
                 <span className="pp-song-play-icon">
                   <Icon name={playing ? 'pause' : 'play'} size={14} color="#fff" stroke={0} />
@@ -450,7 +451,7 @@ function TagPicker({ tagged, onChange }: { tagged: Profile[]; onChange: (list: P
   }, [q, me.id]);
   const flip = (p: Profile) => {
     if (tagged.some((x) => x.id === p.id)) onChange(tagged.filter((x) => x.id !== p.id));
-    else if (tagged.length >= MAX_TAGS) toast(`You can tag up to ${MAX_TAGS} people.`);
+    else if (tagged.length >= MAX_TAGS) toast(t('createFlow.tooManyTags', { count: MAX_TAGS }));
     else onChange([...tagged, p]);
   };
   return (
@@ -458,11 +459,11 @@ function TagPicker({ tagged, onChange }: { tagged: Profile[]; onChange: (list: P
       {tagged.length ? <PeopleChips people={tagged} onRemove={flip} /> : null}
       <label className="pp-search">
         <Icon name="search" size={16} />
-        <input autoFocus value={q} placeholder="Search people" aria-label="Search people to tag" onChange={(e) => setQ(e.target.value)} />
+        <input autoFocus value={q} placeholder={t('createFlow.searchPeople')} aria-label={t('d.posts.searchPeopleToTag')} onChange={(e) => setQ(e.target.value)} />
       </label>
       <div className="pp-tag-results">
         {people === null ? <Spinner size={22} /> : null}
-        {people && !people.length ? <p className="muted-text small center pad">No one found</p> : null}
+        {people && !people.length ? <p className="muted-text small center pad">{t('createFlow.noPeople')}</p> : null}
         {(people ?? []).slice(0, 8).map((p) => {
           const on = tagged.some((x) => x.id === p.id);
           return (

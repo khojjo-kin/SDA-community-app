@@ -5,8 +5,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { profilesInOrder, votePoll } from 'shared/api';
-import { count } from 'shared/theme';
+import { fmt } from 'shared/theme';
 import type { Post, Profile } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, Verified, toastError } from './kit';
@@ -124,12 +125,12 @@ export function AiInfo() {
     <>
       <button ref={ref} type="button" className="pp-ai" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="sparkle" size={12} stroke={2.2} />
-        AI info
+        {t('postExtras.aiInfo')}
       </button>
       {open ? (
         <Pop anchor={ref.current} onClose={() => setOpen(false)} className="pp-ai-pop">
-          <b>Made or changed with AI</b>
-          <p>The person who shared this says it was made or changed with AI tools. Labels like this help everyone know what they are looking at.</p>
+          <b>{t('d.posts.aiTitle')}</b>
+          <p>{t('d.posts.aiBody')}</p>
         </Pop>
       ) : null}
     </>
@@ -144,7 +145,7 @@ export function TagsButton({ ids, top }: { ids: string[]; top?: boolean }) {
   if (!ids.length) return null;
   return (
     <>
-      <button type="button" className={'pp-tags-btn' + (top ? ' top' : '')} aria-label="See who is tagged" title="Tagged people" onClick={() => setOpen(true)}>
+      <button type="button" className={'pp-tags-btn' + (top ? ' top' : '')} aria-label={t('postExtras.seeTagged')} title={t('d.posts.taggedPeople')} onClick={() => setOpen(true)}>
         <PersonIcon size={12} />
       </button>
       {open ? <TaggedDialog ids={ids} onClose={() => setOpen(false)} /> : null}
@@ -163,10 +164,10 @@ export function TaggedDialog({ ids, onClose }: { ids: string[]; onClose: () => v
     });
   }, [ids.join(',')]);
   return (
-    <Modal title="In this post" onClose={onClose} className="pp-tagged">
+    <Modal title={t('postExtras.inThisPost')} onClose={onClose} className="pp-tagged">
       <div className="pp-tagged-list" ref={box}>
         {list === null ? <Spinner /> : null}
-        {list && !list.length ? <p className="muted-text pad center">No one to show.</p> : null}
+        {list && !list.length ? <p className="muted-text pad center">{t('d.posts.noOneToShow')}</p> : null}
         {(list ?? []).map((p) => (
           <button
             key={p.id}
@@ -209,13 +210,13 @@ export function PromptBanner({ post, onAnswer }: { post: Post; onAnswer?: () => 
         <Icon name="chatdots" size={18} stroke={2} />
       </span>
       <div className="pp-prompt-text">
-        <span className="pp-eyebrow">Prompt</span>
+        <span className="pp-eyebrow">{t('createFlow.prompt')}</span>
         <b>{text}</b>
-        <span className="pp-prompt-sub">{canAnswer ? 'Answer in the comments' : 'Commenting is turned off'}</span>
+        <span className="pp-prompt-sub">{t(canAnswer ? 'd.posts.answerInComments' : 'd.posts.commentingOff')}</span>
       </div>
       {canAnswer && onAnswer ? (
         <button type="button" className="btn small" onClick={onAnswer}>
-          Answer
+          {t('postExtras.answer')}
         </button>
       ) : null}
     </div>
@@ -240,12 +241,12 @@ export function PollCard({ post }: { post: Post }) {
   const top = Math.max(...counts);
   const vote = (i: number) => votePoll(me.id, post, mine === i ? null : i).catch(toastError);
   return (
-    <div className="pp-poll" role="radiogroup" aria-label={poll.question?.trim() || 'Poll'}>
+    <div className="pp-poll" role="radiogroup" aria-label={poll.question?.trim() || t('postExtras.poll')}>
       <div className="pp-poll-q">
         <span className="pp-poll-icon">
           <PollIcon size={15} />
         </span>
-        <b>{poll.question?.trim() || 'Poll'}</b>
+        <b>{poll.question?.trim() || t('postExtras.poll')}</b>
       </div>
       {poll.options.map((o, i) => {
         const share = total ? Math.round((counts[i] / total) * 100) : 0;
@@ -262,7 +263,7 @@ export function PollCard({ post }: { post: Post }) {
             {results ? <span className="pp-poll-bar" style={{ width: share + '%' }} /> : null}
             <span className="pp-poll-text">{o}</span>
             {on ? (
-              <span className="pp-poll-check" aria-label="Your vote">
+              <span className="pp-poll-check" aria-label={t('d.posts.yourVote')}>
                 <Icon name="check" size={14} stroke={3} />
               </span>
             ) : null}
@@ -270,7 +271,7 @@ export function PollCard({ post }: { post: Post }) {
           </button>
         );
       })}
-      <div className="pp-poll-foot">{results ? count(total, 'vote') + (mine !== null ? ' · Click your choice again to take your vote back' : '') : 'Vote to see the results'}</div>
+      <div className="pp-poll-foot">{results ? tn('postExtras.votes', total, { count: fmt(total) }) + (mine !== null ? ' · ' + t('d.posts.takeVoteBack') : '') : t('d.posts.voteToSee')}</div>
     </div>
   );
 }
@@ -284,10 +285,10 @@ export function LockedMedia({ post, ratio }: { post: Post; ratio: number }) {
       <span className="pp-locked-ring">
         <Icon name="lock" size={28} stroke={1.6} />
       </span>
-      <b>For subscribers</b>
-      <p>Subscribe to {post.username} to see this post and everything else they share with their subscribers.</p>
+      <b>{t('d.posts.forSubscribers')}</b>
+      <p>{t('d.posts.subscribeToSee', { username: post.username })}</p>
       <button type="button" className="btn" onClick={() => nav('/u/' + post.username)}>
-        Subscribe
+        {t('profile.subscribe')}
       </button>
     </div>
   );
@@ -314,10 +315,10 @@ export function Veil({ onReveal }: { onReveal: () => void }) {
   return (
     <div className="pp-veil">
       <EyeOffIcon size={36} />
-      <b>Sensitive content</b>
-      <p>This post may show something some people find upsetting.</p>
+      <b>{t('create.sensitive')}</b>
+      <p>{t('d.posts.sensitiveBody')}</p>
       <button type="button" className="pp-veil-btn" onClick={onReveal}>
-        See post
+        {t('d.posts.seePost')}
       </button>
     </div>
   );
@@ -333,12 +334,12 @@ export function EmojiButton({ onPick, size = 20 }: { onPick: (e: string) => void
   const ref = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <button ref={ref} type="button" className="icon-btn tiny pp-emoji-btn" aria-label="Emoji" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button ref={ref} type="button" className="icon-btn tiny pp-emoji-btn" aria-label={t('d.posts.emoji')} aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="smile" size={size} />
       </button>
       {open ? (
         <Pop anchor={ref.current} onClose={() => setOpen(false)} className="pp-emoji-pop">
-          <div className="pp-emoji-grid" role="listbox" aria-label="Emoji">
+          <div className="pp-emoji-grid" role="listbox" aria-label={t('d.posts.emoji')}>
             {EMOJI.map((e) => (
               <button key={e} type="button" role="option" aria-selected={false} onClick={() => onPick(e)}>
                 {e}

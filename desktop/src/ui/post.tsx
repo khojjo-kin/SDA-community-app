@@ -7,10 +7,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { addComment, deleteComment, fetchComments, fetchPodItem, fetchPost, peopleToMessage, recordView, searchProfiles, setCommentLike, setFlag, setFollow, sharePost } from 'shared/api';
 import { getPostNow, putPosts, usePost } from 'shared/store';
-import { ago, count, fmt } from 'shared/theme';
+import { ago, fmt } from 'shared/theme';
 import type { Comment, Media, PodItem, Post, Profile } from 'shared/types';
 import '../styles/posts.css';
 import { openCreate } from '../lib/create';
+import { dateLocale, t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Empty, Icon, Link, Modal, Spinner, Verified, toast, toastError } from './kit';
@@ -20,8 +21,8 @@ import { PostMenu } from './post-menu';
 import { usePlayer } from './player';
 import { StoryViewer } from './stories';
 
-/** What every comment box says before anything is typed (the iPhone's "Comment…"). */
-export const COMMENT_PLACEHOLDER = 'Comment…';
+/** The key of what every comment box says before anything is typed (the iPhone's "Comment…"); drawn with t(). */
+export const COMMENT_PLACEHOLDER = 'live.commentPlaceholder';
 
 export { PostMenu };
 
@@ -76,7 +77,7 @@ export function Carousel({ media, onDoubleClick, fit = 'cover', ratio, autoPlay 
           m.type === 'video' ? (
             <div className="slide" key={i}>
               <video src={m.url} poster={m.poster} muted={muted} loop playsInline aria-label={altOf(m) || undefined} style={{ objectFit: fit }} onClick={(e) => { const v = e.currentTarget; v.paused ? v.play() : v.pause(); }} />
-              <button className="mute" aria-label={muted ? 'Turn sound on' : 'Turn sound off'} onClick={() => setMuted(!muted)}>
+              <button className="mute" aria-label={t(muted ? 'd.posts.soundOn' : 'd.posts.soundOff')} onClick={() => setMuted(!muted)}>
                 <Icon name={muted ? 'mute' : 'sound'} size={14} color="#fff" />
               </button>
             </div>
@@ -88,12 +89,12 @@ export function Carousel({ media, onDoubleClick, fit = 'cover', ratio, autoPlay 
         )}
       </div>
       {at > 0 ? (
-        <button className="nav-arrow left" aria-label="Previous" onClick={() => go(at - 1)}>
+        <button className="nav-arrow left" aria-label={t('d.posts.previous')} onClick={() => go(at - 1)}>
           <Icon name="back" size={16} color="#000" stroke={2.4} />
         </button>
       ) : null}
       {at < media.length - 1 ? (
-        <button className="nav-arrow right" aria-label="Next" onClick={() => go(at + 1)}>
+        <button className="nav-arrow right" aria-label={t('d.posts.next')} onClick={() => go(at + 1)}>
           <Icon name="right" size={16} color="#000" stroke={2.4} />
         </button>
       ) : null}
@@ -140,8 +141,8 @@ export function useFlags(id: string) {
     if (!p) return;
     try {
       await setFlag(me.id, p, flag, next ?? !p[flag]);
-      if (flag === 'saved') toast(!p.saved ? 'Saved to your collection' : 'Removed from saved');
-      if (flag === 'reposted') toast(!p.reposted ? 'Reposted to your profile' : 'Repost removed');
+      if (flag === 'saved') toast(t(!p.saved ? 'd.posts.savedToast' : 'd.posts.unsavedToast'));
+      if (flag === 'reposted') toast(t(!p.reposted ? 'd.posts.repostedToast' : 'd.posts.repostRemoved'));
     } catch (e) {
       toastError(e);
     }
@@ -158,43 +159,56 @@ export function ActionRow({ id, onComment, onShare }: { id: string; onComment: (
   const closed = !!post.comments_off && post.user_id !== me.id;
   return (
     <div className="actions pp-actions">
-      <button className={'icon-btn pp-act' + (post.liked ? ' liked pop' : '')} aria-label={post.liked ? 'Unlike' : 'Like'} aria-pressed={post.liked} onClick={() => toggle('liked')}>
+      <button className={'icon-btn pp-act' + (post.liked ? ' liked pop' : '')} aria-label={t(post.liked ? 'd.posts.unlike' : 'd.posts.like')} aria-pressed={post.liked} onClick={() => toggle('liked')}>
         <Icon name="heart" size={24} color={post.liked ? '#ff3040' : 'currentColor'} fill={post.liked ? '#ff3040' : 'none'} />
       </button>
       {closed ? null : (
-        <button className="icon-btn pp-act" aria-label="Comment" onClick={onComment}>
+        <button className="icon-btn pp-act" aria-label={t('live.commentLabel')} onClick={onComment}>
           <Icon name="comment" size={24} />
           {post.comment_count ? <span className="pp-count">{fmt(post.comment_count)}</span> : null}
         </button>
       )}
-      <button className={'icon-btn pp-act' + (post.reposted ? ' reposted' : '')} aria-label={post.reposted ? 'Undo repost' : 'Repost'} aria-pressed={post.reposted} onClick={() => toggle('reposted')}>
+      <button className={'icon-btn pp-act' + (post.reposted ? ' reposted' : '')} aria-label={t(post.reposted ? 'd.posts.undoRepost' : 'd.posts.repost')} aria-pressed={post.reposted} onClick={() => toggle('reposted')}>
         <Icon name="repost" size={24} color={post.reposted ? '#1fbf5a' : 'currentColor'} />
         {post.repost_count ? <span className="pp-count">{fmt(post.repost_count)}</span> : null}
       </button>
-      <button className="icon-btn pp-act" aria-label="Share" onClick={onShare}>
+      <button className="icon-btn pp-act" aria-label={t('common.share')} onClick={onShare}>
         <Icon name="send" size={24} />
       </button>
       <span className="grow" />
-      <button className="icon-btn pp-act" aria-label={post.saved ? 'Remove from saved' : 'Save'} aria-pressed={post.saved} onClick={() => toggle('saved')}>
+      <button className="icon-btn pp-act" aria-label={t(post.saved ? 'd.posts.removeFromSaved' : 'ssPub.save')} aria-pressed={post.saved} onClick={() => toggle('saved')}>
         <Icon name="bookmark" size={24} fill={post.saved ? 'currentColor' : 'none'} />
       </button>
     </div>
   );
 }
 
+/** "1 like", "12 likes", "1.2K likes" (the number written as the iPhone writes it). */
+const likes = (n: number) => tn('d.posts.likes', n, { count: fmt(n) });
+
 /** The likes line. A hidden like count shows only to the author; everyone else reads "Liked by others". */
 export function LikeLine({ post }: { post: Post }) {
   const { me } = useMe();
   const mine = post.user_id === me.id;
   if (post.hide_likes && !mine) {
-    if (post.liked) return <div className="likes">Liked by <b>you</b> and others</div>;
-    return <div className="likes">{post.like_count ? 'Liked by others' : 'Be the first to like this'}</div>;
+    if (post.liked) {
+      // "you" is drawn in bold inside the sentence.
+      const [before, after] = tSplit('d.posts.likedByYouAndOthers', 'you');
+      return (
+        <div className="likes">
+          {before}
+          <b>{t('d.posts.you')}</b>
+          {after}
+        </div>
+      );
+    }
+    return <div className="likes">{t(post.like_count ? 'd.posts.likedByOthers' : 'd.posts.beFirstToLike')}</div>;
   }
-  if (!post.like_count) return <div className="likes muted-text">Be the first to like this</div>;
+  if (!post.like_count) return <div className="likes muted-text">{t('d.posts.beFirstToLike')}</div>;
   return (
     <div className="likes">
-      {count(post.like_count, 'like')}
-      {mine && post.hide_likes ? <span className="pp-only-you"> · Only you can see the count</span> : null}
+      {likes(post.like_count)}
+      {mine && post.hide_likes ? <span className="pp-only-you">{' · ' + t('d.posts.onlyYouSeeCount')}</span> : null}
     </div>
   );
 }
@@ -252,14 +266,14 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
     }
   };
   return (
-    <Modal onClose={onClose} title="Share" className="share pp-share">
+    <Modal onClose={onClose} title={t('common.share')} className="share pp-share">
       <div className="share-search">
-        <span>To:</span>
-        <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <span>{t('d.posts.to')}</span>
+        <input autoFocus placeholder={t('d.posts.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       </div>
       <div className="share-list">
         {people === null || (needle && found === null && !mine.length) ? <Spinner /> : null}
-        {people && !shown.length && (!needle || found !== null) ? <p className="muted-text pad">No account found.</p> : null}
+        {people && !shown.length && (!needle || found !== null) ? <p className="muted-text pad">{t('d.posts.noAccountFound')}</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -273,7 +287,7 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
       </div>
       {picked.length ? (
         <>
-          <input className="share-note" placeholder="Write a message…" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label="Message" />
+          <input className="share-note" placeholder={t('d.posts.writeMessage')} value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label={t('profile.message')} />
           <div className="modal-foot">
             <button
               className="btn block"
@@ -282,7 +296,7 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
                 setBusy(true);
                 try {
                   await sharePost(me.id, postId, picked.map((p) => p.id), note);
-                  toast(picked.length === 1 ? 'Sent' : `Sent to ${picked.length} people`);
+                  toast(tn('d.posts.sentTo', picked.length));
                   onClose();
                 } catch (e) {
                   toastError(e);
@@ -290,24 +304,24 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
                 }
               }}
             >
-              {busy ? 'Sending…' : picked.length > 1 ? 'Send separately' : 'Send'}
+              {busy ? t('d.posts.sending') : picked.length > 1 ? t('d.posts.sendSeparately') : t('common.send')}
             </button>
           </div>
         </>
       ) : (
         <div className="pp-share-actions">
           <ShareAction
-            label="Copy link"
+            label={t('d.posts.copyLink')}
             icon="link"
             onClick={run(async () => {
               await copyText(postLink(postId));
-              toast('Link copied');
+              toast(t('d.posts.linkCopied'));
               onClose();
             })}
           />
           {canStory ? (
             <ShareAction
-              label="Add to story"
+              label={t('d.posts.addToStory')}
               icon="story"
               onClick={() => {
                 onClose();
@@ -318,11 +332,11 @@ export function ShareDialog({ postId, onClose }: { postId: string; onClose: () =
           ) : null}
           {post ? (
             <ShareAction
-              label={post.reposted ? 'Remove repost' : 'Repost'}
+              label={t(post.reposted ? 'd.posts.removeRepost' : 'd.posts.repost')}
               icon="repost"
               onClick={run(async () => {
                 await setFlag(me.id, post, 'reposted', !post.reposted);
-                toast(post.reposted ? 'Repost removed' : 'Reposted to your profile');
+                toast(t(post.reposted ? 'd.posts.repostRemoved' : 'd.posts.repostedToast'));
                 onClose();
               })}
             />
@@ -395,10 +409,10 @@ export function SongButton({ post }: { post: Post }) {
         : null);
     setBusy(false);
     if (item?.audio_url) player.play(item);
-    else toast("This song isn't on Pod any more.");
+    else toast(t('d.posts.songGone'));
   };
   return (
-    <button type="button" className={'pp-song' + (playing ? ' on' : '')} onClick={play} disabled={busy} aria-pressed={playing} aria-label={(playing ? 'Pause ' : 'Play ') + song} title={playing ? 'Pause' : 'Play'}>
+    <button type="button" className={'pp-song' + (playing ? ' on' : '')} onClick={play} disabled={busy} aria-pressed={playing} aria-label={t(playing ? 'd.posts.pauseSong' : 'd.posts.playSong', { song })} title={t(playing ? 'd.posts.pause' : 'd.posts.play')}>
       <Icon name="music" size={12} stroke={2.2} />
       <span className="pp-song-name">{song}</span>
       <Icon name={playing ? 'pause' : 'play'} size={13} stroke={0} />
@@ -410,7 +424,7 @@ export function SongButton({ post }: { post: Post }) {
 
 /** "22 h", as Instagram writes it on the web. */
 const shortAgo = (iso: string) => ago(iso).replace(/^(\d+)([a-z])$/, '$1 $2');
-const fullDate = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fullDate = (iso: string) => new Date(iso).toLocaleString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /**
  * The author (with their story ring), the time, and the line under the name: Sponsored for a paid ad,
@@ -427,14 +441,17 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
 
   const bits: React.ReactNode[] = [];
   // A paid ad says so plainly, under the name, so it never passes for an ordinary post.
-  if (post.boosted) bits.push(<span className="pp-sponsored">Sponsored</span>);
+  if (post.boosted) bits.push(<span className="pp-sponsored">{t('d.posts.sponsored')}</span>);
   if (post.group_id && post.group_name) {
+    // "in <the group's name>", the name drawn as a link.
+    const [before, after] = tSplit('d.posts.inGroup', 'group');
     bits.push(
       <span className="pp-group">
-        in{' '}
+        {before}
         <Link to={'/groups/' + post.group_id} className="pp-strong">
           {post.group_name}
         </Link>
+        {after}
       </span>,
     );
   }
@@ -443,9 +460,9 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
   if (post.audio_id && post.audio_title) bits.push(<SongButton post={post} />);
   if (post.audience === 'subscribers') {
     bits.push(
-      <span className="pp-badge" title="Only people who subscribe can see it">
+      <span className="pp-badge" title={t('d.posts.subscribersCanSee')}>
         <Icon name="lock" size={11} stroke={2.4} />
-        For subscribers
+        {t('d.posts.forSubscribers')}
       </span>,
     );
   }
@@ -454,13 +471,13 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
     bits.push(
       <span className="pp-badge quiet">
         <Icon name="grid" size={11} stroke={2.2} />
-        Only on your profile
+        {t('d.posts.onlyOnProfile')}
       </span>,
     );
   }
-  if (mine && post.sensitive) bits.push(<span className="pp-badge quiet">Marked sensitive</span>);
+  if (mine && post.sensitive) bits.push(<span className="pp-badge quiet">{t('d.posts.markedSensitive')}</span>);
   if (post.ai_label) bits.push(<AiInfo />);
-  if (!bits.length && !inDialog && canFollow && !post.in_my_group) bits.push(<span>Suggested for you</span>);
+  if (!bits.length && !inDialog && canFollow && !post.in_my_group) bits.push(<span>{t('d.posts.suggestedForYou')}</span>);
 
   return (
     <header className={'post-head pp-head' + (inDialog ? ' bordered' : '')}>
@@ -469,7 +486,7 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
         name={post.username}
         size={32}
         ring={ringOf(stories)}
-        label={stories ? `See ${post.username}'s story` : post.username}
+        label={stories ? t('d.posts.seeStory', { username: post.username }) : post.username}
         onClick={() => (stories ? setWatching(true) : nav('/u/' + post.username))}
       />
       <div className="who">
@@ -486,7 +503,7 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
             <>
               <span className="pp-dot">•</span>
               <button className="link-btn inline" onClick={follow}>
-                Follow
+                {t('common.follow')}
               </button>
             </>
           ) : null}
@@ -504,10 +521,10 @@ function PostHeader({ post, inDialog, onMenu }: { post: Post; inDialog?: boolean
       </div>
       {!inDialog && canFollow && !post.in_my_group ? (
         <button className="btn small quiet pp-follow" onClick={follow}>
-          Follow
+          {t('common.follow')}
         </button>
       ) : null}
-      <button className="icon-btn" aria-label="More options" onClick={onMenu}>
+      <button className="icon-btn" aria-label={t('profile.moreOptions')} onClick={onMenu}>
         <Icon name="more" size={24} />
       </button>
       {watching && stories ? <StoryViewer groups={[stories]} start={0} onClose={() => setWatching(false)} /> : null}
@@ -567,14 +584,14 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
           ) : null}
           {long && !more ? (
             <button className="link-muted" onClick={() => setMore(true)}>
-              … more
+              {t('d.posts.more')}
             </button>
           ) : null}
           <PollCard post={post} />
           <PromptBanner post={post} onAnswer={closed ? undefined : answer} />
           {post.comment_count > mine.length ? (
             <button className="link-muted" onClick={() => onOpenPost(post.id)}>
-              View {post.comment_count - mine.length === 1 ? '1 comment' : `all ${fmt(post.comment_count - mine.length)} comments`}
+              {tn('d.posts.viewComments', post.comment_count - mine.length, { count: fmt(post.comment_count - mine.length) })}
             </button>
           ) : null}
           {mine.map((c, i) => (
@@ -583,7 +600,7 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
             </div>
           ))}
           {closed ? (
-            <div className="pp-comments-off">Commenting is turned off</div>
+            <div className="pp-comments-off">{t('d.posts.commentingOff')}</div>
           ) : (
             <form
               className="add-comment"
@@ -602,12 +619,12 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
                 }
               }}
             >
-              <input ref={input} placeholder={answering ? 'Write your answer…' : COMMENT_PLACEHOLDER} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
-              {text.trim() ? <button className="link-btn">Post</button> : null}
+              <input ref={input} placeholder={t(answering ? 'postExtras.answerPlaceholder' : COMMENT_PLACEHOLDER)} value={text} onChange={(e) => setText(e.target.value)} aria-label={t('d.posts.addComment')} maxLength={2200} />
+              {text.trim() ? <button className="link-btn">{t('bibleMarks.post')}</button> : null}
               <EmojiButton size={14} onPick={(e) => insertAt(input.current, text, e, setText)} />
             </form>
           )}
-          {own && post.comments_off ? <div className="pp-note">Commenting is turned off. Only you can comment.</div> : null}
+          {own && post.comments_off ? <div className="pp-note">{t('d.posts.commentingOffOnlyYou')}</div> : null}
         </>
       )}
       {menu ? <PostMenu post={post} onClose={() => setMenu(false)} onOpen={() => onOpenPost(post.id)} onDeleted={() => setGone(true)} /> : null}
@@ -668,12 +685,12 @@ export function PostView({ id, onClose, asPage, list, onOpen }: { id: string; on
       {body}
       <div className="pp-steps" ref={anchor}>
         {prev ? (
-          <button type="button" className="pp-step left" aria-label="Previous post" title="Previous" onClick={() => step.current(prev)}>
+          <button type="button" className="pp-step left" aria-label={t('d.posts.previousPost')} title={t('d.posts.previous')} onClick={() => step.current(prev)}>
             <Icon name="back" size={16} color="#262626" stroke={2.6} />
           </button>
         ) : null}
         {next ? (
-          <button type="button" className="pp-step right" aria-label="Next post" title="Next" onClick={() => step.current(next)}>
+          <button type="button" className="pp-step right" aria-label={t('d.posts.nextPost')} title={t('d.posts.next')} onClick={() => step.current(next)}>
             <Icon name="right" size={16} color="#262626" stroke={2.6} />
           </button>
         ) : null}
@@ -710,7 +727,7 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
     if (post && !hidden) recordView(me.id, post);
   }, [post?.id, hidden]);
   if (!post || hidden) {
-    return <div className="post-dialog-loading">{comments === null && !hidden ? <Spinner /> : <Empty icon="image" title="This post isn't available" body="It may have been deleted." />}</div>;
+    return <div className="post-dialog-loading">{comments === null && !hidden ? <Spinner /> : <Empty icon="image" title={t('gridFeed.unavailable')} body={t('profile.unavailableBody')} />}</div>;
   }
   const media = post.media;
   const ratio = aspectOf(media[0]);
@@ -731,7 +748,7 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
         {locked ? (
           <div className="comments pp-side-locked">
             <Icon name="lock" size={22} />
-            <p>Comments on this post are for {post.username}'s subscribers.</p>
+            <p>{t('d.posts.commentsForSubscribers', { username: post.username })}</p>
           </div>
         ) : (
           <>
@@ -757,8 +774,8 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
               {comments === null ? <Spinner /> : null}
               {comments && !comments.length && !post.caption ? (
                 <div className="no-comments">
-                  <h3>No comments yet.</h3>
-                  <p>{closed ? 'Commenting is turned off.' : 'Start the conversation.'}</p>
+                  <h3>{t('d.posts.noComments')}</h3>
+                  <p>{t(closed ? 'd.posts.commentingOffDot' : 'd.posts.startConversation')}</p>
                 </div>
               ) : null}
               {(comments ?? []).map((c) => (
@@ -788,11 +805,11 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
             <div className="post-dialog-foot">
               <ActionRow id={post.id} onComment={() => input.current?.focus()} onShare={() => setShare(true)} />
               <LikeLine post={post} />
-              <div className="when">{new Date(post.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-              {own && post.comments_off ? <div className="pp-note">Commenting is turned off. Only you can comment.</div> : null}
+              <div className="when">{new Date(post.created_at).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              {own && post.comments_off ? <div className="pp-note">{t('d.posts.commentingOffOnlyYou')}</div> : null}
             </div>
             {closed ? (
-              <div className="pp-comments-off boxed">Commenting is turned off</div>
+              <div className="pp-comments-off boxed">{t('d.posts.commentingOff')}</div>
             ) : (
               <form
                 className="add-comment boxed"
@@ -813,9 +830,9 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
                 }}
               >
                 <EmojiButton size={24} onPick={(e) => insertAt(input.current, text, e, setText)} />
-                <input ref={input} placeholder={answering ? 'Write your answer…' : COMMENT_PLACEHOLDER} value={text} onChange={(e) => setText(e.target.value)} aria-label="Add a comment" maxLength={2200} />
+                <input ref={input} placeholder={t(answering ? 'postExtras.answerPlaceholder' : COMMENT_PLACEHOLDER)} value={text} onChange={(e) => setText(e.target.value)} aria-label={t('d.posts.addComment')} maxLength={2200} />
                 <button className="link-btn" disabled={!text.trim()}>
-                  Post
+                  {t('bibleMarks.post')}
                 </button>
               </form>
             )}
@@ -831,7 +848,7 @@ function PostBody({ id, onClose }: { id: string; onClose: () => void }) {
 function CommentRow({ c, canDelete, onReply, onDelete }: { c: Comment; canDelete: boolean; onReply?: () => void; onDelete: () => void }) {
   const { me } = useMe();
   const [liked, setLiked] = useState(c.liked);
-  const [likes, setLikes] = useState(c.like_count);
+  const [likeCount, setLikes] = useState(c.like_count);
   const flip = async () => {
     const next = !liked;
     setLiked(next);
@@ -854,12 +871,12 @@ function CommentRow({ c, canDelete, onReply, onDelete }: { c: Comment; canDelete
         {c.verified ? <Verified size={12} /> : null} <RichText text={c.text} />
         <div className="comment-meta">
           <span>{ago(c.created_at)}</span>
-          {likes ? <span>{count(likes, 'like')}</span> : null}
-          {onReply ? <button onClick={onReply}>Reply</button> : null}
-          {canDelete ? <button onClick={onDelete}>Delete</button> : null}
+          {likeCount ? <span>{likes(likeCount)}</span> : null}
+          {onReply ? <button onClick={onReply}>{t('d.posts.reply')}</button> : null}
+          {canDelete ? <button onClick={onDelete}>{t('common.delete')}</button> : null}
         </div>
       </div>
-      <button className="icon-btn tiny" aria-label={liked ? 'Unlike comment' : 'Like comment'} onClick={flip}>
+      <button className="icon-btn tiny" aria-label={t(liked ? 'd.posts.unlikeComment' : 'd.posts.likeComment')} onClick={flip}>
         <Icon name="heart" size={12} color={liked ? '#ff3040' : 'currentColor'} fill={liked ? '#ff3040' : 'none'} />
       </button>
     </div>
@@ -887,31 +904,31 @@ export function Tile({ post, onOpen, tall, grid, source }: { post: Post; onOpen:
   const veiled = post.sensitive && !mine;
   const subs = post.audience === 'subscribers';
   return (
-    <button data-post={post.id} className={'tile' + (tall ? ' tall' : '') + (locked ? ' pp-tile-locked' : '') + (veiled ? ' pp-tile-veiled' : '')} onClick={open} aria-label={(post.kind === 'reel' ? 'Short by ' : 'Post by ') + post.username + (locked ? ', for subscribers' : '')}>
+    <button data-post={post.id} className={'tile' + (tall ? ' tall' : '') + (locked ? ' pp-tile-locked' : '') + (veiled ? ' pp-tile-veiled' : '')} onClick={open} aria-label={t(post.kind === 'reel' ? (locked ? 'd.posts.shortByLocked' : 'd.posts.shortBy') : locked ? 'd.posts.postByLocked' : 'd.posts.postBy', { username: post.username })}>
       {cover ? <img src={cover} alt={altOf(m)} loading="lazy" /> : m?.type === 'video' ? <video src={m.url} muted preload="metadata" /> : null}
       {post.kind === 'reel' ? (
-        <span className="tile-badge" title="Short">
+        <span className="tile-badge" title={t('createFlow.short')}>
           <Icon name="reels" size={20} color="#fff" />
         </span>
       ) : post.media.length > 1 ? (
-        <span className="tile-badge" title="Several photos">
+        <span className="tile-badge" title={t('d.posts.severalPhotos')}>
           <Icon name="collage" size={20} color="#fff" />
         </span>
       ) : null}
       {subs ? (
-        <span className="pp-tile-lock" title="For subscribers">
+        <span className="pp-tile-lock" title={t('d.posts.forSubscribers')}>
           <Icon name="lock" size={16} color="#fff" stroke={2.2} />
         </span>
       ) : null}
       {locked ? (
         <span className="pp-tile-cover">
           <Icon name="lock" size={28} color="#fff" stroke={1.8} />
-          <b>For subscribers</b>
+          <b>{t('d.posts.forSubscribers')}</b>
         </span>
       ) : veiled ? (
         <span className="pp-tile-cover">
           <EyeOffIcon size={28} />
-          <b>Sensitive content</b>
+          <b>{t('create.sensitive')}</b>
         </span>
       ) : null}
       <span className="tile-hover">

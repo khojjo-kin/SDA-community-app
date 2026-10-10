@@ -11,6 +11,7 @@ import type { Audience, Media, StoryItem } from 'shared/types';
 import '../styles/posts.css';
 import { rememberSize } from '../shims/expo-file-system';
 import type { CreateRequest } from '../lib/create';
+import { dateLocale, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { DetailsPanel, type Extras, NO_EXTRAS, cleanPoll, placeRules } from './create-details';
@@ -19,14 +20,17 @@ import type { AltMedia } from './post-data';
 
 type Picked = { file: File; url: string; type: 'image' | 'video'; w: number; h: number; duration?: number };
 type Crop = 'original' | '1:1' | '4:5' | '16:9';
+// The ratios are shown as they are; Original's label is the key of its words, drawn with t().
 const CROPS: { id: Crop; label: string; r?: number }[] = [
-  { id: 'original', label: 'Original' },
+  { id: 'original', label: 'd.posts.cropOriginal' },
   { id: '1:1', label: '1:1', r: 1 },
   { id: '4:5', label: '4:5', r: 0.8 },
   { id: '16:9', label: '16:9', r: 16 / 9 },
 ];
 const MAX_PHOTOS = 10;
 const MAX_VIDEO_SECONDS = 60;
+/** The keys of the photo adjustments' names (the sliders under Adjustments). */
+const ADJUST_WORDS: Record<string, string> = { brightness: 'd.posts.brightness', contrast: 'd.posts.contrast', saturation: 'd.posts.saturation', warmth: 'd.posts.warmth' };
 
 async function readPicked(file: File): Promise<Picked> {
   const url = URL.createObjectURL(file);
@@ -37,7 +41,7 @@ async function readPicked(file: File): Promise<Picked> {
     v.src = url;
     await new Promise<void>((ok, bad) => {
       v.onloadedmetadata = () => ok();
-      v.onerror = () => bad(new Error(file.name + ' could not be opened as a video.'));
+      v.onerror = () => bad(new Error(t('d.posts.notAVideo', { name: file.name })));
     });
     return { file, url, type: 'video', w: v.videoWidth, h: v.videoHeight, duration: v.duration };
   }
@@ -45,7 +49,7 @@ async function readPicked(file: File): Promise<Picked> {
   img.src = url;
   await new Promise<void>((ok, bad) => {
     img.onload = () => ok();
-    img.onerror = () => bad(new Error(file.name + ' could not be opened as a picture.'));
+    img.onerror = () => bad(new Error(t('d.posts.notAPicture', { name: file.name })));
   });
   return { file, url, type: 'image', w: img.naturalWidth, h: img.naturalHeight };
 }
@@ -132,7 +136,7 @@ function DropZone({ onFiles, accept, title, multiple = true }: { onFiles: (files
       </svg>
       <h3>{title}</h3>
       <button className="btn" onClick={() => input.current?.click()}>
-        Select from computer
+        {t('d.posts.selectFromComputer')}
       </button>
       <input ref={input} type="file" accept={accept} multiple={multiple} hidden data-testid="create-files" onChange={(e) => onFiles(Array.from(e.target.files ?? []))} />
     </div>
@@ -180,17 +184,17 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
 
   const add = async (files: File[]) => {
     const good = files.filter((f) => /^image\/(jpeg|png|webp|heic|heif|gif)$|^video\//.test(f.type));
-    if (!good.length) return toast(mode === 'short' ? 'Choose a video for your Short.' : 'Choose photos or videos.');
+    if (!good.length) return toast(t(mode === 'short' ? 'd.posts.chooseVideoShort' : 'd.posts.choosePhotosVideos'));
     try {
-      if (mode === 'short' && !good.some((f) => f.type.startsWith('video/'))) return toast('Choose a video for your Short.');
+      if (mode === 'short' && !good.some((f) => f.type.startsWith('video/'))) return toast(t('d.posts.chooseVideoShort'));
       const picked = await Promise.all((mode === 'short' ? good.filter((f) => f.type.startsWith('video/')) : good).map(readPicked));
       const video = picked.find((p) => p.type === 'video');
-      if (video && (video.duration ?? 0) > MAX_VIDEO_SECONDS + 0.5) return toast('Videos can be up to 60 seconds long.');
+      if (video && (video.duration ?? 0) > MAX_VIDEO_SECONDS + 0.5) return toast(t('d.posts.videoTooLong', { count: MAX_VIDEO_SECONDS }));
       let next: Picked[];
       if (mode === 'story') next = picked.slice(0, 1);
       else if (video) next = [video]; // a post is photos, or one video (a Short)
       else next = [...items.filter((p) => p.type === 'image'), ...picked].slice(0, MAX_PHOTOS);
-      if (mode === 'post' && !video && picked.length + items.length > MAX_PHOTOS) toast('A post can have up to 10 photos.');
+      if (mode === 'post' && !video && picked.length + items.length > MAX_PHOTOS) toast(t('d.posts.maxPhotos', { count: MAX_PHOTOS }));
       setItems(next);
       setAt(0);
       setExtras((x) => ({ ...x, alts: next.map((_, i) => x.alts[i] ?? '') }));
@@ -207,7 +211,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
     if (asking.current) return;
     if (items.length && !busy) {
       asking.current = true;
-      const leave = await ask(mode === 'story' ? 'Discard story?' : 'Discard post?', "If you leave, your edits won't be saved.", 'Discard');
+      const leave = await ask(t(mode === 'story' ? 'd.posts.discardStory' : 'd.posts.discardPost'), t('d.posts.discardBody'), t('d.posts.discard'));
       asking.current = false;
       if (!leave) return;
     }
@@ -229,7 +233,8 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
       return;
     }
     setErr('');
-    setBusy('Sharing');
+    // What the title says while it works ("Sharing…", "Uploading 2 of 3…").
+    setBusy(t('create.sharingNow'));
     try {
       if (mode === 'story') {
         const p = items[0];
@@ -244,14 +249,14 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
           item = { url: m.url, type: 'image', w: m.w, h: m.h, caption: caption.trim() || undefined, fit: (p.w / p.h > 0.7 ? 'contain' : 'cover') as 'contain' | 'cover' };
         }
         await addStory(me.id, item, audience);
-        toast('Your story has been shared.');
+        toast(t('d.posts.storyShared'));
         onClose();
         nav('/');
         return;
       }
       const media: AltMedia[] = [];
       for (let i = 0; i < items.length; i++) {
-        setBusy(items.length > 1 ? `Uploading ${i + 1} of ${items.length}` : 'Uploading');
+        setBusy(items.length > 1 ? t('create.uploadingN', { n: i + 1, total: items.length }) : t('create.uploading'));
         const p = items[i];
         if (p.type === 'video') media.push(await uploadVideo(me.id, p.url, p.w, p.h));
         else {
@@ -264,7 +269,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
           media.push(alt ? { ...m, alt } : m);
         }
       }
-      setBusy('Sharing');
+      setBusy(t('create.sharingNow'));
       const rules = placeRules(extras, me);
       await createPost(me.id, {
         caption,
@@ -286,13 +291,13 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
         prompt: (extras.prompt ?? '').trim(),
         poll: cleaned.poll,
       });
-      toast(isShort ? 'Your Short has been shared.' : 'Your post has been shared.');
+      toast(t(isShort ? 'd.posts.shortShared' : 'd.posts.postShared'));
       // "Also share to your story": the first photo or video, once the post is live.
       if (extras.toStory && rules.canStory && media[0]) {
         try {
           await addStory(me.id, storyOf(media[0], items[0]?.duration));
         } catch (e) {
-          toast(`Your post is live, but it wasn't added to your story. ${errText(e)}`);
+          toast(t('createFlow.storyFailed', { error: errText(e) }));
         }
       }
       onClose();
@@ -312,23 +317,23 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
     setStep('pick');
   };
 
-  const titles: Record<Mode, string> = { post: 'Create new post', story: 'Add to your story', short: 'New Short' };
-  const title = busy ? busy + '…' : step === 'crop' ? 'Crop' : step === 'edit' ? 'Edit' : step === 'details' ? (mode === 'story' ? 'Your story' : isShort ? 'New Short' : 'Create new post') : titles[mode];
+  const titles: Record<Mode, string> = { post: 'd.posts.createNewPost', story: 'profile.addToStory', short: 'd.posts.newShort' };
+  const title = busy ? busy : t(step === 'crop' ? 'd.posts.crop' : step === 'edit' ? 'ssPub.edit' : step === 'details' ? (mode === 'story' ? 'd.posts.yourStory' : isShort ? 'd.posts.newShort' : 'd.posts.createNewPost') : titles[mode]);
   const header = (
     <div className="modal-head create-head">
       {step === 'pick' ? <span /> : (
-        <button className="icon-btn" aria-label="Back" disabled={!!busy} onClick={back}>
+        <button className="icon-btn" aria-label={t('common.back')} disabled={!!busy} onClick={back}>
           <Icon name="back" size={24} />
         </button>
       )}
       <h2>{title}</h2>
       {step === 'crop' || step === 'edit' ? (
         <button className="link-btn" onClick={() => setStep(step === 'crop' && items[0]?.type === 'image' ? 'edit' : 'details')}>
-          Next
+          {t('d.posts.next')}
         </button>
       ) : step === 'details' ? (
         <button className="link-btn" disabled={!!busy} onClick={share}>
-          Share
+          {t('common.share')}
         </button>
       ) : (
         <span />
@@ -346,7 +351,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
           onFiles={add}
           accept={mode === 'short' ? 'video/*' : 'image/*,video/*'}
           multiple={mode === 'post'}
-          title={mode === 'post' ? 'Drag photos and videos here' : mode === 'short' ? 'Drag a video here' : 'Drag a photo or video here'}
+          title={t(mode === 'post' ? 'd.posts.dragPhotosVideos' : mode === 'short' ? 'd.posts.dragVideo' : 'd.posts.dragPhotoOrVideo')}
         />
       ) : (
         <div className="create-body">
@@ -367,16 +372,16 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
             ) : null}
             {isShort && step === 'details' ? (
               <span className="pp-short-tag">
-                <Icon name="reels" size={14} color="#fff" /> Short
+                <Icon name="reels" size={14} color="#fff" /> {t('createFlow.short')}
               </span>
             ) : null}
             {at > 0 ? (
-              <button className="nav-arrow left" aria-label="Previous" onClick={() => setAt(at - 1)}>
+              <button className="nav-arrow left" aria-label={t('d.posts.previous')} onClick={() => setAt(at - 1)}>
                 <Icon name="back" size={16} color="#000" stroke={2.4} />
               </button>
             ) : null}
             {at < items.length - 1 ? (
-              <button className="nav-arrow right" aria-label="Next" onClick={() => setAt(at + 1)}>
+              <button className="nav-arrow right" aria-label={t('d.posts.next')} onClick={() => setAt(at + 1)}>
                 <Icon name="right" size={16} color="#000" stroke={2.4} />
               </button>
             ) : null}
@@ -384,7 +389,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
               <div className="crop-bar">
                 {CROPS.map((c) => (
                   <button key={c.id} className={crop === c.id ? 'on' : ''} onClick={() => setCrop(c.id)}>
-                    {c.label}
+                    {c.id === 'original' ? t(c.label) : c.label}
                   </button>
                 ))}
               </div>
@@ -394,13 +399,13 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
                 {items.map((p, i) => (
                   <span key={p.url} className={'thumb' + (i === at ? ' on' : '')}>
                     <img src={p.url} alt="" onClick={() => setAt(i)} />
-                    <button aria-label="Remove" onClick={() => { const n = items.filter((_, j) => j !== i); setItems(n); setAt(0); if (!n.length) setStep('pick'); }}>
+                    <button aria-label={t('live.remove')} onClick={() => { const n = items.filter((_, j) => j !== i); setItems(n); setAt(0); if (!n.length) setStep('pick'); }}>
                       <Icon name="close" size={12} color="#fff" stroke={2.5} />
                     </button>
                   </span>
                 ))}
                 {items.length < MAX_PHOTOS ? (
-                  <label className="thumb add" aria-label="Add photos">
+                  <label className="thumb add" aria-label={t('ssPub.addPhotos')}>
                     <Icon name="plus" size={22} />
                     <input type="file" accept="image/*" multiple hidden onChange={(e) => add(Array.from(e.target.files ?? []))} />
                   </label>
@@ -420,10 +425,10 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
             <div className="create-side edit-side">
               <div className="seg tabs-2">
                 <button className={editTab === 'filters' ? 'on' : ''} onClick={() => setEditTab('filters')}>
-                  Filters
+                  {t('d.posts.filters')}
                 </button>
                 <button className={editTab === 'adjust' ? 'on' : ''} onClick={() => setEditTab('adjust')}>
-                  Adjustments
+                  {t('d.posts.adjustments')}
                 </button>
               </div>
               {editTab === 'filters' ? (
@@ -445,7 +450,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
                     return (
                       <label key={k} className="adjust-row">
                         <span>
-                          {k[0].toUpperCase() + k.slice(1)} <em>{look.adjust[k]}</em>
+                          {ADJUST_WORDS[k] ? t(ADJUST_WORDS[k]) : k[0].toUpperCase() + k.slice(1)} <em>{look.adjust[k]}</em>
                         </span>
                         <input type="range" min={-100} max={100} value={look.adjust[k]} onChange={(e) => setLooks({ ...looks, [current.url]: { ...look, adjust: { ...look.adjust, [k]: Number(e.target.value) } } })} />
                       </label>
@@ -453,7 +458,7 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
                   })}
                 </div>
               ) : (
-                <p className="muted-text pad">Brightness, contrast, saturation and warmth are a Community Plus perk, as on the iPhone.</p>
+                <p className="muted-text pad">{t('d.posts.adjustPlus')}</p>
               )}
             </div>
           ) : null}
@@ -466,15 +471,15 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
                 <Avatar src={me.avatar_url} name={me.username} size={28} />
                 <b>{me.username}</b>
               </div>
-              <textarea placeholder="Add a caption (optional)…" value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label="Caption" autoFocus />
-              <div className="count">{caption.length.toLocaleString()}/2,200</div>
+              <textarea placeholder={t('d.posts.captionOptional')} value={caption} maxLength={2200} onChange={(e) => setCaption(e.target.value)} aria-label={t('create.caption')} autoFocus />
+              <div className="count">{caption.length.toLocaleString(dateLocale())}/{(2200).toLocaleString(dateLocale())}</div>
               <div className="side-row column">
-                <b>Share with</b>
+                <b>{t('noteNew.audienceTitle')}</b>
                 <label>
-                  <input type="radio" name="aud" checked={audience === 'everyone'} onChange={() => setAudience('everyone')} /> Your story (everyone who can see it)
+                  <input type="radio" name="aud" checked={audience === 'everyone'} onChange={() => setAudience('everyone')} /> {t('d.posts.storyEveryone')}
                 </label>
                 <label>
-                  <input type="radio" name="aud" checked={audience === 'close_friends'} onChange={() => setAudience('close_friends')} /> Close friends only
+                  <input type="radio" name="aud" checked={audience === 'close_friends'} onChange={() => setAudience('close_friends')} /> {t('d.posts.closeFriendsOnly')}
                 </label>
               </div>
             </div>

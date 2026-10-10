@@ -15,6 +15,7 @@ import { loadPrefs, setPrefs, usePrefs } from 'shared/prefs';
 import { getPostNow, putPosts } from 'shared/store';
 import { fmt } from 'shared/theme';
 import type { CaptionLine, Post } from 'shared/types';
+import { languageCode, t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import '../styles/stories.css';
@@ -35,7 +36,10 @@ const EXTRA_PAGES = 3;
 /** Where more Shorts come from after the ones the player opened with: a grid's place, or the Shorts feed. */
 type ShortsSource = GridSource | { from: 'feed' };
 
-/** The languages captions can be translated into (the app's languages, src/lib/i18n.ts). */
+/**
+ * The languages captions can be translated into (the app's languages, src/lib/i18n.ts). Each shows by
+ * its own name and its English name, as in the iPhone's language lists.
+ */
 const LANGUAGES: { code: string; name: string; native: string }[] = [
   { code: 'en', name: 'English', native: 'English' },
   { code: 'tw', name: 'Twi (Akan)', native: 'Twi' },
@@ -299,21 +303,21 @@ export function Shorts({ openPost, startId }: { openPost: (id: string) => void; 
 
   const style = { height: height || undefined, ['--sh-h' as any]: height ? height + 'px' : undefined };
   return (
-    <div className="reels sh-list" ref={list} tabIndex={-1} style={style} aria-label="Shorts">
+    <div className="reels sh-list" ref={list} tabIndex={-1} style={style} aria-label={t('tabs.clips')}>
       {error ? <Failed error={error} retry={() => load(true)} /> : null}
       {!ids && !error ? <ShortSkeleton /> : null}
       {missing ? (
-        <Empty icon="reels" title="This Short isn't available" body="It may have been deleted.">
+        <Empty icon="reels" title={t('d.posts.shortUnavailable')} body={t('profile.unavailableBody')}>
           <button className="btn" onClick={() => nav('/shorts')}>
-            Watch Shorts
+            {t('d.posts.watchShorts')}
           </button>
         </Empty>
       ) : ids && !ids.length ? (
-        <Empty icon="reels" title="No Shorts yet" body="Share a short video and it will show up here for everyone to watch." />
+        <Empty icon="reels" title={t('d.posts.noShorts')} body={t('clips.emptyBody')} />
       ) : null}
       {startId ? (
         // Opened from a grid or a link: back to where it was opened from.
-        <button className="sh-round pp-shorts-back" style={{ top: (height ? Math.max(0, innerHeight - height) : 0) + 20 }} aria-label="Back" title="Back" onClick={() => (history.length > 1 ? history.back() : nav('/shorts'))}>
+        <button className="sh-round pp-shorts-back" style={{ top: (height ? Math.max(0, innerHeight - height) : 0) + 20 }} aria-label={t('common.back')} title={t('common.back')} onClick={() => (history.length > 1 ? history.back() : nav('/shorts'))}>
           <Icon name="back" size={22} stroke={2.2} />
         </button>
       ) : null}
@@ -322,10 +326,10 @@ export function Shorts({ openPost, startId }: { openPost: (id: string) => void; 
       ))}
       {ids && ids.length > 1 ? (
         <div className="sh-updown">
-          <button className="sh-round" aria-label="Previous Short" disabled={current <= 0} onClick={() => go(current - 1)}>
+          <button className="sh-round" aria-label={t('d.posts.previousShort')} disabled={current <= 0} onClick={() => go(current - 1)}>
             <Icon name="down" size={22} stroke={2.2} className="sh-flip" />
           </button>
-          <button className="sh-round" aria-label="Next Short" disabled={current >= ids.length - 1} onClick={() => go(current + 1)}>
+          <button className="sh-round" aria-label={t('d.posts.nextShort')} disabled={current >= ids.length - 1} onClick={() => go(current + 1)}>
             <Icon name="down" size={22} stroke={2.2} />
           </button>
         </div>
@@ -357,7 +361,7 @@ function ShortSkeleton() {
         </div>
       </div>
       <span className="sv-sr" role="status">
-        Loading Shorts
+        {t('d.posts.loadingShorts')}
       </span>
     </div>
   );
@@ -429,7 +433,11 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
       if (!live) return;
       if (got) setLines(got);
       // Said only for a language the member picked; captions simply stay as made otherwise.
-      else if (chosen) toast(`Captions in ${LANGUAGES.find((l) => l.code === wanted)?.name ?? 'that language'} aren't available for this Short`);
+      else if (chosen) {
+        // The language by its English name in English, by its own name otherwise.
+        const lang = LANGUAGES.find((l) => l.code === wanted);
+        toast(lang ? t('d.posts.captionsUnavailable', { language: languageCode() === 'en' ? lang.name : lang.native }) : t('d.posts.captionsUnavailableAny'));
+      }
     });
     return () => {
       live = false;
@@ -449,7 +457,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
   if (!post) return <section className="reel sh-item" data-index={index} />;
   const m = post.media[0];
   const mine = post.user_id === me.id;
-  const audio = post.audio_title ? [post.audio_title, post.audio_artist].filter(Boolean).join(' · ') : `${post.username} · Original audio`;
+  const audio = post.audio_title ? [post.audio_title, post.audio_artist].filter(Boolean).join(' · ') : t('d.posts.originalAudio', { username: post.username });
   const following = post.following_author || followed;
 
   // One click pauses or plays; two like it (with the heart).
@@ -468,7 +476,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
   };
 
   return (
-    <section className="reel sh-item" data-index={index} aria-label={`Short by ${post.username}`}>
+    <section className="reel sh-item" data-index={index} aria-label={t('d.posts.shortBy', { username: post.username })}>
       <div className="sh-row">
         <div className="sh-video">
           <div className="sh-frame reel-video" onClick={onClick} onDoubleClick={onDoubleClick}>
@@ -504,7 +512,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
                   setTarget(source);
                 }}
               >
-                Translated · Show original
+                {t('d.posts.translatedShowOriginal')}
               </button>
             ) : null}
             {paused && active ? (
@@ -520,7 +528,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
             {m?.type === 'video' ? (
               <button
                 className="sh-mute"
-                aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
+                aria-label={t(muted ? 'd.posts.soundOn' : 'd.posts.soundOff')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setMuted(!muted);
@@ -535,7 +543,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
           </div>
           <div className="sh-info">
             <div className="sh-who">
-              <Avatar src={post.avatar_url} name={post.username} size={32} onClick={() => nav('/u/' + post.username)} label={`Open ${post.username}'s profile`} />
+              <Avatar src={post.avatar_url} name={post.username} size={32} onClick={() => nav('/u/' + post.username)} label={t('notifications.openProfile', { username: post.username })} />
               <Link to={'/u/' + post.username} className="uname">
                 {post.username}
               </Link>
@@ -553,7 +561,7 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
                       });
                     }}
                   >
-                    Follow
+                    {t('common.follow')}
                   </button>
                 </>
               ) : null}
@@ -569,37 +577,37 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
             ) : null}
             {post.caption && long && !open ? (
               <button className="sh-more" onClick={() => setOpen(true)}>
-                … more
+                {t('d.posts.more')}
               </button>
             ) : null}
             {/* As the iPhone's Reel: the AI label, and how many have watched it (unless the author hides it). */}
             {post.ai_label || post.view_count ? (
               <div className="pp-short-meta">
                 {post.ai_label ? <AiInfo /> : null}
-                {post.view_count ? <span>{fmt(post.view_count)} {post.view_count === 1 ? 'view' : 'views'}</span> : null}
+                {post.view_count ? <span>{tn('d.posts.views', post.view_count, { count: fmt(post.view_count) })}</span> : null}
               </div>
             ) : null}
           </div>
         </div>
         <div className="reel-actions sh-actions">
-          <button aria-label={post.liked ? 'Unlike' : 'Like'} aria-pressed={post.liked} onClick={() => toggle('liked')}>
+          <button aria-label={t(post.liked ? 'd.posts.unlike' : 'd.posts.like')} aria-pressed={post.liked} onClick={() => toggle('liked')}>
             <Icon name="heart" size={26} color={post.liked ? '#ff3040' : 'currentColor'} fill={post.liked ? '#ff3040' : 'none'} />
-            <span>{post.hide_likes && !mine ? 'Likes' : fmt(post.like_count)}</span>
+            <span>{post.hide_likes && !mine ? t('d.posts.likesHidden') : fmt(post.like_count)}</span>
           </button>
           {post.comments_off && !mine ? null : (
-            <button aria-label="Comments" onClick={() => openPost(post.id)}>
+            <button aria-label={t('live.comments')} onClick={() => openPost(post.id)}>
               <Icon name="comment" size={26} />
               <span>{fmt(post.comment_count)}</span>
             </button>
           )}
-          <button aria-label={post.reposted ? 'Undo repost' : 'Repost'} aria-pressed={post.reposted} onClick={() => toggle('reposted')}>
+          <button aria-label={t(post.reposted ? 'd.posts.undoRepost' : 'd.posts.repost')} aria-pressed={post.reposted} onClick={() => toggle('reposted')}>
             <Icon name="repost" size={26} color={post.reposted ? '#1fbf5a' : 'currentColor'} />
             <span>{fmt(post.repost_count)}</span>
           </button>
-          <button aria-label="Share" onClick={() => setShare(true)}>
+          <button aria-label={t('common.share')} onClick={() => setShare(true)}>
             <Icon name="send" size={26} />
           </button>
-          <button aria-label={post.saved ? 'Remove from saved' : 'Save'} onClick={() => toggle('saved')}>
+          <button aria-label={t(post.saved ? 'd.posts.removeFromSaved' : 'ssPub.save')} onClick={() => toggle('saved')}>
             <Icon name="bookmark" size={26} fill={post.saved ? 'currentColor' : 'none'} />
           </button>
           {hasCaptions ? (
@@ -607,24 +615,24 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
               className={'sh-cc' + (cc ? ' on' : '')}
               role="switch"
               aria-checked={cc}
-              aria-label="Captions"
+              aria-label={t('clips.captions')}
               onClick={() => {
                 setCc(!cc);
-                toast(cc ? 'Captions off' : 'Captions on');
+                toast(t(cc ? 'clips.captionsOff' : 'clips.captionsOn'));
               }}
             >
               <b>CC</b>
             </button>
           ) : null}
           {hasCaptions ? (
-            <button aria-label="Translate captions" onClick={() => setPicking(true)}>
+            <button aria-label={t('d.posts.translateCaptions')} onClick={() => setPicking(true)}>
               <Icon name="globe" size={24} />
             </button>
           ) : null}
-          <button aria-label="More options" onClick={() => setMenu(true)}>
+          <button aria-label={t('profile.moreOptions')} onClick={() => setMenu(true)}>
             <Icon name="more" size={26} />
           </button>
-          <button className="sh-audio-cover" aria-label={`Audio: ${audio}`} onClick={() => nav('/u/' + post.username)}>
+          <button className="sh-audio-cover" aria-label={t('d.posts.audioLabel', { audio })} onClick={() => nav('/u/' + post.username)}>
             {m?.poster || post.avatar_url ? <img src={post.avatar_url || m?.poster} alt="" /> : <Icon name="music" size={14} />}
           </button>
         </div>
@@ -651,13 +659,13 @@ function Short({ id, index, active, near, settings, openPost }: { id: string; in
 function TranslatePicker({ current, source, onPick, onClose }: { current: string; source: string; onPick: (code: string) => void; onClose: () => void }) {
   const chosen = current || source;
   return (
-    <Modal onClose={onClose} title="Translate captions" className="sv-sheet">
-      <div className="list-pad sh-langs" role="radiogroup" aria-label="Caption language">
+    <Modal onClose={onClose} title={t('d.posts.translateCaptions')} className="sv-sheet">
+      <div className="list-pad sh-langs" role="radiogroup" aria-label={t('settings.captionLanguage')}>
         {LANGUAGES.map((l) => (
           <label key={l.code} className="row full hover sv-radio">
             <span className="row-text">
               <b>{l.native}</b>
-              <span>{l.code === source ? 'Original' : l.name}</span>
+              <span>{l.code === source ? t('d.posts.captionsOriginal') : l.name}</span>
             </span>
             <input type="radio" name="sh-lang" className="round-check" aria-label={l.name} checked={chosen === l.code} onChange={() => onPick(l.code)} />
           </label>
