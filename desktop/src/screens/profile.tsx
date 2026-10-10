@@ -1,7 +1,7 @@
 // A profile, laid out like Instagram on the web: picture, name and buttons, counts, bio,
 // highlights, then the Posts, Reels, Saved and Reposts tabs.
 import React, { useEffect, useState } from 'react';
-import { fetchHighlight, fetchHighlights, fetchReposts, fetchSaved, fetchUserPosts, fetchUserStories, listPeople, recordProfileView, report, requestFollow, removeFollowRequest, setBlock, setCloseFriend, setFollow } from 'shared/api';
+import { fetchHighlight, fetchHighlights, fetchLives, fetchReposts, fetchSaved, fetchUserPosts, fetchUserStories, listPeople, recordProfileView, report, requestFollow, removeFollowRequest, setBlock, setCloseFriend, setFollow } from 'shared/api';
 import { listen } from 'shared/store';
 import { fmt } from 'shared/theme';
 import type { Highlight, Post, Profile, StoryGroup } from 'shared/types';
@@ -66,6 +66,15 @@ export function ProfilePage({ username, tab, openPost, onCreate }: { username: s
       toastError(e);
     }
   };
+  const openLive = async () => {
+    try {
+      const live = (await fetchLives()).find((l) => l.user_id === person.id && !l.ended_at);
+      if (live) nav('/live/' + live.id);
+      else openStory();
+    } catch (e) {
+      toastError(e);
+    }
+  };
   const openHighlight = async (h: Highlight) => {
     try {
       const got = await fetchHighlight(h.id);
@@ -92,7 +101,8 @@ export function ProfilePage({ username, tab, openPost, onCreate }: { username: s
     <div className="page profile">
       <header className="profile-head">
         <div className="profile-pic">
-          <Avatar src={person.avatar_url} name={person.username} size={150} ring={person.has_story && !hidden ? (person.is_close_friend ? 'close' : 'new') : null} onClick={person.has_story && !hidden ? openStory : mine ? () => nav('/accounts/edit') : undefined} label={person.has_story ? 'View story' : 'Profile picture'} />
+          <Avatar src={person.avatar_url} name={person.username} size={150} ring={person.is_live ? 'live' : person.has_story && !hidden ? (person.is_close_friend ? 'close' : 'new') : null} onClick={person.is_live && !mine ? openLive : person.has_story && !hidden ? openStory : mine ? () => nav('/accounts/edit') : undefined} label={person.is_live ? 'Watch live' : person.has_story ? 'View story' : 'Profile picture'} />
+          {person.is_live ? <span className="live-badge big">LIVE</span> : null}
         </div>
         <section className="profile-info">
           <div className="profile-top">
@@ -105,9 +115,14 @@ export function ProfilePage({ username, tab, openPost, onCreate }: { username: s
                 <button className="btn quiet" onClick={() => nav('/accounts/edit')}>
                   Edit profile
                 </button>
-                <button className="btn quiet" onClick={() => nav('/activity')}>
-                  Your activity
+                <button className="btn quiet" onClick={() => nav('/archive')}>
+                  View archive
                 </button>
+                {person.account_type === 'creator' ? (
+                  <button className="btn quiet" onClick={() => nav('/dashboard')}>
+                    Dashboard
+                  </button>
+                ) : null}
                 <button className="icon-btn" aria-label="Settings" onClick={() => nav('/accounts/edit')}>
                   <Icon name="settings" size={24} />
                 </button>

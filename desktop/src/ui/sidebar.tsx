@@ -54,7 +54,12 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
   const createRef = useRef<HTMLDivElement>(null);
   useOutside(moreRef, () => setMore(false), more);
   useOutside(createRef, () => setCreate(false), create);
-  const narrow = panel !== null || route.startsWith('/direct');
+  // Menus close when you move to another page.
+  useEffect(() => {
+    setMore(false);
+    setCreate(false);
+  }, [route]);
+  const narrow = panel !== null || route.startsWith('/direct') || route.startsWith('/live');
   const at = (p: string) => (p === '/' ? route === '/' : route === p || route.startsWith(p + '/'));
   const own = '/u/' + me.username;
 
@@ -129,13 +134,22 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
           {more ? (
             <div className="popover more-pop">
               <MoreLink icon="settings" label="Settings" to="/accounts/edit" close={() => setMore(false)} />
-              <MoreLink icon="bookmark" label="Saved" to={own + '/saved'} close={() => setMore(false)} />
               <MoreLink icon="activity" label="Your activity" to="/activity" close={() => setMore(false)} />
-              <div className="pop-sep" />
-              <MoreLink icon={'hymnal'} label="Hymnal" to="/hymnal" close={() => setMore(false)} />
-              <MoreLink icon={'church'} label="Churches" to="/churches" close={() => setMore(false)} />
-              <MoreLink icon="people" label="Communities and pages" to="/groups" close={() => setMore(false)} />
-              <MoreLink icon={'sparkle'} label="Ask Erha" to="/direct/erha" close={() => setMore(false)} />
+              <MoreLink icon="bookmark" label="Saved" to={own + '/saved'} close={() => setMore(false)} />
+              <MoreLink icon="archive" label="Archive" to="/archive" close={() => setMore(false)} />
+              <MoreLink icon="chart" label="Professional dashboard" to="/dashboard" close={() => setMore(false)} />
+              <div className="pop-sep thick" />
+              <div className="pop-label">Church</div>
+              <MoreLink icon="bible" label="Bible" to="/bible" close={() => setMore(false)} />
+              <MoreLink icon="lesson" label="Sabbath School" to="/lessons" close={() => setMore(false)} />
+              <MoreLink icon="hymnal" label="Hymnal" to="/hymnal" close={() => setMore(false)} />
+              <MoreLink icon="headphones" label="Pod" to="/pod" close={() => setMore(false)} />
+              <MoreLink icon="church" label="Churches" to="/churches" close={() => setMore(false)} />
+              <MoreLink icon="sparkle" label="Ask Erha" to="/direct/erha" close={() => setMore(false)} />
+              <div className="pop-sep thick" />
+              <MoreLink icon="crown" label={me.plus ? 'Community Plus' : 'Get the verified tick'} to="/plus" close={() => setMore(false)} />
+              <MoreLink icon="help" label="Help" to="/help" close={() => setMore(false)} />
+              {me.admin_role ? <MoreLink icon="shield" label="Admin console" to="/admin" close={() => setMore(false)} /> : null}
               <div className="pop-sep thick" />
               {!auth.demo ? (
                 <button onClick={() => { setMore(false); auth.openAccount(); }}>
@@ -151,27 +165,6 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
       </nav>
       {panel === 'search' ? <SearchPanel close={() => setPanel(null)} /> : null}
       {panel === 'notifications' ? <NotificationsPanel close={() => setPanel(null)} /> : null}
-      <nav className="bottombar" aria-label="Main">
-        <Link to="/" className={'bb' + (at('/') ? ' active' : '')} title="Home">
-          <Icon name="home" size={26} stroke={at('/') ? 2.6 : 1.8} />
-        </Link>
-        <Link to="/explore" className={'bb' + (at('/explore') ? ' active' : '')} title="Explore">
-          <Icon name={'compass'} size={26} />
-        </Link>
-        <Link to="/reels" className={'bb' + (at('/reels') ? ' active' : '')} title="Reels">
-          <Icon name="reels" size={26} />
-        </Link>
-        <button className="bb" onClick={() => onCreate('post')} title="Create">
-          <Icon name="pluscircle" size={26} />
-        </button>
-        <Link to="/direct" className={'bb' + (at('/direct') ? ' active' : '')} title="Messages">
-          <Icon name="send" size={26} />
-          {unreadChats ? <span className="nav-badge">{unreadChats}</span> : null}
-        </Link>
-        <Link to={own} className="bb" title="Profile">
-          <Avatar src={me.avatar_url} name={me.username} size={26} />
-        </Link>
-      </nav>
     </>
   );
 }

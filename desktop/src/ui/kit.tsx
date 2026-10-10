@@ -37,7 +37,7 @@ export function Verified({ size = 14 }: { size?: number }) {
 const AVATAR_BG = ['#1fbf5a', '#3d8bff', '#a033e8', '#ff8a3d', '#ff3d77', '#0fb58a', '#f5b301'];
 
 /** A round picture. ring: 'new' (unseen story), 'seen', 'close' (close friends), or none. */
-export function Avatar({ src, name, size = 32, ring, onClick, label }: { src?: string | null; name: string; size?: number; ring?: 'new' | 'seen' | 'close' | null; onClick?: (e: React.MouseEvent) => void; label?: string }) {
+export function Avatar({ src, name, size = 32, ring, onClick, label }: { src?: string | null; name: string; size?: number; ring?: 'new' | 'seen' | 'close' | 'live' | null; onClick?: (e: React.MouseEvent) => void; label?: string }) {
   const [broken, setBroken] = useState(false);
   let hash = 0;
   for (const ch of name || '?') hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;

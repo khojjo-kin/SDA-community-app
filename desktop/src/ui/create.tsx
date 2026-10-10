@@ -2,6 +2,7 @@
 // Also shares a photo or video to your story. Uploads go through the same functions as the iPhone app.
 import React, { useEffect, useRef, useState } from 'react';
 import { addStory, createPost, uploadImage, uploadVideo } from 'shared/api';
+import { ADJUST_KEYS, type Adjust, DEFAULT_ADJUST, FILTERS, isPlainLook, lookMatrix } from 'shared/filters';
 import type { Audience, Media, StoryItem } from 'shared/types';
 import { rememberSize } from '../shims/expo-file-system';
 import { useMe } from '../lib/me';
@@ -40,6 +41,43 @@ async function readPicked(file: File): Promise<Picked> {
   });
   return { file, url, type: 'image', w: img.naturalWidth, h: img.naturalHeight };
 }
+
+/** The SVG colour filter for a 4x5 matrix, so the preview shows exactly what will be uploaded. */
+function MatrixFilter({ id, matrix }: { id: string; matrix: number[] }) {
+  return (
+    <filter id={id} colorInterpolationFilters="sRGB">
+      <feColorMatrix type="matrix" values={matrix.map((v) => +v.toFixed(5)).join(' ')} />
+    </filter>
+  );
+}
+
+/** Bakes a filter into the photo, pixel by pixel, the way the iPhone app uploads filtered photos. */
+async function applyLook(url: string, matrix: number[]): Promise<string> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = data.data;
+  const m = matrix;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255, a = d[i + 3] / 255;
+    d[i] = 255 * (m[0] * r + m[1] * g + m[2] * b + m[3] * a + m[4]);
+    d[i + 1] = 255 * (m[5] * r + m[6] * g + m[7] * b + m[8] * a + m[9]);
+    d[i + 2] = 255 * (m[10] * r + m[11] * g + m[12] * b + m[13] * a + m[14]);
+  }
+  ctx.putImageData(data, 0, 0);
+  const blob: Blob = await new Promise((r) => canvas.toBlob((x) => r(x!), 'image/jpeg', 0.95));
+  const out = URL.createObjectURL(blob);
+  rememberSize(out, blob.size);
+  return out;
+}
+
+type Look = { filter: string; adjust: Adjust };
 
 /** Cuts the middle of a picture to the chosen shape and returns a new blob: URL. */
 async function cropTo(p: Picked, ratio?: number): Promise<{ url: string; w: number; h: number }> {
@@ -97,7 +135,9 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   const { me } = useMe();
   const [mode, setMode] = useState<'post' | 'story'>(start);
   const [items, setItems] = useState<Picked[]>([]);
-  const [step, setStep] = useState<'pick' | 'crop' | 'details'>('pick');
+  const [step, setStep] = useState<'pick' | 'crop' | 'edit' | 'details'>('pick');
+  const [looks, setLooks] = useState<Record<string, Look>>({});
+  const [editTab, setEditTab] = useState<'filters' | 'adjust'>('filters');
   const [crop, setCrop] = useState<Crop>('original');
   const [at, setAt] = useState(0);
   const [caption, setCaption] = useState('');
@@ -121,7 +161,7 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
       if (mode === 'post' && picked.length + items.length > MAX_PHOTOS) toast('A post can have up to 10 photos.');
       setItems(next);
       setAt(0);
-      setStep(mode === 'story' ? 'details' : 'crop');
+      setStep(mode === 'story' ? (next[0]?.type === 'image' ? 'edit' : 'details') : 'crop');
     } catch (e) {
       toastError(e);
     }
@@ -145,7 +185,9 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
           const m = await uploadVideo(me.id, p.url, p.w, p.h);
           item = { url: m.url, type: 'video', w: p.w, h: p.h, poster: m.poster, duration: p.duration, caption: caption.trim() || undefined, fit: 'cover' };
         } else {
-          const m = await uploadImage(me.id, p.url, p.w);
+          const look = looks[p.url];
+          const url = look && !isPlainLook(look.filter, look.adjust) ? await applyLook(p.url, lookMatrix(look.filter, look.adjust)) : p.url;
+          const m = await uploadImage(me.id, url, p.w);
           item = { url: m.url, type: 'image', w: m.w, h: m.h, caption: caption.trim() || undefined, fit: (p.w / p.h > 0.7 ? 'contain' : 'cover') as 'contain' | 'cover' };
         }
         await addStory(me.id, item, audience);
@@ -158,7 +200,9 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
           if (p.type === 'video') media.push(await uploadVideo(me.id, p.url, p.w, p.h));
           else {
             const c = await cropTo(p, CROPS.find((x) => x.id === crop)?.r);
-            media.push(await uploadImage(me.id, c.url, c.w));
+            const look = looks[p.url];
+            const url = look && !isPlainLook(look.filter, look.adjust) ? await applyLook(c.url, lookMatrix(look.filter, look.adjust)) : c.url;
+            media.push(await uploadImage(me.id, url, c.w));
           }
         }
         setBusy('Sharing');
@@ -176,13 +220,13 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   const header = (
     <div className="modal-head create-head">
       {step === 'pick' ? <span /> : (
-        <button className="icon-btn" aria-label="Back" disabled={!!busy} onClick={() => (step === 'details' && mode === 'post' ? setStep('crop') : (setItems([]), setStep('pick')))}>
+        <button className="icon-btn" aria-label="Back" disabled={!!busy} onClick={() => (step === 'details' ? setStep(items[0]?.type === 'image' ? 'edit' : mode === 'post' ? 'crop' : 'pick') : step === 'edit' ? setStep(mode === 'post' ? 'crop' : 'pick') : (setItems([]), setStep('pick')))}>
           <Icon name="back" size={24} />
         </button>
       )}
-      <h2>{busy ? busy + '…' : step === 'pick' ? (mode === 'post' ? 'Create new post' : 'Add to your story') : step === 'crop' ? 'Crop' : mode === 'post' ? 'Create new post' : 'Your story'}</h2>
-      {step === 'crop' ? (
-        <button className="link-btn" onClick={() => setStep('details')}>
+      <h2>{busy ? busy + '…' : step === 'pick' ? (mode === 'post' ? 'Create new post' : 'Add to your story') : step === 'crop' ? 'Crop' : step === 'edit' ? 'Edit' : mode === 'post' ? 'Create new post' : 'Your story'}</h2>
+      {step === 'crop' || step === 'edit' ? (
+        <button className="link-btn" onClick={() => setStep(step === 'crop' && items[0]?.type === 'image' ? 'edit' : 'details')}>
           Next
         </button>
       ) : step === 'details' ? (
@@ -196,7 +240,7 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
   );
 
   return (
-    <Modal onClose={close} bare className={'create-dialog' + (step === 'details' ? ' wide' : '')}>
+    <Modal onClose={close} bare className={'create-dialog' + (step === 'details' || step === 'edit' ? ' wide' : '')}>
       {header}
       {step === 'pick' ? (
         <>
@@ -220,7 +264,11 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
             ) : null}
             {current ? (
               <div className="create-frame" style={{ aspectRatio: mode === 'story' ? '9 / 16' : String(ratio) }}>
-                {current.type === 'video' ? <video src={current.url} autoPlay muted loop playsInline /> : <img src={current.url} alt="" />}
+                {current.type === 'video' ? (
+                  <video src={current.url} autoPlay muted loop playsInline />
+                ) : (
+                  <img src={current.url} alt="" style={looks[current.url] && !isPlainLook(looks[current.url].filter, looks[current.url].adjust) ? { filter: 'url(#look-current)' } : undefined} />
+                )}
               </div>
             ) : null}
             {at > 0 ? (
@@ -261,6 +309,55 @@ export function CreateDialog({ onClose, start = 'post' }: { onClose: () => void;
               </div>
             ) : null}
           </div>
+          {current?.type === 'image' ? (
+            <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+              <MatrixFilter id="look-current" matrix={lookMatrix(looks[current.url]?.filter, looks[current.url]?.adjust)} />
+              {FILTERS.map((f) => (
+                <MatrixFilter key={f.id} id={'look-' + f.id} matrix={f.matrix as number[]} />
+              ))}
+            </svg>
+          ) : null}
+          {step === 'edit' && current?.type === 'image' ? (
+            <div className="create-side edit-side">
+              <div className="seg tabs-2">
+                <button className={editTab === 'filters' ? 'on' : ''} onClick={() => setEditTab('filters')}>
+                  Filters
+                </button>
+                <button className={editTab === 'adjust' ? 'on' : ''} onClick={() => setEditTab('adjust')}>
+                  Adjustments
+                </button>
+              </div>
+              {editTab === 'filters' ? (
+                <div className="filter-grid">
+                  {FILTERS.map((f) => {
+                    const on = (looks[current.url]?.filter ?? 'normal') === f.id;
+                    return (
+                      <button key={f.id} className={'filter-cell' + (on ? ' on' : '')} onClick={() => setLooks({ ...looks, [current.url]: { filter: f.id, adjust: looks[current.url]?.adjust ?? DEFAULT_ADJUST } })}>
+                        <img src={current.url} alt="" style={{ filter: `url(#look-${f.id})` }} />
+                        <span>{f.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : me.plus ? (
+                <div className="adjust-list">
+                  {ADJUST_KEYS.map((k) => {
+                    const look = looks[current.url] ?? { filter: 'normal', adjust: DEFAULT_ADJUST };
+                    return (
+                      <label key={k} className="adjust-row">
+                        <span>
+                          {k[0].toUpperCase() + k.slice(1)} <em>{look.adjust[k]}</em>
+                        </span>
+                        <input type="range" min={-100} max={100} value={look.adjust[k]} onChange={(e) => setLooks({ ...looks, [current.url]: { ...look, adjust: { ...look.adjust, [k]: Number(e.target.value) } } })} />
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="muted-text pad">Brightness, contrast, saturation and warmth are a Community Plus perk, as on the iPhone.</p>
+              )}
+            </div>
+          ) : null}
           {step === 'details' ? (
             <div className="create-side">
               <div className="who">

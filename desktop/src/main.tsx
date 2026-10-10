@@ -13,6 +13,12 @@ import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
 import { Explore, Home, PeopleToFollow, Reels } from './screens/browse';
 import { Messages } from './screens/messages';
 import { Activity, Churches, Groups, Hymnal, Settings } from './screens/more';
+import { Archive, Dashboard, Help, Plus } from './screens/account';
+import { Admin } from './screens/admin';
+import { Bible, Pod, SabbathSchool } from './screens/church';
+import { LiveViewer } from './screens/live';
+import { CallProvider } from 'shared/calls';
+import { PlayerProvider } from './ui/player';
 import { ProfilePage } from './screens/profile';
 import { CreateDialog } from './ui/create';
 import { Empty, GlobalLayer, Spinner } from './ui/kit';
@@ -58,7 +64,12 @@ function Boot() {
   if (profile.suspended) return <Suspended />;
   return (
     <MeProvider profile={profile} key={profile.id}>
-      <Shell />
+      {/* The same call code as the iPhone app: calls ring here wherever you are in the app. */}
+      <CallProvider>
+        <PlayerProvider>
+          <Shell />
+        </PlayerProvider>
+      </CallProvider>
     </MeProvider>
   );
 }
@@ -137,12 +148,39 @@ function Shell() {
     case 'groups':
       screen = <Groups id={seg[1]} openPost={openPost} />;
       break;
+    case 'bible':
+      screen = <Bible book={seg[1]} chapter={seg[2]} />;
+      break;
+    case 'lessons':
+      screen = <SabbathSchool />;
+      break;
+    case 'pod':
+      screen = <Pod />;
+      break;
+    case 'live':
+      screen = <LiveViewer id={seg[1]} />;
+      break;
+    case 'dashboard':
+      screen = <Dashboard />;
+      break;
+    case 'archive':
+      screen = <Archive />;
+      break;
+    case 'plus':
+      screen = <Plus />;
+      break;
+    case 'help':
+      screen = <Help />;
+      break;
+    case 'admin':
+      screen = <Admin path={route} />;
+      break;
     default:
       screen = <Empty icon="compass" title="Sorry, this page isn't available." body="The link you followed may be broken, or the page may have been removed." />;
   }
 
   return (
-    <div className={'shell' + (seg[0] === 'direct' ? ' is-direct' : '') + (seg[0] === 'reels' ? ' is-reels' : '')}>
+    <div className={'shell' + (['direct', 'live'].includes(seg[0]) ? ' is-direct' : '') + (seg[0] === 'reels' ? ' is-reels' : '')}>
       {__DEMO__ ? <div className="demo-banner">Demo: sample people and photos. Nothing you do here is saved.</div> : null}
       <Sidebar panel={panel} setPanel={setPanel} onCreate={setCreate} />
       <main className="main">{screen}</main>

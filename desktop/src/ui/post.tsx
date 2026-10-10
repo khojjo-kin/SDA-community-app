@@ -319,6 +319,7 @@ export function FeedPost({ id, onOpenPost }: { id: string; onOpenPost: (id: stri
             {post.verified ? <Verified /> : null}
             <span className="muted-text"> • {ago(post.created_at)}</span>
             {post.group_name ? <span className="muted-text"> • {post.group_name}</span> : null}
+            {post.boosted ? <span className="boosted"> • Boosted</span> : null}
           </div>
           {post.location ? <div className="sub">{post.location}</div> : post.audio_title ? <div className="sub">♪ {post.audio_title}</div> : null}
         </div>

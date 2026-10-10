@@ -39,6 +39,7 @@ const check = (label, ok, extra) => {
 
   // Home
   check('home feed shows posts from people I follow', (await feed.count()) >= 8, await feed.count());
+  check('the three feeds from the iPhone app: For you, Following, Subscribers', (await page.locator('.feed-switch button').allInnerTexts()).join() === 'For you,Following,Subscribers');
   check('story tray lists 5 people with stories plus mine', (await page.locator('.tray-item').count()) === 6, await page.locator('.tray-item').count());
   check('suggestions list someone I do not follow', (await page.locator('.home-aside .suggestion').count()) >= 1);
   check('unread messages badge on the sidebar', (await page.locator('.sidebar .nav-badge').innerText()) === '1');
@@ -117,6 +118,12 @@ const check = (label, ok, extra) => {
   check('two photos are ready to crop', (await page.locator('.thumb-bar .thumb:not(.add)').count()) === 2);
   await page.locator('.crop-bar').getByRole('button', { name: '1:1' }).click();
   await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
+  await page.waitForSelector('.filter-cell');
+  check('the Edit step offers the iPhone app\'s filters', (await page.locator('.filter-cell').count()) === 17, await page.locator('.filter-cell').count());
+  await page.locator('.filter-cell').filter({ hasText: 'Moon' }).click();
+  await page.getByRole('button', { name: 'Adjustments' }).click();
+  check('Plus members get brightness, contrast, saturation and warmth', (await page.locator('.adjust-row').count()) === 4);
+  await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Caption').fill('Test post from the desktop app');
   await page.getByLabel('Location').fill('Hillside');
   await shot('03-create');
@@ -130,6 +137,18 @@ const check = (label, ok, extra) => {
   check('the new post has its caption and location', (await page.locator('.post-dialog').getByText('Test post from the desktop app').count()) === 1 && (await page.locator('.post-dialog').getByText('Hillside').count()) === 1);
   const ratio = await page.locator('.post-dialog .carousel').evaluate((el) => el.clientWidth / el.clientHeight);
   check('the new post was cropped square', Math.abs(ratio - 1) < 0.03, ratio.toFixed(3));
+  const grey = await page.locator('.post-dialog .slide img').first().evaluate(async (img) => {
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = 40; c.height = 40;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, 40, 40);
+    const d = x.getImageData(0, 0, 40, 40).data;
+    let spread = 0;
+    for (let i = 0; i < d.length; i += 4) spread = Math.max(spread, Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]));
+    return spread;
+  });
+  check('the Moon filter was baked into the uploaded photo (black and white)', grey <= 6, grey);
   // Delete it again
   await page.locator('.post-dialog').getByRole('button', { name: 'More options' }).click();
   await page.locator('.choices').getByRole('button', { name: 'Delete' }).click();
@@ -143,7 +162,9 @@ const check = (label, ok, extra) => {
   await page.locator('.sidebar').getByRole('button', { name: 'Create' }).click();
   await page.locator('.create-pop').getByRole('button', { name: /^Story/ }).click();
   await page.setInputFiles('[data-testid=create-files]', [path.join(MEDIA, '11.jpg')]);
-  await page.waitForSelector('.create-side');
+  await page.waitForSelector('.filter-cell');
+  await page.locator('.create-head').getByRole('button', { name: 'Next' }).click();
+  await page.waitForSelector('.create-side textarea');
   await page.getByLabel('Caption').fill('My first desktop story');
   await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
   await page.waitForSelector('.tray', { timeout: 15000 });
@@ -247,6 +268,89 @@ const check = (label, ok, extra) => {
   await wait(500);
   check('church details show service times', (await page.locator('.church').getByText('Sabbath School 9:00').count()) === 1);
 
+  // Chat: typing, saved replies, creator FAQs
+  await goto('/direct/t/t1');
+  await page.waitForSelector('.chat-head');
+  await page.waitForSelector('.chip-btn');
+  check("Grace's frequently asked questions show in the chat", (await page.locator('.chip-btn').filter({ hasText: 'When is choir practice?' }).count()) === 1);
+  await page.locator('.chip-btn').filter({ hasText: 'When is choir practice?' }).click();
+  await page.waitForTimeout(1200);
+  check('tapping a question brings her saved answer', (await page.locator('.msg:not(.mine) .bubble').filter({ hasText: 'Thursdays at 7pm' }).count()) === 1);
+  await page.getByLabel(/^Message grace/).fill('/service');
+  await page.waitForTimeout(500);
+  check('typing /shortcut fills in a saved reply', (await page.getByLabel(/^Message grace/).inputValue()).startsWith('Divine service starts'));
+  check('typing is shared on the same channel as the iPhone app', await page.evaluate(() => (window.__broadcastsSent || []).some((b) => b.channel === 'typing:t1' && b.event === 'typing' && b.payload.user === 'demo_me')));
+  await page.getByLabel(/^Message grace/).fill('');
+
+  // Church: Hymnal favourites, Pod
+  await goto('/hymnal/108');
+  await page.waitForSelector('.lyrics');
+  await page.getByRole('button', { name: 'Add to favourites' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: /^Favourites/ }).click();
+  check('hymn favourites work', (await page.locator('.hymn-row').count()) === 1);
+  await goto('/pod');
+  await page.waitForSelector('.pod-row');
+  await page.locator('.pod-row').first().locator('.pod-cover').click();
+  await page.waitForSelector('.now-playing');
+  check('Pod opens the player bar', (await page.locator('.now-playing b').innerText()).includes('(sample)'));
+  await page.locator('.pod-row').first().getByRole('button', { name: 'Save to library' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: 'Your library' }).click();
+  await page.waitForTimeout(500);
+  check('saving to Your library works', (await page.locator('.pod-row').count()) === 1);
+  await page.getByRole('button', { name: 'Close player' }).click();
+
+  // Creator tools and account
+  await goto('/dashboard');
+  await page.waitForSelector('.tile-stat');
+  check('the professional dashboard shows views and a chart', (await page.locator('.tile-stat').count()) === 4 && (await page.locator('.bar-col').count()) >= 28);
+  await goto('/archive');
+  await page.waitForSelector('.archive-tile');
+  check('the archive keeps my expired stories', (await page.locator('.archive-tile').count()) >= 2);
+  await page.getByRole('button', { name: 'New highlight' }).click();
+  await page.locator('.archive-tile').first().click();
+  await page.getByLabel('Highlight name').fill('Lakes');
+  await page.getByRole('button', { name: 'Add highlight' }).click();
+  const lakes = await page.locator('.highlight').filter({ hasText: 'Lakes' }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  check('a new highlight from the archive shows on my profile', lakes);
+  await goto('/accounts/viewers');
+  await page.waitForSelector('.settings-card .row');
+  check('Plus: profile viewers are listed', (await page.locator('.settings-card .row').count()) === 2);
+  await goto('/help');
+  await page.locator('.form-row').filter({ hasText: 'Subject' }).locator('input').fill('Desktop question');
+  await page.locator('.form-row').filter({ hasText: 'Message' }).locator('textarea').fill('How do I go live from the Mac?');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.waitForSelector('.ticket');
+  check('a help request is sent and listed', (await page.locator('.ticket').filter({ hasText: 'Desktop question' }).count()) === 1);
+
+  // Admin console
+  await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
+  const moreText = await page.locator('.more-pop').innerText();
+  check('the More menu has every section', ['Bible', 'Sabbath School', 'Hymnal', 'Pod', 'Churches', 'Ask Erha', 'Archive', 'Professional dashboard', 'Help', 'Admin console'].every((x) => moreText.includes(x)));
+  await page.locator('.more-pop').getByText('Admin console').click();
+  await page.waitForSelector('.tile-stat');
+  check('the admin overview shows the numbers', (await page.locator('.tile-stat').count()) === 12);
+  await goto('/admin/reports');
+  await page.waitForSelector('.report');
+  await page.getByRole('button', { name: 'Action taken' }).click();
+  await page.waitForTimeout(500);
+  check('a report can be decided', (await page.locator('.report').count()) === 0);
+  await goto('/admin/requests');
+  await page.waitForSelector('.report');
+  await page.getByRole('button', { name: 'Approve' }).click();
+  await page.waitForTimeout(700);
+  await goto('/u/esther_adjei');
+  await page.waitForSelector('.profile-top');
+  check('approving a tick request gives the tick', (await page.locator('.profile-top .verified').count()) === 1);
+  await goto('/admin/support');
+  await page.waitForSelector('.ticket');
+  await page.locator('.ticket').filter({ hasText: 'Cannot upload a video' }).click();
+  await page.locator('.modal textarea').fill('Videos can be up to 60 seconds. Trim it and try again.');
+  await page.getByRole('button', { name: 'Send reply' }).click();
+  await page.waitForTimeout(500);
+  check('support requests can be answered', (await page.locator('.ticket').filter({ hasText: 'Cannot upload a video' }).locator('.pill.status-answered').count()) === 1);
+
   // Log out and back in
   await page.locator('.sidebar').getByRole('button', { name: 'More' }).click();
   await page.locator('.more-pop').getByRole('button', { name: 'Log out' }).click();
@@ -260,14 +364,15 @@ const check = (label, ok, extra) => {
   check('no sideways scrolling at 1440px', over <= 0, over);
 
   // Narrow window and phone width
-  for (const [w, h, name] of [[1000, 800, 'medium'], [420, 860, 'phone']]) {
+  // The desktop app is a desktop layout only: it never turns into the phone layout.
+  for (const [w, h, name] of [[1000, 800, 'medium'], [600, 800, 'small']]) {
     const p2 = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
     await p2.route('**/*', (r) => (r.request().url().startsWith(BASE) ? r.continue() : r.abort()));
     await p2.goto(BASE);
     await p2.waitForSelector('.feed-post');
     const ov = await p2.evaluate(() => document.scrollingElement.scrollWidth - innerWidth);
-    check(`no sideways scrolling at ${w}px`, ov <= 0, ov);
-    if (name === 'phone') check('phone width uses the bottom bar', await p2.locator('.bottombar').isVisible());
+    if (name === 'medium') check(`no sideways scrolling at ${w}px`, ov <= 0, ov);
+    if (name === 'small') check('a small window keeps the desktop sidebar (no phone bottom bar)', (await p2.locator('.sidebar').isVisible()) && (await p2.locator('.bottombar').count()) === 0);
     if (name === 'medium') check('medium width uses the narrow sidebar', (await p2.locator('.sidebar').evaluate((el) => el.clientWidth)) <= 73);
     if (SHOTS) await p2.screenshot({ path: `${SHOTS}/06-${name}.png` });
   }

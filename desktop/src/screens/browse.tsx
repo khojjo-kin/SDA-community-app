@@ -1,9 +1,9 @@
 // Home (stories, feed, suggestions), Explore (the mosaic grid) and Reels (full-height videos).
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type FeedKind, fetchExplore, fetchFeed, fetchReels, fetchStoryTray, setFollow } from 'shared/api';
+import { type FeedKind, fetchExplore, fetchFeed, fetchLives, fetchReels, fetchStoryTray, setFollow } from 'shared/api';
 import { listen, putPosts } from 'shared/store';
 import { fmt } from 'shared/theme';
-import type { Post, Profile, StoryGroup } from 'shared/types';
+import type { LiveCard, Post, Profile, StoryGroup } from 'shared/types';
 import { suggestions } from '../lib/extra';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
@@ -27,6 +27,7 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
   const [more, setMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [tray, setTray] = useState<StoryGroup[]>([]);
+  const [lives, setLives] = useState<LiveCard[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
   const last = useRef<string | undefined>(undefined);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -42,7 +43,10 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
       setError(e);
     }
   }, [me.id, kind]);
-  const loadTray = useCallback(() => fetchStoryTray(me.id).then(setTray, () => {}), [me.id]);
+  const loadTray = useCallback(() => {
+    fetchStoryTray(me.id).then(setTray, () => {});
+    fetchLives().then((l) => setLives(l.filter((x) => !x.ended_at)), () => {});
+  }, [me.id]);
 
   useEffect(() => {
     setIds(null);
@@ -83,11 +87,12 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
   return (
     <div className="home">
       <div className="home-main">
-        <StoryTray groups={tray} onOpen={setViewing} onAdd={() => onCreate('story')} />
+        <StoryTray groups={tray} lives={lives} onOpen={setViewing} onAdd={() => onCreate('story')} />
         <div className="feed-switch" role="tablist">
-          {(['following', 'foryou'] as FeedKind[]).map((k) => (
+          {/* The same three feeds as the iPhone app. */}
+          {(['foryou', 'following', 'subscribers'] as FeedKind[]).map((k) => (
             <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-              {k === 'following' ? 'Following' : 'For you'}
+              {k === 'following' ? 'Following' : k === 'foryou' ? 'For you' : 'Subscribers'}
             </button>
           ))}
         </div>
@@ -106,6 +111,8 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
                   </button>
                 </div>
               </Empty>
+            ) : kind === 'subscribers' ? (
+              <Empty icon="crown" title="Nothing from Plus members yet" body="Posts from Community Plus members appear here. Switch to For you to see everyone." />
             ) : (
               <Empty icon="image" title="Nothing here yet" body="Nobody has posted yet. Share the first photo." />
             )

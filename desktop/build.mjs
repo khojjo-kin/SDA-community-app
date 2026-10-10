@@ -58,6 +58,26 @@ const alias = {
   'expo-image-manipulator': shim('expo-image-manipulator.ts'),
   'expo-video-thumbnails': shim('expo-video-thumbnails.ts'),
   'react-native-url-polyfill/auto': shim('empty.ts'),
+  '@react-native-async-storage/async-storage': shim('async-storage.ts'),
+  'expo-secure-store': shim('secure-store.ts'),
+  'react-native': shim('react-native.tsx'),
+  'react-native-webrtc': shim('webrtc.ts'),
+  'react-native-color-matrix-image-filters': shim('color-matrix.ts'),
+};
+
+// The shared call code (src/lib/calls.tsx) imports the iPhone app's call screen, toast and session
+// by relative path; the desktop provides its own versions of those three.
+const sharedShims = {
+  name: 'shared-shims',
+  setup(b) {
+    const lib = path.join(root, 'src/lib');
+    const map = {
+      '../components/CallScreen': path.join(here, 'src/ui/callscreen.tsx'),
+      '../components/ui': path.join(here, 'src/shared-shims/ui.tsx'),
+      './session': path.join(here, 'src/shared-shims/session.tsx'),
+    };
+    b.onResolve({ filter: /^(\.\.\/components\/(CallScreen|ui)|\.\/session)$/ }, (args) => (path.dirname(args.importer) === lib ? { path: map[args.path] } : undefined));
+  },
 };
 if (demo || wire) {
   alias['@supabase/supabase-js'] = path.join(here, 'src/fake/supabase.ts');
@@ -71,13 +91,14 @@ const options = {
   outdir,
   entryNames: 'app',
   assetNames: 'assets/[name]-[hash]',
-  loader: single ? { '.png': 'dataurl', '.jpg': 'dataurl', '.svg': 'dataurl', '.mp4': 'dataurl' } : { '.png': 'file', '.jpg': 'file', '.svg': 'file', '.mp4': 'file' },
+  loader: single ? { '.png': 'dataurl', '.jpg': 'dataurl', '.svg': 'dataurl', '.mp4': 'dataurl', '.m4a': 'dataurl' } : { '.png': 'file', '.jpg': 'file', '.svg': 'file', '.mp4': 'file', '.m4a': 'file' },
   jsx: 'automatic',
   target: ['chrome120', 'safari16'],
   minify: !watch,
   sourcemap: watch ? 'inline' : false,
   define,
   alias,
+  plugins: [sharedShims],
   nodePaths: [path.join(here, 'node_modules'), globalModules].filter(Boolean),
   logLevel: 'info',
   legalComments: 'none',

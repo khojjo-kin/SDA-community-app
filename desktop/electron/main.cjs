@@ -18,6 +18,7 @@ const TYPES = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
+  '.m4a': 'audio/mp4',
   '.json': 'application/json',
   '.woff2': 'font/woff2',
 };
@@ -69,8 +70,9 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 860,
-    minWidth: 420,
-    minHeight: 560,
+    // A desktop layout only: the window can't be made phone-sized.
+    minWidth: 1000,
+    minHeight: 640,
     title: 'Community',
     backgroundColor: '#0b1014',
     show: false,

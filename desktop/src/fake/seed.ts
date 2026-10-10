@@ -17,6 +17,9 @@ import reel1 from './media/reel1.mp4';
 import reel1Poster from './media/reel1.jpg';
 import reel2 from './media/reel2.mp4';
 import reel2Poster from './media/reel2.jpg';
+import pod1 from './media/pod1.m4a';
+import pod2 from './media/pod2.m4a';
+import pod3 from './media/pod3.m4a';
 
 export const DEMO_ME = 'demo_me';
 /** The same id as Erha's real account, so the app treats the chat with her the same way. */
@@ -28,8 +31,8 @@ const tall = (url: string) => img(url, 720, 900);
 
 export function seed(): Record<string, any[]> {
   const people = [
-    { id: DEMO_ME, username: 'you', full_name: 'Demo Account', bio: 'This is the sample account the demo signs you in as.', website: '', avatar_url: '', created_at: ago(2000) },
-    { id: 'u_grace', username: 'grace_mensah', full_name: 'Grace Mensah', bio: 'Choir · Sabbath School teacher · Psalm 100', website: '', avatar_url: '', verified: true, created_at: ago(1900) },
+    { id: DEMO_ME, username: 'you', full_name: 'Demo Account', bio: 'This is the sample account the demo signs you in as.', website: '', avatar_url: '', account_type: 'creator', category: 'Youth leader', faq_enabled: true, plus_until: new Date(Date.now() + 20 * 86400e3).toISOString(), verified: true, views_week: 3, created_at: ago(2000) },
+    { id: 'u_grace', username: 'grace_mensah', full_name: 'Grace Mensah', bio: 'Choir · Sabbath School teacher · Psalm 100', website: '', avatar_url: '', verified: true, account_type: 'creator', category: 'Choir director', faq_enabled: true, created_at: ago(1900) },
     { id: 'u_daniel', username: 'daniel_owusu', full_name: 'Daniel Owusu', bio: 'Youth leader. Pathfinders every Sunday.', website: '', avatar_url: '', created_at: ago(1800) },
     { id: 'u_ruth', username: 'ruth_asante', full_name: 'Ruth Asante', bio: 'Health ministries · plant-based recipes', website: '', avatar_url: '', created_at: ago(1700) },
     { id: 'u_samuel', username: 'samuel_boateng', full_name: 'Samuel Boateng', bio: 'Photography for the church media team.', website: '', avatar_url: '', created_at: ago(1600) },
@@ -64,6 +67,9 @@ export function seed(): Record<string, any[]> {
     story('s4', 'u_samuel', { url: p12, type: 'image', w: 720, h: 900 }, 8),
     story('s5', 'u_ruth', { url: p04, type: 'image', w: 720, h: 720, caption: 'Prayer walk' }, 11),
     story('s6', 'u_joseph', { url: p13, type: 'image', w: 720, h: 720 }, 14),
+    // Two of my own that have expired: they show in my archive only.
+    { ...story('s7', DEMO_ME, { url: p07, type: 'image', w: 720, h: 720, caption: 'Quiet lake' }, 60), expires_at: ago(36) },
+    { ...story('s8', DEMO_ME, { url: '', type: 'text', bg: 0, overlays: [{ id: 'o2', kind: 'text', text: 'Pathfinders camp 🏕️', x: 0.5, y: 0.45, size: 30, color: '#ffffff' }] }, 120), expires_at: ago(96) },
   ];
   const follows = [
     ['demo_me', 'u_grace'], ['demo_me', 'u_daniel'], ['demo_me', 'u_samuel'], ['demo_me', 'u_ruth'], ['demo_me', 'u_joseph'], ['demo_me', ERHA],
@@ -142,6 +148,25 @@ export function seed(): Record<string, any[]> {
     community_highlights: [{ id: 'h1', user_id: DEMO_ME, title: 'Sabbath', cover_url: p07, created_at: ago(400) }],
     community_highlight_items: [{ id: 'hi1', highlight_id: 'h1', user_id: DEMO_ME, item: { url: p07, type: 'image', w: 720, h: 720 }, created_at: ago(400) }],
     community_close_friends: [],
+    community_admins: [{ user_id: DEMO_ME, role: 'owner', created_at: ago(2000) }, { user_id: 'u_grace', role: 'admin', created_at: ago(1500) }],
+    community_saved_replies: [{ id: 'sr1', user_id: DEMO_ME, shortcut: 'service', body: 'Divine service starts at 11:00 on Sabbath. All are welcome!', created_at: ago(300) }],
+    community_faqs: [
+      { id: 'f1', user_id: DEMO_ME, question: 'When does Pathfinders meet?', answer: 'Every Sunday at 9:00 in the youth hall.', position: 0, created_at: ago(300) },
+      { id: 'f2', user_id: 'u_grace', question: 'When is choir practice?', answer: 'Thursdays at 7pm in the church hall. All voices welcome!', position: 0, created_at: ago(300) },
+    ],
+    community_plus_requests: [{ id: 'pr1', user_id: 'u_esther', kind: 'verify', note: 'I run the Adventurers club.', status: 'pending', decided_by: null, decided_at: null, created_at: ago(5) }],
+    community_reports: [{ id: 'rp1', reporter_id: 'u_ruth', post_id: 'p12', target_user_id: null, reason: "It's spam", status: 'open', created_at: ago(4) }],
+    community_support_tickets: [{ id: 'st1', user_id: 'u_daniel', subject: 'Cannot upload a video', body: 'My 70 second video will not upload.', status: 'open', reply: '', created_at: ago(6), updated_at: ago(6) }],
+    community_transactions: [{ id: 'tx1', user_id: 'u_grace', kind: 'plus', amount_pence: 499, currency: 'GBP', note: 'Community Plus, 1 month', created_by: DEMO_ME, created_at: ago(200), provider: 'manual', status: 'succeeded', method: '' }],
+    community_profile_views: [{ viewer_id: 'u_grace', profile_id: DEMO_ME, viewed_at: ago(2) }, { viewer_id: 'u_esther', profile_id: DEMO_ME, viewed_at: ago(26) }],
+    community_pod_items: [
+      { id: 'pod1', user_id: 'u_grace', kind: 'song', title: 'Morning Hymn (sample)', artist: 'Hillside Choir', description: '', cover_url: p09, audio_url: pod1, duration_seconds: 12, plays: 120, created_at: ago(100) },
+      { id: 'pod2', user_id: 'u_samuel', kind: 'podcast', title: 'Sabbath Reflections, episode 1 (sample)', artist: 'Samuel Boateng', description: '', cover_url: p06, audio_url: pod2, duration_seconds: 12, plays: 64, created_at: ago(80) },
+      { id: 'pod3', user_id: 'u_grace', kind: 'song', title: 'Evening Prayer (sample)', artist: 'Hillside Choir', description: '', cover_url: p11, audio_url: pod3, duration_seconds: 12, plays: 33, created_at: ago(50) },
+    ],
+    community_pod_saves: [],
+    community_calls: [],
+    community_lives: [],
     community_blocks: [],
     community_post_views: [],
   };

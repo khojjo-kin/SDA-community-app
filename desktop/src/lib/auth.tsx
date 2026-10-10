@@ -82,7 +82,8 @@ const appearance = {
   elements: { card: { boxShadow: 'none', border: '0' }, rootBox: { width: '100%' }, cardBox: { width: '100%', boxShadow: 'none' } },
 };
 
-const DEMO_USER: AuthUser = { id: 'demo_me', email: 'demo@example.com', name: 'Demo Account', imageUrl: '', username: 'you' };
+// The call test signs a second window in as another sample person through __fakeMe.
+const DEMO_USER: AuthUser = { id: ((globalThis as any).__fakeMe as string) || 'demo_me', email: 'demo@example.com', name: 'Demo Account', imageUrl: '', username: 'you' };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);

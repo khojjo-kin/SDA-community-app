@@ -1,11 +1,12 @@
 // Messages, laid out like Instagram on the web: conversations on the left, the open chat on the
 // right. New messages arrive live over Supabase Realtime, as on the iPhone.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ERHA_ID, askErhaInThread, fetchMessages, fetchTheirLastRead, fetchThread, fetchThreads, getProfile, hideThread, markThreadRead, openThread, peopleToMessage, searchProfiles, sendMessage, setThreadMuted, startCall, uploadImage } from 'shared/api';
+import { ERHA_ID, askErhaInThread, askFaq, fetchFaqs, fetchSavedReplies, fetchMessages, fetchTheirLastRead, fetchThread, fetchThreads, getProfile, hideThread, markThreadRead, openThread, peopleToMessage, searchProfiles, sendMessage, setThreadMuted, uploadImage } from 'shared/api';
 import { getPostNow, listen } from 'shared/store';
 import { supabase } from 'shared/supabase';
+import { useCalls } from 'shared/calls';
 import { ago, chatStamp, clock } from 'shared/theme';
-import type { Message, Profile, Thread } from 'shared/types';
+import type { Faq, Message, Profile, SavedReply, Thread } from 'shared/types';
 import { rememberSize } from '../shims/expo-file-system';
 import { profileByUsername } from '../lib/extra';
 import { useMe } from '../lib/me';
@@ -180,6 +181,8 @@ function NewMessage({ onClose }: { onClose: () => void }) {
   );
 }
 
+const ERHA_OPENERS = ["What is this week's Sabbath School lesson about?", 'Suggest a hymn for a baptism', 'Pray with me for a friend who is unwell'];
+
 function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (id: string) => void; onChanged: () => void }) {
   const { me } = useMe();
   const [thread, setThread] = useState<Thread | null | undefined>(undefined);
@@ -193,6 +196,14 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
   const log = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const isErha = thread?.other_id === ERHA_ID;
+  const calls = useCalls();
+  const [theirTyping, setTheirTyping] = useState(false);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [replies, setReplies] = useState<SavedReply[] | null>(null);
+  const typingRoom = useRef<any>(null);
+  const typingSentAt = useRef(0);
+  const typingTold = useRef(false);
+  const typingHide = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (t?: Thread | null) => {
     const th = t === undefined ? thread : t;
@@ -232,14 +243,59 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
     };
   }, [threadId]);
 
+  // Typing, both ways, on the same broadcast channel the iPhone app uses for this chat.
+  useEffect(() => {
+    if (!thread) return;
+    const room = supabase
+      .channel(`typing:${threadId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+        if (payload?.user !== thread.other_id) return;
+        setTheirTyping(true);
+        if (typingHide.current) clearTimeout(typingHide.current);
+        typingHide.current = setTimeout(() => setTheirTyping(false), 4000);
+      })
+      .on('broadcast', { event: 'stopped' }, ({ payload }: any) => {
+        if (payload?.user === thread.other_id) setTheirTyping(false);
+      })
+      .subscribe();
+    typingRoom.current = room;
+    // People with a creator account can answer common questions automatically.
+    if (!isErha) {
+      getProfile(thread.other_id)
+        .then((p) => (p?.faq_enabled ? fetchFaqs(p.id).then(setFaqs) : setFaqs([])))
+        .catch(() => setFaqs([]));
+    }
+    return () => {
+      if (typingTold.current) room.send({ type: 'broadcast', event: 'stopped', payload: { user: me.id } }).catch(() => {});
+      supabase.removeChannel(room);
+      typingRoom.current = null;
+      if (typingHide.current) clearTimeout(typingHide.current);
+    };
+  }, [thread?.id]);
+
+  const tellTyping = () => {
+    const now = Date.now();
+    if (now - typingSentAt.current < 2000) return;
+    typingSentAt.current = now;
+    typingTold.current = true;
+    typingRoom.current?.send({ type: 'broadcast', event: 'typing', payload: { user: me.id } }).catch(() => {});
+  };
+  const tellStopped = () => {
+    if (!typingTold.current) return;
+    typingTold.current = false;
+    typingSentAt.current = 0;
+    typingRoom.current?.send({ type: 'broadcast', event: 'stopped', payload: { user: me.id } }).catch(() => {});
+  };
+
   useEffect(() => {
     const el = log.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [msgs?.length, thinking]);
+  }, [msgs?.length, thinking, theirTyping]);
 
   const send = async (msg: { text?: string; media_url?: string }) => {
     if (sending) return;
     setSending(true);
+    if (msg.text !== undefined) tellStopped();
     try {
       await sendMessage(me.id, threadId, msg);
       if (msg.text !== undefined) setText((cur) => (cur === msg.text ? '' : cur));
@@ -284,15 +340,8 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
   if (thread === undefined) return <Spinner />;
   if (thread === null) return <Empty icon="send" title="Chat not found" body="It may have been deleted." />;
 
-  const call = async (kind: 'voice' | 'video') => {
-    try {
-      const url = await startCall(me.id, threadId, kind);
-      window.open(url, '_blank');
-      load();
-    } catch (e) {
-      toastError(e);
-    }
-  };
+  // In-app calls, the same as on the iPhone: the other person's phone or Mac rings.
+  const call = (kind: 'voice' | 'video') => calls.startCall(thread.other_id, kind, threadId);
 
   const mineLast = [...(msgs ?? [])].reverse().find((m) => m.sender_id === me.id);
   let lastStamp = 0;
@@ -311,10 +360,10 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
         <span className="grow" />
         {!isErha ? (
           <>
-            <button className="icon-btn" aria-label="Voice call" onClick={() => call('voice')}>
+            <button className="icon-btn" aria-label="Voice call" disabled={calls.inCall} onClick={() => call('voice')}>
               <Icon name="phone" size={24} />
             </button>
-            <button className="icon-btn" aria-label="Video call" onClick={() => call('video')}>
+            <button className="icon-btn" aria-label="Video call" disabled={calls.inCall} onClick={() => call('video')}>
               <Icon name="video" size={26} />
             </button>
           </>
@@ -349,7 +398,7 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
             </React.Fragment>
           );
         })}
-        {thinking ? (
+        {thinking || theirTyping ? (
           <div className="msg">
             <span className="msg-avatar">
               <Avatar src={thread.avatar_url} name={thread.username} size={28} />
@@ -363,6 +412,52 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
         ) : null}
         {mineLast && theirRead && theirRead >= mineLast.created_at && msgs?.[msgs.length - 1]?.id === mineLast.id ? <div className="seen">Seen</div> : null}
       </div>
+      {isErha && msgs && msgs.length < 3 ? (
+        <div className="chips">
+          {ERHA_OPENERS.map((q) => (
+            <button key={q} className="chip-btn" onClick={() => send({ text: q })}>
+              {q}
+            </button>
+          ))}
+        </div>
+      ) : faqs.length ? (
+        <div className="chips">
+          {faqs.map((f) => (
+            <button
+              key={f.id}
+              className="chip-btn"
+              onClick={async () => {
+                try {
+                  await askFaq(f.id);
+                  load();
+                  onChanged();
+                } catch (e) {
+                  toastError(e);
+                }
+              }}
+            >
+              {f.question}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {replies ? (
+        <div className="saved-replies">
+          <div className="sr-head">
+            <b>Saved replies</b>
+            <button className="icon-btn" aria-label="Close" onClick={() => setReplies(null)}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          {!replies.length ? <p className="muted-text pad">No saved replies yet. Add them in Settings → Saved replies.</p> : null}
+          {replies.map((r) => (
+            <button key={r.id} className="sr-row" onClick={() => { setText(r.body); setReplies(null); }}>
+              <b>/{r.shortcut}</b>
+              <span>{r.body}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form
         className="composer"
         onSubmit={(e) => {
@@ -378,7 +473,21 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
         }}
       >
         <Icon name="smile" size={24} />
-        <input placeholder="Message…" value={text} onChange={(e) => setText(e.target.value)} aria-label={'Message ' + thread.username} maxLength={5000} />
+        <input
+          placeholder="Message…"
+          value={text}
+          onChange={(e) => {
+            const t = e.target.value;
+            setText(t);
+            if (t.trim()) tellTyping();
+            else tellStopped();
+            // Typing /shortcut fills in a saved reply, as on the iPhone.
+            const m = /^\/(\w+)$/.exec(t.trim());
+            if (m) fetchSavedReplies(me.id).then((rs) => { const hit = rs.find((r) => r.shortcut.toLowerCase() === m[1].toLowerCase()); if (hit) setText(hit.body); }, () => {});
+          }}
+          aria-label={'Message ' + thread.username}
+          maxLength={5000}
+        />
         {text.trim() ? (
           <button className="link-btn" disabled={sending}>
             Send
@@ -387,6 +496,9 @@ function Chat({ threadId, openPost, onChanged }: { threadId: string; openPost: (
           <>
             {!isErha ? (
               <>
+                <button type="button" className="icon-btn" aria-label="Saved replies" onClick={() => fetchSavedReplies(me.id).then(setReplies, toastError)}>
+                  <Icon name="reply" size={22} />
+                </button>
                 <button type="button" className="icon-btn" aria-label="Send a photo" onClick={() => file.current?.click()}>
                   <Icon name="image" size={24} />
                 </button>

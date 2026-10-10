@@ -47,6 +47,24 @@
       ],
       "@supabase/supabase-js": [
         "./node_modules/@supabase/supabase-js"
+      ],
+      "@react-native-async-storage/async-storage": [
+        "./src/shims/async-storage.ts"
+      ],
+      "expo-secure-store": [
+        "./src/shims/secure-store.ts"
+      ],
+      "react-native": [
+        "./src/shims/react-native.tsx"
+      ],
+      "react-native-webrtc": [
+        "./src/shims/webrtc.ts"
+      ],
+      "react-native-color-matrix-image-filters": [
+        "./src/shims/color-matrix.ts"
+      ],
+      "shared/calls": [
+        "./src/types/shared-calls.d.ts"
       ]
     }
   },
@@ -56,7 +74,12 @@
     "../src/lib/store.ts",
     "../src/lib/types.ts",
     "../src/lib/theme.ts",
-    "../src/lib/supabase.ts"
+    "../src/lib/supabase.ts",
+    "../src/lib/rtc.ts",
+    "../src/lib/bible.ts",
+    "../src/lib/sabbath-school.ts",
+    "../src/lib/hymnal.ts",
+    "../src/lib/filters.ts"
   ],
   "exclude": [
     "src/fake"

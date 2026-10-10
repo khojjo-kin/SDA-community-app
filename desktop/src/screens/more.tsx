@@ -11,13 +11,19 @@ import { nav, parts } from '../lib/router';
 import { rememberSize } from '../shims/expo-file-system';
 import { Avatar, Empty, Failed, Icon, Link, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { FeedPost, Tile } from '../ui/post';
+import { CloseFriends, CreatorTools, ProfileViewers, SavedReplies } from './account';
+import { HYMN_COUNT, loadFavourites, loadHymnalSettings, saveHymnalSettings, toggleFavourite } from 'shared/hymnal';
 
 /* ---------- settings ---------- */
 
 const SECTIONS = [
   { id: 'edit', label: 'Edit profile', icon: 'user' },
+  { id: 'professional', label: 'Creator tools', icon: 'chart' },
+  { id: 'replies', label: 'Saved replies', icon: 'reply' },
   { id: 'privacy', label: 'Account privacy', icon: 'lock' },
+  { id: 'close-friends', label: 'Close friends', icon: 'star' },
   { id: 'blocked', label: 'Blocked', icon: 'block' },
+  { id: 'viewers', label: 'Profile viewers', icon: 'eye' },
   { id: 'account', label: 'Account', icon: 'account' },
 ] as const;
 
@@ -34,7 +40,7 @@ export function Settings({ path }: { path: string }) {
         ))}
       </nav>
       <div className="settings-body">
-        {section === 'edit' ? <EditProfile /> : section === 'privacy' ? <Privacy /> : section === 'blocked' ? <Blocked /> : <AccountSection />}
+        {section === 'edit' ? <EditProfile /> : section === 'professional' ? <CreatorTools /> : section === 'replies' ? <SavedReplies /> : section === 'privacy' ? <Privacy /> : section === 'close-friends' ? <CloseFriends /> : section === 'blocked' ? <Blocked /> : section === 'viewers' ? <ProfileViewers /> : <AccountSection />}
       </div>
     </div>
   );
@@ -308,6 +314,17 @@ export function Activity({ openPost }: { openPost: (id: string) => void }) {
 export function Hymnal({ number }: { number?: string }) {
   const list = useLoad(() => fetchHymns(), []);
   const [q, setQ] = useState('');
+  const [favs, setFavs] = useState<number[]>([]);
+  const [onlyFavs, setOnlyFavs] = useState(false);
+  const [size, setSize] = useState(18);
+  useEffect(() => {
+    loadFavourites().then(setFavs);
+    loadHymnalSettings().then((s) => setSize(s.size));
+  }, []);
+  const resize = (n: number) => {
+    setSize(n);
+    saveHymnalSettings({ size: n });
+  };
   const [hymn, setHymn] = useState<Hymn | null>(null);
   const [loadingHymn, setLoadingHymn] = useState(false);
   useEffect(() => {
@@ -317,8 +334,8 @@ export function Hymnal({ number }: { number?: string }) {
   }, [number]);
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return (list.data ?? []).filter((h) => !n || String(h.number) === n || h.title.toLowerCase().includes(n) || (h.section ?? '').toLowerCase().includes(n));
-  }, [q, list.data]);
+    return (list.data ?? []).filter((h) => (!onlyFavs || favs.includes(h.number)) && (!n || String(h.number) === n || h.title.toLowerCase().includes(n) || (h.section ?? '').toLowerCase().includes(n)));
+  }, [q, list.data, onlyFavs, favs]);
   return (
     <div className="split-page">
       <section className="split-list">
@@ -326,6 +343,14 @@ export function Hymnal({ number }: { number?: string }) {
           <h1>Hymnal</h1>
           <div className="panel-search in-modal">
             <input placeholder="Number, title or section" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search hymns" />
+          </div>
+          <div className="seg left pad-l">
+            <button className={!onlyFavs ? 'on' : ''} onClick={() => setOnlyFavs(false)}>
+              All {list.data ? list.data.length : HYMN_COUNT}
+            </button>
+            <button className={onlyFavs ? 'on' : ''} onClick={() => setOnlyFavs(true)}>
+              Favourites {favs.length}
+            </button>
           </div>
         </header>
         <div className="split-scroll">
@@ -345,10 +370,22 @@ export function Hymnal({ number }: { number?: string }) {
       <section className="split-detail">
         {loadingHymn ? <Spinner /> : hymn ? (
           <article className="hymn">
-            <div className="hymn-no big">{hymn.number}</div>
+            <div className="reader-bar">
+              <div className="hymn-no big">{hymn.number}</div>
+              <span className="grow" />
+              <button className="icon-btn" aria-label={favs.includes(hymn.number) ? 'Remove from favourites' : 'Add to favourites'} onClick={() => toggleFavourite(hymn.number).then(setFavs)}>
+                <Icon name="heart" size={24} color={favs.includes(hymn.number) ? '#ff3040' : 'currentColor'} fill={favs.includes(hymn.number) ? '#ff3040' : 'none'} />
+              </button>
+              <button className="btn quiet small" aria-label="Smaller text" onClick={() => resize(Math.max(14, size - 2))}>
+                A−
+              </button>
+              <button className="btn quiet small" aria-label="Larger text" onClick={() => resize(Math.min(32, size + 2))}>
+                A+
+              </button>
+            </div>
             <h1>{hymn.title}</h1>
             {hymn.author ? <p className="muted-text">{hymn.author}</p> : null}
-            <div className="lyrics">{hymn.lyrics}</div>
+            <div className="lyrics" style={{ fontSize: size }}>{hymn.lyrics}</div>
           </article>
         ) : (
           <Empty icon="hymnal" title="Choose a hymn" body={list.data ? `${list.data.length} hymns from the Seventh-day Adventist Hymnal.` : undefined} />

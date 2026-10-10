@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteStory, fetchStoryViewers, markStorySeen, openThread, sendMessage } from 'shared/api';
 import { ago } from 'shared/theme';
-import type { Overlay, Profile, StoryGroup, StoryItem } from 'shared/types';
+import type { LiveCard, Overlay, Profile, StoryGroup, StoryItem } from 'shared/types';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, ask, toast, toastError } from './kit';
@@ -114,7 +114,7 @@ export function StoryCanvas({ item, width, height, paused, muted, onVideoEnd, on
 
 /* ---------- the row on the home page ---------- */
 
-export function StoryTray({ groups, onOpen, onAdd }: { groups: StoryGroup[]; onOpen: (index: number) => void; onAdd: () => void }) {
+export function StoryTray({ groups, lives = [], onOpen, onAdd }: { groups: StoryGroup[]; lives?: LiveCard[]; onOpen: (index: number) => void; onAdd: () => void }) {
   const { me } = useMe();
   const strip = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -139,6 +139,15 @@ export function StoryTray({ groups, onOpen, onAdd }: { groups: StoryGroup[]; onO
           </div>
           <span className="tray-name">Your story</span>
         </div>
+        {lives.filter((l) => l.user_id !== me.id).map((l) => (
+          <div className="tray-item" key={'live-' + l.id}>
+            <span className="tray-live">
+              <Avatar src={l.avatar_url} name={l.username} size={56} ring="live" onClick={() => nav('/live/' + l.id)} label={l.username + ' is live'} />
+              <span className="live-badge">LIVE</span>
+            </span>
+            <span className="tray-name">{l.username}</span>
+          </div>
+        ))}
         {others.map((g) => (
           <div className="tray-item" key={g.user_id}>
             <Avatar src={g.avatar_url} name={g.username} size={56} ring={g.close ? 'close' : g.seen ? 'seen' : 'new'} onClick={() => onOpen(groups.indexOf(g))} label={'Story by ' + g.username} />
