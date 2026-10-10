@@ -1,0 +1,6 @@
+supabase/functions/erha/index.ts(11,30): error TS2307: Cannot find module 'jsr:@supabase/supabase-js@2' or its corresponding type declarations.
+supabase/functions/erha/index.ts(15,15): error TS2304: Cannot find name 'Deno'.
+supabase/functions/erha/index.ts(57,1): error TS2304: Cannot find name 'Deno'.
+supabase/functions/erha/index.ts(62,15): error TS2304: Cannot find name 'Deno'.
+supabase/functions/erha/index.ts(75,27): error TS2304: Cannot find name 'Deno'.
+supabase/functions/erha/index.ts(75,58): error TS2304: Cannot find name 'Deno'.
