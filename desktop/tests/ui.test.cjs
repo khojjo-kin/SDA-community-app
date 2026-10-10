@@ -214,7 +214,7 @@ const check = (label, ok, extra) => {
   // Messages: open, send, live reply, Erha
   await page.locator('.profile-top').getByRole('button', { name: 'Message' }).click();
   await page.waitForSelector('.chat-head');
-  check('Message opens a new chat with esther', (await page.locator('.chat-who').innerText()).includes('esther_adjei'));
+  check('Message opens a new chat with esther', (await page.locator('.chat-intro').innerText()).includes('esther_adjei'));
   await page.getByLabel(/^Message esther/).fill('Hello Esther, see you on Sabbath');
   await page.locator('.composer').getByRole('button', { name: 'Send' }).click();
   await page.waitForSelector('.bubble.mine');

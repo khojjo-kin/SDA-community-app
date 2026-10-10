@@ -1,0 +1,280 @@
+/* Messages, the small inbox and notes. Instagram's 2026 desktop Messages in Community's colours:
+   green bubbles for your messages, grey for theirs. Theme colours only (Dark and White).
+   Prefixes: mx- (inbox and rows), cv- (a chat), nt- (notes). */
+
+/* ---------- the inbox column ---------- */
+/* The inbox fills the window below whatever sits above it (the demo line, an announcement). */
+.main:has(> .direct.mx) { display: flex; flex-direction: column; height: 100vh; }
+body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
+.main > .direct.mx { flex: 1; min-height: 0; height: auto !important; }
+.direct.mx .threads-head { padding: 32px 24px 14px; }
+.mx-search { display: flex; align-items: center; gap: 8px; height: 38px; margin: 0 20px 6px; padding: 0 12px; border-radius: 10px; background: var(--surface); color: var(--fg2); }
+.mx-search input { flex: 1; min-width: 0; height: 100%; color: var(--fg); }
+.mx-search input::placeholder { color: var(--fg3); }
+.direct.mx .threads-sub { padding: 6px 24px 8px; font-size: 16px; }
+.direct.mx .threads-list { padding-bottom: 12px; }
+
+/* One chat in a list (full inbox and small inbox). */
+.thread-row, .dock-row { position: relative; width: 100%; text-align: left; }
+.thread-row .row-text > b, .dock-row .row-text > b { display: flex; align-items: center; gap: 4px; min-width: 0; font-weight: 400; font-size: 14px; }
+.thread-row .row-text > b .verified, .dock-row .row-text > b .verified { margin-left: 0; }
+.mx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-shrink: 1; }
+.mx-preview { display: flex !important; min-width: 0; font-size: 12px; }
+.mx-last { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-shrink: 1; }
+.mx-when { flex: none; white-space: pre; }
+.thread-row.unread .row-text > b, .dock-row.unread .row-text > b { font-weight: 700; }
+.thread-row.unread .mx-preview, .dock-row.unread .mx-preview { color: var(--fg); font-weight: 700; }
+.mx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--verified); flex: none; }
+.mx-muted { color: var(--fg3); flex: none; }
+.mx-streak { display: inline-flex; align-items: center; gap: 1px; flex: none; margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--fg2); font-variant-numeric: tabular-nums; cursor: default; }
+
+/* A picture with the green "active now" dot. */
+.mx-face { position: relative; display: inline-block; flex: none; line-height: 0; }
+.mx-online { position: absolute; right: 0; bottom: 0; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2.5px solid var(--bg); }
+.thread-row.active .mx-online { border-color: var(--surface); }
+.dock-panel .mx-online { border-color: var(--pop); }
+
+/* ---------- notes ---------- */
+.nt-row { display: flex; gap: 2px; overflow-x: auto; padding: 4px 12px 10px; scrollbar-width: none; }
+.nt-row::-webkit-scrollbar { display: none; }
+.nt-face { display: flex; flex-direction: column; align-items: center; flex: none; width: 100px; padding: 0 0 2px; border-radius: 12px; }
+.nt-face:hover .nt-face-pic .avatar { filter: brightness(1.08); }
+.nt-face-top { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: center; height: 60px; margin-bottom: -12px; }
+.nt-face-pic { position: relative; line-height: 0; }
+.nt-add { position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--on-accent); border: 2.5px solid var(--bg); }
+.nt-face-name { max-width: 92px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--fg2); }
+
+/* The bubble. Its colour comes from the note (--nt-bg); none is the theme's own. */
+.nt-bubble { position: relative; display: inline-flex; flex-direction: column; align-items: center; max-width: 100%; background: var(--nt-bg, var(--surface2)); color: var(--fg); text-align: center; overflow-wrap: anywhere; }
+.nt-bubble.placeholder { color: var(--fg3); }
+.nt-sm { max-width: 104px; min-width: 44px; padding: 6px 10px; border-radius: 14px; font-size: 11.5px; line-height: 14px; }
+.nt-lg { max-width: 260px; min-width: 120px; padding: 10px 16px; border-radius: 22px; font-size: 15px; line-height: 20px; }
+.nt-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.nt-lg .nt-text { -webkit-line-clamp: 3; }
+.nt-sm.with-song .nt-text { -webkit-line-clamp: 1; }
+.nt-song, .nt-place { display: inline-flex; align-items: center; justify-content: center; gap: 3px; max-width: 100%; opacity: 0.85; font-weight: 600; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-song { display: block; }
+.nt-place { font-weight: 400; }
+.nt-place > span { overflow: hidden; text-overflow: ellipsis; }
+.nt-place svg { flex: none; }
+/* Two small dots trailing down towards the face. */
+.nt-tail { position: absolute; left: 26%; bottom: -6px; width: 9px; height: 9px; border-radius: 50%; background: var(--nt-bg, var(--surface2)); }
+.nt-tail::after { content: ''; position: absolute; left: -5px; bottom: -6px; width: 5px; height: 5px; border-radius: 50%; background: inherit; }
+.nt-lg .nt-tail { left: 30%; bottom: -9px; width: 14px; height: 14px; }
+.nt-lg .nt-tail::after { left: -8px; bottom: -9px; width: 8px; height: 8px; }
+
+/* Over a profile picture (the Profile page places it inside .profile-pic). */
+.nt-anchor { position: absolute; z-index: 2; top: -16px; left: calc(50% - 82px); line-height: normal; }
+.nt-anchor-btn { display: inline-flex; border-radius: 14px; transition: transform 0.12s; }
+.nt-anchor-btn:hover { transform: scale(1.04); }
+.nt-anchor .nt-sm { max-width: 120px; font-size: 12px; line-height: 15px; padding: 7px 11px; border: 1px solid var(--pop-line); }
+@media (max-width: 735px) { .profile-pic .nt-anchor { left: -12px; top: -22px; } }
+.cv-intro-face { position: relative; display: inline-block; line-height: 0; }
+.cv-intro-face .nt-anchor { top: -30px; left: -40px; }
+
+/* A friend's note. */
+.nt-card { position: relative; width: min(360px, 100%); }
+.nt-card-close { position: absolute; top: 6px; right: 6px; }
+.nt-card-body { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 36px 24px 20px; }
+.nt-card-face { display: flex; flex-direction: column; align-items: center; margin-bottom: 6px; }
+.nt-card-face .nt-bubble { z-index: 1; margin-bottom: -6px; }
+.nt-card-name { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 17px; }
+.nt-card-meta { display: flex; align-items: center; gap: 8px; color: var(--fg2); font-size: 13px; }
+.nt-close-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; background: var(--verified); color: var(--on-accent); font-size: 11px; font-weight: 700; }
+.nt-song-row { display: flex; align-items: center; gap: 12px; width: 100%; margin: 10px 0 4px; padding: 8px 12px 8px 8px; border-radius: 12px; background: var(--surface); text-align: left; }
+.nt-song-row:hover { background: var(--surface2); }
+.nt-card .btn.block { margin-top: 10px; }
+
+/* Writing your note. */
+.nt-editor { width: min(440px, 100%); }
+.nt-editor-body { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px 16px; overflow-y: auto; }
+.nt-compose { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.nt-input-bubble { z-index: 1; margin-bottom: -8px; min-width: 220px; }
+.nt-input-bubble textarea { width: 228px; resize: none; text-align: center; color: inherit; font-size: 16px; line-height: 21px; padding: 0; }
+.nt-input-bubble textarea::placeholder { color: inherit; opacity: 0.55; }
+.nt-count { margin-top: 10px; font-size: 12px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.nt-count.small { margin: 0; flex: none; }
+.nt-field { display: flex; flex-direction: column; gap: 8px; }
+.nt-label { font-size: 13px; font-weight: 600; color: var(--fg2); }
+.nt-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.nt-swatch { width: 28px; height: 28px; border-radius: 50%; transition: transform 0.1s; }
+.nt-swatch:hover { transform: scale(1.08); }
+.nt-swatch.theme { background: var(--surface2); border: 1px solid var(--line2); }
+.nt-swatch.on { box-shadow: 0 0 0 2px var(--pop), 0 0 0 4px var(--fg); }
+.nt-option { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface); text-align: left; cursor: pointer; }
+.nt-option:hover { background: var(--surface2); }
+.nt-option input { height: 20px; color: var(--fg); }
+.nt-option input::placeholder { color: var(--fg3); }
+.nt-option-icon, .nt-aud-icon { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--surface2); color: var(--fg); }
+.nt-option:hover .nt-option-icon { background: var(--quiet-hover); }
+.nt-option-icon.on { color: var(--accent2); }
+.nt-audience { display: flex; flex-direction: column; gap: 6px; }
+.nt-aud { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; text-align: left; border: 1px solid var(--line2); }
+.nt-aud:hover { background: var(--hover); }
+.nt-aud.on { border-color: var(--accent); }
+.nt-aud.close .nt-aud-icon { background: var(--verified); color: var(--on-accent); }
+.nt-radio { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--fg3); display: grid; place-items: center; }
+.nt-aud.on .nt-radio { border-color: var(--accent); }
+.nt-aud.on .nt-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.nt-editor-foot { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line2); font-size: 12px; }
+.nt-editor-foot .btn { height: 34px; }
+.danger-text { color: var(--like); }
+
+/* Choosing a song. */
+.nt-songs { display: flex; flex-direction: column; height: min(480px, 70vh); }
+.nt-songs-search { display: flex; align-items: center; gap: 4px; padding: 10px 12px 6px 6px; }
+.nt-songs-search .mx-search { flex: 1; margin: 0; }
+.nt-songs-list { flex: 1; overflow-y: auto; padding: 4px 0 10px; }
+.nt-song-pick { display: flex; align-items: center; gap: 12px; width: 100%; padding: 6px 16px; text-align: left; }
+.nt-song-pick:hover { background: var(--hover); }
+.nt-song-cover { position: relative; width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 8px; overflow: hidden; background: var(--surface2); color: var(--fg2); }
+.nt-song-cover img { width: 100%; height: 100%; object-fit: cover; }
+.nt-song-play { position: absolute; inset: 0; display: grid; place-items: center; background: var(--scrim); opacity: 0; transition: opacity 0.12s; }
+.nt-song-pick:hover .nt-song-play, .nt-song-cover:focus-visible .nt-song-play { opacity: 1; }
+.nt-song-choose { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; text-align: left; color: var(--accent2); }
+.nt-song-choose .row-text b { color: var(--fg); }
+.nt-song-row .nt-song-cover { width: 40px; height: 40px; }
+
+/* ---------- a chat ---------- */
+.chat.cv { flex-direction: row; }
+.cv-main { flex: 1; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; }
+.cv-head .chat-who { min-width: 0; }
+.cv-head .chat-who b { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.cv-head .chat-who b .verified { margin-left: 0; }
+.cv-head .chat-who > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-typing-word { color: var(--accent2) !important; }
+.icon-btn.cv-on { color: var(--fg); background: var(--hover); }
+.cv .chat-log { padding: 16px 20px 8px; }
+.cv .chat-intro .muted-text { font-size: 14px; }
+.cv-intro-text { max-width: 360px; text-align: center; line-height: 20px; }
+.cv .chat-stamp { font-weight: 600; letter-spacing: 0.2px; }
+.cv .msg { margin-bottom: 8px; }
+.cv .msg.grouped { margin-bottom: 2px; }
+.cv .seen { margin: -4px 0 6px; }
+/* Grouped bubbles share their inner corners, as Instagram draws them. */
+.cv .msg:not(.mine).join-prev .bubble { border-top-left-radius: 5px; }
+.cv .msg:not(.mine).join-next .bubble { border-bottom-left-radius: 5px; }
+.cv .msg.mine.join-prev .bubble { border-top-right-radius: 5px; }
+.cv .msg.mine.join-next .bubble { border-bottom-right-radius: 5px; }
+.cv .bubble { padding: 8px 13px; font-size: 14.5px; }
+.cv .bubble.mine { color: var(--on-accent); }
+.cv .msg-photo { border-radius: 18px; overflow: hidden; line-height: 0; }
+.cv .msg-photo img { display: block; }
+
+/* A screenshot notice: a quiet line across the middle. */
+.cv-notice { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 0; color: var(--fg2); font-size: 13px; text-align: center; }
+.cv-notice svg { color: var(--fg3); flex: none; }
+
+/* Call logs. */
+.cv .bubble.call { display: inline-flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; min-width: 210px; }
+.cv-call-icon { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--press); }
+.bubble.call.missed .cv-call-icon { color: var(--like); }
+.cv-call-text { display: flex; flex-direction: column; flex: 1; line-height: 18px; white-space: nowrap; }
+.cv-call-text b { font-size: 14.5px; }
+.cv-call-text span { font-size: 12px; opacity: 0.8; }
+.cv-call-btn { flex: none; padding: 5px 11px; border-radius: 14px; background: var(--press); font-size: 12px; font-weight: 600; color: inherit; }
+.cv-call-btn:hover { filter: brightness(1.15); }
+
+/* Voice messages. */
+.cv .bubble.voice { display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px; }
+.cv-voice-play { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--press); color: inherit; }
+.cv-wave { display: flex; align-items: center; gap: 2px; height: 24px; }
+.cv-wave i { width: 3px; border-radius: 2px; background: currentColor; opacity: 0.4; }
+.cv-wave i.on { opacity: 1; }
+.cv-voice-time { min-width: 32px; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* View-once photos. */
+.cv-snap { display: inline-flex; align-items: center; gap: 11px; padding: 10px 18px 10px 12px; border-radius: 20px; background: var(--surface2); text-align: left; }
+.cv-snap:disabled { opacity: 1; cursor: default; }
+.cv-snap.mine { background: var(--surface); border: 1.5px solid var(--accent); }
+.cv-snap.waiting:hover { filter: brightness(1.08); }
+.cv-snap-square { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 7px; border: 2px solid var(--fg3); font-size: 12.5px; font-weight: 800; }
+.cv-snap-square.filled { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.cv-snap.mine .cv-snap-square { border-color: var(--accent2); }
+.cv-snap-text { display: flex; flex-direction: column; line-height: 18px; }
+.cv-snap-text b { font-size: 14.5px; font-weight: 600; }
+.cv-snap-text span { font-size: 12.5px; color: var(--fg2); }
+.cv-snap.waiting .cv-snap-text span { color: var(--accent2); font-weight: 700; }
+.cv-once { display: inline-grid; place-items: center; flex: none; border-radius: 50%; border: 1.6px solid currentColor; font-weight: 800; line-height: 1; }
+.cv-once.on { border-width: 2px; }
+/* The viewer is always black, whatever the theme, like the iPhone's. */
+.cv-snapview { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; background: #000; color: #fff; animation: fade 0.15s ease; user-select: none; }
+.cv-snapview > img { max-width: 100vw; max-height: 100vh; object-fit: contain; -webkit-user-drag: none; }
+.cv-snapview .spinner { position: absolute; border-color: rgba(255, 255, 255, 0.25); border-top-color: #fff; }
+.cv-snapview-top { position: absolute; z-index: 1; top: 14px; left: 16px; right: 16px; }
+.cv-snapview-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.28); overflow: hidden; }
+.cv-snapview-bar i { display: block; height: 3px; background: #fff; transition: width 0.4s ease; }
+.cv-snapview-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cv-snapview-row b { flex: 1; font-size: 15px; }
+.cv-snapview-failed { position: absolute; display: grid; justify-items: center; gap: 8px; max-width: 340px; text-align: center; }
+.cv-snapview-failed span { color: rgba(255, 255, 255, 0.7); }
+
+/* Above the message box: Erha's daily allowance, photos waiting to be sent. */
+.cv-limit { display: flex; align-items: center; gap: 10px; margin: 8px 16px 0; padding: 10px 8px 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line2); color: var(--fg2); font-size: 13px; line-height: 18px; }
+.cv-limit > svg { color: var(--accent2); flex: none; }
+.cv-limit > span { flex: 1; }
+.cv-pending { display: flex; align-items: center; gap: 8px; margin: 8px 16px 0; padding: 8px; border-radius: 22px; background: var(--surface); }
+.cv-pending-thumbs { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; }
+.cv-pending-thumbs img { width: 50px; height: 50px; flex: none; border-radius: 12px; object-fit: cover; background: var(--surface2); }
+.cv-round { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; }
+.cv-round.quiet { background: var(--surface2); }
+.cv-round.accent { background: var(--accent); color: var(--on-accent); }
+.cv-round.accent:hover:not(:disabled) { background: var(--accent-hover); }
+.cv-once-toggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 9px; border-radius: 17px; background: var(--surface2); font-size: 13px; font-weight: 600; flex: none; }
+.cv-once-toggle.on { background: var(--accent); color: var(--on-accent); }
+.cv-mini-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: spin 0.8s linear infinite; }
+
+/* The message box. */
+.cv-composer { padding: 0 10px 0 6px; gap: 2px; }
+.cv-composer input { padding: 0 6px; font-size: 14.5px; }
+.cv-composer .icon-btn { padding: 7px; }
+.cv-composer .link-btn { padding: 0 8px; }
+.cv-emoji-wrap { position: relative; display: inline-flex; }
+.cv-emoji { position: absolute; z-index: 5; left: -4px; bottom: 48px; display: grid; grid-template-columns: repeat(8, 34px); gap: 2px; padding: 8px; border-radius: 14px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); animation: zoom 0.12s ease; }
+.cv-emoji button { width: 34px; height: 34px; border-radius: 8px; font-size: 20px; line-height: 34px; }
+.cv-emoji button:hover { background: var(--hover); }
+
+/* Details, beside the chat. */
+.cv-details { width: 320px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--line); overflow-y: auto; animation: rise 0.15s ease; }
+.cv-details h3 { padding: 26px 20px 20px; font-size: 20px; border-bottom: 1px solid var(--line); }
+.cv-detail-row { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.cv-detail-sec { display: flex; flex-direction: column; gap: 4px; padding: 16px 0 12px; }
+.cv-detail-sec > b { padding: 0 20px 6px; font-size: 15px; }
+.cv-detail-sec .row { padding: 8px 20px; }
+.cv-detail-foot { margin-top: auto; border-top: 1px solid var(--line); padding: 8px 0; }
+.cv-detail-foot button { display: block; width: 100%; padding: 13px 20px; text-align: left; color: var(--like); font-size: 15px; }
+.cv-detail-foot button:hover { background: var(--hover); }
+
+/* ---------- the small inbox ---------- */
+.dock-list .dock-row { padding: 8px 16px; }
+.dock-panel.mx-dock-chat { width: 380px; height: min(620px, calc(100vh - 80px)); }
+.cv.compact { height: 100%; }
+.cv-head.compact { height: 60px; padding: 0 6px 0 4px; gap: 2px; border-bottom: 1px solid var(--pop-line); }
+.cv-head.compact .icon-btn { padding: 7px; }
+.cv-who-btn { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 0 1 auto; padding: 4px 6px; border-radius: 10px; text-align: left; }
+.cv-who-btn:hover { background: var(--hover); }
+.cv.compact .chat-who b { font-size: 14.5px; }
+.cv.compact .chat-who > span { font-size: 12px; color: var(--fg2); }
+.cv.compact .chat-log { padding: 10px 12px 6px; }
+.cv.compact .chat-intro { padding: 14px 0 18px; }
+.cv.compact .chat-intro b { font-size: 16px; margin-top: 8px; }
+.cv.compact .chat-intro .btn { margin-top: 8px; }
+.cv.compact .msg-stack { max-width: 78%; }
+.cv.compact .msg-photo img { max-width: 200px; max-height: 260px; }
+.cv.compact .composer { margin: 8px 10px 10px; }
+.cv.compact .cv-pending, .cv.compact .cv-limit { margin: 8px 10px 0; }
+.cv.compact .cv-once-toggle span { display: none; }
+.cv.compact .cv-once-toggle { padding: 0 8px; }
+.cv.compact .chips { padding: 0 10px 6px; }
+.cv.compact .bubble.call { min-width: 0; }
+
+/* ---------- new message ---------- */
+.mx-new-h { padding: 8px 16px 4px; font-size: 15px; font-weight: 700; margin: 0; }
+.mx-new .row-text > b { display: flex; align-items: center; gap: 4px; }
+
+/* Narrow windows: the chat list shrinks to pictures, as Instagram's does. */
+@media (max-width: 900px) {
+  .direct.mx .mx-search, .direct.mx .nt-row { display: none; }
+  .cv-details { position: absolute; right: 0; top: 0; bottom: 0; z-index: 4; background: var(--bg); box-shadow: var(--shadow); }
+  .chat.cv { position: relative; }
+}

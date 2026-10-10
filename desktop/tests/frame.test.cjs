@@ -58,8 +58,11 @@ const check = (name, ok, extra = '') => {
     await page.waitForSelector('.dock-row');
     check('the small inbox lists chats', (await page.locator('.dock-row').count()) >= 3);
     await page.locator('.dock-row').first().click();
+    await page.waitForSelector('.dock-panel .composer');
+    check('a chat in the small inbox opens it there, on the same page', !(await page.evaluate(() => location.hash)).startsWith('#/direct'));
+    await page.locator('.dock-panel').getByRole('button', { name: 'Open the full chat' }).click();
     await page.waitForTimeout(800);
-    check('a chat in the small inbox opens it', (await page.evaluate(() => location.hash)).startsWith('#/direct/t/'));
+    check('expanding it opens the full chat', (await page.evaluate(() => location.hash)).startsWith('#/direct/t/'));
     check('the floating button hides in the full inbox', (await page.locator('.dock-pill, .dock-panel').count()) === 0);
     await goto('/');
 

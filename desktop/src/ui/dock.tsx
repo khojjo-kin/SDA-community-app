@@ -1,34 +1,38 @@
-// The floating Messages button in the bottom corner, and the small inbox it opens, as on Instagram on
-// a computer. The full inbox is at /direct.
-import React, { useCallback, useEffect, useState } from 'react';
-import { fetchThreads } from 'shared/api';
-import { listen } from 'shared/store';
-import { ago } from 'shared/theme';
-import type { Thread } from 'shared/types';
+// The floating Messages button in the bottom corner, and the small inbox it opens, as on Instagram
+// on a computer. A chat opens inside the small inbox (no page change); expand goes to the full chat.
+// Shown on every page except the full inbox (/direct) and live videos, which have their own messages.
+import React, { useEffect, useState } from 'react';
 import { nav, useRoute } from '../lib/router';
-import { Avatar, Icon, Spinner, Verified } from './kit';
+import { Avatar, Icon, Spinner } from './kit';
+import { Chat } from './chat-view';
+import { ThreadRow, usePresence, useThreads } from './chat-threads';
+import '../styles/messages.css';
 
 export function MessagesDock() {
   const route = useRoute();
+  const hidden = route.startsWith('/direct') || route.startsWith('/live');
   const [open, setOpen] = useState(false);
-  const [threads, setThreads] = useState<Thread[] | null>(null);
-  const load = useCallback(() => {
-    fetchThreads().then((t) => setThreads(t.filter((x) => x.has_messages)), () => setThreads([]));
-  }, []);
+  // The chat open inside the panel, or null for the list.
+  const [chat, setChat] = useState<string | null>(null);
+  const { threads, reload } = useThreads();
+  // The app is open on this page, so friends see you as active.
+  usePresence(!hidden);
+
+  // The full inbox takes over: the small one starts closed again afterwards.
   useEffect(() => {
-    load();
-    const off = listen('threads', load);
-    const t = setInterval(() => !document.hidden && load(), 30000);
-    return () => {
-      off();
-      clearInterval(t);
-    };
-  }, [load]);
-  useEffect(() => setOpen(false), [route]);
-  // The full inbox and live videos have their own messages.
-  if (route.startsWith('/direct') || route.startsWith('/live')) return null;
+    if (hidden) {
+      setOpen(false);
+      setChat(null);
+    }
+  }, [hidden]);
+
+  if (hidden) return null;
   const unread = (threads ?? []).filter((t) => t.unread_count > 0 && !t.muted).length;
   const faces = (threads ?? []).slice(0, 3);
+  const close = () => {
+    setOpen(false);
+    setChat(null);
+  };
 
   if (!open) {
     return (
@@ -46,6 +50,15 @@ export function MessagesDock() {
       </button>
     );
   }
+
+  if (chat) {
+    return (
+      <section className="dock-panel mx-dock-chat" aria-label="Messages">
+        <Chat key={chat} threadId={chat} compact onChanged={reload} onBack={() => setChat(null)} onExpand={() => nav('/direct/t/' + chat)} onClose={close} />
+      </section>
+    );
+  }
+
   return (
     <section className="dock-panel" aria-label="Messages">
       <header>
@@ -55,7 +68,7 @@ export function MessagesDock() {
         <button className="icon-btn" aria-label="Open the full inbox" onClick={() => nav('/direct')}>
           <Icon name="expand" size={18} />
         </button>
-        <button className="icon-btn" aria-label="Close messages" onClick={() => setOpen(false)}>
+        <button className="icon-btn" aria-label="Close messages" onClick={close}>
           <Icon name="close" size={18} />
         </button>
       </header>
@@ -63,20 +76,7 @@ export function MessagesDock() {
         {threads === null ? <Spinner /> : null}
         {threads && !threads.length ? <p className="muted-text center pad">No messages yet.</p> : null}
         {(threads ?? []).map((t) => (
-          <button key={t.id} className={'dock-row' + (t.unread_count && !t.muted ? ' unread' : '')} onClick={() => nav('/direct/t/' + t.id)}>
-            <Avatar src={t.avatar_url} name={t.username} size={52} />
-            <span className="row-text">
-              <b>
-                {t.full_name || t.username}
-                {t.verified ? <Verified size={12} /> : null}
-              </b>
-              <span>
-                {t.last_message || 'Say hello'} · {ago(t.last_message_at)}
-              </span>
-            </span>
-            {t.muted ? <Icon name="mute" size={14} /> : null}
-            {t.unread_count && !t.muted ? <span className="unread-dot" /> : null}
-          </button>
+          <ThreadRow key={t.id} t={t} className="dock-row" size={52} onOpen={() => setChat(t.id)} />
         ))}
       </div>
       <button className="dock-compose" aria-label="New message" onClick={() => nav('/direct/new')}>
