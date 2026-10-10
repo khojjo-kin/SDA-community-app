@@ -471,13 +471,15 @@ const check = (label, ok, extra) => {
   await page.waitForTimeout(500);
   check('a report can be decided', (await page.locator('.report').count()) === 0);
   await goto('/admin/requests');
-  await page.waitForSelector('.report');
-  await page.getByRole('button', { name: 'Approve' }).click();
+  // Several identity checks wait; Samuel's came with the document and selfie needed to approve it.
+  await page.waitForSelector('.adm-req');
+  await page.locator('.adm-req', { hasText: 'samuel_boateng' }).getByRole('button', { name: 'Approve: give the tick' }).click();
   await page.waitForTimeout(700);
-  await goto('/u/esther_adjei');
+  await goto('/u/samuel_boateng');
   await page.waitForSelector('.profile-top');
   check('approving a tick request gives the tick', (await page.locator('.profile-top .verified').count()) === 1);
-  await goto('/admin/support');
+  // Help requests sit beside the live support chats.
+  await goto('/admin/support/requests');
   await page.waitForSelector('.ticket');
   await page.locator('.ticket').filter({ hasText: 'Cannot upload a video' }).click();
   await page.locator('.modal textarea').fill('Videos can be up to 60 seconds. Trim it and try again.');
