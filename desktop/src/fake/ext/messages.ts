@@ -1,7 +1,8 @@
 // Demo data for the messages area: notes above the inbox, view-once photos, a screenshot notice,
-// a chat streak, who is active, a photo, a voice message and a call in the chats, and Erha's daily
-// allowance (the real function's rule: 15 messages a day without Plus).
-import type { Ext, Row } from './types';
+// a chat streak, who is active, a photo, a voice message and a call in the chats, Erha's daily
+// allowance (the real function's rule: 15 messages a day without Plus), and the friends' map: places
+// shared by friends, seen under the database's own rules (community_friend_locations).
+import type { Ctx, Ext, Row } from './types';
 import graceSnap from '../media/05.jpg';
 import danielPhoto from '../media/03.jpg';
 import voiceClip from '../media/pod2.m4a';
@@ -12,6 +13,22 @@ const ago = (hours: number) => new Date(Date.now() - hours * H).toISOString();
 const ahead = (hours: number) => new Date(Date.now() + hours * H).toISOString();
 const FREE_ERHA_A_DAY = 15;
 
+/*
+ * Shared places. The real table's trigger stamps updated_at with the server's clock on every write;
+ * here the view notices a row that changed since it was last read (or is new) and stamps it then.
+ */
+const stamped = new WeakMap<Row, string>();
+const signature = (r: Row) => [r.lat, r.lng, r.accuracy, r.audience].join('|');
+function touchLocations(T: Ctx['T'], now: string) {
+  for (const r of T('community_locations')) {
+    const sig = signature(r);
+    if (stamped.get(r) !== sig) {
+      if (stamped.has(r) || !r.updated_at) r.updated_at = now;
+      stamped.set(r, sig);
+    }
+  }
+}
+
 /** A message row with every column the real table has. */
 const msg = (id: string, thread_id: string, sender_id: string, hours: number, extra: Row = {}): Row => ({
   id, thread_id, sender_id, text: '', created_at: ago(hours), media_url: '', audio_url: '', audio_seconds: 0, post_id: null, call_url: '', call_kind: '',
@@ -19,7 +36,10 @@ const msg = (id: string, thread_id: string, sender_id: string, hours: number, ex
 });
 
 export const ext: Ext = {
-  seed: ({ T }) => {
+  seed: (ctx) => {
+    const { T } = ctx;
+    // The tables, for tests/messages.test.cjs to look at what was saved.
+    (globalThis as any).__messagesDemo = ctx;
     const person = (id: string) => T('community_profiles').find((p) => p.id === id);
 
     // Grace is in the app right now (always "Active now"); Daniel was here five minutes before the demo opened.
@@ -57,7 +77,43 @@ export const ext: Ext = {
     // Daniel (no Plus) has already asked Erha his 15 free questions today.
     const today = Date.now();
     for (let i = 0; i < FREE_ERHA_A_DAY; i++) T('community_erha_messages').push({ user_id: 'u_daniel', role: 'user', content: 'Sample question ' + (i + 1), created_at: new Date(today - (i + 1) * 1000).toISOString() });
+
+    // The friends' map, around Kumasi. Grace shares with mutual followers (you follow each other);
+    // Daniel with close friends, and you are on his list. Samuel shares with mutual followers but
+    // doesn't follow you back, Joseph with close friends without you on his list, and Esther's place
+    // is over a day old: none of those three is shown to you.
+    T('community_close_friends').push({ user_id: 'u_daniel', friend_id: 'demo_me', created_at: ago(300) });
+    const place = (user_id: string, lat: number, lng: number, audience: string, hours: number) => ({ user_id, lat, lng, accuracy: 30, audience, updated_at: ago(hours), created_at: ago(hours + 2) });
+    T('community_locations').push(
+      place('u_grace', 6.6885, -1.6244, 'mutuals', 5 / 60),
+      place('u_daniel', 6.7146, -1.5862, 'close_friends', 0.7),
+      place('u_samuel', 6.6731, -1.5712, 'mutuals', 0.2),
+      place('u_joseph', 6.6952, -1.6421, 'close_friends', 1),
+      place('u_esther', 6.7019, -1.6093, 'mutuals', 30),
+    );
   },
+
+  views: ({ T, me, now, profile, follows }) => ({
+    // As the database's view and row rules: places updated in the last day, from people who share
+    // with mutual followers (and follow each other with you) or put you on their close friends list;
+    // never across a block. Your own place too, marked "mine".
+    community_friend_locations: () => {
+      touchLocations(T, now());
+      const day = Date.now() - 86400e3;
+      const blocked = (a: string, b: string) => T('community_blocks').some((x) => (x.blocker_id === a && x.blocked_id === b) || (x.blocker_id === b && x.blocked_id === a));
+      const onList = (owner: string) => T('community_close_friends').some((c) => c.user_id === owner && c.friend_id === me());
+      return T('community_locations')
+        .filter((l) => {
+          if (l.user_id === me()) return true;
+          if (new Date(l.updated_at).getTime() <= day || blocked(me(), l.user_id)) return false;
+          return l.audience === 'mutuals' ? follows(me(), l.user_id) && follows(l.user_id, me()) : onList(l.user_id);
+        })
+        .map((l) => {
+          const p = profile(l.user_id);
+          return { user_id: l.user_id, lat: l.lat, lng: l.lng, accuracy: l.accuracy ?? null, audience: l.audience, updated_at: l.updated_at, username: p.username, full_name: p.full_name, avatar_url: p.avatar_url, verified: !!p.verified, mine: l.user_id === me() };
+        });
+    },
+  }),
 
   functions: ({ T, me, now, insertRow, profile }) => ({
     // Erha, as the real function behaves: Plus has no daily allowance; otherwise 15 a day, and the

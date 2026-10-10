@@ -1,9 +1,12 @@
 // The pieces a chat is drawn from: how messages become rows (time stamps, groups, "Seen"), and each
-// kind of bubble: text, photos, shared posts, voice messages, call logs, view-once photos and
-// screenshot notices. The same rules as the iPhone's chat (app/(app)/chat/[id].tsx).
+// kind of bubble: text, photos (one, or a small pile sent together), shared posts, voice messages,
+// call logs, view-once photos and screenshot notices; and recording a voice message. The same rules
+// as the iPhone's chat (app/(app)/chat/[id].tsx).
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { uploadAudio } from 'shared/api';
 import { getPostNow } from 'shared/store';
+import { MEDIA_BUCKET, supabase } from 'shared/supabase';
 import { chatStamp, clock } from 'shared/theme';
 import type { Message } from 'shared/types';
 import { Avatar, Icon, Spinner } from './kit';
@@ -34,6 +37,8 @@ export type Row = {
   m: Message;
   label?: string;
   big?: boolean;
+  /** A photo row: every photo in it (several sent one after another become one pile). */
+  urls?: string[];
   /** Joined to the row above / below from the same person (no stamp in between): rounder corners outside only. */
   joinPrev?: boolean;
   joinNext?: boolean;
@@ -44,6 +49,10 @@ export const emojiOnly = (s: string) => /^\p{Extended_Pictographic}(\u{FE0F}|\u{
 
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 
+/** Photos sent one after another within this long, with nothing in between, become one pile (as on the iPhone). */
+const PILE_GAP_MS = 180e3;
+const PILE_MAX = 10;
+
 /**
  * Messages (oldest first) as rows: a stamp when the day changes or after an hour's quiet, then the
  * message's pieces. "Seen" goes under the last thing you sent, once the other person has read it
@@ -52,6 +61,7 @@ const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Dat
 export function buildRows(messages: Message[], me: string, theirRead: string | null): Row[] {
   const rows: Row[] = [];
   let prevAt = 0;
+  let pileAt = 0;
   for (const m of messages) {
     const at = new Date(m.created_at).getTime();
     const mine = m.sender_id === me;
@@ -76,7 +86,12 @@ export function buildRows(messages: Message[], me: string, theirRead: string | n
     const words = m.text.trim();
     const plain = words && !(m.post_id && words === 'Sent a post') && !(m.media_url && words === 'Sent a photo');
     if (m.post_id) rows.push({ key: 'p' + m.id, kind: 'post', mine, m });
-    if (m.media_url) rows.push({ key: 'i' + m.id, kind: 'photo', mine, m });
+    if (m.media_url) {
+      const last = rows[rows.length - 1];
+      if (!plain && !m.post_id && last?.kind === 'photo' && last.mine === mine && at - pileAt < PILE_GAP_MS && (last.urls?.length ?? 0) < PILE_MAX) last.urls!.push(m.media_url);
+      else rows.push({ key: 'i' + m.id, kind: 'photo', mine, m, urls: [m.media_url] });
+      pileAt = at;
+    }
     if (plain) rows.push({ key: m.id, kind: 'text', mine, m, big: emojiOnly(words) });
   }
   // Groups: consecutive bubbles from the same person share their inner corners.
@@ -166,7 +181,7 @@ export function CallLog({ m, mine, onCall }: { m: Message; mine: boolean; onCall
 /** A post shared into the chat. */
 export function SharedPost({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
   const p = getPostNow(id);
-  if (!p) return <span className="bubble">Post unavailable</span>;
+  if (!p) return <span className="bubble">This post is no longer available</span>;
   const cover = p.media[0]?.type === 'video' ? p.media[0].poster : p.media[0]?.url;
   return (
     <button className="shared-post" onClick={() => onOpen(p.id)}>
@@ -189,6 +204,12 @@ export function SharedPost({ id, onOpen }: { id: string; onOpen: (id: string) =>
 // Only one voice message plays at a time.
 let playingVoice: HTMLAudioElement | null = null;
 
+/** Stops whichever voice message is playing (before recording one, or a call). */
+export function pauseVoice() {
+  playingVoice?.pause();
+  playingVoice = null;
+}
+
 /** A fixed, made-up waveform for a message, so each voice message has its own shape. */
 function bars(id: string, n = 28): number[] {
   let h = 2166136261;
@@ -201,7 +222,8 @@ function bars(id: string, n = 28): number[] {
   return out;
 }
 
-export function VoiceMessage({ m, mine }: { m: Message; mine: boolean }) {
+/** `locked` while you are recording: playing a message then would be recorded too (as on the iPhone). */
+export function VoiceMessage({ m, mine, locked }: { m: Message; mine: boolean; locked?: boolean }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState({ t: 0, d: m.audio_seconds || 0 });
@@ -227,6 +249,7 @@ export function VoiceMessage({ m, mine }: { m: Message; mine: boolean }) {
       audio.current = a;
     }
     if (a.paused) {
+      if (locked) return;
       if (playingVoice && playingVoice !== a) playingVoice.pause();
       playingVoice = a;
       a.play().catch(() => setPlaying(false));
@@ -236,7 +259,7 @@ export function VoiceMessage({ m, mine }: { m: Message; mine: boolean }) {
   const done = pos.d ? pos.t / pos.d : 0;
   return (
     <span className={'bubble voice' + (mine ? ' mine' : '')}>
-      <button type="button" className="cv-voice-play" onClick={toggle} aria-label={playing ? 'Pause voice message' : 'Play voice message'}>
+      <button type="button" className="cv-voice-play" onClick={toggle} disabled={locked && !playing} aria-label={playing ? 'Pause voice message' : 'Play voice message'}>
         <Icon name={playing ? 'pause' : 'play'} size={16} />
       </button>
       <span className="cv-wave" aria-hidden="true">
@@ -246,6 +269,398 @@ export function VoiceMessage({ m, mine }: { m: Message; mine: boolean }) {
       </span>
       <span className="cv-voice-time">{clock(playing || pos.t ? Math.max(0, pos.d - pos.t) : pos.d)}</span>
     </span>
+  );
+}
+
+/* ---------- recording a voice message ---------- */
+
+/** The iPhone's rules: two minutes at most (it sends itself at the limit), and nothing shorter than 0.8 s. */
+export const VOICE_LIMIT_MS = 120000;
+export const VOICE_MIN_MS = 800;
+/** A WAV file, when this computer can't record AAC: speech quality, mono, about 44 KB a second. */
+const WAV_RATE = 22050;
+
+/** A finished recording: AAC in MP4 (stored as .m4a, like the iPhone's), or WAV. Both play on an iPhone. */
+export type VoiceClip = { blob: Blob; ms: number; kind: 'm4a' | 'wav' };
+
+// Hands the microphone's samples to the page, a small block at a time (for the WAV file).
+const TAP_WORKLET = "registerProcessor('community-voice-tap', class extends AudioWorkletProcessor { process(inputs) { const ch = inputs[0] && inputs[0][0]; if (ch) this.port.postMessage(ch.slice(0)); return true; } });";
+
+/**
+ * Records the microphone. AAC in MP4 when this computer can make it (Electron and Chrome on a Mac
+ * can), as the iPhone app's own recordings are, so an iPhone plays it. Otherwise the samples are
+ * kept and saved as a WAV file, which an iPhone also plays. It also measures how loud the
+ * microphone is, for the moving bars while you record.
+ */
+export class VoiceRecorder {
+  private stream: MediaStream | null = null;
+  private rec: MediaRecorder | null = null;
+  private chunks: Blob[] = [];
+  private ctx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private nodes: AudioNode[] = [];
+  private pcm: Float32Array[] | null = null;
+  private startedAt = 0;
+  // True when the browser said outright that it records AAC, so the MP4 needs no checking.
+  private aacSure = false;
+  private done = false;
+
+  async start() {
+    const md = navigator.mediaDevices;
+    if (!md?.getUserMedia) throw new Error("This computer can't record sound here.");
+    const stream = await md.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    this.stream = stream;
+    if (this.done) return this.release();
+    // "audio/mp4" without a codec can hold Opus (Chromium without AAC does that), which an iPhone may
+    // not play: that recording is checked when it ends, and a WAV is made alongside in case.
+    const can = (t: string) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t);
+    const type = can('audio/mp4;codecs=mp4a.40.2') ? 'audio/mp4;codecs=mp4a.40.2' : can('audio/mp4') ? 'audio/mp4' : '';
+    this.aacSure = type === 'audio/mp4;codecs=mp4a.40.2';
+    if (type) {
+      try {
+        const rec = new MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 64000 });
+        rec.ondataavailable = (e) => {
+          if (e.data.size) this.chunks.push(e.data);
+        };
+        rec.start();
+        this.rec = rec;
+      } catch {
+        this.rec = null;
+        this.aacSure = false;
+      }
+    }
+    await this.listen(!this.aacSure);
+    if (!this.rec && !this.pcm) {
+      this.release();
+      throw new Error("This computer can't record sound here.");
+    }
+    this.startedAt = performance.now();
+  }
+
+  /** Taps the microphone for its loudness and, when `keep`, its samples. */
+  private async listen(keep: boolean) {
+    const AC: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext;
+    if (!AC || !this.stream) return;
+    let ctx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    // At the WAV's own rate when the browser allows it; otherwise at the computer's, converted when saved.
+    for (const opts of [{ sampleRate: WAV_RATE }, undefined]) {
+      try {
+        ctx = new AC(opts);
+        source = ctx.createMediaStreamSource(this.stream);
+        break;
+      } catch {
+        ctx?.close().catch(() => {});
+        ctx = null;
+      }
+    }
+    if (!ctx || !source) return;
+    this.ctx = ctx;
+    if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    this.analyser = analyser;
+    this.nodes.push(source, analyser);
+    if (!keep) return;
+    const pcm: Float32Array[] = [];
+    try {
+      const url = URL.createObjectURL(new Blob([TAP_WORKLET], { type: 'text/javascript' }));
+      try {
+        await ctx.audioWorklet.addModule(url);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      const tap = new AudioWorkletNode(ctx, 'community-voice-tap');
+      tap.port.onmessage = (e) => {
+        if (!this.done) pcm.push(e.data as Float32Array);
+      };
+      source.connect(tap);
+      this.nodes.push(tap);
+    } catch {
+      // Without audio worklets, the older script processor does the same job.
+      const sp = ctx.createScriptProcessor(4096, 1, 1);
+      sp.onaudioprocess = (e) => {
+        if (!this.done) pcm.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+      const silent = ctx.createGain();
+      silent.gain.value = 0;
+      source.connect(sp);
+      sp.connect(silent);
+      silent.connect(ctx.destination);
+      this.nodes.push(sp, silent);
+    }
+    this.pcm = pcm;
+  }
+
+  /** How long it has been recording, in milliseconds. */
+  elapsed(): number {
+    return this.startedAt ? performance.now() - this.startedAt : 0;
+  }
+
+  /** How loud the microphone is now, 0 to 1. */
+  level(): number {
+    const a = this.analyser;
+    if (!a) return 0.3;
+    const buf = new Float32Array(a.fftSize);
+    a.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.min(1, Math.sqrt(Math.sqrt(sum / buf.length)) * 1.6);
+  }
+
+  /** Stops and hands back the recording. */
+  async stop(): Promise<VoiceClip> {
+    const ms = this.elapsed();
+    this.done = true;
+    const rec = this.rec;
+    let mp4: Blob | null = null;
+    if (rec && rec.state !== 'inactive') {
+      mp4 = await new Promise<Blob>((resolve) => {
+        rec.onstop = () => resolve(new Blob(this.chunks, { type: 'audio/mp4' }));
+        rec.stop();
+      });
+    }
+    const pcm = this.pcm;
+    const rate = this.ctx?.sampleRate ?? WAV_RATE;
+    this.release();
+    if (mp4 && mp4.size > 0 && (this.aacSure || (await holdsAac(mp4)))) return { blob: mp4, ms, kind: 'm4a' };
+    if (pcm?.length) return { blob: wavFrom(pcm, rate), ms, kind: 'wav' };
+    throw new Error("The recording didn't work. Try again.");
+  }
+
+  /** Stops and throws the recording away. */
+  cancel() {
+    this.done = true;
+    try {
+      if (this.rec && this.rec.state !== 'inactive') this.rec.stop();
+    } catch {
+      // already stopped
+    }
+    this.release();
+  }
+
+  /** Lets go of the microphone (the computer's microphone light goes out). */
+  private release() {
+    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
+    for (const n of this.nodes) {
+      try {
+        n.disconnect();
+      } catch {
+        // not connected
+      }
+    }
+    this.nodes = [];
+    this.analyser = null;
+    this.ctx?.close().catch(() => {});
+    this.ctx = null;
+  }
+}
+
+/** True when an MP4 recording holds AAC (its "mp4a" sample entry), rather than another codec. */
+async function holdsAac(blob: Blob): Promise<boolean> {
+  const head = new Uint8Array(await blob.slice(0, 65536).arrayBuffer());
+  for (let i = 0; i + 3 < head.length; i++) if (head[i] === 0x6d && head[i + 1] === 0x70 && head[i + 2] === 0x34 && head[i + 3] === 0x61) return true;
+  return false;
+}
+
+/** The samples as a WAV file: 16-bit mono PCM at WAV_RATE. */
+function wavFrom(chunks: Float32Array[], rate: number): Blob {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  let samples = new Float32Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    samples.set(c, at);
+    at += c.length;
+  }
+  if (rate !== WAV_RATE) samples = resample(samples, rate, WAV_RATE);
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const word = (o: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+  };
+  word(0, 'RIFF');
+  v.setUint32(4, 36 + samples.length * 2, true);
+  word(8, 'WAVE');
+  word(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true); // mono
+  v.setUint32(24, WAV_RATE, true);
+  v.setUint32(28, WAV_RATE * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  word(36, 'data');
+  v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/** Changes the sample rate; going down, each new sample is the average of those it covers. */
+function resample(input: Float32Array, from: number, to: number): Float32Array {
+  const ratio = from / to;
+  const out = new Float32Array(Math.floor(input.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const a = Math.floor(i * ratio);
+    const b = Math.min(input.length, Math.max(a + 1, Math.floor((i + 1) * ratio)));
+    let sum = 0;
+    for (let j = a; j < b; j++) sum += input[j];
+    out[i] = sum / (b - a);
+  }
+  return out;
+}
+
+/**
+ * Uploads a recording and returns its address. AAC goes through the shared uploadAudio (an .m4a,
+ * audio/mp4, as the iPhone's). WAV goes to the same bucket and folder the shared upload uses, named
+ * .wav with its own type: it is never labelled audio/mp4.
+ */
+export async function uploadVoice(me: string, clip: VoiceClip): Promise<string> {
+  if (clip.kind === 'm4a') {
+    const url = URL.createObjectURL(clip.blob);
+    try {
+      return await uploadAudio(me, url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  const path = `${me}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.wav`;
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, clip.blob, { contentType: 'audio/wav', upsert: false });
+  if (error) throw error;
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/** Puts a microphone problem into words. */
+export function micProblem(e: unknown): string {
+  const name = (e as { name?: string } | null)?.name ?? '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone access is off. Allow Community to use the microphone (on a Mac: System Settings → Privacy & Security → Microphone), then try again.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone was found. Connect one and try again.';
+  if (name === 'NotReadableError' || name === 'AbortError') return 'The microphone is busy in another app. Close it there and try again.';
+  return (e as Error)?.message || "The recording didn't start. Try again.";
+}
+
+export type RecPhase = 'starting' | 'recording' | 'sending' | 'failed';
+const REC_BARS = 48;
+
+/**
+ * Takes the place of the message box while you record: discard, a red dot with the microphone's
+ * level drawn as moving bars and the time, then send. After a failed send it offers to try again.
+ */
+export function RecordingBar({ phase, ms, levels, onDiscard, onSend }: { phase: RecPhase; ms: number; levels: number[]; onDiscard: () => void; onSend: () => void }) {
+  const bars = Array.from({ length: REC_BARS }, (_, i) => levels[levels.length - REC_BARS + i] ?? 0);
+  const near = phase === 'recording' && ms >= VOICE_LIMIT_MS - 15e3;
+  const status = phase === 'starting' ? 'Starting…' : phase === 'sending' ? 'Sending…' : phase === 'failed' ? "Didn't send" : clock(ms / 1000);
+  return (
+    <div className={'cv-rec' + (phase === 'failed' ? ' failed' : '')} role="group" aria-label="Voice message">
+      <button type="button" className="cv-round quiet" aria-label="Discard recording" title="Discard (Esc)" disabled={phase === 'sending'} onClick={onDiscard}>
+        <Icon name="trash" size={17} />
+      </button>
+      <span className="cv-rec-pill">
+        <i className={'cv-rec-dot' + (phase === 'recording' ? ' on' : '')} aria-hidden="true" />
+        <span className="cv-rec-wave" aria-hidden="true">
+          {bars.map((v, i) => (
+            <i key={i} style={{ height: 3 + Math.round(v * 22) }} />
+          ))}
+        </span>
+        <span className={'cv-rec-time' + (near ? ' near' : '')} role="timer" title={near ? 'Voice messages can be up to 2 minutes' : undefined}>
+          {status}
+        </span>
+      </span>
+      <button type="button" className="cv-round accent" aria-label={phase === 'failed' ? 'Try sending again' : 'Send voice message'} title="Send (Enter)" disabled={phase === 'starting' || phase === 'sending'} onClick={onSend}>
+        {phase === 'sending' ? <span className="cv-mini-spin" /> : <Icon name="send" size={16} />}
+      </button>
+    </div>
+  );
+}
+
+/* ---------- photos ---------- */
+
+/** One photo, or several sent together fanned out like a small pile of prints (as on the iPhone). */
+export function PhotoPile({ urls, onOpen, onLoad }: { urls: string[]; onOpen: () => void; onLoad?: () => void }) {
+  if (urls.length < 2) {
+    return (
+      <button type="button" className="msg-photo" onClick={onOpen} aria-label="Photo">
+        <img src={urls[0]} alt="" onLoad={onLoad} />
+      </button>
+    );
+  }
+  return (
+    <button type="button" className="msg-photo cv-pile" onClick={onOpen} aria-label={`${urls.length} photos`}>
+      <img src={urls[0]} alt="" className="cv-pile-a" onLoad={onLoad} />
+      <img src={urls[1]} alt="" className="cv-pile-b" onLoad={onLoad} />
+      {urls.length > 2 ? <span className="cv-pile-more">+{urls.length - 2}</span> : null}
+    </button>
+  );
+}
+
+/**
+ * Photos from the chat, full window and always dark: step through a pile with the arrows (or the
+ * keyboard), save one to the computer, or forward them.
+ */
+export function PhotoViewer({ urls, onClose, onForward }: { urls: string[]; onClose: () => void; onForward?: () => void }) {
+  const [at, setAt] = useState(0);
+  const many = urls.length > 1;
+  const step = (d: number) => setAt((i) => Math.min(urls.length - 1, Math.max(0, i + d)));
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') step(-1);
+      if (e.key === 'ArrowRight') step(1);
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [urls.length, onClose]);
+  const save = async () => {
+    const url = urls[at];
+    try {
+      const blob = await (await fetch(url)).blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `community-photo-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 5000);
+    } catch {
+      // Not readable from here (another site's photo): open it, to save from there.
+      window.open(url, '_blank', 'noopener');
+    }
+  };
+  return createPortal(
+    <div className="cv-viewer" role="dialog" aria-modal="true" aria-label="Photo" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="cv-viewer-top">
+        <span className="cv-viewer-count">{many ? `${at + 1} of ${urls.length}` : ''}</span>
+        <button type="button" className="icon-btn" aria-label="Save photo" title="Save photo" onClick={save}>
+          <Icon name="download" size={22} color="#fff" />
+        </button>
+        {onForward ? (
+          <button type="button" className="icon-btn" aria-label="Forward" title="Forward" onClick={onForward}>
+            <Icon name="send" size={22} color="#fff" />
+          </button>
+        ) : null}
+        <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+          <Icon name="close" size={26} color="#fff" />
+        </button>
+      </div>
+      <img key={urls[at]} src={urls[at]} alt={many ? `Photo ${at + 1} of ${urls.length}` : 'Photo'} />
+      {many && at > 0 ? (
+        <button type="button" className="cv-viewer-step prev" aria-label="Previous photo" onClick={() => step(-1)}>
+          <Icon name="back" size={20} stroke={2.4} />
+        </button>
+      ) : null}
+      {many && at < urls.length - 1 ? (
+        <button type="button" className="cv-viewer-step next" aria-label="Next photo" onClick={() => step(1)}>
+          <Icon name="right" size={20} stroke={2.4} />
+        </button>
+      ) : null}
+    </div>,
+    document.body,
   );
 }
 

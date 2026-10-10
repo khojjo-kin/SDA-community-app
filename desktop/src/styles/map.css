@@ -1,0 +1,90 @@
+/* The friends' map (/map): the list on the left, the map filling the rest of the window.
+   Theme colours throughout; the faces' rings and name labels sit on the map picture itself, so they
+   keep the same light ring and dark label in both themes, as the iPhone's do. Prefix: mx-map-. */
+
+.main:has(> .mx-map-page) { display: flex; flex-direction: column; height: 100vh; }
+.main > .mx-map-page { flex: 1; min-height: 0; display: flex; }
+
+/* ---------- the list ---------- */
+.mx-map-side { width: 360px; flex: none; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; border-right: 1px solid var(--line); }
+.mx-map-head { display: flex; align-items: center; gap: 6px; padding: 28px 14px 14px 10px; }
+.mx-map-head h2 { flex: 1; font-size: 20px; font-weight: 700; }
+.mx-map-status { display: flex; align-items: center; gap: 12px; margin: 2px 16px 0; padding: 12px 12px 12px 12px; border-radius: 14px; background: var(--surface); text-align: left; }
+.mx-map-status:hover { background: var(--surface2); }
+.mx-map-status-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--surface2); color: var(--fg2); }
+.mx-map-status.on .mx-map-status-icon { background: var(--accent); color: var(--on-accent); }
+.mx-map-status-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 18px; }
+.mx-map-status-text b { font-size: 15px; }
+.mx-map-status-text span { color: var(--fg2); font-size: 13px; }
+.mx-map-status > svg { flex: none; color: var(--fg3); }
+.mx-map-status .spinner { width: 18px; height: 18px; flex: none; }
+.btn.mx-map-cta { margin: 12px 16px 0; width: auto; height: 38px; }
+.mx-map-problem { margin: 10px 16px 0; color: var(--like); font-size: 13px; line-height: 18px; }
+.mx-map-note { display: flex; align-items: center; gap: 8px; margin: 12px 16px 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--fg2); font-size: 13px; line-height: 18px; }
+.mx-map-note svg { flex: none; }
+.mx-map-sub { padding: 24px 20px 6px; font-weight: 700; font-size: 15px; }
+.mx-map-list { display: flex; flex-direction: column; }
+.mx-map-empty { padding: 6px 20px; color: var(--fg2); font-size: 13.5px; line-height: 19px; }
+.mx-map-row { display: flex; align-items: center; gap: 4px; padding-right: 12px; }
+.mx-map-row:hover, .mx-map-row.on { background: var(--hover); }
+.mx-map-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 4px 8px 20px; text-align: left; }
+.mx-map-row .row-text > b { display: flex; align-items: center; gap: 4px; }
+.mx-map-row .row-text > span { font-size: 12.5px; }
+.mx-map-foot { margin-top: auto; padding: 18px 20px 22px; color: var(--fg3); font-size: 12px; line-height: 17px; }
+
+/* ---------- the map ---------- */
+.mx-map { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg2); }
+/* A faint grid under the tiles that moves with the map: still a map when the tiles can't load. */
+.mx-map-view { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; user-select: none; outline: none;
+  background-color: var(--bg2);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); }
+.mx-map-view:active { cursor: grabbing; }
+.mx-map-view:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.mx-map-tiles { position: absolute; inset: 0; pointer-events: none; }
+.mx-map-tiles img { position: absolute; max-width: none; opacity: 0; transition: opacity 0.2s; -webkit-user-drag: none; }
+.mx-map-tiles img.in { opacity: 1; }
+.mx-map-tiles img.gone { display: none; }
+/* Dark: the light map picture turned dark, so the map matches the app. */
+:root:not([data-theme='white']) .mx-map-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.88) saturate(0.55); }
+
+/* A face on the map, centred on its place, with the first name underneath. */
+.mx-map-pin { position: absolute; left: 0; top: 0; width: 96px; margin: -27px 0 0 -48px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; z-index: 1; }
+.mx-map-face { display: inline-flex; padding: 2px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); transition: transform 0.12s; }
+.mx-map-pin.mine .mx-map-face { background: var(--accent); border-color: #fff; }
+.mx-map-pin:hover .mx-map-face { transform: scale(1.06); }
+.mx-map-pin.on { z-index: 2; }
+.mx-map-pin.on .mx-map-face { transform: scale(1.14); box-shadow: 0 0 0 4px rgba(31, 191, 90, 0.35), 0 4px 14px rgba(0, 0, 0, 0.4); }
+.mx-map-label { max-width: 96px; padding: 2px 8px; border-radius: 9px; background: rgba(11, 16, 20, 0.82); color: #fff; font-size: 12px; font-weight: 700; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-map-pin.mine .mx-map-label { background: var(--accent); color: var(--on-accent); }
+
+/* Zoom, and framing everyone again. */
+.mx-map-controls { position: absolute; top: 16px; right: 16px; z-index: 3; display: flex; flex-direction: column; border-radius: 12px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); overflow: hidden; }
+.mx-map-ctl { width: 38px; height: 38px; display: grid; place-items: center; color: var(--fg); }
+.mx-map-ctl + .mx-map-ctl { border-top: 1px solid var(--pop-line); }
+.mx-map-ctl:hover { background: var(--hover); }
+
+/* The chosen person's card, over the bottom of the map. */
+.mx-map-card { position: absolute; z-index: 3; left: 50%; bottom: 28px; transform: translateX(-50%); width: min(440px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 12px 8px 12px 14px; border-radius: 20px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); animation: zoom 0.15s ease; }
+.mx-map-card .row-text > b { display: flex; align-items: center; gap: 4px; font-size: 15px; }
+.mx-map-card .row-text > span { font-size: 13px; }
+.mx-map-card .btn { flex: none; }
+
+.mx-map-credit { position: absolute; z-index: 3; left: 8px; bottom: 6px; padding: 2px 7px; border-radius: 6px; background: var(--pop); color: var(--fg2); font-size: 11px; opacity: 0.9; }
+.mx-map-credit:hover { color: var(--fg); text-decoration: underline; }
+
+/* ---------- sharing settings ---------- */
+.mx-map-settings { width: min(440px, 100%); }
+.mx-map-set { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 20px; overflow-y: auto; }
+.mx-map-set-row { display: flex; align-items: center; gap: 12px; }
+.mx-map-set-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 19px; }
+.mx-map-set-text b { font-size: 16px; }
+.mx-map-set-text span { color: var(--fg2); font-size: 13px; }
+.mx-map-set .mx-map-note, .mx-map-set .mx-map-problem { margin: 0; }
+.mx-map-who { display: flex; flex-direction: column; gap: 6px; }
+.mx-map-who.off { opacity: 0.45; }
+.mx-map-who .nt-aud .row-text > b { font-weight: 600; }
+.mx-map-edit { align-self: flex-start; padding: 4px 0; }
+.mx-map-how { color: var(--fg2); font-size: 12.5px; line-height: 18px; }
+
+/* Narrow windows: the list gets narrower. */
+@media (max-width: 1000px) { .mx-map-side { width: 300px; } }

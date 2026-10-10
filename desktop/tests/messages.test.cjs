@@ -1,42 +1,64 @@
 // Messages, the small inbox and notes: the inbox layout, notes (writing one with a song, a place,
 // close friends and a colour; a friend's note and replying to it), who is active, streaks,
 // view-once photos both ways, screenshot notices, the new-message picker, the small inbox's own
-// chat, calls from the chat header, and Erha's daily allowance. Dark and White screenshots.
-// Usage: node tests/messages.test.cjs http://127.0.0.1:8806/ [screenshot folder]
+// chat, calls from the chat header, and Erha's daily allowance. Voice messages (click to record,
+// hold to record, discard, too short, no microphone access; saved as a file an iPhone plays), chat
+// wallpapers (Plus, and the upsell without it), photo piles, forwarding, the photo viewer, reading
+// quietly, and the friends' map (pins, list, zoom and drag, sharing and who sees it, stopping).
+// Dark and White screenshots.
+// Usage: node tests/messages.test.cjs http://127.0.0.1:8802/ [screenshot folder]
 const path = require('path');
 const { chromium } = require('playwright');
 
-const BASE = process.argv[2] || 'http://127.0.0.1:8806/';
+const BASE = process.argv[2] || 'http://127.0.0.1:8802/';
 const SHOTS = process.argv[3] || '';
 const PHOTO = path.join(__dirname, '../src/fake/media/01.jpg');
+const PHOTO2 = path.join(__dirname, '../src/fake/media/02.jpg');
+const PHOTO3 = path.join(__dirname, '../src/fake/media/04.jpg');
 let failed = 0;
 const check = (name, ok, extra = '') => {
   console.log((ok ? 'ok   ' : 'FAIL ') + name + (ok || extra === '' ? '' : ' (' + extra + ')'));
   if (!ok) failed++;
 };
 
-async function newPage(browser, errors, as) {
-  const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+/** A window of its own (as someone else with `as`), with `opts` for the browser context (location access). */
+async function newPage(browser, errors, as, opts = {}) {
+  const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, ...opts })).newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/*', (r) => {
     const u = r.request().url();
     return u.startsWith(BASE) || u.startsWith('blob:') || u.startsWith('data:') ? r.continue() : r.abort();
   });
   if (as) await page.addInitScript((id) => (window.__fakeMe = id), as);
+  // Every file the page makes (recordings among them), so the test can see what was uploaded.
+  await page.addInitScript(() => {
+    const make = URL.createObjectURL.bind(URL);
+    window.__blobs = [];
+    URL.createObjectURL = (b) => {
+      const url = make(b);
+      if (b instanceof Blob) window.__blobs.push({ url, blob: b, type: b.type });
+      return url;
+    };
+  });
   return page;
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  // Chromium's stand-in microphone (a tone), allowed without asking.
+  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const errors = [];
-  const page = await newPage(browser, errors);
+  const page = await newPage(browser, errors, null, { permissions: ['clipboard-read', 'clipboard-write'] });
   const goto = async (hash, wait = 700) => {
     await page.evaluate((h) => (location.hash = h), hash);
     await page.waitForTimeout(wait);
   };
-  const shot = async (name) => {
-    if (SHOTS) await page.screenshot({ path: path.join(SHOTS, name + '.png') });
+  // Screenshots wait a moment for dialogs and fades to finish.
+  const snap = async (p, name) => {
+    if (!SHOTS) return;
+    await p.waitForTimeout(250);
+    await p.screenshot({ path: path.join(SHOTS, name + '.png') });
   };
+  const shot = (name) => snap(page, name);
   const text = (sel) => page.locator(sel).first().innerText().catch(() => '');
   try {
     await page.goto(BASE + '#/direct');
@@ -183,6 +205,165 @@ async function newPage(browser, errors, as) {
       () => check('Erha answers in the chat', false),
     );
 
+    /* ---------- voice messages ---------- */
+    await goto('/direct/t/t2', 900);
+    await page.waitForSelector('.chat-head');
+    const myVoices = page.locator('.chat-log .msg.mine .bubble.voice');
+    const voicesBefore = await myVoices.count();
+    const mic = page.locator('.composer').getByRole('button', { name: 'Record a voice message' });
+    check('an empty message box offers the microphone', (await mic.count()) === 1);
+    await mic.click();
+    await page.waitForSelector('.cv-rec');
+    check('recording takes the message box’s place: discard, the time, send', (await page.locator('.composer').count()) === 0 && (await page.locator('.cv-rec').getByRole('button', { name: 'Discard recording' }).count()) === 1 && (await page.locator('.cv-rec').getByRole('button', { name: 'Send voice message' }).count()) === 1);
+    const counted = await page.waitForFunction(() => /^0:0[1-9]$/.test(document.querySelector('.cv-rec-time')?.textContent || ''), null, { timeout: 6000 }).then(() => true, () => false);
+    check('the time counts up while recording', counted, await text('.cv-rec-time'));
+    check('calls are off while recording', await page.locator('.chat-head').getByRole('button', { name: 'Voice call' }).isDisabled());
+    check('the bars follow the microphone', (await page.locator('.cv-rec-wave i').evaluateAll((els) => els.filter((e) => parseInt(e.style.height) > 3).length)) > 0);
+    await page.waitForTimeout(900);
+    await shot('messages-recording-dark');
+    await page.locator('.cv-rec').getByRole('button', { name: 'Send voice message' }).click();
+    const arrived = await page.waitForFunction((n) => document.querySelectorAll('.chat-log .msg.mine .bubble.voice').length > n, voicesBefore, { timeout: 8000 }).then(() => true, () => false);
+    check('the voice message appears in the chat', arrived);
+    const length = await myVoices.last().locator('.cv-voice-time').innerText().catch(() => '');
+    check('with its length', /^0:0[2-4]$/.test(length), length);
+    const saved = await page.evaluate(async () => {
+      const db = window.__messagesDemo;
+      const m = db.T('community_messages').filter((x) => x.thread_id === 't2' && x.sender_id === 'demo_me' && x.audio_url).pop();
+      const b = window.__blobs.filter((x) => x.type.startsWith('audio/')).pop();
+      const head = b ? await b.blob.slice(0, 12).text() : '';
+      return { seconds: m?.audio_seconds ?? 0, type: b?.type ?? '', head, url: m?.audio_url ?? '', blobUrl: b?.url ?? '' };
+    });
+    check('it is sent with its length in seconds', saved.seconds >= 2 && saved.seconds <= 4, String(saved.seconds));
+    // This Chromium can't record AAC, so the recording is a WAV file (iPhones play WAV); never labelled audio/mp4.
+    check('it is uploaded as a WAV file, labelled audio/wav', saved.type === 'audio/wav' && saved.head.startsWith('RIFF') && saved.head.endsWith('WAVE'), JSON.stringify(saved));
+    check('the message points at the uploaded recording', !!saved.url && saved.url === saved.blobUrl);
+    await myVoices.last().getByRole('button', { name: 'Play voice message' }).click();
+    const played = await page.waitForFunction(() => [...document.querySelectorAll('.chat-log .msg.mine .bubble.voice')].pop()?.querySelectorAll('.cv-wave i.on').length > 0, null, { timeout: 6000 }).then(() => true, () => false);
+    check('it plays back', played);
+    await page.waitForTimeout(3000);
+
+    // Discarding, too short, Escape, holding the button
+    await mic.click();
+    await page.waitForSelector('.cv-rec');
+    await page.waitForTimeout(1200);
+    await page.locator('.cv-rec').getByRole('button', { name: 'Discard recording' }).click();
+    await page.waitForSelector('.composer');
+    await page.waitForTimeout(800);
+    check('discard throws the recording away', (await myVoices.count()) === voicesBefore + 1 && (await page.locator('.cv-rec').count()) === 0);
+    await mic.click();
+    await page.waitForSelector('.cv-rec button[aria-label="Send voice message"]:not([disabled])');
+    await page.locator('.cv-rec').getByRole('button', { name: 'Send voice message' }).click();
+    await page.waitForSelector('.toast');
+    check('a recording under a second is too short', (await page.locator('.toast', { hasText: 'That was too short. Record a little longer.' }).count()) === 1 && (await myVoices.count()) === voicesBefore + 1);
+    await mic.click();
+    await page.waitForSelector('.cv-rec button[aria-label="Send voice message"]:not([disabled])');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.composer');
+    check('Escape discards a recording', (await page.locator('.cv-rec').count()) === 0);
+    const box = await mic.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForSelector('.cv-rec');
+    await page.waitForTimeout(1500);
+    await page.mouse.up();
+    const held = await page.waitForFunction((n) => document.querySelectorAll('.chat-log .msg.mine .bubble.voice').length > n, voicesBefore + 1, { timeout: 8000 }).then(() => true, () => false);
+    check('holding the microphone records, and letting go sends', held && (await page.locator('.composer').count()) === 1);
+    // Daniel's automatic demo reply lands first, so it doesn't come between the photos below.
+    await page.waitForTimeout(2400);
+
+    /* ---------- photos: a pile, the viewer, forwarding ---------- */
+    const piles = page.locator('.chat-log .msg.mine .cv-pile');
+    await page.locator('.composer input[type=file]').setInputFiles([PHOTO, PHOTO2, PHOTO3]);
+    await page.waitForSelector('.cv-pending img >> nth=2');
+    await page.getByRole('button', { name: 'Send 3 photos' }).click();
+    await page.waitForSelector('.cv-pending', { state: 'detached', timeout: 10000 });
+    await page.waitForTimeout(600);
+    check('photos sent together show as one pile with "+1"', (await piles.count()) === 1 && (await piles.locator('.cv-pile-more').innerText()) === '+1');
+    await piles.click();
+    await page.waitForSelector('.cv-viewer img');
+    check('the viewer steps through them', (await text('.cv-viewer-count')) === '1 of 3');
+    await page.locator('.cv-viewer').getByRole('button', { name: 'Next photo' }).click();
+    await page.keyboard.press('ArrowRight');
+    check('with the buttons and the arrow keys', (await text('.cv-viewer-count')) === '3 of 3' && (await page.locator('.cv-viewer').getByRole('button', { name: 'Next photo' }).count()) === 0);
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.locator('.cv-viewer').getByRole('button', { name: 'Save photo' }).click()]);
+    check('a photo can be saved to the computer', !!download && /^community-photo-\d+\.jpg$/.test(download.suggestedFilename()), download ? download.suggestedFilename() : 'no download');
+    await shot('messages-photo-viewer');
+    await page.locator('.cv-viewer').getByRole('button', { name: 'Forward' }).click();
+    await page.waitForSelector('.mx-fwd .mx-pick');
+    check('forward shows the photos and people to send them to', (await page.locator('.mx-fwd-photos img').count()) === 3);
+    await page.locator('.mx-fwd .mx-pick', { hasText: 'Grace' }).locator('input').check();
+    await page.locator('.mx-fwd').getByLabel('Message').fill('From Pathfinders');
+    await page.locator('.mx-fwd').getByRole('button', { name: 'Send', exact: true }).click();
+    await page.waitForSelector('.mx-fwd', { state: 'detached' });
+    const fwd = await page.evaluate(() => window.__messagesDemo.T('community_messages').filter((m) => m.thread_id === 't1' && m.sender_id === 'demo_me').slice(-4).map((m) => (m.media_url ? 'photo' : m.text)));
+    check('forwarding sends the photos and the words to that chat', fwd.join() === 'photo,photo,photo,From Pathfinders', fwd.join());
+
+    /* ---------- copying a message ---------- */
+    const said = page.locator('.chat-log .msg', { hasText: 'Pathfinders meet at 9' });
+    await said.hover();
+    await page.waitForTimeout(250);
+    check('a message offers Copy when pointed at', (await said.locator('.cv-acts').evaluate((el) => getComputedStyle(el).opacity)) === '1');
+    await said.getByRole('button', { name: 'Copy message' }).click();
+    await page.waitForTimeout(300);
+    check('and copies its words', (await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === 'Pathfinders meet at 9 on Sunday, bring a torch.');
+
+    /* ---------- a message on more than one line ---------- */
+    const box2 = page.getByLabel(/^Message daniel/);
+    await box2.click();
+    await page.keyboard.type('Bring:');
+    await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('a torch and a Bible');
+    check('Shift+Enter starts a new line, and the box grows', (await box2.inputValue()) === 'Bring:\na torch and a Bible' && (await box2.evaluate((el) => el.clientHeight)) > 40);
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.chat-log .bubble.mine >> text=a torch and a Bible');
+    check('Enter sends it, line breaks kept', (await page.locator('.chat-log .bubble.mine').filter({ hasText: 'a torch and a Bible' }).innerText()) === 'Bring:\na torch and a Bible' && (await box2.inputValue()) === '');
+
+    /* ---------- chat wallpapers (Plus) ---------- */
+    await goto('/direct/t/t1', 900);
+    check('a chat starts without a wallpaper', (await page.locator('.chat-log').evaluate((el) => getComputedStyle(el).backgroundImage)) === 'none');
+    await page.getByRole('button', { name: 'Conversation information' }).click();
+    await page.locator('.cv-details').getByRole('button', { name: /^Wallpaper/ }).click();
+    await page.waitForSelector('.mx-wall-modal');
+    check('the chooser shows None and each wallpaper', (await page.locator('.mx-wall-modal [role=radio]').allInnerTexts()).map((t) => t.trim().split('\n').pop()).join() === 'None,Dusk,Olive grove,Galilee,Desert sand,Sharon rose,Royal');
+    check('each with a sample chat', (await page.locator('.mx-wall-modal .mx-wall-sample').count()) === 7 && (await page.locator('.mx-wall-modal .mx-wall-preview.walled').count()) === 6);
+    check('None is chosen to begin with', (await page.locator('.mx-wall-modal').getByRole('radio', { name: 'None' }).getAttribute('aria-checked')) === 'true');
+    await page.locator('.mx-wall-modal').getByRole('radio', { name: 'Galilee' }).click();
+    check('choosing one marks it', (await page.locator('.mx-wall-modal').getByRole('radio', { name: 'Galilee' }).getAttribute('aria-checked')) === 'true');
+    await shot('messages-wallpaper-picker-dark');
+    await page.locator('.mx-wall-modal').getByRole('button', { name: 'Done' }).click();
+    await page.waitForSelector('.mx-wall-modal', { state: 'detached' });
+    const walled = await page.locator('.chat-log').evaluate((el) => ({ bg: getComputedStyle(el).backgroundImage, id: el.dataset.wallpaper }));
+    check('the chat is drawn over the wallpaper', walled.id === 'sea' && walled.bg.startsWith('linear-gradient') && walled.bg.includes('rgb(10, 31, 51)'), JSON.stringify(walled));
+    check('the details say which', (await text('.cv-details .cv-detail-value')) === 'Galilee');
+    check('times and "Seen" stay light over it', (await page.locator('.chat-log .chat-stamp').first().evaluate((el) => getComputedStyle(el).color)) === 'rgba(243, 245, 247, 0.72)');
+    // Reporting asks why, as on the iPhone.
+    await page.locator('.cv-details').getByRole('button', { name: 'Report' }).click();
+    await page.waitForSelector('.confirm-text');
+    check('Report asks why', (await page.locator('.choices button').allInnerTexts()).join() === 'Spam,Harassment or hate,Pretending to be someone else,Something else,Cancel');
+    await page.locator('.choices').getByRole('button', { name: 'Spam' }).click();
+    await page.waitForSelector('.toast >> text=Thanks. We will review this account.');
+    check('and sends the reason', (await page.evaluate(() => window.__messagesDemo.T('community_reports').some((r) => r.target_user_id === 'u_grace' && r.reason === 'Spam'))) === true);
+    await page.getByRole('button', { name: 'Conversation information' }).click();
+    await page.waitForTimeout(300);
+    await shot('messages-wallpaper-dark');
+    await goto('/', 600);
+    await page.locator('.dock-pill').click();
+    await page.locator('.dock-row', { hasText: 'Grace' }).click();
+    await page.waitForSelector('.dock-panel .chat-log');
+    check('the small inbox’s chat has it too', (await page.locator('.dock-panel .chat-log').getAttribute('data-wallpaper')) === 'sea');
+
+    /* ---------- a voice message from the small inbox ---------- */
+    const dockVoices = page.locator('.dock-panel .msg.mine .bubble.voice');
+    const dockBefore = await dockVoices.count();
+    await page.locator('.dock-panel').getByRole('button', { name: 'Record a voice message' }).click();
+    await page.waitForSelector('.dock-panel .cv-rec');
+    await page.waitForTimeout(1400);
+    await shot('messages-dock-recording-dark');
+    await page.locator('.dock-panel .cv-rec').getByRole('button', { name: 'Send voice message' }).click();
+    const dockSent = await page.waitForFunction((n) => document.querySelectorAll('.dock-panel .msg.mine .bubble.voice').length > n, dockBefore, { timeout: 8000 }).then(() => true, () => false);
+    check('the small inbox records and sends voice messages too', dockSent);
+    await page.locator('.dock-panel').getByRole('button', { name: 'Close messages' }).click();
+
     /* ---------- new message ---------- */
     await goto('/direct');
     await page.locator('.chat-empty').getByRole('button', { name: 'Send message' }).click();
@@ -235,6 +416,24 @@ async function newPage(browser, errors, as) {
     check('White turns the inbox white', (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) === 'rgb(255, 255, 255)');
     check('your bubbles stay green in White', (await page.locator('.bubble.mine').first().evaluate((el) => getComputedStyle(el).backgroundImage)).includes('rgb(31, 191, 90)'));
     check('their bubbles are light grey in White', (await page.locator('.msg:not(.mine) .bubble').first().evaluate((el) => getComputedStyle(el).backgroundColor)) === 'rgb(228, 231, 235)');
+    check('the wallpaper stays chosen after a reload', (await page.locator('.chat-log').getAttribute('data-wallpaper')) === 'sea');
+    check('over the dark wallpaper, times and the name stay light in White', (await page.locator('.chat-log .chat-stamp').first().evaluate((el) => getComputedStyle(el).color)) === 'rgba(243, 245, 247, 0.72)' && (await page.locator('.chat-intro > b').evaluate((el) => getComputedStyle(el).color)) === 'rgb(243, 245, 247)');
+    await shot('messages-wallpaper-white');
+    await page.locator('.composer').getByRole('button', { name: 'Record a voice message' }).click();
+    await page.waitForSelector('.cv-rec');
+    await page.waitForTimeout(1600);
+    await shot('messages-recording-white');
+    await page.locator('.cv-rec').getByRole('button', { name: 'Discard recording' }).click();
+    await page.waitForSelector('.composer');
+    await page.getByRole('button', { name: 'Conversation information' }).click();
+    await page.locator('.cv-details').getByRole('button', { name: /^Wallpaper/ }).click();
+    await page.waitForSelector('.mx-wall-modal');
+    await shot('messages-wallpaper-picker-white');
+    await page.locator('.mx-wall-modal').getByRole('radio', { name: 'None' }).click();
+    await page.locator('.mx-wall-modal').getByRole('button', { name: 'Done' }).click();
+    await page.waitForSelector('.mx-wall-modal', { state: 'detached' });
+    check('None takes the wallpaper away', (await page.locator('.chat-log').evaluate((el) => getComputedStyle(el).backgroundImage)) === 'none' && (await text('.cv-details .cv-detail-value')) === 'None');
+    await page.getByRole('button', { name: 'Conversation information' }).click();
     await shot('messages-chat-white');
     await page.locator('.nt-face').first().click();
     await page.waitForSelector('.nt-editor');
@@ -260,7 +459,151 @@ async function newPage(browser, errors, as) {
     check("past the daily allowance, Erha's limit message shows", limited && (await grace.locator('.cv-limit').innerText()).includes("You have used today's 15 messages"));
     check('Erha says it in the chat too', (await grace.locator('.msg:not(.mine) .bubble').filter({ hasText: "today's 15 messages" }).count()) === 1);
     check('with a way to get Plus', (await grace.locator('.cv-limit').getByRole('link', { name: 'Get Plus' }).count()) === 1);
+
+    /* ---------- wallpapers without Plus (Daniel) ---------- */
+    // Even with one saved on this computer, it isn't drawn without Plus.
+    await grace.evaluate(() => localStorage.setItem('community.prefs', JSON.stringify({ chatWallpaper: 'sea' })));
+    await grace.reload();
+    await grace.waitForSelector('.rail');
+    await grace.evaluate(() => (location.hash = '#/direct/t/t2'));
+    await grace.waitForSelector('.chat-head');
+    await grace.waitForTimeout(500);
+    check('without Plus, no wallpaper is drawn', (await grace.locator('.chat-log').evaluate((el) => getComputedStyle(el).backgroundImage)) === 'none');
+    await grace.getByRole('button', { name: 'Conversation information' }).click();
+    check('the details mark wallpapers as a Plus perk', (await grace.locator('.cv-details .cv-detail-value').innerText()) === 'Plus');
+    await grace.locator('.cv-details').getByRole('button', { name: /^Wallpaper/ }).click();
+    await grace.waitForSelector('.mx-wall-modal');
+    check('the chooser leads to Community Plus', (await grace.locator('.mx-wall-upsell').innerText()).includes('A Community Plus perk') && (await grace.locator('.mx-wall-modal [aria-checked=true]').count()) === 0);
+    await snap(grace, 'messages-wallpaper-upsell-dark');
+    await grace.locator('.mx-wall-modal').getByRole('radio', { name: 'Dusk' }).click();
+    await grace.waitForTimeout(500);
+    check('choosing one opens Plus instead', (await grace.evaluate(() => location.hash)) === '#/plus' && (await grace.locator('.mx-wall-modal').count()) === 0);
     await grace.context().close();
+
+    /* ---------- no microphone access ---------- */
+    const denied = await newPage(browser, errors);
+    await denied.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+    });
+    await denied.goto(BASE + '#/direct/t/t1');
+    await denied.waitForSelector('.chat-head');
+    await denied.locator('.composer').getByRole('button', { name: 'Record a voice message' }).click();
+    await denied.waitForSelector('.toast');
+    check('without microphone access, it says how to allow it', (await denied.locator('.toast').innerText()).startsWith('Microphone access is off.') && (await denied.locator('.cv-rec').count()) === 0 && (await denied.locator('.composer').count()) === 1);
+
+    /* ---------- reading quietly (Plus) ---------- */
+    await denied.evaluate(() => localStorage.setItem('community.prefs', JSON.stringify({ readQuietly: true })));
+    await denied.evaluate(() => (location.hash = '#/direct/t/t2'));
+    await denied.reload();
+    await denied.waitForSelector('.chat-head');
+    await denied.waitForTimeout(900);
+    const readAt = await denied.evaluate(() => window.__messagesDemo.T('community_thread_reads').find((r) => r.thread_id === 't2' && r.user_id === 'demo_me')?.last_read_at ?? null);
+    check('reading quietly says so under the header', (await denied.locator('.cv-quiet').innerText()).includes('Reading quietly'));
+    // The sample data last read this chat an hour ago; reading quietly leaves that as it was.
+    check('and the chat is not marked read', !!readAt && Date.now() - new Date(readAt).getTime() > 30 * 60e3, String(readAt));
+    await denied.evaluate(() => localStorage.setItem('community.prefs', JSON.stringify({ readQuietly: false })));
+    await denied.reload();
+    await denied.waitForSelector('.chat-head');
+    await denied.waitForTimeout(900);
+    const readNow = await denied.evaluate(() => window.__messagesDemo.T('community_thread_reads').find((r) => r.thread_id === 't2' && r.user_id === 'demo_me')?.last_read_at ?? null);
+    check('reading normally marks it read', !!readNow && Date.now() - new Date(readNow).getTime() < 60e3 && (await denied.locator('.cv-quiet').count()) === 0, String(readNow));
+    await denied.context().close();
+
+    /* ---------- the friends' map ---------- */
+    const map = await newPage(browser, errors, null, { permissions: ['geolocation'], geolocation: { latitude: 6.6936, longitude: -1.6163, accuracy: 25 } });
+    await map.goto(BASE + '#/direct');
+    await map.waitForSelector('.thread-row');
+    await map.locator('.threads-head').getByRole('button', { name: 'Map' }).click();
+    await map.waitForSelector('.mx-map-pin');
+    await map.waitForTimeout(400);
+    check('the inbox has a Map button that opens the map', (await map.evaluate(() => location.hash)) === '#/map');
+    const pinNames = () => map.locator('.mx-map-pin .mx-map-label').allInnerTexts();
+    check('friends sharing with you are faces on the map', (await pinNames()).sort().join() === 'Daniel,Grace', (await pinNames()).join());
+    const rows = await map.locator('.mx-map-row').allInnerTexts();
+    check('and listed beside it, with when they were updated', rows.length === 2 && rows[0].includes('Grace Mensah') && rows[0].includes('Updated 5m ago') && rows[1].includes('Daniel Owusu') && rows[1].includes('Updated 42m ago'), rows.join(' | '));
+    check("people not sharing with you aren't shown (not following back, not on their close friends list, over a day old)", !(await map.locator('.mx-map-page').innerText()).match(/Samuel|Joseph|Esther/));
+    check('the map is OpenStreetMap, credited', (await map.locator('.mx-map-credit').innerText()) === '© OpenStreetMap contributors' && (await map.locator('.mx-map-tiles img').first().getAttribute('src')).startsWith('https://tile.openstreetmap.org/'));
+    check('without the tiles (offline here) the faces still show over a plain grid', (await map.locator('.mx-map-tiles img.in').count()) === 0 && (await map.locator('.mx-map-pin').count()) === 2);
+    check('your location starts off', (await map.locator('.mx-map-status').innerText()).includes('Your location is off') && (await map.locator('.mx-map-status').innerText()).includes('2 friends are sharing with you.'));
+    const spread = () => map.locator('.mx-map-pin').evaluateAll((els) => {
+      const [a, b] = els.map((e) => e.getBoundingClientRect());
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    });
+    const d0 = await spread();
+    await map.getByRole('button', { name: 'Zoom in' }).click();
+    await map.waitForTimeout(600);
+    const d1 = await spread();
+    check('zooming in spreads the faces apart', d1 > d0 * 1.8, `${Math.round(d0)} → ${Math.round(d1)}`);
+    const view = await map.locator('.mx-map-view').boundingBox();
+    await map.mouse.move(view.x + view.width / 2, view.y + view.height / 2);
+    await map.mouse.wheel(0, 400);
+    await map.waitForTimeout(300);
+    const d2 = await spread();
+    check('scrolling zooms out', d2 < d1 * 0.6, `${Math.round(d1)} → ${Math.round(d2)}`);
+    const grace0 = await map.locator('.mx-map-pin', { hasText: 'Grace' }).boundingBox();
+    await map.mouse.move(view.x + 200, view.y + 300);
+    await map.mouse.down();
+    await map.mouse.move(view.x + 280, view.y + 340, { steps: 4 });
+    await map.mouse.move(view.x + 350, view.y + 360, { steps: 4 });
+    await map.mouse.up();
+    const grace1 = await map.locator('.mx-map-pin', { hasText: 'Grace' }).boundingBox();
+    check('dragging moves the map', Math.abs(grace1.x - grace0.x - 150) < 3 && Math.abs(grace1.y - grace0.y - 60) < 3, `${Math.round(grace1.x - grace0.x)},${Math.round(grace1.y - grace0.y)}`);
+    await map.getByRole('button', { name: 'Show everyone' }).click();
+    await map.waitForTimeout(600);
+    check('"Show everyone" frames them all again', Math.abs((await spread()) - d0) < 2);
+    await map.locator('.mx-map-pin', { hasText: 'Grace' }).click();
+    check("choosing a face shows who, when, and Message", (await map.locator('.mx-map-card').innerText()).includes('Grace Mensah') && (await map.locator('.mx-map-card').innerText()).includes('Updated 5m ago') && (await map.locator('.mx-map-card').getByRole('button', { name: 'Message' }).count()) === 1);
+    await map.getByRole('button', { name: 'Show Daniel Owusu on the map' }).click();
+    await map.waitForTimeout(500);
+    check('choosing someone in the list goes to them', (await map.locator('.mx-map-card').innerText()).includes('Daniel Owusu') && (await map.locator('.mx-map-row.on').innerText()).includes('Daniel'));
+
+    // Sharing your own place
+    await map.getByRole('button', { name: 'Share my location' }).click();
+    await map.waitForSelector('.mx-map-pin.mine');
+    await map.waitForTimeout(400);
+    const mineRow = await map.evaluate(() => window.__messagesDemo.T('community_locations').find((l) => l.user_id === 'demo_me'));
+    check('sharing sends your place to mutual followers', !!mineRow && Math.abs(mineRow.lat - 6.6936) < 1e-6 && Math.abs(mineRow.lng + 1.6163) < 1e-6 && mineRow.audience === 'mutuals', JSON.stringify(mineRow));
+    check('and says so', (await map.locator('.toast').filter({ hasText: 'Sharing your location with mutual followers' }).count()) === 1 && (await map.locator('.mx-map-status').innerText()).includes('Sharing your location') && (await map.locator('.mx-map-status').innerText()).includes('With mutual followers.'));
+    check('your own face shows as "You"', (await map.locator('.mx-map-pin.mine .mx-map-label').innerText()) === 'You');
+    await map.getByRole('button', { name: 'Location sharing settings' }).click();
+    await map.waitForSelector('.mx-map-settings');
+    check('the settings show sharing on, updated just now', (await map.locator('.mx-map-settings').getByRole('switch', { name: 'Share my location' }).getAttribute('aria-checked')) === 'true' && (await map.locator('.mx-map-set-text').innerText()).includes('On · updated just now'));
+    check('and how long it lasts', (await map.locator('.mx-map-how').innerText()).includes('stays on until you turn it off'));
+    await map.locator('.mx-map-settings').getByRole('radio', { name: /^Close friends/ }).click();
+    await map.waitForTimeout(500);
+    check('who can see it changes straight away', (await map.evaluate(() => window.__messagesDemo.T('community_locations').find((l) => l.user_id === 'demo_me')?.audience)) === 'close_friends' && (await map.locator('.mx-map-settings').getByRole('radio', { name: /^Close friends/ }).getAttribute('aria-checked')) === 'true');
+    await snap(map, 'map-settings-dark');
+    await map.keyboard.press('Escape');
+    await map.locator('.mx-map-pin.mine').click();
+    check('your face shows who sees it', (await map.locator('.mx-map-card').innerText()).includes('Sharing with close friends'));
+    await map.getByRole('button', { name: 'Show Daniel Owusu on the map' }).click();
+    await map.waitForTimeout(500);
+    await snap(map, 'map-dark');
+    await map.locator('.mx-map-card').getByRole('button', { name: 'Message' }).click();
+    await map.waitForFunction(() => location.hash === '#/direct/t/t2');
+    check('Message opens the chat with them', true);
+    await map.evaluate(() => (location.hash = '#/map'));
+    await map.waitForSelector('.mx-map-pin.mine');
+    await map.getByRole('button', { name: 'Stop sharing' }).click();
+    await map.waitForSelector('.mx-map-pin.mine', { state: 'detached' });
+    check('stopping takes your place off the map and the server', (await map.evaluate(() => window.__messagesDemo.T('community_locations').some((l) => l.user_id === 'demo_me'))) === false && (await map.locator('.mx-map-status').innerText()).includes('Your location is off'));
+    // White
+    await map.evaluate(() => localStorage.setItem('community.appearance', 'white'));
+    await map.reload();
+    await map.waitForSelector('.mx-map-pin');
+    await map.getByRole('button', { name: 'Share my location' }).click();
+    await map.waitForSelector('.mx-map-pin.mine');
+    await map.locator('.mx-map-pin', { hasText: 'Grace' }).click();
+    await map.waitForTimeout(400);
+    check('the map follows White', (await map.locator('.mx-map-side').evaluate((el) => getComputedStyle(el.closest('body')).backgroundColor)) === 'rgb(255, 255, 255)');
+    await snap(map, 'map-white');
+    await map.context().close();
+
+    // Without location access, sharing explains how to allow it.
+    await goto('/map', 900);
+    await page.getByRole('button', { name: 'Share my location' }).click();
+    await page.waitForSelector('.mx-map-problem', { timeout: 8000 }).catch(() => {});
+    check('without location access, it says how to allow it', (await text('.mx-map-problem')).startsWith('Location access is off for Community.'), await text('.mx-map-problem'));
 
     check('no script errors', errors.length === 0, errors.join(' | '));
   } catch (e) {

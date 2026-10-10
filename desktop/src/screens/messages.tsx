@@ -58,9 +58,15 @@ export function Messages({ path, openPost }: { path: string; openPost: (id: stri
       <section className="threads">
         <header className="threads-head">
           <h2>{me.username}</h2>
-          <button className="icon-btn" aria-label="New message" onClick={() => nav('/direct/new')}>
-            <Icon name="newchat" size={24} />
-          </button>
+          <span className="mx-head-btns">
+            {/* The friends' map: where friends who share their location are (as on the iPhone's inbox). */}
+            <button className="icon-btn" aria-label="Map" title="Map: where your friends are" onClick={() => nav('/map')}>
+              <Icon name="location" size={24} />
+            </button>
+            <button className="icon-btn" aria-label="New message" onClick={() => nav('/direct/new')}>
+              <Icon name="newchat" size={24} />
+            </button>
+          </span>
         </header>
         <label className="mx-search">
           <Icon name="search" size={16} />
