@@ -228,7 +228,9 @@ async function newPage(browser, base, errors) {
     await page.reload();
     await page.waitForSelector('.st-languages');
     check('the language choice is kept after a reload', await page.getByRole('radio', { name: 'Français' }).isChecked());
-    await page.getByRole('radio', { name: "Use this computer's language" }).check();
+    check('and the app is in French', (await title()) === 'Langue');
+    // The page is in French now, so the computer's language (the first choice) is found by its place.
+    await page.locator('input[name=language]').first().check();
 
     // Creator subscriptions
     await goto('/accounts/subscriptions');

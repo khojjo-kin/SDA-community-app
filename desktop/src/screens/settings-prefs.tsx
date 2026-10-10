@@ -7,6 +7,7 @@ import { LANGUAGES, languageName } from 'shared/i18n';
 import { loadPrefs, setPrefs, usePrefs } from 'shared/prefs';
 import { setAppearance, useAppearance } from '../lib/appearance';
 import { useMe } from '../lib/me';
+import { languageCode, t } from '../lib/i18n';
 import { Icon, Modal, toastError } from '../ui/kit';
 import { FontChooser, WallpaperRow } from './settings-media';
 import { Block, Card, LinkRow, Notice, Page, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
@@ -24,22 +25,60 @@ function computerLanguage(): string {
 
 /* ---------- Content preferences ---------- */
 
-/** Church topics to start from: the iPhone's list. What is saved is the English name. */
-const SUGGESTED = ['Worship music', 'Hymns', 'Sermons', 'Bible study', 'Prayer', 'Youth', 'Pathfinders', 'Health', 'Cooking', 'Family', 'Mission stories', 'Choir', 'Testimonies', 'Creation and nature', 'Sabbath School', "Children's stories"];
+/**
+ * Church topics to start from: the iPhone's list. `label` is the English name, which is what is saved
+ * (so a topic stays chosen when the language changes); `name` and `phrase` are the iPhone's keys for
+ * showing it: on its chip, and in the middle of a sentence.
+ */
+const SUGGESTED: { label: string; name: string; phrase: string }[] = [
+  { label: 'Worship music', name: 'feed.topic.worshipMusic', phrase: 'feed.topicIn.worshipMusic' },
+  { label: 'Hymns', name: 'feed.topic.hymns', phrase: 'feed.topicIn.hymns' },
+  { label: 'Sermons', name: 'feed.topic.sermons', phrase: 'feed.topicIn.sermons' },
+  { label: 'Bible study', name: 'feed.topic.bibleStudy', phrase: 'feed.topicIn.bibleStudy' },
+  { label: 'Prayer', name: 'feed.topic.prayer', phrase: 'feed.topicIn.prayer' },
+  { label: 'Youth', name: 'feed.topic.youth', phrase: 'feed.topicIn.youth' },
+  { label: 'Pathfinders', name: 'feed.topic.pathfinders', phrase: 'feed.topicIn.pathfinders' },
+  { label: 'Health', name: 'feed.topic.health', phrase: 'feed.topicIn.health' },
+  { label: 'Cooking', name: 'feed.topic.cooking', phrase: 'feed.topicIn.cooking' },
+  { label: 'Family', name: 'feed.topic.family', phrase: 'feed.topicIn.family' },
+  { label: 'Mission stories', name: 'feed.topic.missionStories', phrase: 'feed.topicIn.missionStories' },
+  { label: 'Choir', name: 'feed.topic.choir', phrase: 'feed.topicIn.choir' },
+  { label: 'Testimonies', name: 'feed.topic.testimonies', phrase: 'feed.topicIn.testimonies' },
+  { label: 'Creation and nature', name: 'feed.topic.creation', phrase: 'feed.topicIn.creation' },
+  { label: 'Sabbath School', name: 'feed.topic.sabbathSchool', phrase: 'feed.topicIn.sabbathSchool' },
+  { label: "Children's stories", name: 'feed.topic.childrensStories', phrase: 'feed.topicIn.childrensStories' },
+];
 const MAX_TOPICS = 20;
 const MAX_TOPIC_LENGTH = 30;
 
 const sameTopic = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-/** A topic in the middle of a sentence: "hymns", but "Bible study" and "Sabbath School" keep their capitals. */
-const phrase = (t: string) => (/^(Bible|Pathfinders|Sabbath)/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
+const suggested = (topic: string) => SUGGESTED.find((s) => sameTopic(s.label, topic));
 
-/** "hymns", "hymns and youth", "hymns, youth and health", with "and 2 more" past four. */
+/** A topic as it shows on its chip: a suggested one in the app's language, the member's own as they typed it. */
+const nameOf = (topic: string) => {
+  const s = suggested(topic);
+  return s ? t(s.name) : topic;
+};
+
+/**
+ * A topic in the middle of a sentence: "hymns", but "Bible study" and "Sabbath School" keep their
+ * capitals. The member's own topics are written small only in English; other languages keep them as typed.
+ */
+const phrase = (topic: string) => {
+  const s = suggested(topic);
+  if (s) return t(s.phrase);
+  if (languageCode() !== 'en') return topic;
+  return /^(Bible|Pathfinders|Sabbath)/.test(topic) ? topic : topic.charAt(0).toLowerCase() + topic.slice(1);
+};
+
+/** "hymns", "hymns and youth", "hymns, youth and health", with "and 2 more" past four (the iPhone's words). */
 function listOf(items: string[]): string {
   const shown = items.slice(0, 4);
   const extra = items.length - shown.length;
-  if (extra > 0) return `${shown.join(', ')} and ${extra} more`;
+  const comma = t('feed.listComma');
+  if (extra > 0) return t('feed.listMore', { items: shown.join(comma), count: extra });
   if (shown.length === 1) return shown[0];
-  return `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+  return t('feed.listAnd', { items: shown.slice(0, -1).join(comma), last: shown[shown.length - 1] });
 }
 
 type Which = 'more' | 'less';
@@ -77,15 +116,15 @@ export function ContentPrefs() {
     const topic = raw.trim().replace(/\s+/g, ' ').slice(0, MAX_TOPIC_LENGTH);
     if (!topic) return;
     const list = which === 'more' ? more : less;
-    if (list.some((t) => sameTopic(t, topic))) return;
-    if (list.length >= MAX_TOPICS) return toastError(new Error(`You can choose up to ${MAX_TOPICS} topics.`));
-    const other = (which === 'more' ? less : more).filter((t) => !sameTopic(t, topic));
+    if (list.some((x) => sameTopic(x, topic))) return;
+    if (list.length >= MAX_TOPICS) return toastError(new Error(t('feed.maxTopics', { count: MAX_TOPICS })));
+    const other = (which === 'more' ? less : more).filter((x) => !sameTopic(x, topic));
     if (which === 'more') setTopics([...more, topic], other);
     else setTopics(other, [...less, topic]);
   }
   function remove(which: Which, topic: string) {
-    if (which === 'more') setTopics(more.filter((t) => t !== topic), less);
-    else setTopics(more, less.filter((t) => t !== topic));
+    if (which === 'more') setTopics(more.filter((x) => x !== topic), less);
+    else setTopics(more, less.filter((x) => x !== topic));
   }
   function chooseFilter(next: 'less' | 'standard') {
     if (next === filter) return;
@@ -99,14 +138,14 @@ export function ContentPrefs() {
     return (
       <Block title={title}>
         <div className="st-chips" data-list={which}>
-          {topics.map((t) => (
-            <button key={t} className="st-chip topic" onClick={() => remove(which, t)} aria-label={`Remove ${t}`}>
-              {t} <Icon name="close" size={14} stroke={2.4} />
+          {topics.map((topic) => (
+            <button key={topic} className="st-chip topic" onClick={() => remove(which, topic)} aria-label={t('d.settings-more.removeTopic', { topic: nameOf(topic) })}>
+              {nameOf(topic)} <Icon name="close" size={14} stroke={2.4} />
             </button>
           ))}
           {topics.length < MAX_TOPICS ? (
-            <button className="st-chip add" onClick={() => setAdding(which)} aria-label={which === 'more' ? 'Add a topic to see more of' : 'Add a topic to see less of'}>
-              <Icon name="plus" size={15} stroke={2.4} /> Add
+            <button className="st-chip add" onClick={() => setAdding(which)} aria-label={which === 'more' ? t('feed.addMore') : t('feed.addLess')}>
+              <Icon name="plus" size={15} stroke={2.4} /> {t('feed.add')}
             </button>
           ) : null}
         </div>
@@ -115,33 +154,33 @@ export function ContentPrefs() {
   };
   const list = adding === 'less' ? less : more;
   return (
-    <Page title="Content preferences" intro="What you see more and less of in For you, Explore and Shorts. Your own posts and the people you follow always show.">
+    <Page title={t('d.settings-more.contentTitle')} intro={t('d.settings-more.contentIntro')}>
       <div className="st-summary">
         <Icon name="sparkle" size={22} />
-        <b>{more.length ? `Lately you're into ${listOf(more.map(phrase))}.` : "Tell us what you'd like to see."}</b>
+        <b>{more.length ? t('feed.summary', { topics: listOf(more.map(phrase)) }) : t('feed.summaryEmpty')}</b>
       </div>
-      {section('more', 'What you want to see more of')}
-      {section('less', 'What you want to see less of')}
-      <Block title="Sensitive content" note={restricted ? 'Members under 14 never see posts marked as sensitive.' : 'Less hides posts marked as sensitive from For you, Explore and Shorts.'}>
+      {section('more', t('feed.moreTitle'))}
+      {section('less', t('feed.lessTitle'))}
+      <Block title={t('feed.sensitive')} note={restricted ? t('d.settings-more.sensitiveUnder14') : t('d.settings-more.sensitiveLess')}>
         <Card>
-          <RadioRow name="sensitive" title="Standard" checked={!restricted && filter === 'standard'} disabled={restricted} onChange={() => chooseFilter('standard')} />
-          <RadioRow name="sensitive" title="Less" checked={restricted || filter === 'less'} disabled={restricted} onChange={() => chooseFilter('less')} />
+          <RadioRow name="sensitive" title={t('feed.standard')} checked={!restricted && filter === 'standard'} disabled={restricted} onChange={() => chooseFilter('standard')} />
+          <RadioRow name="sensitive" title={t('feed.less')} checked={restricted || filter === 'less'} disabled={restricted} onChange={() => chooseFilter('less')} />
         </Card>
       </Block>
-      <Block title="Shorts">
+      <Block title={t('tabs.clips')}>
         <Card>
-          <LinkRow icon="reels" title="Shorts settings" sub="Sound, captions and the language captions are shown in." to="/accounts/shorts" />
+          <LinkRow icon="reels" title={t('d.settings-more.shortsSettings')} sub={t('d.settings-more.shortsSettingsSub')} to="/accounts/shorts" />
         </Card>
       </Block>
       {adding ? (
-        <Modal title={adding === 'more' ? 'See more of' : 'See less of'} onClose={() => { setAdding(null); setCustom(''); }} wide>
+        <Modal title={adding === 'more' ? t('feed.seeMoreOf') : t('feed.seeLessOf')} onClose={() => { setAdding(null); setCustom(''); }} wide>
           <div className="st-modal-body">
             <div className="st-chips">
               {SUGGESTED.map((s) => {
-                const on = list.some((t) => sameTopic(t, s));
+                const on = list.some((x) => sameTopic(x, s.label));
                 return (
-                  <button key={s} className={'st-chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => (on ? remove(adding, list.find((t) => sameTopic(t, s))!) : add(adding, s))}>
-                    {on ? <Icon name="check" size={14} stroke={2.6} /> : null} {s}
+                  <button key={s.label} className={'st-chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => (on ? remove(adding, list.find((x) => sameTopic(x, s.label))!) : add(adding, s.label))}>
+                    {on ? <Icon name="check" size={14} stroke={2.6} /> : null} {t(s.name)}
                   </button>
                 );
               })}
@@ -154,13 +193,13 @@ export function ContentPrefs() {
                 setCustom('');
               }}
             >
-              <input className="st-input" value={custom} maxLength={MAX_TOPIC_LENGTH} placeholder="Something else? Type a topic" aria-label="Your own topic" onChange={(e) => setCustom(e.target.value)} />
+              <input className="st-input" value={custom} maxLength={MAX_TOPIC_LENGTH} placeholder={t('d.settings-more.somethingElse')} aria-label={t('feed.ownTopic')} onChange={(e) => setCustom(e.target.value)} />
               <button className="btn" disabled={!custom.trim()}>
-                Add
+                {t('feed.add')}
               </button>
             </form>
             <button className="btn block big quiet" onClick={() => { setAdding(null); setCustom(''); }}>
-              Done
+              {t('feed.done')}
             </button>
           </div>
         </Modal>
@@ -174,11 +213,11 @@ export function ContentPrefs() {
 export function LikeCounts() {
   const [on, set] = useProfileFlag('show_view_counts');
   return (
-    <Page title="Like and share counts">
+    <Page title={t('d.settings-more.likeCounts')}>
       <Card>
-        <ToggleRow title="Show view counts" sub="Others see how many people viewed your posts and Shorts on your profile. Turn this off to keep the numbers to yourself." on={on} onChange={set} />
+        <ToggleRow title={t('d.settings-more.showViewCounts')} sub={t('d.settings-more.showViewCountsSub')} on={on} onChange={set} />
       </Card>
-      <p className="st-text st-gap-top">You can also hide the like count on any post when you share it. You always see your own numbers in your dashboard.</p>
+      <p className="st-text st-gap-top">{t('d.settings-more.likeCountsNote')}</p>
     </Page>
   );
 }
@@ -188,9 +227,9 @@ export function LikeCounts() {
 export function ChatStreaks() {
   const [on, set] = useProfileFlag('streaks_enabled');
   return (
-    <Page title="Chat streaks">
+    <Page title={t('settings.chatStreaks')}>
       <Card>
-        <ToggleRow icon="flame" title="Chat streaks" sub="Show how many days in a row you and a friend have chatted. If either of you turns this off, neither sees the streak." on={on} onChange={set} />
+        <ToggleRow icon="flame" title={t('settings.chatStreaks')} sub={t('settings.chatStreaksSub')} on={on} onChange={set} />
       </Card>
     </Page>
   );
@@ -201,15 +240,15 @@ export function ChatStreaks() {
 export function Appearance() {
   const look = useAppearance();
   return (
-    <Page title="Appearance" intro="Kept on this computer. Photos, videos, stories, Shorts, calls and live stay dark in both.">
+    <Page title={t('d.settings-more.appearance')} intro={t('d.settings-more.appearanceIntro')}>
       <Card>
-        <RadioRow name="appearance" icon="moon" title="Dark" checked={look === 'dark'} onChange={() => setAppearance('dark')} />
-        <RadioRow name="appearance" icon="sun" title="White" checked={look === 'white'} onChange={() => setAppearance('white')} />
+        <RadioRow name="appearance" icon="moon" title={t('theme.dark')} checked={look === 'dark'} onChange={() => setAppearance('dark')} />
+        <RadioRow name="appearance" icon="sun" title={t('theme.white')} checked={look === 'white'} onChange={() => setAppearance('white')} />
       </Card>
-      <Block title="App font" note="The face the whole app is set in. Photos, videos and the Community wordmark keep their own.">
+      <Block title={t('settings.appFont')} note={t('d.settings-more.appFontNote')}>
         <FontChooser />
       </Block>
-      <Block title="Chats">
+      <Block title={t('d.settings-more.chats')}>
         <Card>
           <WallpaperRow />
         </Card>
@@ -223,11 +262,11 @@ export function Appearance() {
 export function Archiving() {
   const { me } = useMe();
   return (
-    <Page title="Archiving" intro="Your stories, saved posts and what you've done on Community, all in one place. Only you can see them.">
+    <Page title={t('d.settings-more.archiving')} intro={t('d.settings-more.archivingIntro')}>
       <Card>
-        <LinkRow icon="archive" title="Stories archive" sub="Every story you've shared is kept here after 24 hours. Make highlights from it." to="/archive" />
-        <LinkRow icon="bookmark" title="Saved" sub="Posts and Shorts you've saved." to={'/u/' + me.username + '/saved'} />
-        <LinkRow icon="activity" title="Your activity" sub="Your likes, comments and account history." to="/activity" />
+        <LinkRow icon="archive" title={t('d.settings-more.storiesArchive')} sub={t('d.settings-more.storiesArchiveSub')} to="/archive" />
+        <LinkRow icon="bookmark" title={t('settings.saved')} sub={t('d.settings-more.savedSub')} to={'/u/' + me.username + '/saved'} />
+        <LinkRow icon="activity" title={t('settings.yourActivity')} sub={t('d.settings-more.activitySub')} to="/activity" />
       </Card>
     </Page>
   );
@@ -242,10 +281,10 @@ export function Language() {
   // A language is found by its own name, its English name or its code ("fr").
   const shown = n ? LANGUAGES.filter((l) => `${l.native} ${l.name} ${l.code}`.toLowerCase().includes(n)) : LANGUAGES;
   return (
-    <Page title="Language" intro="The Community app's language. Community for desktop is in English for now: your choice is kept on this computer for when more of it is translated. The iPhone app has its own Language setting.">
-      <input className="st-input st-search-input" placeholder="Search languages" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search languages" />
+    <Page title={t('language.title')} intro={t('d.settings-more.languageIntro')}>
+      <input className="st-input st-search-input" placeholder={t('language.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('language.search')} />
       <Card>
-        <RadioRow name="language" title="Use this computer's language" sub={'Community in ' + languageName(computerLanguage())} checked={language === ''} onChange={() => setPrefs({ language: '' })} />
+        <RadioRow name="language" title={t('d.settings-more.computerLanguage')} sub={t('d.settings-more.computerLanguageSub', { name: languageName(computerLanguage()) })} checked={language === ''} onChange={() => setPrefs({ language: '' })} />
       </Card>
       {shown.length ? (
         <Card className="st-languages">
@@ -254,7 +293,7 @@ export function Language() {
           ))}
         </Card>
       ) : (
-        <p className="st-empty-line">No languages found. Try a different name.</p>
+        <p className="st-empty-line">{t('d.settings-more.noLanguages')}</p>
       )}
     </Page>
   );
@@ -289,12 +328,13 @@ function setReduceMotion(on: boolean) {
   motionListeners.forEach((l) => l());
 }
 
-const SHORTCUTS: [string, string][] = [
-  ['⌘ N  or  Ctrl N', 'New post'],
-  ['⌘ K  or  Ctrl K', 'Search'],
-  ['← →', 'Previous and next story'],
-  ['Esc', 'Close a dialog, menu or story'],
-  ['Tab', 'Move between buttons and fields'],
+/** The keys on a Mac, the keys on another computer (or '' when they are the same), and what they do (a key). */
+const SHORTCUTS: [string, string, string][] = [
+  ['⌘ N', 'Ctrl N', 'create.newPost'],
+  ['⌘ K', 'Ctrl K', 'common.search'],
+  ['← →', '', 'd.settings-more.shortcutStory'],
+  ['Esc', '', 'd.settings-more.shortcutClose'],
+  ['Tab', '', 'd.settings-more.shortcutTab'],
 ];
 
 export function Accessibility() {
@@ -307,23 +347,23 @@ export function Accessibility() {
   );
   useEffect(() => applyMotion(), []);
   return (
-    <Page title="Accessibility">
+    <Page title={t('d.settings-more.accessibility')}>
       <Card>
-        <ToggleRow icon="access" title="Reduce motion" sub="Turns off animations such as zooming dialogs, sliding panels and fading pictures. Your computer's own reduce motion setting is followed too." on={on} onChange={setReduceMotion} />
+        <ToggleRow icon="access" title={t('d.settings-more.reduceMotion')} sub={t('d.settings-more.reduceMotionSub')} on={on} onChange={setReduceMotion} />
       </Card>
-      <Block title="Keyboard shortcuts">
+      <Block title={t('d.settings-more.shortcuts')}>
         <Card>
-          {SHORTCUTS.map(([keys, what]) => (
+          {SHORTCUTS.map(([mac, pc, what]) => (
             <div key={what} className="st-row st-fact">
               <span className="st-row-text">
-                <b>{what}</b>
+                <b>{t(what)}</b>
               </span>
-              <kbd className="st-kbd">{keys}</kbd>
+              <kbd className="st-kbd">{pc ? t('d.settings-more.keysOr', { mac, pc }) : mac}</kbd>
             </div>
           ))}
         </Card>
       </Block>
-      <Notice icon="text">To make everything larger, use your browser's or the Mac's zoom: ⌘ and + to zoom in, ⌘ and − to zoom out.</Notice>
+      <Notice icon="text">{t('d.settings-more.zoomNote')}</Notice>
     </Page>
   );
 }
