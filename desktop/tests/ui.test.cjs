@@ -97,8 +97,8 @@ const check = (label, ok, extra) => {
   await wait(1200);
   check('sharing a post confirms it was sent', (await page.locator('.toast').filter({ hasText: 'Sent' }).count()) >= 1);
 
-  // Stories
-  await page.locator('.tray-item').nth(1).locator('button').first().click();
+  // Stories (people who are live come first in the tray, then mine: open someone else's story)
+  await page.locator('.tray-item:not(.is-live):not(.is-me)').first().locator('button').first().click();
   await page.waitForSelector('.story-stage');
   check('story viewer opens with progress bars', (await page.locator('.story-stage .bars span').count()) >= 1);
   await page.getByLabel('Reply').fill('Lovely!');
@@ -171,8 +171,13 @@ const check = (label, ok, extra) => {
   await page.locator('.create-head').getByRole('button', { name: 'Share' }).click();
   await page.waitForSelector('.tray', { timeout: 15000 });
   await wait(800);
-  await page.locator('.tray-item').first().locator('button').first().click();
+  await page.locator('.tray-item.is-me').locator('button').first().click();
   await page.waitForSelector('.story-stage');
+  // My stories play from the first one not yet watched here; the new one comes after the sample one.
+  for (let i = 0; i < 3 && !(await page.locator('.story-caption').filter({ hasText: 'My first desktop story' }).count()); i++) {
+    await page.keyboard.press('ArrowRight');
+    await wait(300);
+  }
   check('my story plays with its caption', (await page.locator('.story-caption').filter({ hasText: 'My first desktop story' }).count()) === 1);
   check('my story shows who has seen it', (await page.locator('.seen-by').count()) === 1);
   await page.keyboard.press('Escape');
