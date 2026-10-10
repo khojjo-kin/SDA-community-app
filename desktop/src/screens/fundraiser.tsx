@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { closeFundraiser, createFundraiser, deleteFundraiser, fetchFundraiser, fetchPayouts, fetchSupporters, refreshFundraiserReady, settlePayment, startDonation, updateFundraiser, uploadImage, type FundraiserInput } from 'shared/api';
 import { ago, errText } from 'shared/theme';
 import type { Fundraiser, PayoutStatus, Supporter } from 'shared/types';
+import { t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { money } from '../lib/pay';
 import { nav, parts, useRoute } from '../lib/router';
@@ -18,7 +19,8 @@ import { PayoutBox } from './pro-money';
 const PRESETS = [500, 1000, 2000, 5000];
 const MIN_GIFT = 100;
 const MAX_GIFT = 1_000_000;
-const GIVING_NOW = "Someone is giving right now, so it can't be deleted. You can end it instead.";
+/** The key of the words for a fundraiser that can't be deleted because a gift is being paid. */
+const GIVING_NOW = 'd.plus.givingNow';
 
 export function FundraiserPage({ id }: { id?: string }) {
   const route = useRoute();
@@ -58,7 +60,7 @@ function FundraiserView({ id }: { id: string }) {
 
   if (data.error && !data.data) return <Failed error={data.error} retry={data.reload} />;
   if (!data.data) return <Spinner />;
-  if (!f) return <Empty icon="heart" title="This fundraiser isn't available" body="It may have been deleted." />;
+  if (!f) return <Empty icon="heart" title={t('d.plus.fundUnavailable')} body={t('d.plus.mayBeDeleted')} />;
 
   const mine = f.user_id === me.id;
   const ended = hasEnded(f);
@@ -66,19 +68,21 @@ function FundraiserView({ id }: { id: string }) {
   const pct = Math.round(progressOf(f) * 100);
   const supporters = data.data.supporters;
   const name = f.full_name || f.username;
+  // "£195.00 raised of £500.00", with the amount raised in bold wherever it sits in the sentence.
+  const [raisedBefore, raisedAfter] = tSplit('d.plus.raisedOf', 'raised', { goal: money(f.goal_pence, f.currency) });
 
   const share = async () => {
     const link = `${location.origin}${location.pathname}#/fundraisers/${f.id}`;
-    toast((await copyText(link)) ? 'Link copied' : link);
+    toast((await copyText(link)) ? t('d.plus.linkCopied') : link);
   };
   const end = async () => {
     if (working) return;
-    const sure = await ask('End this fundraiser?', 'It will stop taking gifts and come off your profile. Gifts already made are not affected. This cannot be undone.', 'End fundraiser');
+    const sure = await ask(t('d.plus.endQ'), t('d.plus.endBody'), t('d.plus.endFundraiser'));
     if (!sure) return;
     setWorking(true);
     try {
       await closeFundraiser(f.id);
-      toast('Fundraiser ended');
+      toast(t('d.plus.ended'));
       data.reload();
     } catch (e) {
       toastError(e);
@@ -89,7 +93,7 @@ function FundraiserView({ id }: { id: string }) {
   const remove = async () => {
     // Only offered while nobody has given; once someone has, it can be ended instead.
     if (working || f.raised_pence > 0 || f.donor_count > 0) return;
-    const sure = await ask('Delete this fundraiser?', 'Nobody has given yet, so it can be removed completely.', 'Delete');
+    const sure = await ask(t('d.plus.deleteQ'), t('d.plus.deleteBody'), t('common.delete'));
     if (!sure) return;
     setWorking(true);
     let failure: unknown = null;
@@ -102,11 +106,11 @@ function FundraiserView({ id }: { id: string }) {
     const still = await fetchFundraiser(f.id).catch(() => undefined);
     setWorking(false);
     if (still || (still === undefined && failure)) {
-      toast(still ? GIVING_NOW : errText(failure));
+      toast(still ? t(GIVING_NOW) : errText(failure));
       if (still) data.reload();
       return;
     }
-    toast('Fundraiser deleted');
+    toast(t('d.plus.deleted'));
     nav('/dashboard/fundraisers');
   };
 
@@ -123,15 +127,15 @@ function FundraiserView({ id }: { id: string }) {
                 {name}
                 {f.verified ? <Verified /> : null}
               </b>
-              <span>Organiser · @{f.username}</span>
+              <span>{t('d.plus.organiser', { username: f.username })}</span>
             </span>
             <Icon name="right" size={18} />
           </Link>
           {f.description ? <p className="pro-fund-story">{f.description}</p> : null}
 
-          <h2 className="pro-fund-h">Recent supporters</h2>
+          <h2 className="pro-fund-h">{t('d.plus.recentSupporters')}</h2>
           {supporters.length ? (
-            <ul className="pro-supporters" aria-label="Recent supporters">
+            <ul className="pro-supporters" aria-label={t('d.plus.recentSupporters')}>
               {supporters.map((s) => (
                 <li key={s.id}>
                   {s.username ? (
@@ -143,7 +147,7 @@ function FundraiserView({ id }: { id: string }) {
                   )}
                   <div className="grow">
                     <div className="pro-supporter-top">
-                      <b>{s.username ? s.full_name || s.username : 'Anonymous'}</b>
+                      <b>{s.username ? s.full_name || s.username : t('d.plus.anonymous')}</b>
                       <span className="muted-text small">{ago(s.created_at)}</span>
                     </div>
                     <span className="pro-ok-text pro-gift">{money(s.amount_pence, s.currency)}</span>
@@ -153,25 +157,27 @@ function FundraiserView({ id }: { id: string }) {
               ))}
             </ul>
           ) : (
-            <p className="muted-text">{ended ? 'Nobody gave to this fundraiser.' : 'No gifts yet. Be the first to give.'}</p>
+            <p className="muted-text">{ended ? t('d.plus.nobodyGave') : t('d.plus.noGifts')}</p>
           )}
         </div>
 
         <aside className="pro-fund-side">
           <div className="pro-fund-card">
             <p className="pro-raised">
-              <strong>{money(f.raised_pence, f.currency)}</strong> raised of {money(f.goal_pence, f.currency)}
+              {raisedBefore}
+              <strong>{money(f.raised_pence, f.currency)}</strong>
+              {raisedAfter}
             </p>
             <ProgressBar value={progressOf(f)} height={10} />
             <div className="pro-fund-meta">
-              <span>{f.donor_count === 1 ? '1 supporter' : `${f.donor_count.toLocaleString('en-GB')} supporters`}</span>
+              <span>{tn('d.plus.supporters', f.donor_count)}</span>
               <span>{pct}%</span>
             </div>
             {ended ? (
-              <p className="pro-fund-ended">This fundraiser has ended{f.status !== 'closed' && f.ends_at ? ` (${shortDay(f.ends_at)})` : ''}.</p>
+              <p className="pro-fund-ended">{f.status !== 'closed' && f.ends_at ? t('d.plus.endedOn', { day: shortDay(f.ends_at) }) : t('d.plus.endedDot')}</p>
             ) : f.ends_at ? (
               <p className="muted-text pro-fund-ends">
-                <Icon name="clock" size={16} /> Ends {longDay(f.ends_at)}
+                <Icon name="clock" size={16} /> {t('creatorSubs.ends', { day: longDay(f.ends_at) })}
               </p>
             ) : null}
 
@@ -179,54 +185,54 @@ function FundraiserView({ id }: { id: string }) {
               <>
                 {!ended && !f.accepting ? (
                   <Notice kind="warn">
-                    Not taking donations yet. Set up payouts so gifts can reach you.
+                    {t('d.plus.notTakingYet')}
                     <button className="btn small pro-notice-btn" onClick={() => setPayouts(true)}>
-                      Set up payouts
+                      {t('creatorSubs.setUpPayouts')}
                     </button>
                   </Notice>
                 ) : null}
                 <div className="pro-btns">
                   <button className="btn quiet grow" onClick={() => nav(`/fundraisers/${f.id}/edit`)}>
-                    Edit
+                    {t('liveSchedule.edit')}
                   </button>
                   <button className="btn quiet grow" onClick={share}>
-                    Share
+                    {t('common.share')}
                   </button>
                 </div>
                 {f.accepting ? (
                   <button className="link-btn" onClick={() => setPayouts(true)}>
-                    Payouts
+                    {t('creatorSubs.payouts')}
                   </button>
                 ) : null}
                 {!ended ? (
                   <button className="btn danger-outline block" disabled={working} onClick={end}>
-                    End fundraiser
+                    {t('d.plus.endFundraiser')}
                   </button>
                 ) : null}
                 {f.raised_pence === 0 && f.donor_count === 0 ? (
                   <button className="link-btn danger pro-center" disabled={working} onClick={remove}>
-                    Delete fundraiser
+                    {t('d.plus.deleteFundraiser')}
                   </button>
                 ) : null}
               </>
             ) : (
               <>
                 <button className="btn block big" disabled={!open} onClick={() => setGiving(true)}>
-                  {ended ? 'This fundraiser has ended' : open ? 'Donate' : 'Not taking donations yet'}
+                  {ended ? t('d.plus.hasEnded') : open ? t('liveSetup.donate') : t('d.plus.notTaking')}
                 </button>
                 <button className="btn quiet block" onClick={share}>
-                  <Icon name="link" size={16} /> Share
+                  <Icon name="link" size={16} /> {t('common.share')}
                 </button>
               </>
             )}
-            <p className="pro-terms">The whole of every gift goes to {mine ? 'you' : name} through Stripe. Community takes no fee.</p>
+            <p className="pro-terms">{mine ? t('d.plus.wholeGiftYou') : t('d.plus.wholeGiftName', { name })}</p>
           </div>
         </aside>
       </div>
 
       {giving ? <DonateDialog f={f} onClose={() => setGiving(false)} onGiven={data.reload} /> : null}
       {payouts ? (
-        <Modal title="Payouts" onClose={() => setPayouts(false)} className="pro-modal">
+        <Modal title={t('creatorSubs.payouts')} onClose={() => setPayouts(false)} className="pro-modal">
           <div className="pro-modal-body">
             <PayoutBox
               onChange={(s: PayoutStatus) => {
@@ -264,12 +270,12 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
       const r = await startDonation(f.id, gift!, message.trim(), anonymous);
       const total = money(r.amount, r.currency);
       setPaying(true);
-      const paid = await pay({ title: `Gift to “${f.title}”`, detail: `${oneOff(total)} All of it goes to ${f.full_name || f.username}.`, amountPence: r.amount, currency: r.currency, clientSecret: r.client_secret, intent: 'payment', action: `Give ${total}` });
+      const paid = await pay({ title: t('d.plus.giftTo', { title: f.title }), detail: `${oneOff(total)} ${t('d.plus.allGoesTo', { name: f.full_name || f.username })}`, amountPence: r.amount, currency: r.currency, clientSecret: r.client_secret, intent: 'payment', action: t('d.plus.giveAmount', { amount: total }) });
       setPaying(false);
       if (!paid) return;
       const settled = await settlePayment(r.payment_intent_id).catch(() => null);
       setThanks(settled?.settled ? total : '');
-      if (!settled?.settled) toast('Payment received — it may take a minute to show');
+      if (!settled?.settled) toast(t('d.plus.paymentReceived'));
       onGiven();
       if (!settled?.settled) onClose();
     } catch (e) {
@@ -281,6 +287,8 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
   };
 
   if (paying) return null;
+  // "To <the fundraiser's title, in bold>, organised by <name>."
+  const [toBefore, toAfter] = tSplit('d.plus.toOrganisedBy', 'title', { name: f.full_name || f.username });
   if (thanks) {
     return (
       <Modal onClose={onClose} className="pro-modal pro-thanks">
@@ -288,24 +296,24 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
           <span className="pro-thanks-heart">
             <Icon name="heart" size={40} fill="currentColor" stroke={0} />
           </span>
-          <h2>Thank you for your gift</h2>
-          <p className="muted-text">
-            {thanks} to “{f.title}”{anonymous ? ', given anonymously' : ''}.
-          </p>
+          <h2>{t('d.plus.thanks')}</h2>
+          <p className="muted-text">{t(anonymous ? 'd.plus.thanksLineAnon' : 'd.plus.thanksLine', { amount: thanks, title: f.title })}</p>
           <button className="btn block big" onClick={onClose}>
-            Done
+            {t('checkout.done')}
           </button>
         </div>
       </Modal>
     );
   }
   return (
-    <Modal title="Give" onClose={() => !busy && onClose()} closeOutside={!busy} className="pro-modal">
+    <Modal title={t('d.plus.give')} onClose={() => !busy && onClose()} closeOutside={!busy} className="pro-modal">
       <div className="pro-modal-body">
         <p className="muted-text">
-          To <b className="pro-fg">{f.title}</b>, organised by {f.full_name || f.username}.
+          {toBefore}
+          <b className="pro-fg">{f.title}</b>
+          {toAfter}
         </p>
-        <div className="pro-presets" role="radiogroup" aria-label="Amount">
+        <div className="pro-presets" role="radiogroup" aria-label={t('d.plus.amount')}>
           {PRESETS.map((p) => (
             <button
               key={p}
@@ -322,7 +330,7 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
           ))}
         </div>
         <label className="pro-amount-row">
-          <span className="pro-field-label">Or another amount</span>
+          <span className="pro-field-label">{t('d.plus.otherAmount')}</span>
           <span className={'pro-money-input' + (preset === null && custom ? ' on' : '')}>
             <span>£</span>
             <input
@@ -330,31 +338,33 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
               inputMode="decimal"
               placeholder="25"
               maxLength={9}
-              aria-label="Another amount in pounds"
+              aria-label={t('d.plus.otherAmountLabel')}
               onChange={(e) => {
                 setCustom(e.target.value.replace(/[^0-9.,]/g, ''));
                 setPreset(null);
               }}
             />
           </span>
-          {preset === null && custom && !ok ? <span className="form-error">{gift === null ? 'Type an amount in pounds, like 25 or 12.50.' : 'Give between £1 and £10,000.'}</span> : null}
+          {preset === null && custom && !ok ? <span className="form-error">{gift === null ? t('d.plus.amountFormat') : t('d.plus.amountRange')}</span> : null}
         </label>
         <label className="form-row">
-          <span>Message (optional)</span>
-          <textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Praying for you all" maxLength={300} />
+          <span>{t('d.plus.messageOptional')}</span>
+          <textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t('d.plus.messageHint')} maxLength={300} />
         </label>
         <div className="pro-toggle-row">
           <span className="grow">
-            <b>Give anonymously</b>
-            <span className="muted-text small">Your name won't be shown to anyone.</span>
+            <b>{t('d.plus.giveAnon')}</b>
+            <span className="muted-text small">{t('d.plus.giveAnonSub')}</span>
           </span>
-          <Toggle on={anonymous} onChange={setAnonymous} label="Give anonymously" />
+          <Toggle on={anonymous} onChange={setAnonymous} label={t('d.plus.giveAnon')} />
         </div>
         {error ? <p className="form-error">{error}</p> : null}
         <button className="btn block big" disabled={!ok || busy} onClick={give}>
-          {busy ? 'Starting payment…' : ok ? `Continue · ${amount}` : 'Continue'}
+          {busy ? t('d.plus.startingPayment') : ok ? t('d.plus.continueAmount', { amount }) : t('age.continue')}
         </button>
-        <p className="pro-terms center">{ok ? oneOff(amount) : 'A one-off gift. It doesn’t renew.'} Payments are handled by Stripe.</p>
+        <p className="pro-terms center">
+          {ok ? oneOff(amount) : t('d.plus.oneOffGift')} {t('d.plus.stripeHandles')}
+        </p>
       </div>
     </Modal>
   );
@@ -366,11 +376,12 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
 const MIN_GOAL = 100;
 const MAX_GOAL = 100_000_000;
 type Ends = 'keep' | 'none' | 7 | 30 | 90;
+/** How long a new fundraiser runs; each label is the key of its words. */
 const END_CHOICES: { value: Ends; label: string }[] = [
-  { value: 'none', label: 'No end date' },
-  { value: 7, label: '7 days' },
-  { value: 30, label: '30 days' },
-  { value: 90, label: '90 days' },
+  { value: 'none', label: 'd.plus.noEndDate' },
+  { value: 7, label: 'd.plus.days7' },
+  { value: 30, label: 'd.plus.days30' },
+  { value: 90, label: 'd.plus.days90' },
 ];
 const poundsText = (pence: number) => (pence % 100 === 0 ? String(pence / 100) : (pence / 100).toFixed(2));
 
@@ -401,22 +412,22 @@ function FundraiserForm({ editId }: { editId?: string }) {
 
   const chooseCover = (file?: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return toast('Choose a photo (JPG or PNG).');
+    if (!file.type.startsWith('image/')) return toast(t('d.plus.choosePhoto'));
     const uri = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => setCover({ uri, width: img.naturalWidth });
-    img.onerror = () => toast('That picture could not be opened. Choose another.');
+    img.onerror = () => toast(t('d.plus.photoUnreadable'));
     img.src = uri;
   };
 
   async function save() {
     if (busy) return;
-    const t = title.trim();
+    const trimmed = title.trim();
     const pence = penceFrom(goal);
     const errs: typeof errors = {};
-    if (t.length < 3 || t.length > 80) errs.title = 'Give it a title of 3 to 80 characters.';
-    if (pence === null) errs.goal = 'Type the goal in pounds, like 1000 or 1,000.';
-    else if (pence < MIN_GOAL || pence > MAX_GOAL) errs.goal = 'Set a goal between £1 and £1,000,000.';
+    if (trimmed.length < 3 || trimmed.length > 80) errs.title = t('d.plus.titleLength');
+    if (pence === null) errs.goal = t('d.plus.goalFormat');
+    else if (pence < MIN_GOAL || pence > MAX_GOAL) errs.goal = t('d.plus.goalRange');
     setErrors(errs);
     if (errs.title || errs.goal || pence === null) return;
     setBusy(true);
@@ -424,11 +435,11 @@ function FundraiserForm({ editId }: { editId?: string }) {
       // The photo is uploaded only now, so backing out of the form leaves nothing behind in storage.
       const cover_url = cover ? (await uploadImage(me.id, cover.uri, cover.width, 1200)).url : coverUrl;
       const ends_at = ends === 'keep' ? undefined : ends === 'none' ? null : new Date(Date.now() + ends * 86400e3).toISOString();
-      const fields: FundraiserInput = { title: t, description: description.trim(), goal_pence: pence, cover_url };
+      const fields: FundraiserInput = { title: trimmed, description: description.trim(), goal_pence: pence, cover_url };
       if (ends_at !== undefined) fields.ends_at = ends_at;
       if (existing.data) {
         await updateFundraiser(existing.data.id, fields);
-        toast('Fundraiser saved');
+        toast(t('d.plus.fundSaved'));
         nav('/fundraisers/' + existing.data.id);
         return;
       }
@@ -436,7 +447,7 @@ function FundraiserForm({ editId }: { editId?: string }) {
       // Donations need a payout account. If it cannot be checked, say so anyway.
       const payouts = await fetchPayouts().catch(() => null);
       if (payouts?.charges_enabled) {
-        toast('Your fundraiser is live');
+        toast(t('d.plus.fundLive'));
         nav('/fundraisers/' + id, true);
       } else {
         setStarted(id);
@@ -448,7 +459,7 @@ function FundraiserForm({ editId }: { editId?: string }) {
     }
   }
 
-  const heading = editId ? 'Edit fundraiser' : 'New fundraiser';
+  const heading = editId ? t('d.plus.editFundraiser') : t('d.plus.newFundraiser');
   if (started) {
     return (
       <div className="page pro-fund-form">
@@ -456,17 +467,17 @@ function FundraiserForm({ editId }: { editId?: string }) {
           <span className="pro-verify-tick ok">
             <GiftIcon size={44} />
           </span>
-          <h2>Your fundraiser is live</h2>
+          <h2>{t('d.plus.fundLive')}</h2>
           <p>
-            <b>Set up payouts to start receiving donations</b>
+            <b>{t('d.plus.setUpToReceive')}</b>
           </p>
-          <p className="muted-text">Gifts go straight to your own Stripe account and on to your bank. Until payouts are set up, people can see your fundraiser but can't give yet.</p>
+          <p className="muted-text">{t('d.plus.giftsStraight')}</p>
           <div className="pro-btns">
             <button className="btn big" onClick={() => nav('/dashboard/fundraisers')}>
-              Set up payouts
+              {t('creatorSubs.setUpPayouts')}
             </button>
             <button className="btn quiet big" onClick={() => nav('/fundraisers/' + started, true)}>
-              View fundraiser
+              {t('d.plus.viewFundraiser')}
             </button>
           </div>
         </div>
@@ -475,71 +486,72 @@ function FundraiserForm({ editId }: { editId?: string }) {
   }
 
   let body: React.ReactNode;
-  if (me.restricted === true) body = <Empty icon="heart" title="Fundraisers are for members 14 and over" />;
+  if (me.restricted === true) body = <Empty icon="heart" title={t('d.plus.fundAge')} />;
   else if (existing.error && !existing.data) body = <Failed error={existing.error} retry={existing.reload} />;
   else if (editId && existing.data === undefined) body = <Spinner />;
-  else if (editId && !existing.data) body = <Empty icon="heart" title="This fundraiser could not be found" body="It may have been deleted." />;
-  else if (existing.data && existing.data.user_id !== me.id) body = <Empty icon="heart" title="You can only edit your own fundraisers" />;
+  else if (editId && !existing.data) body = <Empty icon="heart" title={t('d.plus.fundNotFound')} body={t('d.plus.mayBeDeleted')} />;
+  else if (existing.data && existing.data.user_id !== me.id) body = <Empty icon="heart" title={t('d.plus.onlyOwn')} />;
   else {
     const shown = cover?.uri || coverUrl;
-    const choices: { value: Ends; label: string }[] = existing.data?.ends_at ? [{ value: 'keep', label: `Ends ${shortDay(existing.data.ends_at)}` }, ...END_CHOICES] : END_CHOICES;
+    const offered = END_CHOICES.map((c) => ({ value: c.value, label: t(c.label) }));
+    const choices: { value: Ends; label: string }[] = existing.data?.ends_at ? [{ value: 'keep', label: t('creatorSubs.ends', { day: shortDay(existing.data.ends_at) }) }, ...offered] : offered;
     body = (
       <div className="pro-form">
-        <button type="button" className={'pro-cover-pick' + (shown ? ' has' : '')} onClick={() => input.current?.click()} disabled={busy} aria-label={shown ? 'Change cover photo' : 'Add a cover photo'} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseCover(e.dataTransfer.files?.[0]); }}>
+        <button type="button" className={'pro-cover-pick' + (shown ? ' has' : '')} onClick={() => input.current?.click()} disabled={busy} aria-label={shown ? t('d.plus.changeCoverPhoto') : t('d.plus.addCoverPhoto')} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseCover(e.dataTransfer.files?.[0]); }}>
           {shown ? <img src={shown} alt="" /> : null}
           <span className="pro-cover-label">
-            <Icon name="image" size={20} /> {shown ? 'Change cover' : 'Add a cover photo'}
+            <Icon name="image" size={20} /> {shown ? t('d.plus.changeCover') : t('d.plus.addCoverPhoto')}
           </span>
-          {shown ? null : <span className="muted-text small">Optional · click or drop a picture</span>}
+          {shown ? null : <span className="muted-text small">{t('d.plus.coverHint')}</span>}
         </button>
         {shown ? (
           <button className="link-btn muted" disabled={busy} onClick={() => { setCover(null); setCoverUrl(''); }}>
-            Remove photo
+            {t('ssPub.removePhoto')}
           </button>
         ) : null}
-        <input ref={input} type="file" accept="image/*" hidden aria-label="Cover photo" onChange={(e) => { chooseCover(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={input} type="file" accept="image/*" hidden aria-label={t('d.plus.coverPhoto')} onChange={(e) => { chooseCover(e.target.files?.[0]); e.target.value = ''; }} />
 
         <label className="form-row">
-          <span>Title</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New roof for Ebenezer SDA Church" maxLength={80} autoFocus={!editId} />
+          <span>{t('ssPub.title')}</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('d.plus.titleHint')} maxLength={80} autoFocus={!editId} />
           {errors.title ? <span className="form-error">{errors.title}</span> : null}
         </label>
         <label className="form-row">
-          <span>Goal</span>
+          <span>{t('d.plus.goal')}</span>
           <span className="pro-money-input">
             <span>£</span>
-            <input value={goal} onChange={(e) => setGoal(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="1,000" inputMode="decimal" maxLength={12} aria-label="Goal in pounds" />
+            <input value={goal} onChange={(e) => setGoal(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="1,000" inputMode="decimal" maxLength={12} aria-label={t('d.plus.goalLabel')} />
           </span>
-          <span className={errors.goal ? 'form-error' : 'pro-hint'}>{errors.goal ?? 'Between £1 and £1,000,000. Gifts can go past it.'}</span>
+          <span className={errors.goal ? 'form-error' : 'pro-hint'}>{errors.goal ?? t('d.plus.goalHint')}</span>
         </label>
         <label className="form-row">
-          <span>Story</span>
-          <textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is it for, who will it help, and how will the money be used?" maxLength={2000} />
+          <span>{t('d.plus.story')}</span>
+          <textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('d.plus.storyHint')} maxLength={2000} />
           <em className="pro-count">{description.length}/2000</em>
         </label>
         <div className="form-row">
-          <span>End date</span>
-          <div className="pro-chips" role="radiogroup" aria-label="End date">
+          <span>{t('d.plus.endDate')}</span>
+          <div className="pro-chips" role="radiogroup" aria-label={t('d.plus.endDate')}>
             {choices.map((c) => (
               <button key={String(c.value)} type="button" role="radio" aria-checked={ends === c.value} className={'pro-chip' + (ends === c.value ? ' on' : '')} onClick={() => setEnds(c.value)}>
                 {c.label}
               </button>
             ))}
           </div>
-          {typeof ends === 'number' ? <span className="pro-hint">Ends on {longDay(new Date(Date.now() + ends * 86400e3))}. You can end it sooner yourself.</span> : null}
+          {typeof ends === 'number' ? <span className="pro-hint">{t('d.plus.endsOnHint', { day: longDay(new Date(Date.now() + ends * 86400e3)) })}</span> : null}
         </div>
         {errors.form ? <p className="form-error">{errors.form}</p> : null}
         <button className="btn big block" disabled={busy} onClick={save}>
-          {busy ? 'Saving…' : existing.data ? 'Save changes' : 'Start fundraiser'}
+          {busy ? t('d.plus.saving') : existing.data ? t('liveSchedule.saveChanges') : t('d.plus.startFundraiser')}
         </button>
-        <p className="pro-terms center">The whole of every gift goes to you through Stripe; Community takes no fee. Your fundraiser shows on your profile while it runs.</p>
+        <p className="pro-terms center">{t('d.plus.formTerms')}</p>
       </div>
     );
   }
   return (
     <div className="page pro-fund-form">
       <Link to={editId ? '/fundraisers/' + editId : '/dashboard/fundraisers'} className="pro-back">
-        <Icon name="back" size={18} /> {editId ? 'Fundraiser' : 'Your fundraisers'}
+        <Icon name="back" size={18} /> {editId ? t('liveSetup.fundraiser') : t('d.plus.yourFundraisers')}
       </Link>
       <h1 className="pro-title">{heading}</h1>
       {body}
