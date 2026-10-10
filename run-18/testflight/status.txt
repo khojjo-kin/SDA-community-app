@@ -1,0 +1,21 @@
+started 2026-10-10T17:44:28Z build 118
+Xcode 26.3
+Build version 17C529
+ProductName:		macOS
+ProductVersion:		15.7.9
+BuildVersion:		24G830
+npm install: 0
+expo prebuild: 0
+build
+Community
+Community.xcodeproj
+Community.xcworkspace
+Podfile
+Podfile.lock
+Podfile.properties.json
+Pods
+saved certificate: ready, profile "Kojo.SDAAPPGEMINI AppStore" expires Thu Sep 09 04:34:21 UTC 2027
+archive-unsigned: 0
+upload-saved: 0
+RESULT: uploaded to App Store Connect (signed with the saved certificate)
+finished 2026-10-10T17:52:21Z
