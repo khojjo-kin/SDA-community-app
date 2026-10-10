@@ -2,11 +2,12 @@
 // birthday, where you're logged in, the accounts on this computer, deactivating), Account status,
 // Family Centre (the under-14 rules) and About.
 import React, { useState } from 'react';
-import { activeLabel, deactivateAccount, fetchBirthDate, isOnline } from 'shared/api';
+import { deactivateAccount, fetchBirthDate, isOnline } from 'shared/api';
 import { supabase } from 'shared/supabase';
-import { agoLong } from 'shared/theme';
+import { ago } from 'shared/theme';
 import { MAX_ACCOUNTS, useAuth } from '../lib/auth';
 import type { Session } from '../lib/admin';
+import { t, tSplit, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Failed, Icon, Link, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
@@ -21,7 +22,7 @@ export function AccountsCentre() {
   const { me } = useMe();
   const auth = useAuth();
   return (
-    <Page title="Accounts Centre" intro="Your sign-in, personal details, where you're logged in and the accounts on this computer.">
+    <Page title={t('d.settings.accountsCentre')} intro={t('d.settings.accountsCentreIntro')}>
       <div className="st-profile-card">
         <Avatar src={me.avatar_url} name={me.username} size={56} />
         <span className="st-row-text">
@@ -31,33 +32,33 @@ export function AccountsCentre() {
           <span>{me.full_name}</span>
         </span>
         <Link to="/accounts/edit" className="btn quiet">
-          Edit profile
+          {t('profile.editProfile')}
         </Link>
       </div>
 
-      <Block title="Account settings">
+      <Block title={t('d.settings.accountSettings')}>
         <Card>
           <LinkRow
             icon="key"
-            title="Email, password and security"
-            sub={auth.demo ? 'In the real app this opens your sign-in account: email, password, phone number and two-step verification.' : `Change your email${auth.user?.email ? ' (' + auth.user.email + ')' : ''} or password, add a phone number and turn on two-step verification.`}
+            title={t('d.settings.security')}
+            sub={auth.demo ? t('d.settings.securityDemo') : auth.user?.email ? t('d.settings.securitySubEmail', { email: auth.user.email }) : t('d.settings.securitySub')}
             external
             testId="clerk-account"
-            onClick={() => (auth.demo ? toast('The demo has no sign-in service. In the real app this opens your account settings.') : auth.openAccount())}
+            onClick={() => (auth.demo ? toast(t('d.settings.securityDemoToast')) : auth.openAccount())}
           />
           <BirthdayRow />
-          <LinkRow icon="download" title="Download your information" sub="Ask our support team for a copy of everything Community keeps about you." to="/help/chat" />
+          <LinkRow icon="download" title={t('d.settings.download')} sub={t('d.settings.downloadSub')} to="/help/chat" />
         </Card>
       </Block>
 
       <LoginActivity />
       <AccountsHere />
 
-      <Block title="Deactivate your account" note="Your profile, posts and messages are hidden straight away. Log in again within 30 days to bring everything back; after that it is deleted for good.">
+      <Block title={t('d.settings.deactivateTitle')} note={t('d.settings.deactivateNote')}>
         <button
           className="btn danger-outline"
           onClick={async () => {
-            if (!(await ask('Deactivate your account?', 'Log in again within 30 days to restore it. After that it is deleted permanently.', 'Deactivate'))) return;
+            if (!(await ask(t('d.settings.deactivateQ'), t('d.settings.deactivateQBody'), t('d.settings.deactivate')))) return;
             try {
               await deactivateAccount(me.id);
               await auth.signOut();
@@ -66,7 +67,7 @@ export function AccountsCentre() {
             }
           }}
         >
-          Deactivate account
+          {t('d.settings.deactivateAccount')}
         </button>
       </Block>
     </Page>
@@ -84,14 +85,14 @@ function BirthdayRow() {
         <Icon name="calendar" />
       </span>
       <span className="st-row-text">
-        <b>Birthday</b>
+        <b>{t('d.settings.birthday')}</b>
         <span>
-          {born.loading ? 'Loading…' : born.data ? longDate(born.data) + ". Only you can see it. To change it, ask support." : 'Not added yet. We ask everyone, to keep younger members safe.'}
+          {born.loading ? t('d.settings.loading') : born.data ? t('d.settings.birthdaySet', { date: longDate(born.data) }) : t('d.settings.birthdayMissing')}
         </span>
       </span>
       {!born.loading && !born.data ? (
         <button className="btn small" onClick={() => setAsking(true)}>
-          Add
+          {t('feed.add')}
         </button>
       ) : null}
       {asking ? (
@@ -112,7 +113,26 @@ function BirthdayRow() {
 
 type Place = { id: string; device: string; where: string; when: string; here: boolean; mobile: boolean; revoke?: () => Promise<unknown> };
 
-const PLATFORMS: Record<string, string> = { mac: 'Community for Mac', web: 'Community on the web', ios: 'Community for iPhone', windows: 'Community for Windows', other: 'Community for desktop' };
+/** Each platform's name's key. */
+const PLATFORMS: Record<string, string> = { mac: 'd.settings.onMac', web: 'd.settings.onWeb', ios: 'd.settings.onIphone', windows: 'd.settings.onWindows', other: 'd.settings.onDesktop' };
+
+/** "Last active 3 days ago": agoLong's words (shared/theme.ts), in the app's language. */
+function lastActive(iso: string): string {
+  const a = ago(iso); // 'now', or a number and m, h, d or w
+  if (a === 'now') return t('d.settings.lastActiveJustNow');
+  const unit = ({ m: 'Minutes', h: 'Hours', d: 'Days', w: 'Weeks' } as Record<string, string>)[a.slice(-1)];
+  return tn('d.settings.lastActive' + unit, parseInt(a, 10));
+}
+
+/** When a device was last seen, in the steps activeLabel uses (shared/api.ts) and then "Last active …", in the app's language. */
+function seenLabel(iso: string): string {
+  const d = Date.now() - new Date(iso).getTime();
+  if (isOnline(iso)) return t('common.activeNow');
+  if (d < 3600e3) return t('d.settings.activeMinutesAgo', { count: Math.round(d / 60e3) });
+  if (d < 86400e3) return t('d.settings.activeHoursAgo', { count: Math.round(d / 3600e3) });
+  if (d < 2 * 86400e3) return t('d.settings.activeYesterday');
+  return lastActive(iso);
+}
 
 /** Clerk's own list of signed-in devices (the real app), with a way to log any of them out. */
 async function clerkPlaces(): Promise<Place[]> {
@@ -125,9 +145,9 @@ async function clerkPlaces(): Promise<Place[]> {
       const here = s.id === clerk.session?.id;
       return {
         id: s.id,
-        device: a.deviceType || a.browserName || (a.isMobile ? 'Phone' : 'Computer'),
-        where: [a.city, a.country].filter(Boolean).join(', ') || 'Location unknown',
-        when: here ? 'Active now' : 'Last active ' + agoLong(new Date(s.lastActiveAt).toISOString()).toLowerCase(),
+        device: a.deviceType || a.browserName || (a.isMobile ? t('d.settings.devicePhone') : t('d.settings.deviceComputer')),
+        where: [a.city, a.country].filter(Boolean).join(', ') || t('d.settings.locationUnknown'),
+        when: here ? t('common.activeNow') : lastActive(new Date(s.lastActiveAt).toISOString()),
         here,
         mobile: !!a.isMobile,
         revoke: here ? undefined : () => s.revoke(),
@@ -142,9 +162,9 @@ async function appPlaces(me: string): Promise<Place[]> {
   if (error) throw error;
   return ((data as Session[]) ?? []).map((s) => ({
     id: s.id,
-    device: PLATFORMS[s.platform] ?? 'Community',
-    where: [s.device, s.country].filter(Boolean).join(' · ') || 'Location unknown',
-    when: isOnline(s.last_seen) ? 'Active now' : activeLabel(s.last_seen) || 'Last active ' + agoLong(s.last_seen).toLowerCase(),
+    device: PLATFORMS[s.platform] ? t(PLATFORMS[s.platform]) : 'Community',
+    where: [s.device, s.country].filter(Boolean).join(' · ') || t('d.settings.locationUnknown'),
+    when: seenLabel(s.last_seen),
     here: false,
     mobile: s.platform === 'ios',
   }));
@@ -158,22 +178,22 @@ function LoginActivity() {
   const [ending, setEnding] = useState('');
   const others = (list.data ?? []).filter((p) => p.revoke);
   const end = async (places: Place[], label: string) => {
-    if (!(await ask(label, 'Whoever is using Community there will have to log in again.', 'Log out'))) return;
+    if (!(await ask(label, t('d.settings.logOutThere'), t('settings.logOut')))) return;
     setEnding(places.length > 1 ? 'all' : places[0].id);
     const results = await Promise.allSettled(places.map((p) => p.revoke!()));
     const failed = results.filter((r) => r.status === 'rejected').length;
-    toast(failed ? `${failed} couldn't be logged out. Try again.` : places.length > 1 ? 'Logged out of all other devices' : 'Logged out of ' + places[0].device);
+    toast(failed ? tn('d.settings.logOutFailed', failed) : places.length > 1 ? t('d.settings.loggedOutAll') : t('d.settings.loggedOutOf', { device: places[0].device }));
     setEnding('');
     list.reload();
   };
   return (
-    <Block title="Where you're logged in" note={viaClerk ? undefined : 'Each time Community opens on a phone or computer, the app notes it here with the approximate country. To log a device out, use Email, password and security.'}>
+    <Block title={t('settings.loginActivitySub')} note={viaClerk ? undefined : t('d.settings.loginNote')}>
       {list.loading ? (
         <Spinner />
       ) : list.error ? (
         <Failed error={list.error} retry={list.reload} />
       ) : !list.data?.length ? (
-        <p className="st-empty-line">No devices to show yet.</p>
+        <p className="st-empty-line">{t('d.settings.noDevices')}</p>
       ) : (
         <Card>
           {list.data.map((p) => (
@@ -184,14 +204,14 @@ function LoginActivity() {
               <span className="st-row-text">
                 <b>
                   {p.device}
-                  {p.here ? ' · This computer' : ''}
+                  {p.here ? ' · ' + t('d.settings.thisComputer') : ''}
                 </b>
                 <span>{p.where}</span>
-                <span className={p.when === 'Active now' ? 'st-ok' : ''}>{p.when}</span>
+                <span className={p.when === t('common.activeNow') ? 'st-ok' : ''}>{p.when}</span>
               </span>
               {p.revoke ? (
-                <button className="btn quiet small" disabled={!!ending} onClick={() => end([p], `Log out of ${p.device}?`)}>
-                  {ending === p.id ? 'Logging out…' : 'Log out'}
+                <button className="btn quiet small" disabled={!!ending} onClick={() => end([p], t('d.settings.logOutOfQ', { device: p.device }))}>
+                  {ending === p.id ? t('d.settings.loggingOut') : t('settings.logOut')}
                 </button>
               ) : null}
             </div>
@@ -199,8 +219,8 @@ function LoginActivity() {
         </Card>
       )}
       {others.length > 1 ? (
-        <button className="btn danger-outline st-gap-top" disabled={!!ending} onClick={() => end(others, 'Log out of all other devices?')}>
-          Log out of all other devices
+        <button className="btn danger-outline st-gap-top" disabled={!!ending} onClick={() => end(others, t('d.settings.logOutAllQ'))}>
+          {t('d.settings.logOutAll')}
         </button>
       ) : null}
     </Block>
@@ -213,17 +233,17 @@ function AccountsHere() {
   const { me } = useMe();
   const [busy, setBusy] = useState('');
   return (
-    <Block title="Accounts on this computer">
+    <Block title={t('d.settings.accountsHere')}>
       <Card>
         {auth.accounts.map((a) => (
           <div key={a.sessionId} className="st-row">
             <Avatar src={a.current ? me.avatar_url || a.imageUrl : a.imageUrl} name={a.username} size={40} />
             <span className="st-row-text">
               <b>{a.current ? me.username : a.username}</b>
-              <span>{a.current ? 'Logged in now' : a.name}</span>
+              <span>{a.current ? t('d.settings.loggedInNow') : a.name}</span>
             </span>
             {a.current ? (
-              <span className="pill">In use</span>
+              <span className="pill">{t('d.settings.inUse')}</span>
             ) : (
               <button
                 className="btn quiet small"
@@ -238,18 +258,18 @@ function AccountsHere() {
                   }
                 }}
               >
-                {busy === a.sessionId ? 'Switching…' : 'Switch'}
+                {busy === a.sessionId ? t('d.settings.switching') : t('d.settings.switch')}
               </button>
             )}
           </div>
         ))}
         <LinkRow
           icon="pluscircle"
-          title="Log in to an existing account"
-          sub={`Keep up to ${MAX_ACCOUNTS} accounts on this computer and switch without logging out.`}
+          title={t('d.settings.addAccount')}
+          sub={t('d.settings.addAccountSub', { count: MAX_ACCOUNTS })}
           onClick={() => {
-            if (auth.demo) return toast('In the demo, switch between the two sample accounts above.');
-            if (auth.accounts.length >= MAX_ACCOUNTS) return toast(`You can add up to ${MAX_ACCOUNTS} accounts.`);
+            if (auth.demo) return toast(t('d.settings.demoSwitch'));
+            if (auth.accounts.length >= MAX_ACCOUNTS) return toast(t('d.settings.maxAccounts', { count: MAX_ACCOUNTS }));
             auth.addAccount();
           }}
         />
@@ -263,25 +283,25 @@ function AccountsHere() {
 export function AccountStatus() {
   const { me } = useMe();
   const facts: [string, string][] = [
-    ['Joined', longDate(me.created_at)],
-    ['Account type', me.account_type === 'creator' ? 'Creator' + (me.category ? ' · ' + me.category : '') : 'Personal'],
-    ['Blue tick', me.verified || me.tick_hidden ? (me.tick_hidden ? 'Verified (hidden)' : 'Verified') : 'Not verified'],
-    ['Community Plus', me.plus ? 'Active' + (me.plus_until ? ' until ' + longDate(me.plus_until) : '') : 'Not subscribed'],
-    ['Under-14 rules', me.restricted ? 'On' : 'Off'],
-    ['Privacy', me.is_private || me.restricted ? 'Private account' : 'Public account'],
+    [t('d.settings.joined'), longDate(me.created_at)],
+    [t('d.settings.accountType'), me.account_type === 'creator' ? t('d.settings.creator') + (me.category ? ' · ' + me.category : '') : t('d.settings.personal')],
+    [t('d.settings.blueTick'), me.verified || me.tick_hidden ? (me.tick_hidden ? t('d.settings.verifiedHidden') : t('common.verified')) : t('d.settings.notVerified')],
+    [t('common.communityPlus'), me.plus ? (me.plus_until ? t('d.settings.activeUntil', { date: longDate(me.plus_until) }) : t('settings.plusActive')) : t('d.settings.notSubscribed')],
+    [t('d.settings.under14Rules'), me.restricted ? t('d.settings.on') : t('settings.repliesOff')],
+    [t('d.settings.privacy'), me.is_private || me.restricted ? t('d.settings.privateAccount') : t('d.settings.publicAccount')],
   ];
   return (
-    <Page title="Account status" intro="Whether your account can use everything on Community, and what applies to it.">
+    <Page title={t('d.settings.accountStatus')} intro={t('d.settings.statusIntro')}>
       <div className="st-status">
         <span className="st-status-icon">
           <Icon name="check" size={26} stroke={2.4} />
         </span>
         <div>
-          <b>Your account is in good standing</b>
-          <p>You can post, message and use every feature open to your account. If an admin ever limits or suspends it, you'll be told when you log in, with the reason and how long it lasts.</p>
+          <b>{t('d.settings.goodStanding')}</b>
+          <p>{t('d.settings.goodStandingText')}</p>
         </div>
       </div>
-      <Block title="About your account">
+      <Block title={t('d.settings.aboutAccount')}>
         <Card>
           {facts.map(([k, v]) => (
             <div key={k} className="st-row st-fact">
@@ -293,10 +313,10 @@ export function AccountStatus() {
           ))}
         </Card>
       </Block>
-      <Block title="Keeping Community safe">
+      <Block title={t('d.settings.keepingSafe')}>
         <Card>
-          <LinkRow icon="users" title="Community guidelines" sub="What is and isn't allowed, and what happens when something breaks the rules." to="/legal/guidelines" />
-          <LinkRow icon="lifebuoy" title="Ask about your account" sub="Chat with support if something doesn't look right." to="/help/chat" />
+          <LinkRow icon="users" title={t('legal.guidelines')} sub={t('d.settings.guidelinesSub')} to="/legal/guidelines" />
+          <LinkRow icon="lifebuoy" title={t('d.settings.askAccount')} sub={t('d.settings.askAccountSub')} to="/help/chat" />
         </Card>
       </Block>
     </Page>
@@ -308,25 +328,28 @@ export function AccountStatus() {
 export function FamilyCentre() {
   const { me } = useMe();
   const email = LEGAL_DETAILS.contact_email ?? '';
+  const parentsLine = tSplit('d.settings.parentsText', 'email');
   if (me.restricted) {
     return (
-      <Page title="Under-14 account" intro="Your account is set up for members under 14. To help keep you safe on Community:">
+      <Page title={t('settings.under14')} intro={t('d.settings.under14Intro')}>
         <MinorRules />
-        <Notice icon="calendar">These rules come from the birthday you gave. They end on your 14th birthday by themselves. If your birthday is wrong, ask support to correct it.</Notice>
+        <Notice icon="calendar">{t('d.settings.under14Birthday')}</Notice>
       </Page>
     );
   }
   return (
-    <Page title="Under-14 accounts" intro="Community is for people aged 13 and over. Members who are 13 get extra protection until they turn 14, set from the birthday they give when they join.">
-      <Block title="What changes for members under 14">
+    <Page title={t('d.settings.under14Accounts')} intro={t('d.settings.under14AccountsIntro')}>
+      <Block title={t('d.settings.under14Changes')}>
         <MinorRules you={false} />
       </Block>
-      <Block title="For parents and guardians">
+      <Block title={t('d.settings.parents')}>
         <p className="st-text">
-          Nobody under 13 can make an account: the app asks for a birthday first and turns them away. If you think a child under 13 is using Community, or that a birthday is wrong, email us at {isPlaceholder(email) ? email : <a href={'mailto:' + email}>{email}</a>} and we'll look into it.
+          {parentsLine[0]}
+          {isPlaceholder(email) ? email : <a href={'mailto:' + email}>{email}</a>}
+          {parentsLine[1]}
         </p>
         <Card>
-          <LinkRow icon="shield" title="Child safety" sub="How we protect children on Community and how to report a concern." to="/legal/child-safety" />
+          <LinkRow icon="shield" title={t('legal.childSafety')} sub={t('d.settings.childSafetySub')} to="/legal/child-safety" />
         </Card>
       </Block>
     </Page>
@@ -337,7 +360,7 @@ export function FamilyCentre() {
 
 export function AboutPage() {
   return (
-    <Page title="About">
+    <Page title={t('settings.about')}>
       <AboutCommunity openDoc={(id) => nav('/legal/' + id)} />
     </Page>
   );

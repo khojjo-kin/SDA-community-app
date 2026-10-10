@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { amSharingLocation, countCloseFriends, fetchFollowAlerts, fetchStoryWatchList, fetchThreads, listBlocked, listCloseFriends, listPeople, searchProfiles, setBlock, setCloseFriend, setFollowAlerts, setStoryWatch, setThreadMuted, stopSharingLocation, updateProfile } from 'shared/api';
 import type { FollowAlerts, Profile, StoryReplies } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { Failed, Link, Modal, Spinner, toast, toastError, useLoad } from '../ui/kit';
 import { Block, Card, LinkRow, Notice, Page, PersonRow, PlusUpsell, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
@@ -15,17 +16,20 @@ export function AccountPrivacy() {
   const [priv, setPriv] = useProfileFlag('is_private');
   const restricted = me.restricted === true;
   return (
-    <Page title="Account privacy">
+    <Page title={t('d.settings.accountPrivacy')}>
       <Card>
-        <ToggleRow title="Private account" sub={restricted ? 'Accounts of members under 14 stay private.' : undefined} on={restricted || priv} disabled={restricted} onChange={setPriv} />
+        <ToggleRow title={t('d.settings.privateAccount')} sub={restricted ? t('d.settings.under14Private') : undefined} on={restricted || priv} disabled={restricted} onChange={setPriv} />
       </Card>
       <div className="st-text-block">
-        <p>When your account is public, your profile and posts can be seen by anyone on Community.</p>
-        <p>When your account is private, only the followers you approve can see what you share, including your photos, videos, Shorts and stories, and your followers and following lists. Anyone who taps Follow sends you a request, which you accept or decline in Notifications. Your profile picture and username can always be seen.</p>
+        <p>{t('d.settings.publicText')}</p>
+        <p>{t('d.settings.privateText')}</p>
       </div>
       {restricted ? (
         <Notice icon="shield">
-          Your account is set up for members under 14, so it stays private until your 14th birthday. <Link to="/accounts/family" className="link-btn inline">What this means</Link>
+          {t('d.settings.under14PrivateNotice')}{' '}
+          <Link to="/accounts/family" className="link-btn inline">
+            {t('d.settings.whatThisMeans')}
+          </Link>
         </Notice>
       ) : null}
     </Page>
@@ -40,11 +44,11 @@ export function CloseFriends() {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<Profile[] | null>(null);
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (q.trim()) searchProfiles(q).then((r) => setFound(r.filter((p) => p.id !== me.id)), () => setFound([]));
       else listPeople(me.id, 'following').then(setFound, () => setFound([]));
     }, 220);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [q]);
   const ids = new Set((friends.data ?? []).map((p) => p.id));
   // Shown changed at once; the list is read again if the save fails.
@@ -53,21 +57,21 @@ export function CloseFriends() {
     const list = friends.data ?? [];
     friends.set(add ? [p, ...list] : list.filter((x) => x.id !== p.id));
     setCloseFriend(me.id, p.id, add).then(
-      () => toast(add ? `Added ${p.username} to close friends` : `Removed ${p.username} from close friends`),
+      () => toast(add ? t('d.settings.addedClose', { username: p.username }) : t('profile.removedCloseFriend', { username: p.username })),
       (e) => {
         toastError(e);
         friends.reload();
       },
     );
   };
-  const check = (p: Profile) => <input type="checkbox" className="round-check close" checked={ids.has(p.id)} onChange={() => flip(p)} aria-label={(ids.has(p.id) ? 'Remove ' : 'Add ') + p.username} />;
+  const check = (p: Profile) => <input type="checkbox" className="round-check close" checked={ids.has(p.id)} onChange={() => flip(p)} aria-label={ids.has(p.id) ? t('createFlow.untag', { username: p.username }) : t('d.settings.addPerson', { username: p.username })} />;
   const others = (found ?? []).filter((p) => q || !ids.has(p.id));
   return (
-    <Page title="Close friends" intro="Share a story with only these people. Nobody is told when you add or remove them.">
-      <input className="st-input st-search-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+    <Page title={t('settings.closeFriends')} intro={t('d.settings.closeFriendsIntro')}>
+      <input className="st-input st-search-input" placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
       {!q ? (
-        <Block title={`On your list · ${friends.data?.length ?? 0}`}>
-          {friends.loading ? <Spinner /> : friends.error ? <Failed error={friends.error} retry={friends.reload} /> : !friends.data?.length ? <p className="st-empty-line">Nobody yet. Add people from the list below.</p> : (
+        <Block title={t('d.settings.onYourList', { count: friends.data?.length ?? 0 })}>
+          {friends.loading ? <Spinner /> : friends.error ? <Failed error={friends.error} retry={friends.reload} /> : !friends.data?.length ? <p className="st-empty-line">{t('d.settings.closeFriendsEmpty')}</p> : (
             <Card className="st-friends">
               {friends.data.map((p) => (
                 <PersonRow key={p.id} p={p} right={check(p)} />
@@ -76,8 +80,8 @@ export function CloseFriends() {
           )}
         </Block>
       ) : null}
-      <Block title={q ? 'Results' : 'People you follow'}>
-        {found === null ? <Spinner /> : !others.length ? <p className="st-empty-line">{q ? 'No one found.' : 'Everyone you follow is on your list.'}</p> : (
+      <Block title={q ? t('d.settings.results') : t('settings.repliesFollowing')}>
+        {found === null ? <Spinner /> : !others.length ? <p className="st-empty-line">{q ? t('d.settings.noOneFound') : t('d.settings.allOnList')}</p> : (
           <Card className="st-candidates">
             {others.map((p) => (
               <PersonRow key={p.id} p={p} right={check(p)} />
@@ -95,8 +99,8 @@ export function Blocked() {
   const { me } = useMe();
   const list = useLoad(() => listBlocked(me.id), []);
   return (
-    <Page title="Blocked accounts" intro="They can't find your profile, posts or stories on Community, or message you, and you won't see theirs. They aren't told that you blocked them.">
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">You haven't blocked anyone. To block someone, open the three dots on their profile.</p> : (
+    <Page title={t('d.settings.blockedAccounts')} intro={t('d.settings.blockedIntro')}>
+      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.settings.blockedEmpty')}</p> : (
         <Card className="st-blocked">
           {list.data.map((p) => (
             <PersonRow
@@ -104,8 +108,8 @@ export function Blocked() {
               p={p}
               onOpen={false}
               right={
-                <button className="btn quiet small" onClick={() => setBlock(me.id, p.id, false).then(() => { list.reload(); toast('Unblocked ' + p.username); }, toastError)}>
-                  Unblock
+                <button className="btn quiet small" onClick={() => setBlock(me.id, p.id, false).then(() => { list.reload(); toast(t('profile.unblocked', { username: p.username })); }, toastError)}>
+                  {t('profile.unblock')}
                 </button>
               }
             />
@@ -118,7 +122,8 @@ export function Blocked() {
 
 /* ---------- Story, live and location ---------- */
 
-const REPLIES: Record<StoryReplies, string> = { everyone: 'Everyone', following: 'People you follow', off: 'Off' };
+/** Who can reply to your stories: each choice's key. */
+const REPLIES: Record<StoryReplies, string> = { everyone: 'settings.repliesEveryone', following: 'settings.repliesFollowing', off: 'settings.repliesOff' };
 
 export function StoryLiveLocation() {
   const { me } = useMe();
@@ -128,27 +133,27 @@ export function StoryLiveLocation() {
   const alerts = useLoad(() => (me.plus ? fetchStoryWatchList(me.id).then((l) => l.length) : Promise.resolve(null)), [me.plus]);
   const restricted = me.restricted === true;
   return (
-    <Page title="Story, live and location">
-      <Block title="Story">
+    <Page title={t('d.settings.storyLiveLocation')}>
+      <Block title={t('notifications.storyBadge')}>
         <Card>
-          <LinkRow icon="star" title="Close friends" value={friends.data ?? ''} to="/accounts/close-friends" />
-          <LinkRow icon="reply" title="Story replies" value={REPLIES[me.story_replies] ?? 'Everyone'} to="/accounts/messages" />
-          <LinkRow icon="bell" title="Story alerts" sub="Be told when people you choose watch your stories." value={me.plus ? alerts.data ?? '' : 'Plus'} to="/accounts/story-alerts" />
-          <LinkRow icon="archive" title="Stories archive" sub="Your stories are kept here after they disappear, and only you can see them." to="/archive" />
+          <LinkRow icon="star" title={t('settings.closeFriends')} value={friends.data ?? ''} to="/accounts/close-friends" />
+          <LinkRow icon="reply" title={t('settings.storyReplies')} value={t(REPLIES[me.story_replies] ?? 'settings.repliesEveryone')} to="/accounts/messages" />
+          <LinkRow icon="bell" title={t('settings.storyAlerts')} sub={t('d.settings.storyAlertsSub')} value={me.plus ? alerts.data ?? '' : t('common.plus')} to="/accounts/story-alerts" />
+          <LinkRow icon="archive" title={t('d.settings.storiesArchive')} sub={t('d.settings.storiesArchiveSub')} to="/archive" />
         </Card>
       </Block>
-      <Block title="Live">
+      <Block title={t('liveSchedule.live')}>
         {restricted ? (
-          <Notice icon="lock">Live broadcasts aren't available to members under 14.</Notice>
+          <Notice icon="lock">{t('d.settings.liveUnder14')}</Notice>
         ) : (
           <Card>
-            <LinkRow icon="live" title="Go live" sub="Your followers are told, and the broadcast shows at the top of Home while it runs. Choose who can watch before you start." to="/live/new" />
+            <LinkRow icon="live" title={t('goLive.goLive')} sub={t('d.settings.goLiveSub')} to="/live/new" />
           </Card>
         )}
       </Block>
-      <Block title="Location">
+      <Block title={t('create.location')}>
         {restricted ? (
-          <Notice icon="lock">Members under 14 can't share their location.</Notice>
+          <Notice icon="lock">{t('d.settings.locationUnder14')}</Notice>
         ) : sharing.loading ? (
           <Spinner />
         ) : (
@@ -156,13 +161,13 @@ export function StoryLiveLocation() {
             {sharing.data ? (
               <ToggleRow
                 icon="location"
-                title="Share my live location"
-                sub="Friends you chose can see where you are on the map. Turn this off to stop at once."
+                title={t('d.settings.shareLocation')}
+                sub={t('d.settings.shareLocationSub')}
                 on
                 onChange={() =>
                   stopSharingLocation(me.id).then(() => {
                     sharing.set(false);
-                    toast('You stopped sharing your location');
+                    toast(t('d.settings.stoppedSharing'));
                   }, toastError)
                 }
               />
@@ -170,8 +175,8 @@ export function StoryLiveLocation() {
             {/* The friends' map is where sharing starts: who sees it (mutual followers or close friends) and for how long. */}
             <LinkRow
               icon="compass"
-              title={sharing.data ? "Friends' map" : 'Share my live location'}
-              sub={sharing.data ? 'See friends who share their location with you, and change who sees yours.' : "Open the friends' map to share where you are with mutual followers or close friends, for as long as you choose."}
+              title={sharing.data ? t('d.settings.friendsMap') : t('d.settings.shareLocation')}
+              sub={sharing.data ? t('d.settings.friendsMapSub') : t('d.settings.startSharingSub')}
               to="/map"
             />
           </Card>
@@ -226,26 +231,26 @@ export function StoryAlerts() {
 
   if (!plus) {
     return (
-      <Page title="Story alerts">
-        <PlusUpsell title="Story alerts are part of Community Plus" body="Choose people, and be told when they watch your stories. They aren't told." />
+      <Page title={t('settings.storyAlerts')}>
+        <PlusUpsell title={t('d.settings.alertsUpsellTitle')} body={t('d.settings.alertsUpsellBody')} />
       </Page>
     );
   }
   const add = (
     <button className="btn small" onClick={() => setPicking(true)}>
-      Add people
+      {t('d.settings.addPeople')}
     </button>
   );
   return (
-    <Page title="Story alerts" intro="You're told when the people on this list watch your stories. They aren't told. You can also add someone from the bell beside them in a story's viewers.">
-      <Block title={`On your list · ${list?.length ?? 0}`} action={list?.length ? add : undefined}>
+    <Page title={t('settings.storyAlerts')} intro={t('d.settings.alertsIntro')}>
+      <Block title={t('d.settings.onYourList', { count: list?.length ?? 0 })} action={list?.length ? add : undefined}>
         {list === null ? (
           <Spinner />
         ) : error && !list.length ? (
           <Failed error={error} retry={load} />
         ) : !list.length ? (
           <div className="st-alerts-empty">
-            <p className="st-empty-line">No one yet. Add people you follow to hear when they watch your stories.</p>
+            <p className="st-empty-line">{t('d.settings.alertsEmpty')}</p>
             {add}
           </div>
         ) : (
@@ -255,8 +260,8 @@ export function StoryAlerts() {
                 key={p.id}
                 p={p}
                 right={
-                  <button className="btn quiet small" onClick={() => setOn(p, false)} aria-label={'Remove ' + p.username}>
-                    Remove
+                  <button className="btn quiet small" onClick={() => setOn(p, false)} aria-label={t('createFlow.untag', { username: p.username })}>
+                    {t('noteNew.removePlace')}
                   </button>
                 }
               />
@@ -278,30 +283,30 @@ function AddWatchers({ chosen, onToggle, onClose }: { chosen: Profile[]; onToggl
   const n = q.trim().toLowerCase();
   const shown = (following.data ?? []).filter((p) => !n || `${p.username} ${p.full_name}`.toLowerCase().includes(n));
   return (
-    <Modal title="Add people" onClose={onClose}>
+    <Modal title={t('d.settings.addPeople')} onClose={onClose}>
       <div className="st-modal-body st-watch-pick">
         {following.loading ? (
           <Spinner />
         ) : following.error ? (
           <Failed error={following.error} retry={following.reload} />
         ) : !following.data?.length ? (
-          <p className="st-empty-line">You aren't following anyone yet. Story alerts are for people you follow.</p>
+          <p className="st-empty-line">{t('d.settings.notFollowingAnyone')}</p>
         ) : (
           <>
-            <input className="st-input st-search-input" placeholder="Search people you follow" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people you follow" autoFocus />
+            <input className="st-input st-search-input" placeholder={t('d.settings.searchFollowing')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.settings.searchFollowing')} autoFocus />
             {shown.length ? (
               <Card className="st-candidates">
                 {shown.map((p) => (
-                  <PersonRow key={p.id} p={p} onOpen={false} right={<input type="checkbox" className="round-check" checked={on.has(p.id)} onChange={() => onToggle(p, !on.has(p.id))} aria-label={(on.has(p.id) ? 'Remove ' : 'Add ') + p.username} />} />
+                  <PersonRow key={p.id} p={p} onOpen={false} right={<input type="checkbox" className="round-check" checked={on.has(p.id)} onChange={() => onToggle(p, !on.has(p.id))} aria-label={on.has(p.id) ? t('createFlow.untag', { username: p.username }) : t('d.settings.addPerson', { username: p.username })} />} />
                 ))}
               </Card>
             ) : (
-              <p className="st-empty-line">No one by that name.</p>
+              <p className="st-empty-line">{t('d.settings.noOneByName')}</p>
             )}
           </>
         )}
         <button className="btn block big" onClick={onClose}>
-          Done
+          {t('feed.done')}
         </button>
       </div>
     </Modal>
@@ -313,9 +318,9 @@ function AddWatchers({ chosen, onToggle, onClose }: { chosen: Profile[]; onToggl
 export function ActivityStatus() {
   const [on, set] = useProfileFlag('show_activity');
   return (
-    <Page title="Activity status">
+    <Page title={t('settings.activityStatus')}>
       <Card>
-        <ToggleRow title="Show activity status" on={on} onChange={set} sub="Let people you follow and message see when you're active, or when you were last active. If you turn this off, you won't see theirs either." />
+        <ToggleRow title={t('d.settings.showActivity')} on={on} onChange={set} sub={t('d.settings.showActivitySub')} />
       </Card>
     </Page>
   );
@@ -340,32 +345,32 @@ export function MessagesReplies() {
     );
   };
   return (
-    <Page title="Messages and story replies">
-      <Block title="Who can reply to your stories">
+    <Page title={t('d.settings.messagesReplies')}>
+      <Block title={t('d.settings.whoCanReply')}>
         <Card>
           {(Object.keys(REPLIES) as StoryReplies[]).map((r) => (
-            <RadioRow key={r} name="story-replies" title={REPLIES[r]} checked={replies === r} onChange={() => choose(r)} />
+            <RadioRow key={r} name="story-replies" title={t(REPLIES[r])} checked={replies === r} onChange={() => choose(r)} />
           ))}
         </Card>
       </Block>
-      <Block title="Seen" note={me.plus ? undefined : 'Turning read receipts off is part of Community Plus.'}>
+      <Block title={t('d.settings.seen')} note={me.plus ? undefined : t('d.settings.receiptsPlus')}>
         <Card>
-          <ToggleRow title="Read receipts" sub="Let people see when you've read their messages." on={receipts} onChange={setReceipts} disabled={!me.plus} />
+          <ToggleRow title={t('settings.readReceipts')} sub={t('d.settings.receiptsSub')} on={receipts} onChange={setReceipts} disabled={!me.plus} />
         </Card>
         {!me.plus ? (
           <Link to="/plus" className="link-btn st-gap-top">
-            About Community Plus
+            {t('d.settings.aboutPlus')}
           </Link>
         ) : null}
       </Block>
-      <Block title="Who can message you">
+      <Block title={t('d.settings.whoCanMessage')}>
         <p className="st-text">
           {me.restricted
-            ? 'Because your account is set up for members under 14, only people you follow can message or call you, and you can only message people you follow.'
-            : 'People on Community can message and call you. To stop someone, block them from their profile or from your chat with them.'}
+            ? t('d.settings.messageUnder14')
+            : t('d.settings.messageAnyone')}
         </p>
         <Card>
-          <LinkRow icon="block" title="Blocked accounts" to="/accounts/blocked" />
+          <LinkRow icon="block" title={t('d.settings.blockedAccounts')} to="/accounts/blocked" />
         </Card>
       </Block>
     </Page>
@@ -374,11 +379,12 @@ export function MessagesReplies() {
 
 /* ---------- Notifications ---------- */
 
+/** Each kind of alert and its name's key (the same words as the bell on a profile). */
 const ALERTS: [keyof FollowAlerts, string][] = [
-  ['posts', 'Posts'],
-  ['stories', 'Stories'],
-  ['clips', 'Shorts'],
-  ['live', 'Live videos'],
+  ['posts', 'profile.alertsPosts'],
+  ['stories', 'profile.alertsStories'],
+  ['clips', 'profile.alertsClips'],
+  ['live', 'profile.alertsLive'],
 ];
 
 /** Which alerts you get from one person you follow (the same choices as the bell on their profile). */
@@ -405,13 +411,13 @@ function AlertsDialog({ p, onClose }: { p: Profile; onClose: (changed: boolean) 
     });
   };
   return (
-    <Modal title={'Alerts from ' + p.username} onClose={() => onClose(changed.current)}>
+    <Modal title={t('d.settings.alertsFrom', { username: p.username })} onClose={() => onClose(changed.current)}>
       <div className="st-modal-body">
-        <p className="st-text">Get a notification when {p.username} shares something new. They aren't told.</p>
+        <p className="st-text">{t('d.settings.alertsFromText', { username: p.username })}</p>
         {alerts ? (
           <Card>
             {ALERTS.map(([k, label]) => (
-              <ToggleRow key={k} title={label} on={alerts[k]} onChange={(v) => flip(k, v)} />
+              <ToggleRow key={k} title={t(label)} on={alerts[k]} onChange={(v) => flip(k, v)} />
             ))}
           </Card>
         ) : (
@@ -434,22 +440,22 @@ export function Notifications() {
     // People you already get alerts from first.
     return list.sort((a, b) => Number(b.alerts_on) - Number(a.alerts_on));
   }, [following.data, q]);
-  const muted = (threads.data ?? []).filter((t) => t.muted);
+  const muted = (threads.data ?? []).filter((th) => th.muted);
   return (
-    <Page title="Notifications" intro="Likes, comments, follows and requests always show in Notifications. Choose whose posts, stories, Shorts and live videos you also hear about.">
-      <Block title="Alerts from people you follow">
-        {following.loading ? <Spinner /> : following.error ? <Failed error={following.error} retry={following.reload} /> : !following.data?.length ? <p className="st-empty-line">You don't follow anyone yet.</p> : (
+    <Page title={t('common.notifications')} intro={t('d.settings.notificationsIntro')}>
+      <Block title={t('d.settings.alertsFromFollowing')}>
+        {following.loading ? <Spinner /> : following.error ? <Failed error={following.error} retry={following.reload} /> : !following.data?.length ? <p className="st-empty-line">{t('d.settings.followNobody')}</p> : (
           <>
-            {following.data.length > 6 ? <input className="st-input st-search-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people you follow" /> : null}
+            {following.data.length > 6 ? <input className="st-input st-search-input" placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.settings.searchFollowing')} /> : null}
             <Card className="st-alerts">
               {shown.map((p) => (
                 <PersonRow
                   key={p.id}
                   p={p}
-                  sub={p.alerts_on ? 'Alerts on' : 'Alerts off'}
+                  sub={p.alerts_on ? t('d.settings.alertsOn') : t('d.settings.alertsOff')}
                   right={
-                    <button className="btn quiet small" onClick={() => setEditing(p)} aria-label={'Alerts from ' + p.username}>
-                      {p.alerts_on ? 'Change' : 'Turn on'}
+                    <button className="btn quiet small" onClick={() => setEditing(p)} aria-label={t('d.settings.alertsFrom', { username: p.username })}>
+                      {p.alerts_on ? t('d.settings.change') : t('d.settings.turnOn')}
                     </button>
                   }
                 />
@@ -458,16 +464,16 @@ export function Notifications() {
           </>
         )}
       </Block>
-      <Block title="Muted chats" note="You don't get notifications for muted chats, and they don't show an unread dot.">
-        {threads.loading ? <Spinner /> : !muted.length ? <p className="st-empty-line">No muted chats. Mute a chat from its details in Messages.</p> : (
+      <Block title={t('d.settings.mutedChats')} note={t('d.settings.mutedNote')}>
+        {threads.loading ? <Spinner /> : !muted.length ? <p className="st-empty-line">{t('d.settings.mutedEmpty')}</p> : (
           <Card>
-            {muted.map((t) => (
+            {muted.map((th) => (
               <PersonRow
-                key={t.id}
-                p={{ username: t.username, full_name: t.full_name, avatar_url: t.avatar_url, verified: t.verified }}
+                key={th.id}
+                p={{ username: th.username, full_name: th.full_name, avatar_url: th.avatar_url, verified: th.verified }}
                 right={
-                  <button className="btn quiet small" onClick={() => setThreadMuted(me.id, t.id, false).then(threads.reload, toastError)}>
-                    Unmute
+                  <button className="btn quiet small" onClick={() => setThreadMuted(me.id, th.id, false).then(threads.reload, toastError)}>
+                    {t('d.settings.unmute')}
                   </button>
                 }
               />

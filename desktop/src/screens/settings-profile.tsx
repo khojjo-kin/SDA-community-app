@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { deleteFaq, deleteSavedReply, fetchChurches, fetchFaqs, fetchProfileViewers, fetchSavedReplies, saveFaq, saveReply, updateProfile, uploadImage, withTimeout } from 'shared/api';
 import { ago } from 'shared/theme';
+import { t, tSplit, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { rememberSize } from '../shims/expo-file-system';
 import { Avatar, Failed, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
@@ -12,7 +13,13 @@ declare const __DEMO__: boolean;
 
 /* ---------- Edit profile ---------- */
 
-const GENDERS = ['Female', 'Male', 'Custom', 'Prefer not to say'];
+// What is saved is the English; the key beside each is what the member reads.
+const GENDERS: [string, string][] = [
+  ['Female', 'd.settings.genderFemale'],
+  ['Male', 'd.settings.genderMale'],
+  ['Custom', 'd.settings.genderCustom'],
+  ['Prefer not to say', 'd.settings.genderNone'],
+];
 const BIO_MAX = 500;
 
 export function EditProfile() {
@@ -41,6 +48,7 @@ export function EditProfile() {
   };
   const usernameOk = /^[a-z0-9_]{3,30}$/.test(form.username);
   const changed = JSON.stringify(form) !== JSON.stringify(start());
+  const categoryLine = tSplit('d.settings.categoryCreator', 'link');
 
   async function changePhoto(f: File) {
     const url = URL.createObjectURL(f);
@@ -53,7 +61,7 @@ export function EditProfile() {
       const m = await uploadImage(me.id, url, img.naturalWidth, 480);
       await updateProfile(me.id, { avatar_url: m.url });
       await refresh();
-      toast('Profile photo updated');
+      toast(t('d.settings.photoUpdated'));
     } catch (e) {
       toastError(e);
     } finally {
@@ -64,9 +72,9 @@ export function EditProfile() {
   async function save() {
     if (busy) return;
     const u = form.username.trim().toLowerCase();
-    if (!form.full_name.trim()) return setErr('Add your name.');
-    if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr('Usernames use 3 to 30 lowercase letters, numbers or underscores.');
-    if (form.contact_email.trim() && !/^\S+@\S+\.\S+$/.test(form.contact_email.trim())) return setErr('That contact email does not look right.');
+    if (!form.full_name.trim()) return setErr(t('d.settings.addName'));
+    if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr(t('d.settings.usernameRule'));
+    if (form.contact_email.trim() && !/^\S+@\S+\.\S+$/.test(form.contact_email.trim())) return setErr(t('d.settings.contactEmailWrong'));
     setBusy(true);
     try {
       await updateProfile(me.id, {
@@ -89,11 +97,11 @@ export function EditProfile() {
         try {
           await withTimeout(clerkUser.update({ username: u }), 10000);
         } catch {
-          if (u !== me.username) note = "Saved. Logging in with this username isn't available, use your email.";
+          if (u !== me.username) note = t('d.settings.usernameLoginOff');
         }
       }
       await refresh();
-      toast(note || 'Profile saved');
+      toast(note || t('d.settings.profileSaved'));
     } catch (e) {
       toastError(e);
     } finally {
@@ -102,7 +110,7 @@ export function EditProfile() {
   }
 
   return (
-    <Page title="Edit profile">
+    <Page title={t('profile.editProfile')}>
       <div className="st-profile-card">
         <Avatar src={me.avatar_url} name={me.username} size={56} />
         <span className="st-row-text">
@@ -111,11 +119,11 @@ export function EditProfile() {
         </span>
         {me.avatar_url ? (
           <button className="link-btn danger" disabled={photoBusy} onClick={() => updateProfile(me.id, { avatar_url: '' }).then(refresh, toastError)}>
-            Remove
+            {t('live.remove')}
           </button>
         ) : null}
         <label className={'btn' + (photoBusy ? ' disabled' : '')}>
-          {photoBusy ? 'Uploading…' : 'Change photo'}
+          {photoBusy ? t('create.uploading') : t('d.settings.changePhoto')}
           <input
             type="file"
             accept="image/*"
@@ -132,79 +140,83 @@ export function EditProfile() {
 
       <div className="st-form">
         <label className="form-row st-field">
-          <span>Name</span>
-          <input value={form.full_name} onChange={set('full_name')} maxLength={80} placeholder="Name" />
+          <span>{t('d.settings.name')}</span>
+          <input value={form.full_name} onChange={set('full_name')} maxLength={80} placeholder={t('d.settings.name')} />
         </label>
         <label className="form-row st-field">
-          <span>Username</span>
-          <input value={form.username} onChange={set('username')} maxLength={30} placeholder="Username" />
-          {!usernameOk ? <em className="field-error">Usernames use 3 to 30 lowercase letters, numbers or underscores.</em> : null}
+          <span>{t('d.settings.username')}</span>
+          <input value={form.username} onChange={set('username')} maxLength={30} placeholder={t('d.settings.username')} />
+          {!usernameOk ? <em className="field-error">{t('d.settings.usernameRule')}</em> : null}
         </label>
         <label className="form-row st-field">
-          <span>Website</span>
-          <input value={form.website} onChange={set('website')} maxLength={500} placeholder="Website" inputMode="url" />
+          <span>{t('d.settings.website')}</span>
+          <input value={form.website} onChange={set('website')} maxLength={500} placeholder={t('d.settings.website')} inputMode="url" />
         </label>
         <label className="form-row st-field">
-          <span>Bio</span>
-          <textarea value={form.bio} onChange={set('bio')} maxLength={BIO_MAX} rows={3} placeholder="Bio" />
+          <span>{t('d.settings.bio')}</span>
+          <textarea value={form.bio} onChange={set('bio')} maxLength={BIO_MAX} rows={3} placeholder={t('d.settings.bio')} />
           <em className="count">
             {form.bio.length} / {BIO_MAX}
           </em>
         </label>
         <label className="form-row st-field">
-          <span>Gender</span>
+          <span>{t('d.settings.gender')}</span>
           <select className="st-select" value={form.gender} onChange={set('gender')}>
-            <option value="">Not set</option>
-            {GENDERS.map((g) => (
+            <option value="">{t('d.settings.notSet')}</option>
+            {GENDERS.map(([g, key]) => (
               <option key={g} value={g}>
-                {g}
+                {t(key)}
               </option>
             ))}
           </select>
-          <em className="st-hint">This won't be part of your public profile.</em>
+          <em className="st-hint">{t('d.settings.genderPrivate')}</em>
         </label>
         <label className="form-row st-field">
-          <span>Pronouns</span>
-          <input value={form.pronouns} onChange={set('pronouns')} maxLength={40} placeholder="Pronouns" />
+          <span>{t('d.settings.pronouns')}</span>
+          <input value={form.pronouns} onChange={set('pronouns')} maxLength={40} placeholder={t('d.settings.pronouns')} />
         </label>
         {creator ? (
           <label className="form-row st-field">
-            <span>Category</span>
-            <input value={form.category} onChange={set('category')} maxLength={40} placeholder="Musician, Pastor, Choir…" />
-            <em className="st-hint">Shown on your profile under your name.</em>
+            <span>{t('d.settings.category')}</span>
+            <input value={form.category} onChange={set('category')} maxLength={40} placeholder={t('d.settings.categoryExample')} />
+            <em className="st-hint">{t('d.settings.categoryNote')}</em>
           </label>
         ) : (
           <div className="form-row st-field">
-            <span>Category</span>
+            <span>{t('d.settings.category')}</span>
             <p className="st-hint">
-              Show a category such as Choir or Pastor with a <Link to="/accounts/professional" className="link-btn inline">creator account</Link>.
+              {categoryLine[0]}
+              <Link to="/accounts/professional" className="link-btn inline">
+                {t('d.settings.creatorAccountLink')}
+              </Link>
+              {categoryLine[1]}
             </p>
           </div>
         )}
         <label className="form-row st-field">
-          <span>Church</span>
+          <span>{t('d.settings.church')}</span>
           <select className="st-select" value={form.church_id} onChange={set('church_id')}>
-            <option value="">No church chosen</option>
+            <option value="">{t('d.settings.noChurch')}</option>
             {(churches.data ?? []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
-          <em className="st-hint">Your home church shows on your profile, and you appear in its member list.</em>
+          <em className="st-hint">{t('d.settings.churchNote')}</em>
         </label>
         <div className="form-row st-field">
-          <span>Contact options</span>
+          <span>{t('d.settings.contactOptions')}</span>
           <div className="st-two">
-            <input value={form.contact_email} onChange={set('contact_email')} maxLength={200} placeholder="Email" aria-label="Contact email" inputMode="email" />
-            <input value={form.contact_phone} onChange={set('contact_phone')} maxLength={40} placeholder="Phone" aria-label="Contact phone" inputMode="tel" />
+            <input value={form.contact_email} onChange={set('contact_email')} maxLength={200} placeholder={t('profile.email')} aria-label={t('d.settings.contactEmail')} inputMode="email" />
+            <input value={form.contact_phone} onChange={set('contact_phone')} maxLength={40} placeholder={t('d.settings.phone')} aria-label={t('d.settings.contactPhone')} inputMode="tel" />
           </div>
-          <em className="st-hint">Shown on your profile as buttons, so people can reach you. Leave empty to hide.</em>
+          <em className="st-hint">{t('d.settings.contactNote')}</em>
         </div>
         {err ? <p className="field-error">{err}</p> : null}
         <div className="st-submit">
           <button className="btn big" disabled={!changed || !usernameOk || busy} onClick={save}>
-            {busy ? 'Saving…' : 'Submit'}
+            {busy ? t('d.settings.saving') : t('d.settings.submit')}
           </button>
         </div>
       </div>
@@ -214,7 +226,8 @@ export function EditProfile() {
 
 /* ---------- Professional account ---------- */
 
-const CATEGORIES = ['Choir', 'Musician', 'Pastor', 'Bible teacher', 'Church', 'Ministry', 'Youth leader', 'Health', 'Photographer', 'Writer', 'Video creator', 'Education', 'Food', 'Community', 'Personal blog'];
+// Keys of the suggested categories. The one picked is put on the profile in the words shown, as if typed.
+const CATEGORIES = ['feed.topic.choir', 'd.settings.catMusician', 'd.settings.catPastor', 'd.settings.catBibleTeacher', 'd.settings.church', 'd.settings.catMinistry', 'd.settings.catYouthLeader', 'feed.topic.health', 'd.settings.catPhotographer', 'd.settings.catWriter', 'd.settings.catVideoCreator', 'd.settings.catEducation', 'd.settings.catFood', 'create.community', 'd.settings.catPersonalBlog'];
 
 export function Professional() {
   const { me, refresh } = useMe();
@@ -227,7 +240,7 @@ export function Professional() {
     try {
       await updateProfile(me.id, { account_type: type, category: type === 'creator' ? category.trim().slice(0, 40) : '' });
       await refresh();
-      toast(type === 'creator' ? 'You have a creator account' : 'You have a personal account');
+      toast(type === 'creator' ? t('d.settings.nowCreator') : t('d.settings.nowPersonal'));
     } catch (e) {
       toastError(e);
     } finally {
@@ -235,38 +248,39 @@ export function Professional() {
     }
   }
   return (
-    <Page title="Professional account" intro="A creator account shows a category on your profile and gives you the dashboard, saved replies and frequently asked questions in messages.">
-      <Block title="Account type">
+    <Page title={t('d.settings.professional')} intro={t('d.settings.professionalIntro')}>
+      <Block title={t('d.settings.accountType')}>
         <Card>
-          <RadioRow name="account-type" icon="user" title="Personal" sub="For sharing with friends and your church family." checked={type === 'personal'} onChange={() => setType('personal')} />
-          <RadioRow name="account-type" icon="chart" title="Creator" sub="For choirs, pastors, ministries and anyone sharing with a wider audience." checked={type === 'creator'} onChange={() => setType('creator')} />
+          <RadioRow name="account-type" icon="user" title={t('d.settings.personal')} sub={t('d.settings.personalSub')} checked={type === 'personal'} onChange={() => setType('personal')} />
+          <RadioRow name="account-type" icon="chart" title={t('d.settings.creator')} sub={t('d.settings.creatorSub')} checked={type === 'creator'} onChange={() => setType('creator')} />
         </Card>
       </Block>
       {type === 'creator' ? (
-        <Block title="Category" note="Shown on your profile under your name.">
+        <Block title={t('d.settings.category')} note={t('d.settings.categoryNote')}>
           <div className="st-chips">
-            {CATEGORIES.map((c) => {
+            {CATEGORIES.map((key) => {
+              const c = t(key);
               const on = category.trim().toLowerCase() === c.toLowerCase();
               return (
-                <button key={c} className={'st-chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => setCategory(on ? '' : c)}>
+                <button key={key} className={'st-chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => setCategory(on ? '' : c)}>
                   {c}
                 </button>
               );
             })}
           </div>
-          <input className="st-input st-gap-top" value={category} maxLength={40} placeholder="Or type your own" aria-label="Category" onChange={(e) => setCategory(e.target.value)} />
+          <input className="st-input st-gap-top" value={category} maxLength={40} placeholder={t('d.settings.ownCategory')} aria-label={t('d.settings.category')} onChange={(e) => setCategory(e.target.value)} />
         </Block>
       ) : null}
       <div className="st-submit">
         <button className="btn big" disabled={!changed || busy} onClick={save}>
-          {busy ? 'Saving…' : type === 'creator' ? 'Use a creator account' : 'Use a personal account'}
+          {busy ? t('d.settings.saving') : type === 'creator' ? t('d.settings.useCreator') : t('d.settings.usePersonal')}
         </button>
       </div>
       {me.account_type === 'creator' ? (
-        <Block title="Your tools">
+        <Block title={t('d.settings.yourTools')}>
           <Card>
-            <LinkRow icon="chart" title="Professional dashboard" sub="Views, followers and your best posts." to="/dashboard" />
-            <LinkRow icon="reply" title="Creator tools and controls" sub="Saved replies and frequently asked questions." to="/accounts/creator" />
+            <LinkRow icon="chart" title={t('d.settings.dashboard')} sub={t('d.settings.dashboardSub')} to="/dashboard" />
+            <LinkRow icon="reply" title={t('settings.creatorTools')} sub={t('d.settings.creatorToolsSub')} to="/accounts/creator" />
           </Card>
         </Block>
       ) : null}
@@ -282,15 +296,15 @@ export function SavedReplies() {
   const [edit, setEdit] = useState<{ id?: string; shortcut: string; body: string } | null>(null);
   return (
     <Block
-      title="Saved replies"
-      note="Answers you send often. In a chat, type / and the shortcut, or press the saved replies button."
+      title={t('d.settings.savedReplies')}
+      note={t('d.settings.savedRepliesNote')}
       action={
         <button className="btn quiet small" onClick={() => setEdit({ shortcut: '', body: '' })}>
-          New saved reply
+          {t('d.settings.newReply')}
         </button>
       }
     >
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">No saved replies yet.</p> : null}
+      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.settings.noReplies')}</p> : null}
       {list.data?.length ? (
         <Card>
           {list.data.map((r) => (
@@ -300,13 +314,13 @@ export function SavedReplies() {
                 <span>{r.body}</span>
               </span>
               <button className="btn quiet small" onClick={() => setEdit(r)}>
-                Edit
+                {t('liveSchedule.edit')}
               </button>
               <button
                 className="icon-btn"
-                aria-label={'Delete /' + r.shortcut}
+                aria-label={t('d.settings.deleteShortcut', { shortcut: r.shortcut })}
                 onClick={async () => {
-                  if (await ask('Delete this saved reply?', '/' + r.shortcut, 'Delete')) deleteSavedReply(r.id).then(list.reload, toastError);
+                  if (await ask(t('d.settings.deleteReplyQ'), '/' + r.shortcut, t('common.delete'))) deleteSavedReply(r.id).then(list.reload, toastError);
                 }}
               >
                 <Icon name="trash" size={18} />
@@ -316,14 +330,14 @@ export function SavedReplies() {
         </Card>
       ) : null}
       {edit ? (
-        <Modal title={edit.id ? 'Edit saved reply' : 'New saved reply'} onClose={() => setEdit(null)} wide>
+        <Modal title={edit.id ? t('d.settings.editReply') : t('d.settings.newReply')} onClose={() => setEdit(null)} wide>
           <div className="form-pad">
             <label className="form-row">
-              <span>Shortcut</span>
-              <input value={edit.shortcut} maxLength={30} onChange={(e) => setEdit({ ...edit, shortcut: e.target.value.replace(/[^\w]/g, '') })} placeholder="thanks" />
+              <span>{t('d.settings.shortcut')}</span>
+              <input value={edit.shortcut} maxLength={30} onChange={(e) => setEdit({ ...edit, shortcut: e.target.value.replace(/[^\w]/g, '') })} placeholder={t('d.settings.shortcutExample')} />
             </label>
             <label className="form-row">
-              <span>Message</span>
+              <span>{t('d.settings.message')}</span>
               <textarea rows={4} value={edit.body} maxLength={1000} onChange={(e) => setEdit({ ...edit, body: e.target.value })} />
             </label>
             <button
@@ -336,7 +350,7 @@ export function SavedReplies() {
                 }, toastError)
               }
             >
-              Save
+              {t('ssPub.save')}
             </button>
           </div>
         </Modal>
@@ -351,12 +365,12 @@ function Faqs() {
   const [edit, setEdit] = useState<{ id?: string; question: string; answer: string } | null>(null);
   return (
     <Block
-      title="Frequently asked questions"
-      note="Up to 8 questions people can tap when they message you. Your answer is sent straight away."
+      title={t('d.settings.faqs')}
+      note={t('d.settings.faqsNote')}
       action={
         (faqs.data?.length ?? 0) < 8 ? (
           <button className="btn quiet small" onClick={() => setEdit({ question: '', answer: '' })}>
-            Add a question
+            {t('d.settings.addQuestion')}
           </button>
         ) : null
       }
@@ -364,10 +378,10 @@ function Faqs() {
       <Card>
         <div className="st-row">
           <span className="st-row-text">
-            <b>Show questions in messages</b>
-            <span>People see your questions when they start a chat with you.</span>
+            <b>{t('d.settings.showFaqs')}</b>
+            <span>{t('d.settings.showFaqsSub')}</span>
           </span>
-          <Toggle label="Show questions in messages" on={me.faq_enabled} onChange={(v) => updateProfile(me.id, { faq_enabled: v }).then(refresh, toastError)} />
+          <Toggle label={t('d.settings.showFaqs')} on={me.faq_enabled} onChange={(v) => updateProfile(me.id, { faq_enabled: v }).then(refresh, toastError)} />
         </div>
         {(faqs.data ?? []).map((f) => (
           <div key={f.id} className="st-row">
@@ -376,23 +390,23 @@ function Faqs() {
               <span>{f.answer}</span>
             </span>
             <button className="btn quiet small" onClick={() => setEdit(f)}>
-              Edit
+              {t('liveSchedule.edit')}
             </button>
-            <button className="icon-btn" aria-label={'Delete ' + f.question} onClick={() => deleteFaq(f.id).then(faqs.reload, toastError)}>
+            <button className="icon-btn" aria-label={t('d.settings.deleteQuestion', { question: f.question })} onClick={() => deleteFaq(f.id).then(faqs.reload, toastError)}>
               <Icon name="trash" size={18} />
             </button>
           </div>
         ))}
       </Card>
       {edit ? (
-        <Modal title={edit.id ? 'Edit question' : 'New question'} onClose={() => setEdit(null)} wide>
+        <Modal title={edit.id ? t('d.settings.editQuestion') : t('d.settings.newQuestion')} onClose={() => setEdit(null)} wide>
           <div className="form-pad">
             <label className="form-row">
-              <span>Question</span>
-              <input value={edit.question} maxLength={120} onChange={(e) => setEdit({ ...edit, question: e.target.value })} placeholder="What time is the Sabbath service?" />
+              <span>{t('d.settings.question')}</span>
+              <input value={edit.question} maxLength={120} onChange={(e) => setEdit({ ...edit, question: e.target.value })} placeholder={t('d.settings.questionExample')} />
             </label>
             <label className="form-row">
-              <span>Answer</span>
+              <span>{t('d.settings.answer')}</span>
               <textarea rows={4} value={edit.answer} maxLength={1000} onChange={(e) => setEdit({ ...edit, answer: e.target.value })} />
             </label>
             <button
@@ -405,7 +419,7 @@ function Faqs() {
                 }, toastError)
               }
             >
-              Save
+              {t('ssPub.save')}
             </button>
           </div>
         </Modal>
@@ -418,11 +432,11 @@ export function CreatorTools() {
   const { me } = useMe();
   if (me.account_type !== 'creator') {
     return (
-      <Page title="Creator tools and controls">
+      <Page title={t('settings.creatorTools')}>
         <Notice icon="chart">
-          Creator tools come with a creator account: saved replies, frequently asked questions in messages and the professional dashboard.{' '}
+          {t('d.settings.creatorToolsNeed')}{' '}
           <Link to="/accounts/professional" className="link-btn inline">
-            Switch account type
+            {t('d.settings.switchType')}
           </Link>
         </Notice>
         <SavedReplies />
@@ -430,14 +444,14 @@ export function CreatorTools() {
     );
   }
   return (
-    <Page title="Creator tools and controls">
+    <Page title={t('settings.creatorTools')}>
       <SavedReplies />
       <Faqs />
-      <Block title="More for creators">
+      <Block title={t('d.settings.moreForCreators')}>
         <Card>
-          <LinkRow icon="chart" title="Professional dashboard" to="/dashboard" />
-          <LinkRow icon="eye" title="View counts on your profile" value={me.show_view_counts ? 'On' : 'Off'} to="/accounts/counts" />
-          <LinkRow icon="crown" title="Creator subscriptions" value={me.sub_price_pence ? 'On' : 'Off'} to="/accounts/subscriptions" />
+          <LinkRow icon="chart" title={t('d.settings.dashboard')} to="/dashboard" />
+          <LinkRow icon="eye" title={t('d.settings.viewCountsOnProfile')} value={me.show_view_counts ? t('d.settings.on') : t('settings.repliesOff')} to="/accounts/counts" />
+          <LinkRow icon="crown" title={t('d.settings.creatorSubs')} value={me.sub_price_pence ? t('d.settings.on') : t('settings.repliesOff')} to="/accounts/subscriptions" />
         </Card>
       </Block>
     </Page>
@@ -450,15 +464,15 @@ export function ProfileViewers() {
   const { me } = useMe();
   const list = useLoad(() => (me.plus ? fetchProfileViewers(me.id) : Promise.resolve([])), [me.plus]);
   return (
-    <Page title="Profile viewers" intro={me.views_week ? `${me.views_week} ${me.views_week === 1 ? 'person' : 'people'} looked at your profile in the last 7 days.` : 'Nobody has looked at your profile in the last 7 days.'}>
+    <Page title={t('settings.profileViewers')} intro={me.views_week ? tn('d.settings.viewersWeek', me.views_week) : t('d.settings.viewersNone')}>
       {!me.plus ? (
-        <PlusUpsell title="See who viewed your profile" body="Community Plus shows you who looked at your profile in the last 7 days, with Erha without limits, read receipts off and more." />
+        <PlusUpsell title={t('plus.allViewers')} body={t('d.settings.viewersUpsell')} />
       ) : list.loading ? (
         <Spinner />
       ) : list.error ? (
         <Failed error={list.error} retry={list.reload} />
       ) : !list.data?.length ? (
-        <p className="st-empty-line">No one yet. People who look at your profile show here for 7 days.</p>
+        <p className="st-empty-line">{t('d.settings.viewersEmpty')}</p>
       ) : (
         <Card>
           {list.data.map((v) => (

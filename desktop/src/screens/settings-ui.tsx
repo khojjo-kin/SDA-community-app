@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { updateProfile } from 'shared/api';
 import type { Profile } from 'shared/types';
+import { dateLocale, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Icon, type IconName, Link, Verified, toastError } from '../ui/kit';
@@ -132,7 +133,7 @@ export function LinkRow({ icon, title, sub, value, to, onClick, external, testId
 
 /** A person in a list: picture, username with tick, a line under it, and something on the right. */
 export function PersonRow({ p, sub, right, onOpen }: { p: Pick<Profile, 'username' | 'full_name' | 'avatar_url' | 'verified'> | null; sub?: React.ReactNode; right?: React.ReactNode; onOpen?: boolean }) {
-  const name = p?.username ?? 'Account unavailable';
+  const name = p?.username ?? t('creatorSubs.accountUnavailable');
   return (
     <div className="st-row st-person">
       <Avatar src={p?.avatar_url} name={name} size={44} onClick={p && onOpen !== false ? () => nav('/u/' + p.username) : undefined} />
@@ -164,7 +165,7 @@ export function PlusUpsell({ title, body }: { title: string; body: string }) {
         <p>{body}</p>
       </div>
       <Link to="/plus" className="btn">
-        Get Community Plus
+        {t('d.settings.getPlus')}
       </Link>
     </div>
   );
@@ -208,8 +209,8 @@ export function useProfileFlag(flag: Flag): [boolean, (next: boolean) => void] {
   return [value, set];
 }
 
-/** "14 May 1994" from YYYY-MM-DD, without time zones moving the day. */
+/** "14 May 1994" (in the app's language) from YYYY-MM-DD, without time zones moving the day. */
 export function longDate(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(y, m - 1, d).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 }
