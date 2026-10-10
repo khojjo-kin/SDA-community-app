@@ -16,7 +16,11 @@ import { Deactivated, Login, Onboarding, Suspended } from './screens/entry';
 import { Explore, Home, PeopleToFollow } from './screens/browse';
 import { Shorts } from './screens/shorts';
 import { Messages } from './screens/messages';
-import { Activity, Churches, Groups, Hymnal, Settings } from './screens/more';
+import { Activity, Settings } from './screens/more';
+import { Hymnal } from './screens/hymnal';
+import { Churches } from './screens/churches';
+import { Groups } from './screens/groups';
+import { FriendsMap } from './screens/map';
 import { Archive, Help } from './screens/account';
 import { Dashboard } from './screens/dashboard';
 import { Plus } from './screens/plus';
@@ -31,6 +35,9 @@ import { LiveViewer } from './screens/live';
 import { ProfilePage } from './screens/profile';
 import { AnnouncementBar } from './ui/announce';
 import { CreateDialog } from './ui/create';
+import { StoryCreate } from './ui/story-create';
+import { type CreateRequest, onCreateRequest } from './lib/create';
+import { applyAppFont } from './lib/font';
 import { MessagesDock } from './ui/dock';
 import { Empty, GlobalLayer, Spinner } from './ui/kit';
 import { PayLayer } from './ui/paysheet';
@@ -99,8 +106,10 @@ function Shell() {
   const { me } = useMe();
   const route = useRoute();
   const [panel, setPanel] = useState<Panel>(null);
-  const [post, setPost] = useState<string | null>(null);
-  const [create, setCreate] = useState<'post' | 'story' | 'short' | null>(null);
+  // The post open in the post dialog, and the list it was opened from (a grid), so the dialog can
+  // step to the previous and next post as Instagram's does.
+  const [post, setPost] = useState<{ id: string; list?: string[] } | null>(null);
+  const [create, setCreate] = useState<CreateRequest | null>(null);
   const seg = parts(route);
 
   useEffect(() => {
@@ -114,7 +123,7 @@ function Shell() {
       if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key === 'n') {
         e.preventDefault();
-        setCreate('post');
+        setCreate({ mode: 'post' });
       }
       if (e.key === 'k') {
         e.preventDefault();
@@ -142,10 +151,14 @@ function Shell() {
   const onCreate = (mode: CreateMode) => {
     if (mode === 'live') nav('/live/new');
     else if (mode === 'ad') nav('/dashboard/ads');
-    else setCreate(mode);
+    else setCreate({ mode });
   };
+  // Anywhere in the app can ask for Create (lib/create.ts): "Add to story" on a post, a story from
+  // the archive shared again, a post into a community.
+  useEffect(() => onCreateRequest((r) => (r.mode === 'live' ? nav('/live/new') : r.mode === 'ad' ? nav('/dashboard/ads') : setCreate(r))), []);
 
-  const openPost = (id: string) => setPost(id);
+  /** Open a post in the dialog; `list` is the grid it was opened from, for the previous and next arrows. */
+  const openPost = (id: string, list?: string[]) => setPost({ id, list });
   let screen: React.ReactNode;
   switch (seg[0]) {
     case undefined:
@@ -156,7 +169,7 @@ function Shell() {
       break;
     case 'shorts':
     case 'reels':
-      screen = <Shorts openPost={openPost} />;
+      screen = <Shorts openPost={openPost} startId={seg[1]} />;
       break;
     case 'direct':
       screen = <Messages path={route} openPost={openPost} />;
@@ -177,19 +190,19 @@ function Shell() {
       screen = <Hymnal number={seg[1]} />;
       break;
     case 'churches':
-      screen = <Churches id={seg[1]} />;
+      screen = <Churches id={seg[1]} path={route} />;
       break;
     case 'groups':
-      screen = <Groups id={seg[1]} openPost={openPost} />;
+      screen = <Groups id={seg[1]} path={route} openPost={openPost} onCreate={(r) => setCreate(r)} />;
       break;
     case 'bible':
       screen = <Bible book={seg[1]} chapter={seg[2]} />;
       break;
     case 'lessons':
-      screen = <SabbathSchool />;
+      screen = <SabbathSchool path={route} />;
       break;
     case 'pod':
-      screen = <Pod />;
+      screen = <Pod path={route} />;
       break;
     case 'live':
       screen = seg[1] === 'new' ? <GoLive /> : <LiveViewer id={seg[1]} />;
@@ -215,6 +228,9 @@ function Shell() {
     case 'legal':
       screen = <Legal doc={seg[1] ?? 'privacy'} />;
       break;
+    case 'map':
+      screen = <FriendsMap />;
+      break;
     case 'admin':
       screen = <Admin path={route} />;
       break;
@@ -231,8 +247,8 @@ function Shell() {
         {screen}
       </main>
       <MessagesDock />
-      {post ? <PostView id={post} onClose={() => setPost(null)} /> : null}
-      {create ? <CreateDialog start={create} onClose={() => setCreate(null)} /> : null}
+      {post ? <PostView id={post.id} list={post.list} onOpen={(id: string) => setPost({ id, list: post.list })} onClose={() => setPost(null)} /> : null}
+      {create?.mode === 'story' ? <StoryCreate request={create} onClose={() => setCreate(null)} /> : create ? <CreateDialog start={create.mode as 'post' | 'short'} request={create} onClose={() => setCreate(null)} /> : null}
       <BirthdayWatch me={me.id} />
       <PayLayer />
     </div>
@@ -240,6 +256,7 @@ function Shell() {
 }
 
 applyAppearance();
+applyAppFont();
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>
