@@ -318,13 +318,14 @@ const check = (label, ok, extra) => {
   const lakes = await page.locator('.highlight').filter({ hasText: 'Lakes' }).waitFor({ timeout: 5000 }).then(() => true, () => false);
   check('a new highlight from the archive shows on my profile', lakes);
   await goto('/accounts/viewers');
-  await page.waitForSelector('.settings-card .row');
-  check('Plus: profile viewers are listed', (await page.locator('.settings-card .row').count()) === 2);
+  await page.waitForSelector('.st-page .st-person');
+  check('Plus: profile viewers are listed', (await page.locator('.st-page .st-person').count()) === 2);
   await goto('/help');
-  await page.locator('.form-row').filter({ hasText: 'Subject' }).locator('input').fill('Desktop question');
-  await page.locator('.form-row').filter({ hasText: 'Message' }).locator('textarea').fill('How do I go live from the Mac?');
-  await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await page.waitForSelector('.ticket');
+  await page.getByRole('button', { name: 'Message support' }).click();
+  await page.locator('.modal .form-row').filter({ hasText: 'Subject' }).locator('input').fill('Desktop question');
+  await page.locator('.modal .form-row').filter({ hasText: 'Message' }).locator('textarea').fill('How do I go live from the Mac?');
+  await page.getByRole('button', { name: 'Send request' }).click();
+  await page.locator('.ticket').filter({ hasText: 'Desktop question' }).waitFor({ timeout: 5000 }).catch(() => {});
   check('a help request is sent and listed', (await page.locator('.ticket').filter({ hasText: 'Desktop question' }).count()) === 1);
 
   // Admin console

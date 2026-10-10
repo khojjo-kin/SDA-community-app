@@ -1,206 +1,18 @@
-// Creator and account tools from the iPhone app: the dashboard, saved replies, frequently asked
-// questions, close friends, the story archive and new highlights, who viewed your profile,
-// Community Plus and Help. All through the shared api.ts, so both apps see the same data.
-import React, { useEffect, useMemo, useState } from 'react';
-import { coverOf, createHighlight, deleteFaq, deleteSavedReply, fetchArchive, fetchFaqs, fetchProfileViewers, fetchSavedReplies, fetchStats, listCloseFriends, listPeople, myPlusRequests, mySupportTickets, openSupportTicket, requestPlus, saveFaq, saveReply, searchProfiles, setCloseFriend, updateProfile } from 'shared/api';
-import { ago, agoLong, dayLabelISO, fmt } from 'shared/theme';
-import type { ArchivedStory, Profile, Stats } from 'shared/types';
+// Account tools from the iPhone app. The story archive (with new highlights) is a page of its own at
+// /archive; the others are settings pages and Help, kept in the settings-*.tsx files and listed
+// here under the names the rest of the app knows them by.
+import React, { useMemo, useState } from 'react';
+import { coverOf, createHighlight, fetchArchive } from 'shared/api';
+import type { ArchivedStory } from 'shared/types';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Avatar, Empty, Failed, Icon, Link, Modal, Spinner, Verified, toast, toastError, useLoad } from '../ui/kit';
+import { Empty, Failed, Icon, Link, Modal, Spinner, toast, toastError, useLoad } from '../ui/kit';
 import { StoryCanvas } from '../ui/stories';
+import '../styles/settings.css';
 
-/* ---------- professional dashboard ---------- */
-
-export function SavedReplies() {
-  const { me } = useMe();
-  const list = useLoad(() => fetchSavedReplies(me.id), []);
-  const [edit, setEdit] = useState<{ id?: string; shortcut: string; body: string } | null>(null);
-  return (
-    <div className="settings-card">
-      <h1>Saved replies</h1>
-      <p className="muted-text">Answers you send often. In a chat, type / and the shortcut, or press the saved replies button.</p>
-      {list.loading ? <Spinner /> : null}
-      {(list.data ?? []).map((r) => (
-        <div key={r.id} className="setting">
-          <div>
-            <b>/{r.shortcut}</b>
-            <p>{r.body}</p>
-          </div>
-          <button className="btn quiet small" onClick={() => setEdit(r)}>
-            Edit
-          </button>
-          <button className="icon-btn" aria-label="Delete" onClick={() => deleteSavedReply(r.id).then(list.reload, toastError)}>
-            <Icon name="trash" size={18} />
-          </button>
-        </div>
-      ))}
-      <button className="btn" onClick={() => setEdit({ shortcut: '', body: '' })}>
-        New saved reply
-      </button>
-      {edit ? (
-        <Modal title={edit.id ? 'Edit saved reply' : 'New saved reply'} onClose={() => setEdit(null)} wide>
-          <div className="form-pad">
-            <label className="form-row">
-              <span>Shortcut</span>
-              <input value={edit.shortcut} maxLength={30} onChange={(e) => setEdit({ ...edit, shortcut: e.target.value.replace(/[^\w]/g, '') })} placeholder="thanks" />
-            </label>
-            <label className="form-row">
-              <span>Message</span>
-              <textarea rows={4} value={edit.body} maxLength={1000} onChange={(e) => setEdit({ ...edit, body: e.target.value })} />
-            </label>
-            <button
-              className="btn block"
-              disabled={!edit.shortcut.trim() || !edit.body.trim()}
-              onClick={() =>
-                saveReply(me.id, edit).then(() => {
-                  setEdit(null);
-                  list.reload();
-                }, toastError)
-              }
-            >
-              Save
-            </button>
-          </div>
-        </Modal>
-      ) : null}
-    </div>
-  );
-}
-
-/* ---------- creator tools: account type, category, FAQs ---------- */
-
-export function CreatorTools() {
-  const { me, refresh } = useMe();
-  const faqs = useLoad(() => fetchFaqs(me.id), []);
-  const [category, setCategory] = useState(me.category);
-  const [edit, setEdit] = useState<{ id?: string; question: string; answer: string } | null>(null);
-  const creator = me.account_type === 'creator';
-  const set = (patch: any) => updateProfile(me.id, patch).then(refresh, toastError);
-  return (
-    <div className="settings-card">
-      <h1>Creator tools</h1>
-      <div className="setting">
-        <div>
-          <b>Creator account</b>
-          <p>Show a category on your profile, see your dashboard, and answer common questions automatically in messages.</p>
-        </div>
-        <button role="switch" aria-checked={creator} aria-label="Creator account" className={'switch' + (creator ? ' on' : '')} onClick={() => set({ account_type: creator ? 'personal' : 'creator' })}>
-          <i />
-        </button>
-      </div>
-      {creator ? (
-        <>
-          <label className="form-row">
-            <span>Category</span>
-            <input value={category} maxLength={40} placeholder="Musician, Pastor, Choir…" onChange={(e) => setCategory(e.target.value)} onBlur={() => category !== me.category && set({ category: category.trim() })} />
-          </label>
-          <div className="setting">
-            <div>
-              <b>Frequently asked questions</b>
-              <p>Up to 8 questions people can tap when they message you. Your answer is sent straight away.</p>
-            </div>
-            <button role="switch" aria-checked={me.faq_enabled} aria-label="Frequently asked questions" className={'switch' + (me.faq_enabled ? ' on' : '')} onClick={() => set({ faq_enabled: !me.faq_enabled })}>
-              <i />
-            </button>
-          </div>
-          {(faqs.data ?? []).map((f) => (
-            <div key={f.id} className="setting">
-              <div>
-                <b>{f.question}</b>
-                <p>{f.answer}</p>
-              </div>
-              <button className="btn quiet small" onClick={() => setEdit(f)}>
-                Edit
-              </button>
-              <button className="icon-btn" aria-label="Delete" onClick={() => deleteFaq(f.id).then(faqs.reload, toastError)}>
-                <Icon name="trash" size={18} />
-              </button>
-            </div>
-          ))}
-          {(faqs.data?.length ?? 0) < 8 ? (
-            <button className="btn quiet" onClick={() => setEdit({ question: '', answer: '' })}>
-              Add a question
-            </button>
-          ) : null}
-        </>
-      ) : null}
-      {edit ? (
-        <Modal title={edit.id ? 'Edit question' : 'New question'} onClose={() => setEdit(null)} wide>
-          <div className="form-pad">
-            <label className="form-row">
-              <span>Question</span>
-              <input value={edit.question} maxLength={120} onChange={(e) => setEdit({ ...edit, question: e.target.value })} placeholder="What time is the Sabbath service?" />
-            </label>
-            <label className="form-row">
-              <span>Answer</span>
-              <textarea rows={4} value={edit.answer} maxLength={1000} onChange={(e) => setEdit({ ...edit, answer: e.target.value })} />
-            </label>
-            <button
-              className="btn block"
-              disabled={!edit.question.trim() || !edit.answer.trim()}
-              onClick={() =>
-                saveFaq(me.id, { ...edit, position: faqs.data?.length ?? 0 }).then(() => {
-                  setEdit(null);
-                  faqs.reload();
-                }, toastError)
-              }
-            >
-              Save
-            </button>
-          </div>
-        </Modal>
-      ) : null}
-    </div>
-  );
-}
-
-/* ---------- close friends ---------- */
-
-export function CloseFriends() {
-  const { me } = useMe();
-  const friends = useLoad(() => listCloseFriends(me.id), []);
-  const [q, setQ] = useState('');
-  const [found, setFound] = useState<Profile[] | null>(null);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (q.trim()) searchProfiles(q).then((r) => setFound(r.filter((p) => p.id !== me.id)), () => {});
-      else listPeople(me.id, 'following').then(setFound, () => setFound([]));
-    }, 220);
-    return () => clearTimeout(t);
-  }, [q]);
-  const ids = new Set((friends.data ?? []).map((p) => p.id));
-  const flip = (p: Profile) => setCloseFriend(me.id, p.id, !ids.has(p.id)).then(friends.reload, toastError);
-  return (
-    <div className="settings-card">
-      <h1>Close friends</h1>
-      <p className="muted-text">Share a story with only these people. Nobody is told when you add or remove them.</p>
-      <div className="panel-search in-modal flat">
-        <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-      </div>
-      {friends.data?.length && !q ? <h3 className="list-h">On your list · {friends.data.length}</h3> : null}
-      {!q ? (friends.data ?? []).map((p) => <PersonCheck key={p.id} p={p} on onClick={() => flip(p)} />) : null}
-      <h3 className="list-h">{q ? 'Results' : 'People you follow'}</h3>
-      {found === null ? <Spinner /> : null}
-      {(found ?? []).filter((p) => q || !ids.has(p.id)).map((p) => (
-        <PersonCheck key={p.id} p={p} on={ids.has(p.id)} onClick={() => flip(p)} />
-      ))}
-    </div>
-  );
-}
-
-function PersonCheck({ p, on, onClick }: { p: Profile; on: boolean; onClick: () => void }) {
-  return (
-    <label className="row flat">
-      <Avatar src={p.avatar_url} name={p.username} size={44} />
-      <span className="row-text">
-        <b>{p.username}</b>
-        <span>{p.full_name}</span>
-      </span>
-      <input type="checkbox" className="round-check close" checked={on} onChange={onClick} aria-label={(on ? 'Remove ' : 'Add ') + p.username} />
-    </label>
-  );
-}
+export { CreatorTools, ProfileViewers, SavedReplies } from './settings-profile';
+export { CloseFriends } from './settings-privacy';
+export { Help } from './settings-help';
 
 /* ---------- story archive and new highlights ---------- */
 
@@ -222,7 +34,10 @@ export function Archive() {
     return out;
   }, [list.data]);
   return (
-    <div className="page">
+    <div className="page st-archive">
+      <Link to="/accounts/archive" className="st-back">
+        <Icon name="back" size={18} /> Settings
+      </Link>
       <div className="dash-head">
         <h1 className="page-title">Stories archive</h1>
         {list.data?.length ? (
@@ -284,104 +99,6 @@ export function Archive() {
           <StoryCanvas item={view.item} width={360} height={640} />
         </Modal>
       ) : null}
-    </div>
-  );
-}
-
-/* ---------- who viewed your profile (Plus) ---------- */
-
-export function ProfileViewers() {
-  const { me } = useMe();
-  const list = useLoad(() => fetchProfileViewers(me.id), []);
-  return (
-    <div className="settings-card">
-      <h1>Profile viewers</h1>
-      <p className="muted-text">{me.views_week ? `${me.views_week} people looked at your profile in the last 7 days.` : 'Nobody has looked at your profile in the last 7 days.'}</p>
-      {!me.plus ? (
-        <p className="note">
-          Seeing who they are is a Community Plus perk. <Link to="/plus" className="link-btn">About Plus</Link>
-        </p>
-      ) : list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : (
-        (list.data ?? []).map((v) => (
-          <div className="row flat" key={v.viewer_id}>
-            <Avatar src={v.avatar_url} name={v.username} size={44} onClick={() => nav('/u/' + v.username)} />
-            <span className="row-text">
-              <Link to={'/u/' + v.username} className="uname">
-                {v.username}
-                {v.verified ? <Verified size={12} /> : null}
-              </Link>
-              <span>
-                {v.full_name} · {ago(v.viewed_at)}
-              </span>
-            </span>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-/* ---------- Community Plus ---------- */
-
-export function Help() {
-  const { me } = useMe();
-  const tickets = useLoad(() => mySupportTickets(me.id), []);
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="page narrow-page">
-      <h1 className="page-title">Help</h1>
-      <section className="dash-card">
-        <h3>Contact the Community team</h3>
-        <p className="muted-text">Tell us what's wrong or what you need. An admin answers here and in the iPhone app.</p>
-        <label className="form-row">
-          <span>Subject</span>
-          <input value={subject} maxLength={140} onChange={(e) => setSubject(e.target.value)} />
-        </label>
-        <label className="form-row">
-          <span>Message</span>
-          <textarea rows={5} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} />
-        </label>
-        <button
-          className="btn"
-          disabled={busy || !subject.trim() || !body.trim()}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await openSupportTicket(me.id, subject, body);
-              setSubject('');
-              setBody('');
-              toast('Sent. We will reply here.');
-              tickets.reload();
-            } catch (e) {
-              toastError(e);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Send
-        </button>
-      </section>
-      <h3 className="section-h">Your requests</h3>
-      {tickets.loading ? <Spinner /> : !tickets.data?.length ? <p className="muted-text">You haven't contacted us yet.</p> : null}
-      {(tickets.data ?? []).map((t) => (
-        <section key={t.id} className="dash-card ticket">
-          <div className="ticket-head">
-            <b>{t.subject}</b>
-            <span className={'pill status-' + t.status}>{t.status === 'open' ? 'Waiting' : t.status === 'answered' ? 'Answered' : 'Closed'}</span>
-          </div>
-          <p className="pre">{t.body}</p>
-          {t.reply ? (
-            <div className="ticket-reply">
-              <b>Community team</b>
-              <p className="pre">{t.reply}</p>
-            </div>
-          ) : null}
-          <span className="muted-text small">{agoLong(t.created_at)}</span>
-        </section>
-      ))}
     </div>
   );
 }
