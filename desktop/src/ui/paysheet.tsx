@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { currentPay, finishPay, money, onPayChange, stripe } from '../lib/pay';
 import { useAppearance } from '../lib/appearance';
+import { t } from '../lib/i18n';
 import { Icon, Modal, Spinner } from './kit';
 
 declare const __DEMO__: boolean;
@@ -41,7 +42,7 @@ function PayDialog() {
         el.mount(box.current);
         handles.current = { s, elements };
       })
-      .catch((e) => !gone && setError(e?.message ?? 'Payments could not start.'));
+      .catch((e) => !gone && setError(e?.message ?? t('d.frame.payCouldNotStart')));
     return () => {
       gone = true;
     };
@@ -62,19 +63,19 @@ function PayDialog() {
         ? await s.confirmSetup({ elements, redirect: 'if_required', confirmParams })
         : await s.confirmPayment({ elements, redirect: 'if_required', confirmParams });
       if (res.error) {
-        setError(res.error.message ?? 'The payment did not go through.');
+        setError(res.error.message ?? t('d.frame.payFailed'));
         setBusy(false);
         return;
       }
       finishPay(true);
     } catch (e: any) {
-      setError(e?.message ?? 'The payment did not go through.');
+      setError(e?.message ?? t('d.frame.payFailed'));
       setBusy(false);
     }
   };
 
   return (
-    <Modal title={setup ? 'Add a card' : 'Payment'} onClose={() => !busy && finishPay(false)} closeOutside={!busy}>
+    <Modal title={setup ? t('d.frame.addCard') : t('pay.title')} onClose={() => !busy && finishPay(false)} closeOutside={!busy}>
       <div className="pay-sheet">
         <div className="pay-head">
           <span className="pay-icon">
@@ -89,20 +90,20 @@ function PayDialog() {
         {__DEMO__ ? (
           <div className="pay-demo">
             <label className="form-row">
-              <span>Card number</span>
-              <input defaultValue="4242 4242 4242 4242" aria-label="Card number" />
+              <span>{t('d.frame.cardNumber')}</span>
+              <input defaultValue="4242 4242 4242 4242" aria-label={t('d.frame.cardNumber')} />
             </label>
             <div className="form-2">
               <label className="form-row">
-                <span>Expiry</span>
-                <input defaultValue="12 / 29" aria-label="Expiry" />
+                <span>{t('d.frame.expiry')}</span>
+                <input defaultValue="12 / 29" aria-label={t('d.frame.expiry')} />
               </label>
               <label className="form-row">
-                <span>CVC</span>
-                <input defaultValue="123" aria-label="CVC" />
+                <span>{t('d.frame.cvc')}</span>
+                <input defaultValue="123" aria-label={t('d.frame.cvc')} />
               </label>
             </div>
-            <p className="muted-text small">Demo: a sample card. No money moves.</p>
+            <p className="muted-text small">{t('d.frame.demoCard')}</p>
           </div>
         ) : (
           <div className="pay-element" ref={box}>
@@ -111,10 +112,10 @@ function PayDialog() {
         )}
         {error ? <p className="form-error">{error}</p> : null}
         <button className="btn block big" disabled={!ready || busy} onClick={pay}>
-          {busy ? 'Processing…' : req.action ?? (setup ? 'Save card' : 'Pay ' + money(req.amountPence, req.currency))}
+          {busy ? t('d.frame.processing') : req.action ?? (setup ? t('checkout.saveCard') : t('checkout.pay', { price: money(req.amountPence, req.currency) }))}
         </button>
         <p className="muted-text small center">
-          <Icon name="lock" size={12} /> Payments are handled by Stripe. Community never sees your card number.
+          <Icon name="lock" size={12} /> {t('d.frame.stripeNote')}
         </p>
       </div>
     </Modal>

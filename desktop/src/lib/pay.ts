@@ -4,6 +4,7 @@
 // shows a sample form and no money moves.
 import { fetchPaymentsConfig } from 'shared/api';
 import type { PaymentsConfig } from 'shared/types';
+import { t } from './i18n';
 
 declare const __DEMO__: boolean;
 
@@ -86,7 +87,7 @@ export function paymentsConfig(fresh = false): Promise<PaymentsConfig> {
 export async function stripe(): Promise<any> {
   if (__DEMO__) return null;
   const c = await paymentsConfig();
-  if (!c.ready || !c.publishable_key) throw new Error('Payments are not switched on yet.');
+  if (!c.ready || !c.publishable_key) throw new Error(t('d.frame.paymentsOff'));
   if (!stripeLoad) {
     stripeLoad = new Promise((resolve, reject) => {
       if (window.Stripe) return resolve(window.Stripe(c.publishable_key));
@@ -96,7 +97,7 @@ export async function stripe(): Promise<any> {
       s.onload = () => resolve(window.Stripe(c.publishable_key));
       s.onerror = () => {
         stripeLoad = null;
-        reject(new Error('Could not reach Stripe. Check your internet connection.'));
+        reject(new Error(t('d.frame.stripeUnreachable')));
       };
       document.head.appendChild(s);
     });

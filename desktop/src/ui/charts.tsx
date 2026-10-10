@@ -2,6 +2,7 @@
 // and horizontal bars. Thin marks, a quiet grid, text in text colours, a tooltip on hover.
 // Categorical colours follow a fixed, colour-blind-checked order (stepped for the dark surface).
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { dateLocale, t } from '../lib/i18n';
 
 export const SERIES = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
 const GRID = 'rgba(255,255,255,0.07)';
@@ -37,7 +38,7 @@ function ticks(max: number): number[] {
 const short = (n: number) => (Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1) + 'm' : Math.abs(n) >= 1e4 ? Math.round(n / 1e3) + 'k' : Math.abs(n) >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(Math.round(n * 100) / 100));
 const dayLabel = (d: string) => {
   const t = new Date(d + 'T12:00:00');
-  return isNaN(t.getTime()) ? d : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return isNaN(t.getTime()) ? d : t.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 };
 
 type Point = { x: string; y: number };
@@ -164,7 +165,7 @@ export function ColumnChart({ data, height = 200, color = SERIES[0], format = sh
 export function Donut({ slices, format = short, name, size = 168 }: { slices: { label: string; value: number }[]; format?: (n: number) => string; name: string; size?: number }) {
   const [hover, setHover] = useState<number | null>(null);
   const sorted = [...slices].filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
-  const shown = sorted.length > 5 ? [...sorted.slice(0, 4), { label: 'Other', value: sorted.slice(4).reduce((a, b) => a + b.value, 0) }] : sorted;
+  const shown = sorted.length > 5 ? [...sorted.slice(0, 4), { label: t('d.frame.chartOther'), value: sorted.slice(4).reduce((a, b) => a + b.value, 0) }] : sorted;
   const total = shown.reduce((a, b) => a + b.value, 0);
   const r = size / 2 - 6;
   const inner = r * 0.62;
@@ -182,7 +183,7 @@ export function Donut({ slices, format = short, name, size = 168 }: { slices: { 
       : `M${p(a0 + gap, r)} A${r},${r} 0 ${large} 1 ${p(a1 - gap, r)} L${p(a1 - gap, inner)} A${inner},${inner} 0 ${large} 0 ${p(a0 + gap, inner)} Z`;
     return { d, color: SERIES[i % SERIES.length], s, frac, i };
   });
-  if (!total) return <p className="muted-text small">No data yet.</p>;
+  if (!total) return <p className="muted-text small">{t('d.frame.noData')}</p>;
   const focus = hover != null ? shown[hover] : null;
   return (
     <div className="donut" role="img" aria-label={name}>
@@ -191,7 +192,7 @@ export function Donut({ slices, format = short, name, size = 168 }: { slices: { 
           <path key={a.s.label} d={a.d} fill={a.color} fillRule="evenodd" opacity={hover == null || hover === a.i ? 1 : 0.45} onMouseEnter={() => setHover(a.i)} />
         ))}
         <text x={size / 2} y={size / 2 - 2} textAnchor="middle" fill="var(--fg)" fontSize="20" fontWeight="700">{focus ? format(focus.value) : format(total)}</text>
-        <text x={size / 2} y={size / 2 + 16} textAnchor="middle" fill="var(--fg3)" fontSize="11">{focus ? focus.label : 'Total'}</text>
+        <text x={size / 2} y={size / 2 + 16} textAnchor="middle" fill="var(--fg3)" fontSize="11">{focus ? focus.label : t('pay.total')}</text>
       </svg>
       <ul className="legend">
         {arcs.map((a) => (
@@ -208,7 +209,7 @@ export function Donut({ slices, format = short, name, size = 168 }: { slices: { 
 }
 
 /** Ranked bars with the label and value written beside each. */
-export function HBars({ items, format = short, color = SERIES[0], empty = 'No data yet.' }: { items: { label: React.ReactNode; value: number; key?: string; onClick?: () => void }[]; format?: (n: number) => string; color?: string; empty?: string }) {
+export function HBars({ items, format = short, color = SERIES[0], empty = t('d.frame.noData') }: { items: { label: React.ReactNode; value: number; key?: string; onClick?: () => void }[]; format?: (n: number) => string; color?: string; empty?: string }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   if (!items.length) return <p className="muted-text small">{empty}</p>;
   return (

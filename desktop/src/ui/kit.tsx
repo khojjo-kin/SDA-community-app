@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ICONS, type IconName } from './icons.gen';
+import { t } from '../lib/i18n';
 import { nav } from '../lib/router';
 import { errText } from 'shared/theme';
 
@@ -28,7 +29,7 @@ export function Icon({ name, size = 24, color = 'currentColor', fill, stroke = 1
 
 export function Verified({ size = 14 }: { size?: number }) {
   return (
-    <span className="verified" title="Verified" aria-label="Verified">
+    <span className="verified" title={t('common.verified')} aria-label={t('common.verified')}>
       <Icon name="verified" size={size} color="#3d8bff" fill="#3d8bff" stroke={0} />
     </span>
   );
@@ -58,7 +59,7 @@ export function Avatar({ src, name, size = 32, ring, onClick, label }: { src?: s
 }
 
 export function Spinner({ size = 28 }: { size?: number }) {
-  return <span className="spinner" style={{ width: size, height: size }} role="status" aria-label="Loading" />;
+  return <span className="spinner" style={{ width: size, height: size }} role="status" aria-label={t('loading.label')} />;
 }
 
 export function Empty({ icon, title, body, children }: { icon: IconName; title: string; body?: string; children?: React.ReactNode }) {
@@ -77,10 +78,10 @@ export function Empty({ icon, title, body, children }: { icon: IconName; title: 
 export function Failed({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <div className="empty">
-      <h2>Couldn't load this</h2>
+      <h2>{t('d.frame.couldNotLoad')}</h2>
       <p>{errText(error)}</p>
       <button className="btn" onClick={retry}>
-        Try again
+        {t('common.tryAgain')}
       </button>
     </div>
   );
@@ -134,7 +135,7 @@ export function Modal({ onClose, children, className, title, wide, closeOutside 
   return createPortal(
     <div className="scrim" onMouseDown={(e) => closeOutside && e.target === e.currentTarget && onClose()}>
       {bare ? (
-        <button className="scrim-close" aria-label="Close" onClick={onClose}>
+        <button className="scrim-close" aria-label={t('common.close')} onClick={onClose}>
           <Icon name="close" size={26} color="#fff" />
         </button>
       ) : null}
@@ -143,7 +144,7 @@ export function Modal({ onClose, children, className, title, wide, closeOutside 
           <div className="modal-head">
             <span />
             <h2>{title}</h2>
-            <button className="icon-btn" aria-label="Close" onClick={onClose}>
+            <button className="icon-btn" aria-label={t('common.close')} onClick={onClose}>
               <Icon name="close" size={22} />
             </button>
           </div>
@@ -173,7 +174,7 @@ export function ChoiceMenu({ items, onClose }: { items: MenuItem[]; onClose: () 
           {it.label}
         </button>
       ))}
-      <button onClick={onClose}>Cancel</button>
+      <button onClick={onClose}>{t('common.cancel')}</button>
     </Modal>
   );
 }
@@ -222,7 +223,7 @@ export function GlobalLayer() {
           <button className={confirm.danger ? 'danger bold' : 'bold accent'} onClick={() => answer(true)}>
             {confirm.action}
           </button>
-          <button onClick={() => answer(false)}>Cancel</button>
+          <button onClick={() => answer(false)}>{t('common.cancel')}</button>
         </Modal>
       ) : null}
       <div className="toasts" role="status" aria-live="polite">

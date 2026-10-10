@@ -10,6 +10,7 @@ import { addLiveComment, deleteLiveComment, fetchLive } from 'shared/api';
 import { ChannelRefusedError, type IceCandidateInit, PeerSession, type SessionDescription, joinChannel, leaveChannel, openSendChannel, send } from 'shared/rtc';
 import { errText } from 'shared/theme';
 import type { LiveCard } from 'shared/types';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { back, nav } from '../lib/router';
 import { Avatar, Icon, Spinner, toast } from '../ui/kit';
@@ -24,7 +25,7 @@ export function LiveViewer({ id }: { id: string }) {
   // The channel's rules turned this account away (blocked, or not in the live's audience).
   const [refused, setRefused] = useState(false);
   const [remote, setRemote] = useState<MediaStream | null>(null);
-  const [note, setNote] = useState('Joining…');
+  const [note, setNote] = useState(() => t('live.joining'));
   const [muted, setMuted] = useState(false);
   const comments = useLiveComments(id);
   const { listen: listenComments, drop: dropComment } = comments;
@@ -101,8 +102,8 @@ export function LiveViewer({ id }: { id: string }) {
                 onState: (state) => {
                   if (!alive) return;
                   if (state === 'connected') setNote('');
-                  else if (state === 'disconnected') setNote('Reconnecting…');
-                  else if (state === 'failed') setNote('Connection lost. Leave and join again.');
+                  else if (state === 'disconnected') setNote(t('live.reconnecting'));
+                  else if (state === 'failed') setNote(t('live.connectionLost'));
                 },
               });
               peerRef.current = peer;
@@ -145,7 +146,7 @@ export function LiveViewer({ id }: { id: string }) {
           if (gotOffer.current || tries++ >= 6) {
             if (joinTimer) clearInterval(joinTimer);
             joinTimer = null;
-            if (!gotOffer.current && alive) setNote('The broadcaster is not answering. Try again in a moment.');
+            if (!gotOffer.current && alive) setNote(t('live.notAnswering'));
             return;
           }
           join();
@@ -215,7 +216,7 @@ export function LiveViewer({ id }: { id: string }) {
   const name = card?.username || '';
   const over = ended || full || refused || (checked && !card);
   const frameH = Math.max(380, (height || 800) - 32);
-  const audienceNote = card?.audience === 'close_friends' ? 'Close friends' : card?.audience === 'practice' ? 'Practice · only them' : '';
+  const audienceNote = card?.audience === 'close_friends' ? t('liveSetup.closeFriends') : card?.audience === 'practice' ? t('d.frame.practiceThem') : '';
 
   return (
     <div className="lv-stage" ref={stage} style={{ height: height || undefined }}>
@@ -229,10 +230,10 @@ export function LiveViewer({ id }: { id: string }) {
         {over ? (
           <div className="lv-over">
             <Avatar src={card?.avatar_url} name={name || '?'} size={96} />
-            <h2>{refused && !ended ? "You can't watch this live" : full ? 'This live is full' : 'The live has ended'}</h2>
-            <p>{refused && !ended ? "This live isn't open to your account." : full ? 'Only a small number of people can watch at once. Try again in a little while.' : name ? `${name} has finished broadcasting.` : 'Nothing is being broadcast here any more.'}</p>
+            <h2>{refused && !ended ? t('live.cannotWatch') : full ? t('live.full') : t('live.ended')}</h2>
+            <p>{refused && !ended ? t('live.cannotWatchBody') : full ? t('live.fullBody') : name ? t('live.endedBody', { name }) : t('live.endedNoName')}</p>
             <button className="btn block" onClick={leave}>
-              Done
+              {t('live.done')}
             </button>
           </div>
         ) : (
@@ -248,11 +249,11 @@ export function LiveViewer({ id }: { id: string }) {
                 right={
                   <>
                     {remote ? (
-                      <button className="lv-round" aria-label={muted ? 'Turn sound on' : 'Turn sound off'} onClick={() => setMuted(!muted)}>
+                      <button className="lv-round" aria-label={muted ? t('d.frame.soundOn') : t('d.frame.soundOff')} onClick={() => setMuted(!muted)}>
                         <Icon name={muted ? 'mute' : 'sound'} size={18} color="#fff" />
                       </button>
                     ) : null}
-                    <button className="lv-round" aria-label="Leave" onClick={leave}>
+                    <button className="lv-round" aria-label={t('live.leave')} onClick={leave}>
                       <Icon name="close" size={18} color="#fff" stroke={2.2} />
                     </button>
                   </>
@@ -268,15 +269,15 @@ export function LiveViewer({ id }: { id: string }) {
             <div className="lv-middle">
               {mine ? (
                 <div className="lv-note">
-                  <b>This is your live</b>
-                  <span>It's broadcasting from another device. Go live from here with Create → Live video.</span>
+                  <b>{t('d.frame.yourLive')}</b>
+                  <span>{t('d.frame.yourLiveBody')}</span>
                 </div>
               ) : !remote ? (
                 <div className="lv-note">
                   {card ? <Avatar src={card.avatar_url} name={name || '?'} size={110} /> : null}
                   {note ? (
                     <span className="lv-note-line">
-                      {note === 'Joining…' || note === 'Reconnecting…' || !checked ? <Spinner size={18} /> : null}
+                      {note === t('live.joining') || note === t('live.reconnecting') || !checked ? <Spinner size={18} /> : null}
                       {note}
                     </span>
                   ) : null}
@@ -289,7 +290,7 @@ export function LiveViewer({ id }: { id: string }) {
               <ChatLines lines={comments.lines} canRemove={(l) => l.userId === me.id} onRemove={removeComment} />
               {card?.fundraiser_id ? (
                 <button className="lv-donate" onClick={() => nav('/fundraisers/' + card.fundraiser_id)}>
-                  <HeartCoin /> Donate
+                  <HeartCoin /> {t('liveSetup.donate')}
                 </button>
               ) : null}
               {mine ? null : <LiveComposer onSend={sendChat} onHeart={sendHeart} />}

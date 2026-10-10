@@ -8,6 +8,7 @@ import { fetchLive, fetchLiveComments, profilesInOrder } from 'shared/api';
 import { supabase } from 'shared/supabase';
 import { errText, fmt } from 'shared/theme';
 import type { LiveComment } from 'shared/types';
+import { t } from '../lib/i18n';
 import '../styles/stories.css';
 import { Avatar, Icon, Verified, ask } from '../ui/kit';
 
@@ -140,18 +141,18 @@ export function useLiveComments(liveId: string | null, max = 6) {
 /** The last comments, bottom-left, the oldest fading. A comment `canRemove` allows has a Remove button. */
 export function ChatLines({ lines, canRemove, onRemove }: { lines: ChatLine[]; canRemove?: (line: ChatLine) => boolean; onRemove?: (line: ChatLine) => void }) {
   return (
-    <div className="lv-lines" aria-label="Comments" role="log">
+    <div className="lv-lines" aria-label={t('live.comments')} role="log">
       {lines.map((l, i) => (
         <div key={l.id} className="lv-line" style={{ opacity: 0.45 + (0.55 * (i + 1)) / Math.max(1, lines.length) }}>
           <span>
-            <b>{l.username || 'someone'}</b> {l.text}
+            <b>{l.username || t('live.someone')}</b> {l.text}
           </span>
           {onRemove && canRemove?.(l) ? (
             <button
               className="lv-remove"
-              aria-label="Remove comment"
+              aria-label={t('live.removeComment')}
               onClick={async () => {
-                if (await ask('Remove this comment?', '', 'Remove')) onRemove(l);
+                if (await ask(t('live.removeQuestion'), '', t('live.remove'))) onRemove(l);
               }}
             >
               <Icon name="close" size={12} color="#fff" stroke={2.4} />
@@ -169,7 +170,7 @@ export async function commentRefusal(e: unknown, liveId: string): Promise<{ ende
   if (code === '42501' || code === '23503') {
     try {
       const card = await fetchLive(liveId);
-      if (!card || card.ended_at) return { ended: true, text: 'This live has ended.' };
+      if (!card || card.ended_at) return { ended: true, text: t('live.hasEnded') };
     } catch {
       // not known: the general reason below
     }
@@ -231,20 +232,20 @@ export function Hearts({ hearts }: { hearts: HeartItem[] }) {
 export function LiveHeader({ avatar, username, verified, viewers, title, onProfile, right }: { avatar?: string | null; username?: string; verified?: boolean; viewers: number; title?: string; onProfile?: () => void; right?: React.ReactNode }) {
   return (
     <div className="lv-head">
-      <button className="lv-who" onClick={onProfile} disabled={!onProfile} aria-label={username ? `${username}'s profile` : 'Live'}>
+      <button className="lv-who" onClick={onProfile} disabled={!onProfile} aria-label={username ? t('d.frame.profileOf', { username }) : t('live.noName')}>
         <Avatar src={avatar} name={username || '?'} size={36} />
         <span className="lv-names">
           <b>
-            {username || 'Live'}
+            {username || t('live.noName')}
             {verified ? <Verified size={12} /> : null}
           </b>
           {title ? <span>{title}</span> : null}
         </span>
       </button>
-      <span className="lv-pill" aria-label="Live">
-        LIVE
+      <span className="lv-pill" aria-label={t('live.noName')}>
+        {t('common.live')}
       </span>
-      <span className="lv-count" aria-label={`${fmt(viewers)} watching`}>
+      <span className="lv-count" aria-label={t('live.watchingCount', { count: fmt(viewers) })}>
         <Icon name="eye" size={14} color="#fff" stroke={2.2} /> {fmt(viewers)}
       </span>
       {right}
@@ -258,7 +259,7 @@ const MAX_COMMENT = 200;
  * The comment box and the heart. `onSend` resolves true once posted; on false (the screen has said
  * why) the words go back in the box, so nothing typed is lost.
  */
-export function LiveComposer({ onSend, onHeart, placeholder = 'Comment…' }: { onSend: (text: string) => Promise<boolean>; onHeart: () => void; placeholder?: string }) {
+export function LiveComposer({ onSend, onHeart, placeholder = t('live.commentPlaceholder') }: { onSend: (text: string) => Promise<boolean>; onHeart: () => void; placeholder?: string }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
@@ -288,14 +289,14 @@ export function LiveComposer({ onSend, onHeart, placeholder = 'Comment…' }: { 
       }}
     >
       <span className="lv-field">
-        <input value={text} maxLength={MAX_COMMENT} placeholder={placeholder} aria-label="Comment" onChange={(e) => setText(e.target.value)} />
+        <input value={text} maxLength={MAX_COMMENT} placeholder={placeholder} aria-label={t('live.commentLabel')} onChange={(e) => setText(e.target.value)} />
         {sending ? <span className="spinner lv-spin" /> : text.trim() ? (
-          <button className="lv-send" aria-label="Send comment">
+          <button className="lv-send" aria-label={t('live.sendComment')}>
             <Icon name="send" size={16} color="#fff" stroke={2.2} />
           </button>
         ) : null}
       </span>
-      <button type="button" className="icon-btn" aria-label="Send a heart" onClick={onHeart}>
+      <button type="button" className="icon-btn" aria-label={t('live.sendHeart')} onClick={onHeart}>
         <Icon name="heart" size={26} color="#fff" stroke={2} />
       </button>
     </form>

@@ -11,6 +11,7 @@ import { getProfile } from 'shared/api';
 import { FONTS } from 'shared/fonts';
 import { getPrefs, usePrefs } from 'shared/prefs';
 import { listen } from 'shared/store';
+import { t } from './i18n';
 
 declare const __DEMO__: boolean;
 
@@ -26,11 +27,22 @@ const WEB: Record<string, { family: string; weights: string; fallback: string }>
 
 export type AppFont = { id: string; name: string; sample: string; stack: string };
 
-/** The faces on offer, with the iPhone's names and sample lines; '' is the standard face. */
+/** Keys for the sample line under each face, and for the standard face's name (the others are names). */
+const SAMPLE_KEYS: Record<string, string> = { '': 'd.frame.fontStandardSample', nunito: 'd.frame.fontNunitoSample', lora: 'd.frame.fontLoraSample', poppins: 'd.frame.fontPoppinsSample' };
+
+/**
+ * The faces on offer, with the iPhone's names and sample lines; '' is the standard face. The name and
+ * sample are read while a screen draws, so they come in the app's language (English for a face this
+ * file doesn't know).
+ */
 export const APP_FONTS: AppFont[] = FONTS.map((f) => ({
   id: f.id,
-  name: f.name,
-  sample: f.sample,
+  get name() {
+    return f.id ? f.name : t('feed.standard');
+  },
+  get sample() {
+    return SAMPLE_KEYS[f.id] ? t(SAMPLE_KEYS[f.id]) : f.sample;
+  },
   stack: f.id && WEB[f.id] ? `'${WEB[f.id].family}', ${WEB[f.id].fallback}` : STANDARD,
 }));
 

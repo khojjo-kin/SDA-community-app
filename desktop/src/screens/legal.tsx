@@ -3,6 +3,7 @@
 // The Markdown is drawn by a small renderer below that only makes React elements, never HTML, so
 // nothing in a document can run as code.
 import React, { useState } from 'react';
+import { t } from '../lib/i18n';
 import { nav } from '../lib/router';
 import { Empty, Icon, type IconName, Link, Modal } from '../ui/kit';
 import { Wordmark } from '../ui/sidebar';
@@ -11,14 +12,23 @@ import '../styles/settings.css';
 
 declare const __VERSION__: string;
 
+/** A document's entry; `label` is read while a screen draws, so it is in the app's language. */
+const legalDoc = (id: string, key: string, icon: IconName): { id: string; label: string; icon: IconName } => ({
+  id,
+  icon,
+  get label() {
+    return t(key);
+  },
+});
+
 /** The documents in the order they are listed, with the About page last. */
 export const LEGAL_DOCS: { id: string; label: string; icon: IconName }[] = [
-  { id: 'privacy', label: 'Privacy policy', icon: 'lock' },
-  { id: 'terms', label: 'Terms of use', icon: 'book' },
-  { id: 'guidelines', label: 'Community guidelines', icon: 'users' },
-  { id: 'child-safety', label: 'Child safety', icon: 'shield' },
-  { id: 'copyright', label: 'Copyright policy', icon: 'gavel' },
-  { id: 'about', label: 'About Community', icon: 'info' },
+  legalDoc('privacy', 'legal.privacy', 'lock'),
+  legalDoc('terms', 'legal.terms', 'book'),
+  legalDoc('guidelines', 'legal.guidelines', 'users'),
+  legalDoc('child-safety', 'legal.childSafety', 'shield'),
+  legalDoc('copyright', 'legal.copyright', 'gavel'),
+  legalDoc('about', 'd.frame.aboutCommunity', 'info'),
 ];
 
 const UPDATED = LEGAL_DETAILS.effective_date ?? '';
@@ -150,13 +160,13 @@ function inline(text: string, openDoc: (id: string) => void, key = ''): React.Re
 export function LegalArticle({ id, openDoc }: { id: string; openDoc: (id: string) => void }) {
   if (id === 'about') return <AboutCommunity openDoc={openDoc} />;
   const md = LEGAL_MARKDOWN[id];
-  if (!md) return <Empty icon="info" title="This document isn't available." body="It may have moved. Choose one of the documents on the left." />;
+  if (!md) return <Empty icon="info" title={t('legal.notFound')} body={t('d.frame.docMoved')} />;
   const blocks = parseMarkdown(md).filter((b) => !(b.type === 'p' && /^Last updated:/i.test(b.text)));
   const [first, ...rest] = blocks[0]?.type === 'h1' ? blocks : [{ type: 'h1' as const, text: LEGAL_DOCS.find((d) => d.id === id)?.label ?? '' }, ...blocks];
   return (
     <article className="st-legal-doc">
       <h1>{first.type === 'ul' ? '' : first.text}</h1>
-      {UPDATED ? <p className="st-legal-updated">Last updated {UPDATED}</p> : null}
+      {UPDATED ? <p className="st-legal-updated">{t('legal.updated', { date: UPDATED })}</p> : null}
       {rest.map((b, i) =>
         b.type === 'ul' ? (
           <ul key={i}>
@@ -176,11 +186,12 @@ export function LegalArticle({ id, openDoc }: { id: string; openDoc: (id: string
 
 /* ---------- About ---------- */
 
+/** Keys for each heading and its paragraph, drawn with t(). */
 const FACTS: [string, string][] = [
-  ['What Community keeps', 'Your profile, the photos and videos you post, your stories and memories, comments, likes, who you follow, and your messages. It also counts how many people have seen your posts and stories.'],
-  ['Who can see it', 'Posts, Shorts and your profile are visible to everyone on Community, unless your account is private. Stories are visible to everyone, or only to your close friends when you choose that. Messages can only be opened by the people in the chat. Saved posts and your archive are only visible to you.'],
-  ['What stays on this computer', 'Your appearance, language and accessibility choices. A photo or video only leaves your computer when you share it.'],
-  ['Removing your data', 'You can delete any post, story, comment or memory from the place you see it. Deactivating your account, in Settings → Accounts Centre, hides everything at once and deletes it for good after 30 days.'],
+  ['d.frame.factKeeps', 'd.frame.factKeepsBody'],
+  ['d.frame.factWho', 'd.frame.factWhoBody'],
+  ['d.frame.factComputer', 'd.frame.factComputerBody'],
+  ['d.frame.factRemoving', 'd.frame.factRemovingBody'],
 ];
 
 /** What Community is, its version and the documents. Also shown in Settings → About. */
@@ -189,13 +200,10 @@ export function AboutCommunity({ openDoc }: { openDoc: (id: string) => void }) {
     <article className="st-legal-doc st-about">
       <div className="st-about-head">
         <Wordmark />
-        <p>Version {__VERSION__}</p>
+        <p>{t('d.frame.version', { version: __VERSION__ })}</p>
       </div>
-      <p>
-        Community is the app for a Seventh-day Adventist church family: share photos, videos, stories and Shorts, message and call each other, and read the Bible, the Hymnal and the Sabbath School lesson together. The same
-        account works in the Community app on iPhone and here on the computer.
-      </p>
-      <h2>Policies</h2>
+      <p>{t('d.frame.aboutBody')}</p>
+      <h2>{t('d.frame.policies')}</h2>
       <ul className="st-about-links">
         {LEGAL_DOCS.filter((d) => d.id !== 'about').map((d) => (
           <li key={d.id}>
@@ -213,8 +221,8 @@ export function AboutCommunity({ openDoc }: { openDoc: (id: string) => void }) {
       </ul>
       {FACTS.map(([title, body]) => (
         <React.Fragment key={title}>
-          <h3>{title}</h3>
-          <p>{body}</p>
+          <h3>{t(title)}</h3>
+          <p>{t(body)}</p>
         </React.Fragment>
       ))}
     </article>
@@ -229,15 +237,15 @@ export function Legal({ doc }: { doc: string }) {
   const open = (next: string) => nav('/legal/' + next);
   return (
     <div className="st-shell st-legal">
-      <nav className="st-nav" aria-label="Legal">
-        <h2 className="st-nav-title">Legal</h2>
+      <nav className="st-nav" aria-label={t('legal.title')}>
+        <h2 className="st-nav-title">{t('legal.title')}</h2>
         <div className="st-nav-list">
           {LEGAL_DOCS.map((d) => (
             <Link key={d.id} to={'/legal/' + d.id} className={'st-nav-item' + (d.id === id ? ' on' : '')}>
               <Icon name={d.icon} size={22} />
               <span className="st-nav-text">
                 <span>{d.label}</span>
-                {d.id !== 'about' && UPDATED ? <small>Last updated {UPDATED}</small> : null}
+                {d.id !== 'about' && UPDATED ? <small>{t('legal.updated', { date: UPDATED })}</small> : null}
               </span>
             </Link>
           ))}
@@ -256,7 +264,7 @@ export function Legal({ doc }: { doc: string }) {
 export function LegalDialog({ doc, onClose }: { doc: string; onClose: () => void }) {
   const [id, setId] = useState(doc);
   return (
-    <Modal onClose={onClose} wide className="st-legal-modal" title={LEGAL_DOCS.find((d) => d.id === id)?.label ?? 'Legal'}>
+    <Modal onClose={onClose} wide className="st-legal-modal" title={LEGAL_DOCS.find((d) => d.id === id)?.label ?? t('legal.title')}>
       <div className="st-legal-scroll">
         <LegalArticle id={id} openDoc={setId} />
       </div>

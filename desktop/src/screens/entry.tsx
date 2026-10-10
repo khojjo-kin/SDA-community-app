@@ -8,6 +8,7 @@ import { noteConsentToRecord, recordConsentFor } from 'shared/consent';
 import { errText } from 'shared/theme';
 import type { Profile } from 'shared/types';
 import { useAuth } from '../lib/auth';
+import { dateLocale, t } from '../lib/i18n';
 import { rememberSize } from '../shims/expo-file-system';
 import { Avatar } from '../ui/kit';
 import { Wordmark } from '../ui/sidebar';
@@ -19,20 +20,29 @@ import art3 from '../../../assets/auth-bible.jpg';
 
 const ART = [art1, art2, art3];
 
+/**
+ * A sentence with links (or anything else drawn differently) in its {gaps}, kept whole for
+ * translators: the words between the gaps as text, each gap as the element given for it.
+ */
+function withParts(text: string, parts: Record<string, React.ReactNode>): React.ReactNode[] {
+  return text.split(/\{(\w+)\}/).map((piece, i) => (i % 2 ? <React.Fragment key={i}>{parts[piece] ?? `{${piece}}`}</React.Fragment> : piece));
+}
+
 /** Links to the policies, opening them over the page. */
 function LegalLinks() {
   const [doc, setDoc] = useState('');
+  // The document and the key for its link's words.
   const links: [string, string][] = [
-    ['terms', 'Terms'],
-    ['privacy', 'Privacy'],
-    ['guidelines', 'Community guidelines'],
-    ['child-safety', 'Child safety'],
+    ['terms', 'legal.termsLink'],
+    ['privacy', 'd.frame.privacy'],
+    ['guidelines', 'legal.guidelines'],
+    ['child-safety', 'legal.childSafety'],
   ];
   return (
-    <nav className="st-login-links" aria-label="Policies">
+    <nav className="st-login-links" aria-label={t('d.frame.policies')}>
       {links.map(([id, label]) => (
         <button key={id} type="button" onClick={() => setDoc(id)}>
-          {label}
+          {t(label)}
         </button>
       ))}
       {doc ? <LegalDialog doc={doc} onClose={() => setDoc('')} /> : null}
@@ -73,20 +83,20 @@ export function Login() {
       <div className="login-side">
         <div className="login-card">
           <Wordmark />
-          <p className="login-tag">See photos and videos from your church family.</p>
+          <p className="login-tag">{t('d.frame.loginTag')}</p>
           {auth.error ? (
             <div className="login-error">
-              <b>Can't reach the sign-in service</b>
+              <b>{t('d.frame.signInDown')}</b>
               <p>{auth.error}</p>
               <button className="btn" onClick={() => location.reload()}>
-                Try again
+                {t('common.tryAgain')}
               </button>
             </div>
           ) : auth.demo ? (
             <div className="demo-login">
-              <p>This is the demo. It runs on sample people and photos, and nothing is saved.</p>
+              <p>{t('d.frame.demoLogin')}</p>
               <button className="btn block" onClick={auth.demoSignIn}>
-                Log in to the demo
+                {t('d.frame.demoLogIn')}
               </button>
             </div>
           ) : (
@@ -97,22 +107,22 @@ export function Login() {
           <div className="login-card small">
             {mode === 'sign-in' ? (
               <p>
-                Don't have an account?{' '}
+                {t('auth.noAccount')}{' '}
                 <a href="#/sign-up" className="link-btn">
-                  Sign up
+                  {t('auth.signUp')}
                 </a>
               </p>
             ) : (
               <p>
-                Have an account?{' '}
+                {t('auth.haveAccount')}{' '}
                 <a href="#/sign-in" className="link-btn">
-                  Log in
+                  {t('auth.logIn')}
                 </a>
               </p>
             )}
           </div>
         ) : null}
-        <p className="login-note">The same account works in the Community app on iPhone.</p>
+        <p className="login-note">{t('d.frame.sameAccount')}</p>
         <LegalLinks />
       </div>
     </main>
@@ -171,9 +181,9 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
   async function create() {
     if (busy || !born) return;
     const u = username.trim().toLowerCase();
-    if (!name.trim()) return setErr('Add your name.');
-    if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr('Usernames use 3 to 30 lowercase letters, numbers or underscores.');
-    if (!consent) return setErr('Tick the box about your religious beliefs to continue.');
+    if (!name.trim()) return setErr(t('d.frame.addName'));
+    if (!/^[a-z0-9_]{3,30}$/.test(u)) return setErr(t('d.frame.usernameRule'));
+    if (!consent) return setErr(t('legal.consentNeeded'));
     setBusy(true);
     setErr('');
     try {
@@ -218,7 +228,7 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
 
   const logOut = (
     <button type="button" className="link-btn" onClick={() => auth.signOut()}>
-      Log out
+      {t('settings.logOut')}
     </button>
   );
 
@@ -228,7 +238,7 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
       <main className="onboard">
         <div className="login-card st-onboard">
           <Wordmark />
-          <CannotJoin action="Back to the start" onAction={leave} busy={busy} />
+          <CannotJoin action={t('age.backToStart')} onAction={leave} busy={busy} />
         </div>
       </main>
     );
@@ -238,11 +248,11 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
       <main className="onboard">
         <div className="login-card st-onboard">
           <Wordmark />
-          <h2>Your account is set up for members under 14</h2>
-          <p className="muted-text">To help keep you safe on Community:</p>
+          <h2>{t('d.frame.minorTitle')}</h2>
+          <p className="muted-text">{t('d.frame.minorIntro')}</p>
           <MinorRules />
           <button className="btn block big" onClick={() => onDone(null)}>
-            Continue
+            {t('age.continue')}
           </button>
         </div>
       </main>
@@ -259,9 +269,9 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
           }}
         >
           <Wordmark />
-          <h2>Enter your date of birth</h2>
-          <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} note="We ask everyone, to keep younger members safe. It won't be shown on your profile." autoFocus />
-          <button className="btn block big">Continue</button>
+          <h2>{t('age.title')}</h2>
+          <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} note={t('age.why')} autoFocus />
+          <button className="btn block big">{t('age.continue')}</button>
           {logOut}
         </form>
       </main>
@@ -277,16 +287,16 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
         }}
       >
         <Wordmark />
-        <h2>Create your profile</h2>
-        <p className="muted-text">Pick a username. It's how people find you, and you can change it later.</p>
+        <h2>{t('d.frame.createProfile')}</h2>
+        <p className="muted-text">{t('d.frame.pickUsername')}</p>
         <label className="st-photo-pick">
           <Avatar src={photo?.url ?? user.imageUrl} name={name || username || '?'} size={88} />
-          <span className="link-btn">{photo ? 'Change photo' : 'Add a photo'}</span>
+          <span className="link-btn">{photo ? t('d.frame.changePhoto') : t('d.frame.addPhoto')}</span>
           <input
             type="file"
             accept="image/*"
             hidden
-            aria-label="Choose a profile photo"
+            aria-label={t('d.frame.choosePhoto')}
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
@@ -294,40 +304,45 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
             }}
           />
         </label>
-        <input className="login-input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Name" autoFocus />
-        <input className="login-input" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} maxLength={30} aria-label="Username" />
+        <input className="login-input" placeholder={t('d.frame.name')} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label={t('d.frame.name')} autoFocus />
+        <input className="login-input" placeholder={t('d.frame.username')} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} maxLength={30} aria-label={t('d.frame.username')} />
         <label className="st-consent">
           <input
             type="checkbox"
             checked={consent}
             onChange={(e) => {
               setConsent(e.target.checked);
-              if (err.startsWith('Tick the box')) setErr('');
+              if (err === t('legal.consentNeeded')) setErr('');
             }}
-            aria-label="I agree Community may use info that shows my faith, as in the Privacy Policy."
+            aria-label={t('legal.consentReligion', { privacy: t('legal.privacyLink') })}
           />
           <span>
-            I agree Community may use info that shows my faith, as in the{' '}
-            <button type="button" className="link-btn inline" onClick={() => setDoc('privacy')}>
-              Privacy Policy
-            </button>
-            .
+            {withParts(t('legal.consentReligion'), {
+              privacy: (
+                <button type="button" className="link-btn inline" onClick={() => setDoc('privacy')}>
+                  {t('legal.privacyLink')}
+                </button>
+              ),
+            })}
           </span>
         </label>
         {err ? <p className="field-error">{err}</p> : null}
         <button className="btn block big" disabled={busy}>
-          {busy ? 'Creating…' : 'Next'}
+          {busy ? t('d.frame.creating') : t('d.frame.next')}
         </button>
         <p className="st-agree">
-          By continuing you agree to our{' '}
-          <button type="button" className="link-btn inline" onClick={() => setDoc('terms')}>
-            Terms
-          </button>{' '}
-          and{' '}
-          <button type="button" className="link-btn inline" onClick={() => setDoc('privacy')}>
-            Privacy Policy
-          </button>
-          .
+          {withParts(t('legal.agreeSignUp'), {
+            terms: (
+              <button type="button" className="link-btn inline" onClick={() => setDoc('terms')}>
+                {t('legal.termsLink')}
+              </button>
+            ),
+            privacy: (
+              <button type="button" className="link-btn inline" onClick={() => setDoc('privacy')}>
+                {t('legal.privacyLink')}
+              </button>
+            ),
+          })}
         </p>
         {logOut}
         {doc ? <LegalDialog doc={doc} onClose={() => setDoc('')} /> : null}
@@ -346,9 +361,9 @@ export function Deactivated({ profile, onRestored }: { profile: Profile; onResto
     <main className="onboard">
       <div className="login-card">
         <Wordmark />
-        <h2>Your account is deactivated</h2>
+        <h2>{t('d.frame.deactivatedTitle')}</h2>
         <p className="muted-text">
-          @{profile.username} will be deleted for good on {purgeDate(profile.deleted_at!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}. Restore it to bring back your profile, posts and messages.
+          {t('d.frame.deactivatedBody', { username: profile.username, date: purgeDate(profile.deleted_at!).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) })}
         </p>
         {err ? <p className="field-error">{err}</p> : null}
         <button
@@ -365,10 +380,10 @@ export function Deactivated({ profile, onRestored }: { profile: Profile; onResto
             }
           }}
         >
-          Restore my account
+          {t('d.frame.restore')}
         </button>
         <button className="link-btn" onClick={() => auth.signOut()}>
-          Log out
+          {t('settings.logOut')}
         </button>
       </div>
     </main>
@@ -382,13 +397,13 @@ export function Suspended() {
     <main className="onboard">
       <div className="login-card">
         <Wordmark />
-        <h2>Your account is suspended</h2>
-        <p className="muted-text">An admin has suspended this account, usually for something that goes against the Community guidelines. If you think this is a mistake, contact your church's Community admin.</p>
+        <h2>{t('d.frame.suspendedTitle')}</h2>
+        <p className="muted-text">{t('d.frame.suspendedBody')}</p>
         <button type="button" className="link-btn" onClick={() => setDoc('guidelines')}>
-          Read the Community guidelines
+          {t('d.frame.readGuidelines')}
         </button>
         <button className="btn block" onClick={() => auth.signOut()}>
-          Log out
+          {t('settings.logOut')}
         </button>
         {doc ? <LegalDialog doc={doc} onClose={() => setDoc('')} /> : null}
       </div>

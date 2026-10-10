@@ -2,6 +2,7 @@
 // closed, and stays closed on this computer.
 import React, { useEffect, useState } from 'react';
 import { type Announcement, liveAnnouncements } from '../lib/admin';
+import { t } from '../lib/i18n';
 import { Icon } from './kit';
 
 const KEY = 'community.dismissedAnnouncements';
@@ -38,7 +39,7 @@ export function AnnouncementBar() {
       </div>
       <button
         className="icon-btn"
-        aria-label="Close announcement"
+        aria-label={t('d.frame.closeAnnouncement')}
         onClick={() => {
           const next = [...hidden, a.id].slice(-50);
           setHidden(next);

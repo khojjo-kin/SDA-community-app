@@ -5,6 +5,7 @@ import React, { useEffect, useSyncExternalStore } from 'react';
 import { recordPodPlay } from 'shared/api';
 import { clock } from 'shared/theme';
 import type { PodItem } from 'shared/types';
+import { t } from '../lib/i18n';
 import { nav, parts, useRoute } from '../lib/router';
 import { Icon } from './kit';
 import '../styles/church.css';
@@ -247,10 +248,10 @@ export const useProgress = (): Progress => useSyncExternalStore(subscribeProgres
 /** Shuffle and repeat as round buttons, green when on. Shared by the bar and the full player. */
 export function ShuffleRepeat({ size = 18, className = 'icon-btn' }: { size?: number; className?: string }) {
   const p = usePlayer();
-  const repeatLabel = p.repeat === 'off' ? 'Repeat off' : p.repeat === 'all' ? 'Repeat all' : 'Repeat this track';
+  const repeatLabel = p.repeat === 'off' ? t('d.frame.repeatOff') : p.repeat === 'all' ? t('d.frame.repeatAll') : t('d.frame.repeatOne');
   return (
     <>
-      <button className={className + ' ch-toggle' + (p.shuffle ? ' on' : '')} aria-label={p.shuffle ? 'Shuffle on' : 'Shuffle off'} aria-pressed={p.shuffle} title="Shuffle" onClick={() => p.setShuffle(!p.shuffle)}>
+      <button className={className + ' ch-toggle' + (p.shuffle ? ' on' : '')} aria-label={p.shuffle ? t('d.frame.shuffleOn') : t('d.frame.shuffleOff')} aria-pressed={p.shuffle} title={t('d.frame.shuffle')} onClick={() => p.setShuffle(!p.shuffle)}>
         <Icon name="shuffle" size={size} />
       </button>
       <button className={className + ' ch-toggle' + (p.repeat !== 'off' ? ' on' : '')} aria-label={repeatLabel} aria-pressed={p.repeat !== 'off'} title={repeatLabel} onClick={p.cycleRepeat}>
@@ -313,28 +314,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {item && !onItsPage ? (
-        <div className="now-playing" role="region" aria-label="Now playing">
-          <button className="ch-bar-open" onClick={() => nav('/pod/' + item.id)} aria-label={'Open the player: ' + item.title} title="Open the player">
+        <div className="now-playing" role="region" aria-label={t('d.frame.nowPlaying')}>
+          <button className="ch-bar-open" onClick={() => nav('/pod/' + item.id)} aria-label={t('d.frame.openPlayerTitle', { title: item.title })} title={t('d.frame.openPlayer')}>
             <span className="np-art">{item.cover_url ? <img src={item.cover_url} alt="" /> : <Icon name={item.kind === 'podcast' ? 'podcast' : 'music'} size={20} />}</span>
             <span className="row-text">
               <b>{item.title}</b>
               <span>{item.artist || item.full_name}</span>
             </span>
           </button>
-          <button className="icon-btn" aria-label="Previous" onClick={p.prev}>
+          <button className="icon-btn" aria-label={t('d.frame.previous')} onClick={p.prev}>
             <Icon name="skipback" size={18} />
           </button>
-          <button className="np-play" aria-label={p.playing ? 'Pause' : 'Play'} onClick={p.toggle}>
+          <button className="np-play" aria-label={p.playing ? t('d.frame.pause') : t('d.frame.play')} onClick={p.toggle}>
             <Icon name={p.playing ? 'pause' : 'play'} size={18} />
           </button>
-          <button className="icon-btn" aria-label="Next" onClick={p.next}>
+          <button className="icon-btn" aria-label={t('d.frame.nextTrack')} onClick={p.next}>
             <Icon name="skipnext" size={18} />
           </button>
           <span className="np-time">{clock(pos.t)}</span>
-          <input className="np-seek" type="range" min={0} max={pos.d || 1} step={1} value={Math.min(pos.t, pos.d || 1)} onChange={(e) => p.seek(Number(e.target.value))} aria-label="Position" />
+          <input className="np-seek" type="range" min={0} max={pos.d || 1} step={1} value={Math.min(pos.t, pos.d || 1)} onChange={(e) => p.seek(Number(e.target.value))} aria-label={t('d.frame.position')} />
           <span className="np-time">{clock(pos.d)}</span>
           <ShuffleRepeat size={16} className="icon-btn tiny" />
-          <button className="icon-btn" aria-label="Close player" onClick={p.stop}>
+          <button className="icon-btn" aria-label={t('d.frame.closePlayer')} onClick={p.stop}>
             <Icon name="close" size={18} />
           </button>
         </div>

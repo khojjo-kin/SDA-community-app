@@ -17,6 +17,7 @@ import { addLiveComment, deleteLiveComment, endLive, fetchLives, fetchUserFundra
 import { ChannelRefusedError, type IceCandidateInit, PeerSession, type SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, setCameraEnabled, setMicEnabled, stopStream } from 'shared/rtc';
 import { errText } from 'shared/theme';
 import type { Fundraiser, LiveAudience } from 'shared/types';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { back } from '../lib/router';
 import { Icon, type IconName, Modal, Spinner, ask, toast } from '../ui/kit';
@@ -33,10 +34,11 @@ const HEART_RELAY_MS = 150;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NONCE = /^[0-9a-f]{32}$/;
 
+// label and sub are keys, drawn with t().
 const AUDIENCES: { id: LiveAudience; icon: IconName; label: string; sub?: string }[] = [
-  { id: 'followers', icon: 'people', label: 'Followers' },
-  { id: 'close_friends', icon: 'star', label: 'Close friends' },
-  { id: 'practice', icon: 'lock', label: 'Practice', sub: 'Only you' },
+  { id: 'followers', icon: 'people', label: 'liveSetup.followers' },
+  { id: 'close_friends', icon: 'star', label: 'liveSetup.closeFriends' },
+  { id: 'practice', icon: 'lock', label: 'liveSetup.practice', sub: 'liveSetup.onlyYou' },
 ];
 
 export function GoLive() {
@@ -47,10 +49,10 @@ export function GoLive() {
       <div className="lv-stage lv-plain">
         <div className="lv-over static">
           <Icon name="live" size={44} color="rgba(255,255,255,.7)" />
-          <h2>Live isn't available on your account</h2>
-          <p>To keep younger members safe, accounts of members under 14 can watch but not broadcast live. You can still share posts and stories.</p>
+          <h2>{t('goLive.notAvailable')}</h2>
+          <p>{t('goLive.notAvailableBody')}</p>
           <button className="btn block" onClick={() => back('/')}>
-            Go back
+            {t('goLive.goBack')}
           </button>
         </div>
       </div>
@@ -104,7 +106,7 @@ function Broadcast() {
       })
       .catch((e) => {
         const raw = `${e?.name ?? ''} ${e?.message ?? ''}`;
-        if (alive) setCameraError(/permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw) ? 'Community needs the camera and microphone to go live. Allow them for Community in your browser or in System Settings, then open this again.' : /NotFound|no camera|Requested device/i.test(raw) ? 'No camera was found on this computer.' : errText(e));
+        if (alive) setCameraError(/permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw) ? t('d.frame.cameraBlocked') : /NotFound|no camera|Requested device/i.test(raw) ? t('d.frame.noCamera') : errText(e));
       });
     // A broadcast left open by a crash would show as live for hours: close any of mine before starting another.
     fetchLives()
@@ -198,7 +200,7 @@ function Broadcast() {
         send(channel, 'full', { to: viewer });
         if (Date.now() - fullToldAt.current > 10000) {
           fullToldAt.current = Date.now();
-          toast(`Your live is full: ${MAX_VIEWERS} people can watch at once.`);
+          toast(t('goLive.full', { count: MAX_VIEWERS }));
         }
         return;
       }
@@ -322,7 +324,7 @@ function Broadcast() {
     } catch (e) {
       leaveChannel(hostRef.current);
       hostRef.current = null;
-      toast(e instanceof ChannelRefusedError ? "Your live couldn't start. Try again." : errText(e));
+      toast(e instanceof ChannelRefusedError ? t('goLive.couldNotStart') : errText(e));
       if (id && !ending.current) {
         liveIdRef.current = null;
         endLive(id).catch(() => {});
@@ -365,8 +367,8 @@ function Broadcast() {
 
   async function confirmEnd() {
     if (!liveIdRef.current) return end(true);
-    const watching = viewers === 1 ? '1 person is watching.' : `${viewers} people are watching.`;
-    if (await ask('End your live?', audience === 'practice' ? 'This was a practice: nobody else saw it.' : watching, 'End live')) end(true);
+    const watching = tn('goLive.watching', viewers);
+    if (await ask(t('goLive.endQuestion'), audience === 'practice' ? t('d.frame.practiceDone') : watching, t('goLive.endLive'))) end(true);
   }
 
   async function sendChat(text: string): Promise<boolean> {
@@ -408,33 +410,33 @@ function Broadcast() {
 
   const live = !!liveId;
   const linked = fundraisers.find((f) => f.id === fundraiserId) ?? null;
-  const audienceLabel = audience === 'practice' ? 'Practice · only you' : `Share with ${audience === 'close_friends' ? 'Close friends' : 'Followers'}`;
+  const audienceLabel = audience === 'practice' ? t('liveSetup.pillPractice') : t('liveSetup.shareWith', { who: audience === 'close_friends' ? t('liveSetup.closeFriends') : t('liveSetup.followers') });
   const frameH = Math.max(380, (height || 800) - 32);
 
   return (
     <div className="lv-stage" ref={stage} style={{ height: height || undefined }} data-live-id={liveId ?? undefined}>
       <div className={'lv-frame lv-host' + (live ? ' is-live' : '')} style={{ height: frameH, width: Math.round((frameH * 9) / 16) }}>
-        <video ref={preview} className={'lv-video mirror' + (camOn ? '' : ' off')} autoPlay playsInline muted aria-label="Your camera" />
+        <video ref={preview} className={'lv-video mirror' + (camOn ? '' : ' off')} autoPlay playsInline muted aria-label={t('d.frame.yourCamera')} />
         {!camOn ? (
           <div className="lv-camoff">
             <Icon name="videooff" size={40} color="rgba(255,255,255,.75)" />
-            <span>Camera off</span>
+            <span>{t('d.frame.cameraIsOff')}</span>
           </div>
         ) : null}
         <span className="lv-shade" />
         {cameraError ? (
           <div className="lv-over">
             <Icon name="videooff" size={44} color="rgba(255,255,255,.7)" />
-            <h2>Camera not available</h2>
+            <h2>{t('goLive.cameraUnavailable')}</h2>
             <p>{cameraError}</p>
             <button className="btn block quiet" onClick={() => end(true)}>
-              Close
+              {t('common.close')}
             </button>
           </div>
         ) : !stream ? (
           <div className="lv-over">
             <Spinner />
-            <p>Opening the camera and microphone…</p>
+            <p>{t('d.frame.openingCamera')}</p>
           </div>
         ) : null}
 
@@ -449,16 +451,16 @@ function Broadcast() {
               title={title.trim()}
               right={
                 <button className="lv-end" onClick={confirmEnd}>
-                  End
+                  {t('goLive.end')}
                 </button>
               }
             />
           ) : (
             <div className="lv-setup-top">
-              <button className="lv-round big" aria-label="Close" onClick={() => end(true)}>
+              <button className="lv-round big" aria-label={t('common.close')} onClick={() => end(true)}>
                 <Icon name="close" size={20} color="#fff" stroke={2.2} />
               </button>
-              <button className="lv-audience-pill" onClick={() => setPanel('audience')} aria-label={`${audienceLabel}. Who can watch`}>
+              <button className="lv-audience-pill" onClick={() => setPanel('audience')} aria-label={t('d.frame.audiencePill', { audience: audienceLabel })}>
                 {audienceLabel}
                 <Icon name="down" size={14} color="#fff" stroke={2.6} />
               </button>
@@ -468,12 +470,12 @@ function Broadcast() {
           {live && audience === 'practice' ? (
             <span className="lv-audience">
               <Icon name="lock" size={12} color="#fff" stroke={2} />
-              Practice · only you can see this
+              {t('d.frame.practiceOnlyYou')}
             </span>
           ) : live && audience === 'close_friends' ? (
             <span className="lv-audience">
               <Icon name="star" size={12} color="#fff" fill="#fff" stroke={0} />
-              Close friends
+              {t('liveSetup.closeFriends')}
             </span>
           ) : null}
         </div>
@@ -481,11 +483,11 @@ function Broadcast() {
         {/* Left, before going live: plan one for later, and link a fundraiser (when you have one running). */}
         {!live ? (
           <div className="lv-side left">
-            <button className="lv-round big" aria-label="Schedule a live" title="Schedule a live" onClick={() => setPanel('schedule')}>
+            <button className="lv-round big" aria-label={t('liveSetup.schedule')} title={t('liveSetup.schedule')} onClick={() => setPanel('schedule')}>
               <Icon name="calendar" size={20} color="#fff" stroke={2} />
             </button>
             {fundraisers.length ? (
-              <button className={'lv-round big' + (linked ? ' on' : '')} aria-label="Fundraiser" title="Fundraiser" onClick={() => setPanel('fundraiser')}>
+              <button className={'lv-round big' + (linked ? ' on' : '')} aria-label={t('liveSetup.fundraiser')} title={t('liveSetup.fundraiser')} onClick={() => setPanel('fundraiser')}>
                 <HeartCoin size={20} />
               </button>
             ) : null}
@@ -495,15 +497,15 @@ function Broadcast() {
         {/* Right: the microphone (with its level before going live) and the camera. */}
         {stream ? (
           <div className="lv-side right">
-            <button className={'lv-round big' + (micOn ? '' : ' off')} aria-label={micOn ? 'Mute' : 'Unmute'} aria-pressed={!micOn} onClick={toggleMic}>
+            <button className={'lv-round big' + (micOn ? '' : ' off')} aria-label={micOn ? t('d.frame.mute') : t('d.frame.unmute')} aria-pressed={!micOn} onClick={toggleMic}>
               <Icon name={micOn ? 'mic' : 'micoff'} size={20} color="#fff" stroke={2} />
             </button>
             {!live ? (
-              <span className="lv-meter" role="meter" aria-label="Microphone level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
+              <span className="lv-meter" role="meter" aria-label={t('d.frame.micLevel')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
                 <i style={{ height: `${Math.round((micOn ? level : 0) * 100)}%` }} />
               </span>
             ) : null}
-            <button className={'lv-round big' + (camOn ? '' : ' off')} aria-label={camOn ? 'Turn camera off' : 'Turn camera on'} aria-pressed={!camOn} onClick={toggleCam}>
+            <button className={'lv-round big' + (camOn ? '' : ' off')} aria-label={camOn ? t('d.frame.cameraOffAction') : t('d.frame.cameraOnAction')} aria-pressed={!camOn} onClick={toggleCam}>
               <Icon name={camOn ? 'video' : 'videooff'} size={20} color="#fff" stroke={2} />
             </button>
           </div>
@@ -515,20 +517,20 @@ function Broadcast() {
           {live ? (
             <>
               <ChatLines lines={comments.lines} canRemove={() => true} onRemove={removeComment} />
-              <LiveComposer onSend={sendChat} onHeart={sendHeart} placeholder="Say something…" />
+              <LiveComposer onSend={sendChat} onHeart={sendHeart} placeholder={t('goLive.saySomething')} />
             </>
           ) : (
             <div className="lv-setup-bottom">
               {linked ? (
-                <button className="lv-chip" onClick={() => setPanel('fundraiser')} aria-label={`Fundraiser: ${linked.title}`}>
+                <button className="lv-chip" onClick={() => setPanel('fundraiser')} aria-label={t('liveSetup.linkedFundraiser', { title: linked.title })}>
                   <HeartCoin size={14} /> {linked.title}
                 </button>
               ) : null}
-              <input className="lv-title" value={title} maxLength={120} placeholder="Add a title…" aria-label="Live title" onChange={(e) => setTitle(e.target.value)} />
-              <button className="lv-go" onClick={start} disabled={!stream || busy} aria-label="Go live">
+              <input className="lv-title" value={title} maxLength={120} placeholder={t('liveSetup.titlePlaceholder')} aria-label={t('goLive.titleLabel')} onChange={(e) => setTitle(e.target.value)} />
+              <button className="lv-go" onClick={start} disabled={!stream || busy} aria-label={t('goLive.goLive')}>
                 <span style={{ background: LIVE_RED }}>{busy ? <Spinner size={22} /> : <Icon name="live" size={32} color="#fff" stroke={2.2} />}</span>
               </button>
-              <p className="lv-hint">{audience === 'practice' ? 'A practice run: nobody else sees it.' : `Up to ${MAX_VIEWERS} people can watch at once.`}</p>
+              <p className="lv-hint">{audience === 'practice' ? t('d.frame.practiceHint') : t('d.frame.upToWatch', { count: MAX_VIEWERS })}</p>
             </div>
           )}
         </div>
@@ -536,20 +538,20 @@ function Broadcast() {
       </div>
 
       {panel === 'audience' ? (
-        <Modal onClose={() => setPanel(null)} title="Who can watch" className="sv-sheet">
-          <div className="lv-options" role="radiogroup" aria-label="Who can watch">
+        <Modal onClose={() => setPanel(null)} title={t('liveSetup.audienceTitle')} className="sv-sheet">
+          <div className="lv-options" role="radiogroup" aria-label={t('liveSetup.audienceTitle')}>
             {AUDIENCES.map((a) => (
               <label key={a.id} className="row full hover sv-radio">
                 <Icon name={a.icon} size={22} />
                 <span className="row-text">
-                  <b>{a.label}</b>
-                  {a.sub ? <span>{a.sub}</span> : null}
+                  <b>{t(a.label)}</b>
+                  {a.sub ? <span>{t(a.sub)}</span> : null}
                 </span>
                 <input
                   type="radio"
                   name="lv-audience"
                   className="round-check"
-                  aria-label={a.label}
+                  aria-label={t(a.label)}
                   checked={audience === a.id}
                   onChange={() => {
                     setAudience(a.id);
@@ -562,14 +564,14 @@ function Broadcast() {
         </Modal>
       ) : null}
       {panel === 'fundraiser' ? (
-        <Modal onClose={() => setPanel(null)} title="Fundraiser" className="sv-sheet">
-          <div className="lv-options" role="radiogroup" aria-label="Fundraiser">
+        <Modal onClose={() => setPanel(null)} title={t('liveSetup.fundraiser')} className="sv-sheet">
+          <div className="lv-options" role="radiogroup" aria-label={t('liveSetup.fundraiser')}>
             {fundraisers.map((f) => (
               <label key={f.id} className="row full hover sv-radio">
                 <HeartCoin size={22} />
                 <span className="row-text">
                   <b>{f.title}</b>
-                  <span>Viewers get a Donate button</span>
+                  <span>{t('d.frame.donateButton')}</span>
                 </span>
                 <input
                   type="radio"
@@ -587,7 +589,7 @@ function Broadcast() {
             {fundraiserId ? (
               <button className="row full hover lv-unlink" onClick={() => { setFundraiserId(null); setPanel(null); }}>
                 <Icon name="close" size={22} color="var(--like)" />
-                <span className="grow">Don't link a fundraiser</span>
+                <span className="grow">{t('liveSetup.noFundraiser')}</span>
               </button>
             ) : null}
           </div>

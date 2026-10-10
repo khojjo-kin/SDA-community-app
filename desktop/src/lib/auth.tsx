@@ -3,6 +3,7 @@
 // Every Supabase request carries the Clerk session token, exactly as on the iPhone.
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CLERK_KEY, setTokenGetter } from 'shared/supabase';
+import { t } from './i18n';
 
 declare const __DEMO__: boolean;
 
@@ -62,7 +63,7 @@ function loadScript(src: string, attrs: Record<string, string> = {}): Promise<vo
     s.crossOrigin = 'anonymous';
     for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Could not reach the sign-in service. Check your internet connection.'));
+    s.onerror = () => reject(new Error(t('d.frame.signInUnreachable')));
     document.head.appendChild(s);
   });
 }
@@ -164,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setReady(true);
       } catch (e: any) {
         if (!gone) {
-          setError(e?.message || 'Sign-in could not start.');
+          setError(e?.message || t('d.frame.signInFailed'));
           setReady(true);
         }
       }

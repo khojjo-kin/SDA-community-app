@@ -7,6 +7,7 @@ import { getPostNow } from 'shared/store';
 import { ago, agoLong } from 'shared/theme';
 import type { Comment, Post } from 'shared/types';
 import type { Session } from '../lib/admin';
+import { dateLocale, languageCode, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { parts, useRoute } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, type IconName, Link, Spinner, useLoad } from '../ui/kit';
@@ -19,22 +20,23 @@ export { Settings } from './settings-frame';
 
 /* ---------- your activity ---------- */
 
+// group and label are keys, drawn with t().
 const ACTIVITY: { group: string; items: { id: string; label: string; icon: IconName; to?: string }[] }[] = [
   {
-    group: 'Interactions',
+    group: 'd.frame.interactions',
     items: [
-      { id: 'likes', label: 'Likes', icon: 'heart' },
-      { id: 'comments', label: 'Comments', icon: 'comment' },
+      { id: 'likes', label: 'd.frame.likes', icon: 'heart' },
+      { id: 'comments', label: 'live.comments', icon: 'comment' },
     ],
   },
   {
-    group: 'Content you shared',
+    group: 'd.frame.contentShared',
     items: [
-      { id: 'posts', label: 'Posts and Shorts', icon: 'grid', to: 'profile' },
-      { id: 'archive', label: 'Stories archive', icon: 'archive', to: '/archive' },
+      { id: 'posts', label: 'd.frame.postsAndShorts', icon: 'grid', to: 'profile' },
+      { id: 'archive', label: 'd.frame.storiesArchive', icon: 'archive', to: '/archive' },
     ],
   },
-  { group: 'Account history', items: [{ id: 'history', label: 'Account history', icon: 'clock' }] },
+  { group: 'd.frame.accountHistory', items: [{ id: 'history', label: 'd.frame.accountHistory', icon: 'clock' }] },
 ];
 
 /** Your activity: the same two-column layout as Settings, with likes, comments and account history. */
@@ -45,17 +47,17 @@ export function Activity({ openPost }: { openPost: (id: string, list?: string[])
   const tab = asked === 'comments' || asked === 'history' ? asked : 'likes';
   return (
     <div className="st-shell">
-      <nav className="st-nav" aria-label="Your activity">
-        <h2 className="st-nav-title">Your activity</h2>
+      <nav className="st-nav" aria-label={t('settings.yourActivity')}>
+        <h2 className="st-nav-title">{t('settings.yourActivity')}</h2>
         <div className="st-nav-list">
           {ACTIVITY.map((g) => (
             <div key={g.group} className="st-group">
-              <h3 className="st-group-h">{g.group}</h3>
+              <h3 className="st-group-h">{t(g.group)}</h3>
               {g.items.map((it) => (
                 <Link key={it.id} to={it.to === 'profile' ? '/u/' + me.username : it.to ?? '/activity/' + it.id} className={'st-nav-item' + (it.id === tab ? ' on' : '')}>
                   <Icon name={it.icon} />
                   <span className="st-nav-text">
-                    <span>{it.label}</span>
+                    <span>{t(it.label)}</span>
                   </span>
                 </Link>
               ))}
@@ -76,12 +78,12 @@ function LikedPosts({ openPost }: { openPost: (id: string, list?: string[]) => v
   const ids = gridIds(all, me);
   return (
     <div className="st-page wide">
-      <h1 className="st-title">Likes</h1>
-      <p className="st-intro">Posts and Shorts you've liked, newest first. Only you can see this.</p>
+      <h1 className="st-title">{t('d.frame.likes')}</h1>
+      <p className="st-intro">{t('d.frame.likesIntro')}</p>
       {likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : all.length ? (
         <div className="grid st-activity-grid">{all.map((p) => <Tile key={p.id} post={p} onOpen={(id) => openPost(id, ids)} grid={all} source={LIST_SOURCE} />)}</div>
       ) : (
-        <Empty icon="heart" title="No likes yet" body="Posts you like appear here." />
+        <Empty icon="heart" title={t('d.frame.noLikes')} body={t('d.frame.noLikesBody')} />
       )}
     </div>
   );
@@ -92,8 +94,8 @@ function MyComments({ openPost }: { openPost: (id: string) => void }) {
   const comments = useLoad<Comment[]>(() => fetchMyComments(me.id), []);
   return (
     <div className="st-page wide">
-      <h1 className="st-title">Comments</h1>
-      <p className="st-intro">Comments you've written, newest first. Open one to see it on its post, or delete it there.</p>
+      <h1 className="st-title">{t('live.comments')}</h1>
+      <p className="st-intro">{t('d.frame.commentsIntro')}</p>
       {comments.loading ? <Spinner /> : comments.error ? <Failed error={comments.error} retry={comments.reload} /> : comments.data?.length ? (
         <div className="st-card">
           {comments.data.map((c) => {
@@ -104,9 +106,7 @@ function MyComments({ openPost }: { openPost: (id: string) => void }) {
                 <Avatar src={me.avatar_url} name={me.username} size={36} />
                 <span className="st-row-text wrap">
                   <b>{c.text}</b>
-                  <span>
-                    On {p ? p.username + "'s post" : 'a post'} · {ago(c.created_at)}
-                  </span>
+                  <span>{p ? t('d.frame.onPost', { username: p.username, time: ago(c.created_at) }) : t('d.frame.onAPost', { time: ago(c.created_at) })}</span>
                 </span>
                 {cover ? <img className="row-thumb" src={cover} alt="" /> : null}
               </button>
@@ -114,13 +114,23 @@ function MyComments({ openPost }: { openPost: (id: string) => void }) {
           })}
         </div>
       ) : (
-        <Empty icon="comment" title="No comments yet" body="Comments you write appear here." />
+        <Empty icon="comment" title={t('d.frame.noComments')} body={t('d.frame.noCommentsBody')} />
       )}
     </div>
   );
 }
 
-const PLATFORM_NAMES: Record<string, string> = { mac: 'Community for Mac', web: 'Community on the web', ios: 'Community for iPhone', windows: 'Community for Windows' };
+/** Keys for the name of each app, drawn with t(). */
+const PLATFORM_NAMES: Record<string, string> = { mac: 'd.frame.appMac', web: 'd.frame.appWeb', ios: 'd.frame.appIos', windows: 'd.frame.appWindows' };
+
+/** "2 days ago" as the app writes it in English; other languages say it their own way. */
+function lastSeen(iso: string): string {
+  const long = agoLong(iso);
+  if (languageCode() === 'en' || typeof Intl === 'undefined' || !Intl.RelativeTimeFormat) return long.toLowerCase();
+  const m = /^(\d+) (minute|hour|day|week)/.exec(long);
+  const rtf = new Intl.RelativeTimeFormat(dateLocale(), { numeric: 'auto' });
+  return m ? rtf.format(-Number(m[1]), m[2] as Intl.RelativeTimeFormatUnit) : rtf.format(0, 'second');
+}
 
 /** When you joined, and each app and computer you've used Community on (the app's own record). */
 function AccountHistory() {
@@ -130,11 +140,11 @@ function AccountHistory() {
     if (error) throw error;
     return (data as Session[]) ?? [];
   }, []);
-  const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const day = (iso: string) => new Date(iso).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
   return (
     <div className="st-page wide">
-      <h1 className="st-title">Account history</h1>
-      <p className="st-intro">When you joined, and where you first used Community. To see where you're logged in now, open Settings → Accounts Centre.</p>
+      <h1 className="st-title">{t('d.frame.accountHistory')}</h1>
+      <p className="st-intro">{t('d.frame.historyIntro')}</p>
       <div className="st-card st-timeline">
         {(sessions.data ?? []).map((s) => (
           <div key={s.id} className="st-row">
@@ -142,10 +152,10 @@ function AccountHistory() {
               <Icon name={s.platform === 'ios' ? 'phone' : 'mac'} />
             </span>
             <span className="st-row-text">
-              <b>First used {PLATFORM_NAMES[s.platform] ?? 'Community'}</b>
+              <b>{t('d.frame.firstUsed', { app: PLATFORM_NAMES[s.platform] ? t(PLATFORM_NAMES[s.platform]) : 'Community' })}</b>
               <span>
                 {day(s.first_seen)}
-                {s.country ? ' · ' + s.country : ''} · last used {agoLong(s.last_seen).toLowerCase()}
+                {s.country ? ' · ' + s.country : ''} · {t('d.frame.lastUsed', { when: lastSeen(s.last_seen) })}
               </span>
             </span>
           </div>
@@ -155,7 +165,7 @@ function AccountHistory() {
             <Icon name="user" />
           </span>
           <span className="st-row-text">
-            <b>You joined Community</b>
+            <b>{t('d.frame.joined')}</b>
             <span>{day(me.created_at)}</span>
           </span>
         </div>

@@ -1,6 +1,7 @@
 // The call screen for desktop. The shared src/lib/calls.tsx (the same code the iPhone runs) owns
 // the call and tells this screen what to draw; this file only draws it and wires the buttons.
 import React, { useEffect, useRef, useState } from 'react';
+import { t } from '../lib/i18n';
 import { Avatar, Icon, type IconName, Verified } from './kit';
 
 export type Person = { id: string; username: string; full_name: string; avatar_url: string; verified?: boolean };
@@ -103,16 +104,16 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
     return () => document.removeEventListener('keydown', key);
   }, [view.phase]);
   const status =
-    view.phase === 'connected' && view.connectedAt && !view.note ? <Clock since={view.connectedAt} /> : view.note || (view.phase === 'incoming' ? (video ? 'Incoming video call' : 'Incoming voice call') : '');
+    view.phase === 'connected' && view.connectedAt && !view.note ? <Clock since={view.connectedAt} /> : view.note || (view.phase === 'incoming' ? (video ? t('d.frame.incomingVideo') : t('d.frame.incomingVoice')) : '');
   return (
-    <div className={'call-screen' + (showRemote ? ' has-video' : '')} role="dialog" aria-label={'Call with ' + name}>
+    <div className={'call-screen' + (showRemote ? ' has-video' : '')} role="dialog" aria-label={t('d.frame.callWith', { name })}>
       {showRemote ? <Stream stream={view.remoteStream} className="call-remote" /> : <div className="call-backdrop" style={other?.avatar_url ? { backgroundImage: `url(${other.avatar_url})` } : undefined} />}
       {/* Voice calls still need the other person's audio to play. */}
       {!showRemote && view.remoteStream ? <Stream stream={view.remoteStream} className="call-hidden" /> : null}
       <div className="call-who">
         {!showRemote ? <Avatar src={other?.avatar_url} name={other?.username || '?'} size={120} /> : null}
         <h2>
-          {name || 'Connecting…'}
+          {name || t('d.frame.connecting')}
           {other?.verified ? <Verified size={18} /> : null}
         </h2>
         <p>{status}</p>
@@ -121,16 +122,16 @@ export function CallScreen({ view, actions }: { view: CallView; actions: CallAct
       <div className="call-actions">
         {view.phase === 'incoming' ? (
           <>
-            <Round icon="endcall" label="Decline" danger onClick={actions.decline} />
-            <Round icon={video ? 'video' : 'phone'} label="Accept" accept onClick={actions.accept} />
+            <Round icon="endcall" label={t('common.decline')} danger onClick={actions.decline} />
+            <Round icon={video ? 'video' : 'phone'} label={t('common.accept')} accept onClick={actions.accept} />
           </>
         ) : view.phase === 'ended' ? (
-          <Round icon="close" label="Close" onClick={actions.hangUp} />
+          <Round icon="close" label={t('common.close')} onClick={actions.hangUp} />
         ) : (
           <>
-            <Round icon={view.muted ? 'micoff' : 'mic'} label={view.muted ? 'Unmute' : 'Mute'} on={view.muted} onClick={actions.toggleMute} />
-            {video ? <Round icon={view.cameraOff ? 'videooff' : 'video'} label={view.cameraOff ? 'Camera on' : 'Camera off'} on={view.cameraOff} onClick={actions.toggleCamera} /> : null}
-            <Round icon="endcall" label="End" danger onClick={actions.hangUp} />
+            <Round icon={view.muted ? 'micoff' : 'mic'} label={view.muted ? t('d.frame.unmute') : t('d.frame.mute')} on={view.muted} onClick={actions.toggleMute} />
+            {video ? <Round icon={view.cameraOff ? 'videooff' : 'video'} label={view.cameraOff ? t('d.frame.cameraOn') : t('d.frame.cameraOff')} on={view.cameraOff} onClick={actions.toggleCamera} /> : null}
+            <Round icon="endcall" label={t('goLive.end')} danger onClick={actions.hangUp} />
           </>
         )}
       </div>

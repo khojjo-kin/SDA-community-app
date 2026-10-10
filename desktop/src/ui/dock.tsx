@@ -3,6 +3,7 @@
 // Shown on every page except the full inbox (/direct) and live videos, which have their own messages.
 // It is always there (even when hidden), so it also keeps a shared location fresh on every page.
 import React, { useEffect, useState } from 'react';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
 import { useLiveLocation } from '../screens/map';
@@ -42,12 +43,12 @@ export function MessagesDock() {
 
   if (!open) {
     return (
-      <button className="dock-pill" onClick={() => setOpen(true)} aria-label={'Messages' + (unread ? `, ${unread} unread` : '')}>
+      <button className="dock-pill" onClick={() => setOpen(true)} aria-label={unread ? t('d.frame.messagesUnread', { count: unread }) : t('tabs.messages')}>
         <span className="nav-icon">
           <Icon name="send" size={24} />
           {unread ? <span className="nav-badge">{unread > 9 ? '9+' : unread}</span> : null}
         </span>
-        <b>Messages</b>
+        <b>{t('tabs.messages')}</b>
         <span className="dock-faces" aria-hidden="true">
           {faces.map((t) => (
             <Avatar key={t.id} src={t.avatar_url} name={t.username} size={26} />
@@ -59,33 +60,33 @@ export function MessagesDock() {
 
   if (chat) {
     return (
-      <section className="dock-panel mx-dock-chat" aria-label="Messages">
+      <section className="dock-panel mx-dock-chat" aria-label={t('tabs.messages')}>
         <Chat key={chat} threadId={chat} compact onChanged={reload} onBack={() => setChat(null)} onExpand={() => nav('/direct/t/' + chat)} onClose={close} />
       </section>
     );
   }
 
   return (
-    <section className="dock-panel" aria-label="Messages">
+    <section className="dock-panel" aria-label={t('tabs.messages')}>
       <header>
         <b>
-          Messages {unread ? <span className="count-badge">{unread}</span> : null}
+          {t('tabs.messages')} {unread ? <span className="count-badge">{unread}</span> : null}
         </b>
-        <button className="icon-btn" aria-label="Open the full inbox" onClick={() => nav('/direct')}>
+        <button className="icon-btn" aria-label={t('d.frame.openInbox')} onClick={() => nav('/direct')}>
           <Icon name="expand" size={18} />
         </button>
-        <button className="icon-btn" aria-label="Close messages" onClick={close}>
+        <button className="icon-btn" aria-label={t('d.frame.closeMessages')} onClick={close}>
           <Icon name="close" size={18} />
         </button>
       </header>
       <div className="dock-list">
         {threads === null ? <Spinner /> : null}
-        {threads && !threads.length ? <p className="muted-text center pad">No messages yet.</p> : null}
+        {threads && !threads.length ? <p className="muted-text center pad">{t('d.frame.noMessages')}</p> : null}
         {(threads ?? []).map((t) => (
           <ThreadRow key={t.id} t={t} className="dock-row" size={52} onOpen={() => setChat(t.id)} />
         ))}
       </div>
-      <button className="dock-compose" aria-label="New message" onClick={() => nav('/direct/new')}>
+      <button className="dock-compose" aria-label={t('inbox.newMessage')} onClick={() => nav('/direct/new')}>
         <Icon name="newchat" size={22} />
       </button>
     </section>

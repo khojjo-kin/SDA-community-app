@@ -8,6 +8,7 @@ import { ago } from 'shared/theme';
 import type { Notice, Profile } from 'shared/types';
 import { setAppearance, useAppearance } from '../lib/appearance';
 import { useAuth } from '../lib/auth';
+import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
 import { AccountSwitcher } from './accounts';
@@ -98,51 +99,51 @@ export function Sidebar({ panel, setPanel, onCreate }: { panel: Panel; setPanel:
 
   return (
     <>
-      <nav ref={railRef} className={'rail' + (menu ? ' open' : '') + (panel ? ' has-panel' : '')} aria-label="Main">
-        <a href="#/" className="rail-logo" onClick={(e) => { e.preventDefault(); setPanel(null); nav('/'); }} aria-label="Community home">
+      <nav ref={railRef} className={'rail' + (menu ? ' open' : '') + (panel ? ' has-panel' : '')} aria-label={t('d.frame.mainNav')}>
+        <a href="#/" className="rail-logo" onClick={(e) => { e.preventDefault(); setPanel(null); nav('/'); }} aria-label={t('d.frame.homeLink')}>
           <img src={logo} alt="" width={26} height={26} />
           <span className="nav-label rail-word">
             <Wordmark small />
           </span>
         </a>
         <div className="rail-middle">
-          {item('home', 'Home', { to: '/', filled: true })}
-          {item('reels', 'Shorts', { to: '/shorts', active: (at('/shorts') || at('/reels')) && panel === null })}
-          {item('send', 'Messages', { to: '/direct', badge: unreadChats })}
-          {item('search', 'Search', { to: '/explore' })}
-          {item('heart', 'Notifications', { onClick: () => setPanel(panel === 'notifications' ? null : 'notifications'), active: panel === 'notifications', dot: unreadNotices > 0 })}
+          {item('home', t('tabs.home'), { to: '/', filled: true })}
+          {item('reels', t('tabs.clips'), { to: '/shorts', active: (at('/shorts') || at('/reels')) && panel === null })}
+          {item('send', t('tabs.messages'), { to: '/direct', badge: unreadChats })}
+          {item('search', t('tabs.search'), { to: '/explore' })}
+          {item('heart', t('common.notifications'), { onClick: () => setPanel(panel === 'notifications' ? null : 'notifications'), active: panel === 'notifications', dot: unreadNotices > 0 })}
           <div className="pop-anchor">
-            {item('plus', 'Create', { onClick: () => toggle('create'), active: menu === 'create' })}
+            {item('plus', t('common.create'), { onClick: () => toggle('create'), active: menu === 'create' })}
             {menu === 'create' ? (
               <div className="popover create-pop" role="menu">
                 <button role="menuitem" onClick={() => create('post')}>
-                  Post <Icon name="collage" size={22} />
+                  {t('d.frame.createPost')} <Icon name="collage" size={22} />
                 </button>
                 <button role="menuitem" onClick={() => create('story')}>
-                  Story <Icon name="story" size={22} />
+                  {t('notifications.storyBadge')} <Icon name="story" size={22} />
                 </button>
                 <button role="menuitem" onClick={() => create('short')}>
-                  Short <Icon name="reels" size={22} />
+                  {t('createFlow.short')} <Icon name="reels" size={22} />
                 </button>
                 <button role="menuitem" onClick={() => create('live')}>
-                  Live video <Icon name="live" size={22} />
+                  {t('d.frame.createLive')} <Icon name="live" size={22} />
                 </button>
                 <button role="menuitem" onClick={() => create('ad')}>
-                  Ad <Icon name="ad" size={22} />
+                  {t('d.frame.createAd')} <Icon name="ad" size={22} />
                 </button>
               </div>
             ) : null}
           </div>
-          {item('dashboard', 'Dashboard', { to: '/dashboard', filled: false })}
-          {item('user', 'Profile', { to: own, active: (route === own || route.startsWith(own + '/')) && panel === null, children: <Avatar src={me.avatar_url} name={me.username} size={26} /> })}
+          {item('dashboard', t('settings.dashboard'), { to: '/dashboard', filled: false })}
+          {item('user', t('tabs.profile'), { to: own, active: (route === own || route.startsWith(own + '/')) && panel === null, children: <Avatar src={me.avatar_url} name={me.username} size={26} /> })}
         </div>
         <div className="rail-bottom">
           <div className="pop-anchor">
-            {item('menu', 'More', { onClick: () => toggle('more'), active: menu === 'more' })}
+            {item('menu', t('d.frame.more'), { onClick: () => toggle('more'), active: menu === 'more' })}
             {menu === 'more' ? <MoreMenu close={() => setMenu(null)} openSwitcher={() => { setMenu(null); setSwitcher(true); }} /> : null}
           </div>
           <div className="pop-anchor">
-            {item('apps', 'Church apps', { onClick: () => toggle('apps'), active: menu === 'apps' })}
+            {item('apps', t('churchApps.title'), { onClick: () => toggle('apps'), active: menu === 'apps' })}
             {menu === 'apps' ? <ChurchApps close={() => setMenu(null)} /> : null}
           </div>
         </div>
@@ -179,16 +180,16 @@ function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: ()
     return (
       <div className="popover more-pop" role="menu">
         <div className="pop-title">
-          <button className="icon-btn" aria-label="Back" onClick={() => setAppearanceView(false)}>
+          <button className="icon-btn" aria-label={t('common.back')} onClick={() => setAppearanceView(false)}>
             <Icon name="back" size={18} />
           </button>
-          <b>Switch appearance</b>
+          <b>{t('d.frame.appearance')}</b>
           <Icon name={look === 'white' ? 'sun' : 'moon'} size={18} />
         </div>
         <div className="pop-sep" />
         <label className="pop-toggle">
-          <span>Dark mode</span>
-          <input type="checkbox" role="switch" checked={look === 'dark'} onChange={(e) => setAppearance(e.target.checked ? 'dark' : 'white')} aria-label="Dark mode" />
+          <span>{t('d.frame.darkMode')}</span>
+          <input type="checkbox" role="switch" checked={look === 'dark'} onChange={(e) => setAppearance(e.target.checked ? 'dark' : 'white')} aria-label={t('d.frame.darkMode')} />
           <i className="switch" aria-hidden="true" />
         </label>
       </div>
@@ -196,21 +197,21 @@ function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: ()
   }
   return (
     <div className="popover more-pop" role="menu">
-      <MenuLink icon="settings" label="Settings" to="/accounts/edit" close={close} />
-      <MenuLink icon="activity" label="Your activity" to="/activity" close={close} />
-      <MenuLink icon="bookmark" label="Saved" to={own + '/saved'} close={close} />
-      <MenuLink icon="archive" label="Archive" to="/archive" close={close} />
+      <MenuLink icon="settings" label={t('d.frame.settings')} to="/accounts/edit" close={close} />
+      <MenuLink icon="activity" label={t('settings.yourActivity')} to="/activity" close={close} />
+      <MenuLink icon="bookmark" label={t('settings.saved')} to={own + '/saved'} close={close} />
+      <MenuLink icon="archive" label={t('settings.archive')} to="/archive" close={close} />
       <button role="menuitem" onClick={() => setAppearanceView(true)}>
-        <Icon name={look === 'white' ? 'sun' : 'moon'} size={20} /> Switch appearance
+        <Icon name={look === 'white' ? 'sun' : 'moon'} size={20} /> {t('d.frame.appearance')}
       </button>
-      <MenuLink icon="report" label="Report a problem" to="/help/problem" close={close} />
+      <MenuLink icon="report" label={t('help.reportProblem')} to="/help/problem" close={close} />
       <div className="pop-sep thick" />
-      <MenuLink icon="crown" label={me.plus ? 'Community Plus' : 'Get Community Plus'} to="/plus" close={close} />
-      <MenuLink icon="help" label="Help" to="/help" close={close} />
-      {me.admin_role ? <MenuLink icon="shield" label="Admin console" to="/admin" close={close} /> : null}
+      <MenuLink icon="crown" label={me.plus ? t('common.communityPlus') : t('d.frame.getPlus')} to="/plus" close={close} />
+      <MenuLink icon="help" label={t('d.frame.help')} to="/help" close={close} />
+      {me.admin_role ? <MenuLink icon="shield" label={t('d.frame.adminConsole')} to="/admin" close={close} /> : null}
       <div className="pop-sep thick" />
       <button role="menuitem" className="plain" onClick={openSwitcher}>
-        Switch accounts
+        {t('accounts.switchHint')}
       </button>
       <div className="pop-sep" />
       <button
@@ -221,7 +222,7 @@ function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: ()
           auth.signOut();
         }}
       >
-        Log out{auth.accounts.length > 1 ? ' @' + me.username : ''}
+        {auth.accounts.length > 1 ? t('d.frame.logOutAs', { username: me.username }) : t('settings.logOut')}
       </button>
     </div>
   );
@@ -229,18 +230,19 @@ function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: ()
 
 /** The church's own apps, the way Instagram lists Meta's: one place for all of them, as on the iPhone. */
 function ChurchApps({ close }: { close: () => void }) {
+  // label and sub are keys, drawn with t() below.
   const apps: { icon: IconName; label: string; sub: string; to: string }[] = [
-    { icon: 'bible', label: 'Bible', sub: 'Read and listen in several translations', to: '/bible' },
-    { icon: 'lesson', label: 'Sabbath School', sub: "This quarter's lessons, day by day", to: '/lessons' },
-    { icon: 'hymnal', label: 'Hymnal', sub: 'Every hymn, with favourites', to: '/hymnal' },
-    { icon: 'headphones', label: 'Pod', sub: 'Songs and podcasts from the church family', to: '/pod' },
-    { icon: 'church', label: 'Churches', sub: 'Find a church and its service times', to: '/churches' },
-    { icon: 'people', label: 'Communities and pages', sub: 'Groups for ministries and clubs', to: '/groups' },
-    { icon: 'sparkle', label: 'Ask Erha', sub: 'Questions about the Bible and church life', to: '/direct/erha' },
+    { icon: 'bible', label: 'churchApps.bible', sub: 'd.frame.appBibleSub', to: '/bible' },
+    { icon: 'lesson', label: 'churchApps.sabbathSchool', sub: 'd.frame.appLessonsSub', to: '/lessons' },
+    { icon: 'hymnal', label: 'churchApps.hymnal', sub: 'd.frame.appHymnalSub', to: '/hymnal' },
+    { icon: 'headphones', label: 'churchApps.pod', sub: 'd.frame.appPodSub', to: '/pod' },
+    { icon: 'church', label: 'churchApps.churches', sub: 'd.frame.appChurchesSub', to: '/churches' },
+    { icon: 'people', label: 'd.frame.appGroups', sub: 'd.frame.appGroupsSub', to: '/groups' },
+    { icon: 'sparkle', label: 'd.frame.appErha', sub: 'd.frame.appErhaSub', to: '/direct/erha' },
   ];
   return (
     <div className="popover apps-pop" role="menu">
-      <div className="pop-label">Church apps</div>
+      <div className="pop-label">{t('churchApps.title')}</div>
       {apps.map((a) => (
         <a
           key={a.to}
@@ -256,8 +258,8 @@ function ChurchApps({ close }: { close: () => void }) {
             <Icon name={a.icon} size={20} />
           </span>
           <span className="app-text">
-            <b>{a.label}</b>
-            <span>{a.sub}</span>
+            <b>{t(a.label)}</b>
+            <span>{t(a.sub)}</span>
           </span>
         </a>
       ))}
@@ -272,21 +274,22 @@ function bucket(iso: string): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const d = (today.getTime() - new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) / 86400e3;
-  if (d <= 0) return 'Today';
-  if (d <= 1) return 'Yesterday';
-  if (d < 7) return 'This week';
-  if (d < 30) return 'This month';
-  return 'Earlier';
+  if (d <= 0) return t('liveSchedule.today');
+  if (d <= 1) return t('d.frame.yesterday');
+  if (d < 7) return t('d.frame.thisWeek');
+  if (d < 30) return t('d.frame.thisMonth');
+  return t('notifications.sectionEarlier');
 }
 
 type NoticeFilter = 'all' | 'following' | 'comments' | 'follows' | 'likes' | 'tags';
+// label is a key, drawn with t().
 const FILTERS: { id: NoticeFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'following', label: 'People you follow' },
-  { id: 'comments', label: 'Comments' },
-  { id: 'follows', label: 'Follows' },
-  { id: 'likes', label: 'Likes' },
-  { id: 'tags', label: 'Tags' },
+  { id: 'all', label: 'bibleMarks.all' },
+  { id: 'following', label: 'settings.repliesFollowing' },
+  { id: 'comments', label: 'live.comments' },
+  { id: 'follows', label: 'd.frame.filterFollows' },
+  { id: 'likes', label: 'd.frame.likes' },
+  { id: 'tags', label: 'd.frame.filterTags' },
 ];
 
 function matches(n: Notice, f: NoticeFilter) {
@@ -309,33 +312,33 @@ function matches(n: Notice, f: NoticeFilter) {
 export function noticeText(n: Notice): string {
   switch (n.kind) {
     case 'like':
-      return 'liked your post.';
+      return t('notifications.like');
     case 'comment':
-      return `commented: ${n.body}`;
+      return t('d.frame.noticeComment', { text: String(n.body) });
     case 'repost':
-      return 'reposted your post.';
+      return t('notifications.repost');
     case 'follow':
-      return 'started following you.';
+      return t('notifications.follow');
     case 'request':
-      return 'requested to follow you.';
+      return t('d.frame.noticeRequest');
     case 'accept':
-      return 'accepted your follow request.';
+      return t('notifications.accept');
     case 'new_post':
-      return 'shared a new post.';
+      return t('notifications.newPost');
     case 'new_clip':
-      return 'shared a new Short.';
+      return t('d.frame.noticeNewShort');
     case 'new_story':
-      return 'added to their story.';
+      return t('notifications.newStory');
     case 'live':
-      return 'started a live video. Watch it before it ends!';
+      return t('d.frame.noticeLive');
     case 'live_soon':
-      return n.body ? `goes live soon: ${n.body}` : 'goes live soon.';
+      return n.body ? t('d.frame.noticeLiveSoonTitle', { title: n.body }) : t('d.frame.noticeLiveSoon');
     case 'story_watch':
-      return 'shared a story you asked to hear about.';
+      return t('d.frame.noticeStoryWatch');
     case 'subscriber':
-      return 'subscribed to you.';
+      return t('notifications.subscriber');
     case 'tag':
-      return 'tagged you in a post.';
+      return t('notifications.tag');
     default:
       return '';
   }
@@ -371,12 +374,12 @@ export function NotificationsPanel({ close }: { close: () => void }) {
 
   if (showRequests) {
     return (
-      <aside className="side-panel notices" aria-label="Follow requests">
+      <aside className="side-panel notices" aria-label={t('notifications.followRequests')}>
         <div className="panel-top">
-          <button className="icon-btn" aria-label="Back" onClick={() => setShowRequests(false)}>
+          <button className="icon-btn" aria-label={t('common.back')} onClick={() => setShowRequests(false)}>
             <Icon name="back" size={20} />
           </button>
-          <h2>Follow requests</h2>
+          <h2>{t('notifications.followRequests')}</h2>
           <span />
         </div>
         <div className="panel-body">
@@ -388,14 +391,14 @@ export function NotificationsPanel({ close }: { close: () => void }) {
                 <span>{p.full_name}</span>
               </span>
               <button className="btn small" onClick={() => acceptFollowRequest(p.id).then(() => setRequests((r) => r.filter((x) => x.id !== p.id)), toastError)}>
-                Confirm
+                {t('auth.confirm')}
               </button>
               <button className="btn small quiet" onClick={() => removeFollowRequest(p.id, me.id).then(() => setRequests((r) => r.filter((x) => x.id !== p.id)), toastError)}>
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           ))}
-          {!requests.length ? <p className="muted-text center pad">No pending requests.</p> : null}
+          {!requests.length ? <p className="muted-text center pad">{t('d.frame.noPending')}</p> : null}
         </div>
       </aside>
     );
@@ -404,17 +407,17 @@ export function NotificationsPanel({ close }: { close: () => void }) {
   const shown = (list ?? []).filter((n) => matches(n, filter));
   let last = '';
   return (
-    <aside className="side-panel notices" aria-label="Notifications">
+    <aside className="side-panel notices" aria-label={t('common.notifications')}>
       <div className="panel-top">
-        <h2>Notifications</h2>
-        <button className="icon-btn" aria-label="Close" onClick={close}>
+        <h2>{t('common.notifications')}</h2>
+        <button className="icon-btn" aria-label={t('common.close')} onClick={close}>
           <Icon name="close" size={20} />
         </button>
       </div>
-      <div className="chip-row" role="tablist" aria-label="Show">
+      <div className="chip-row" role="tablist" aria-label={t('d.frame.noticeFilters')}>
         {FILTERS.map((f) => (
           <button key={f.id} role="tab" aria-selected={filter === f.id} className={'filter-chip' + (filter === f.id ? ' on' : '')} onClick={() => setFilter(f.id)}>
-            {f.label}
+            {t(f.label)}
           </button>
         ))}
       </div>
@@ -423,11 +426,8 @@ export function NotificationsPanel({ close }: { close: () => void }) {
           <button className="row hover requests-row" onClick={() => setShowRequests(true)}>
             <Avatar src={requests[0].avatar_url} name={requests[0].username} size={44} />
             <span className="row-text">
-              <b>Follow requests</b>
-              <span>
-                {requests[0].username}
-                {requests.length > 1 ? ` + ${requests.length - 1} others` : ''}
-              </span>
+              <b>{t('notifications.followRequests')}</b>
+              <span>{requests.length > 1 ? t('d.frame.requestsMore', { username: requests[0].username, count: requests.length - 1 }) : requests[0].username}</span>
             </span>
             <span className="nav-dot static" />
           </button>
@@ -438,8 +438,8 @@ export function NotificationsPanel({ close }: { close: () => void }) {
             <span className="empty-ring">
               <Icon name="heart" size={30} />
             </span>
-            <p>{filter === 'all' ? 'Activity on your posts' : 'Nothing here yet'}</p>
-            <span className="muted-text">When someone likes or comments on one of your posts, you'll see it here.</span>
+            <p>{filter === 'all' ? t('notifications.emptyTitle') : t('bibleMarks.emptyFilter')}</p>
+            <span className="muted-text">{t('d.frame.noticesEmpty')}</span>
           </div>
         ) : null}
         {shown.map((n) => {
@@ -496,7 +496,7 @@ function FollowBack({ n }: { n: Notice }) {
         }
       }}
     >
-      {on ? 'Following' : 'Follow back'}
+      {on ? t('common.following') : t('common.followBack')}
     </button>
   );
 }
