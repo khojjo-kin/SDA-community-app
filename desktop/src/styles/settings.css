@@ -284,5 +284,19 @@ p.st-hint { font-size: 14px; line-height: 20px; }
   .st-two { grid-template-columns: 1fr; }
 }
 
+/* ---------- App font, Shorts and story alerts ---------- */
+/* Each face is drawn in itself: a large "Aa", the name and the iPhone's sample line. */
+.st-font { min-height: 76px; }
+.st-font-aa { flex: none; width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); color: var(--fg); font-size: 22px; font-weight: 600; line-height: 1; }
+.st-font.on .st-font-aa { background: var(--accent); color: var(--on-accent); }
+.st-font .st-row-text > b { font-size: 17px; line-height: 22px; font-weight: 700; }
+.st-font .st-row-text > span { font-size: 14.5px; line-height: 19px; }
+.st-upsell + .st-fonts { margin-top: 14px; }
+.st-alerts-empty { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border: 1px dashed var(--line2); border-radius: 16px; }
+.st-alerts-empty .btn { flex: none; }
+.st-watch-pick .st-search-input { margin-bottom: 0; }
+.st-watch-pick .st-candidates { max-height: 50vh; overflow-y: auto; }
+.st-caption-langs { max-height: 72vh; }
+
 /* Settings → Accessibility → Reduce motion. */
 html[data-motion='reduce'] *, html[data-motion='reduce'] *::before, html[data-motion='reduce'] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

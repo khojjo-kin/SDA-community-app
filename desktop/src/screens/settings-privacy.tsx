@@ -1,11 +1,12 @@
 // Settings pages about who sees you and who can reach you: Account privacy, Close friends, Blocked,
-// Story, live and location, Activity status, Messages and story replies, and Notifications.
+// Story, live and location (with story alerts and the friends' map), Activity status, Messages and
+// story replies, and Notifications.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { amSharingLocation, countCloseFriends, fetchFollowAlerts, fetchThreads, listBlocked, listCloseFriends, listPeople, searchProfiles, setBlock, setCloseFriend, setFollowAlerts, setThreadMuted, stopSharingLocation, updateProfile } from 'shared/api';
+import { amSharingLocation, countCloseFriends, fetchFollowAlerts, fetchStoryWatchList, fetchThreads, listBlocked, listCloseFriends, listPeople, searchProfiles, setBlock, setCloseFriend, setFollowAlerts, setStoryWatch, setThreadMuted, stopSharingLocation, updateProfile } from 'shared/api';
 import type { FollowAlerts, Profile, StoryReplies } from 'shared/types';
 import { useMe } from '../lib/me';
 import { Failed, Link, Modal, Spinner, toast, toastError, useLoad } from '../ui/kit';
-import { Block, Card, LinkRow, Notice, Page, PersonRow, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
+import { Block, Card, LinkRow, Notice, Page, PersonRow, PlusUpsell, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
 
 /* ---------- Account privacy ---------- */
 
@@ -123,6 +124,8 @@ export function StoryLiveLocation() {
   const { me } = useMe();
   const friends = useLoad(() => countCloseFriends(me.id), []);
   const sharing = useLoad(() => amSharingLocation(me.id), []);
+  // How many people are on the story alerts list (a Plus perk).
+  const alerts = useLoad(() => (me.plus ? fetchStoryWatchList(me.id).then((l) => l.length) : Promise.resolve(null)), [me.plus]);
   const restricted = me.restricted === true;
   return (
     <Page title="Story, live and location">
@@ -130,6 +133,7 @@ export function StoryLiveLocation() {
         <Card>
           <LinkRow icon="star" title="Close friends" value={friends.data ?? ''} to="/accounts/close-friends" />
           <LinkRow icon="reply" title="Story replies" value={REPLIES[me.story_replies] ?? 'Everyone'} to="/accounts/messages" />
+          <LinkRow icon="bell" title="Story alerts" sub="Be told when people you choose watch your stories." value={me.plus ? alerts.data ?? '' : 'Plus'} to="/accounts/story-alerts" />
           <LinkRow icon="archive" title="Stories archive" sub="Your stories are kept here after they disappear, and only you can see them." to="/archive" />
         </Card>
       </Block>
@@ -143,28 +147,164 @@ export function StoryLiveLocation() {
         )}
       </Block>
       <Block title="Location">
-        {sharing.loading ? (
+        {restricted ? (
+          <Notice icon="lock">Members under 14 can't share their location.</Notice>
+        ) : sharing.loading ? (
           <Spinner />
-        ) : sharing.data ? (
+        ) : (
           <Card>
-            <ToggleRow
-              icon="location"
-              title="Share my live location"
-              sub="Friends you chose can see where you are on the map."
-              on
-              onChange={() =>
-                stopSharingLocation(me.id).then(() => {
-                  sharing.set(false);
-                  toast('You stopped sharing your location');
-                }, toastError)
-              }
+            {sharing.data ? (
+              <ToggleRow
+                icon="location"
+                title="Share my live location"
+                sub="Friends you chose can see where you are on the map. Turn this off to stop at once."
+                on
+                onChange={() =>
+                  stopSharingLocation(me.id).then(() => {
+                    sharing.set(false);
+                    toast('You stopped sharing your location');
+                  }, toastError)
+                }
+              />
+            ) : null}
+            {/* The friends' map is where sharing starts: who sees it (mutual followers or close friends) and for how long. */}
+            <LinkRow
+              icon="compass"
+              title={sharing.data ? "Friends' map" : 'Share my live location'}
+              sub={sharing.data ? 'See friends who share their location with you, and change who sees yours.' : "Open the friends' map to share where you are with mutual followers or close friends, for as long as you choose."}
+              to="/map"
             />
           </Card>
-        ) : (
-          <Notice icon="location">{restricted ? "Members under 14 can't share their location." : "You aren't sharing your location. You can share it with mutual followers or close friends from the map in the Community app on iPhone, and stop at any time here."}</Notice>
         )}
       </Block>
     </Page>
+  );
+}
+
+/* ---------- Story alerts (Community Plus) ---------- */
+
+/**
+ * The people whose views of your stories you are told about, as on the iPhone's story-alerts.tsx. They
+ * aren't told. The list is the same one the bell beside each viewer in a story's viewers changes.
+ */
+export function StoryAlerts() {
+  const { me } = useMe();
+  const plus = !!me.plus;
+  const [list, setList] = useState<Profile[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [picking, setPicking] = useState(false);
+  // People being added or removed right now: another click on them waits for the first to finish.
+  const saving = useRef(new Set<string>());
+
+  const load = () => {
+    setError(null);
+    fetchStoryWatchList(me.id).then(setList, (e) => {
+      setError(e);
+      setList((old) => old ?? []);
+    });
+  };
+  useEffect(() => {
+    if (plus) load();
+  }, [plus]);
+
+  /** Adds or removes one person. Shown at once, and put back if the save fails. */
+  async function setOn(p: Profile, on: boolean) {
+    if (saving.current.has(p.id)) return;
+    saving.current.add(p.id);
+    // Only this person changes, so a failure doesn't undo other clicks still saving.
+    const put = (add: boolean) => setList((cur) => (add ? [p, ...(cur ?? []).filter((x) => x.id !== p.id)] : (cur ?? []).filter((x) => x.id !== p.id)));
+    put(on);
+    try {
+      await setStoryWatch(me.id, p.id, on);
+    } catch (e) {
+      put(!on);
+      toastError(e);
+    } finally {
+      saving.current.delete(p.id);
+    }
+  }
+
+  if (!plus) {
+    return (
+      <Page title="Story alerts">
+        <PlusUpsell title="Story alerts are part of Community Plus" body="Choose people, and be told when they watch your stories. They aren't told." />
+      </Page>
+    );
+  }
+  const add = (
+    <button className="btn small" onClick={() => setPicking(true)}>
+      Add people
+    </button>
+  );
+  return (
+    <Page title="Story alerts" intro="You're told when the people on this list watch your stories. They aren't told. You can also add someone from the bell beside them in a story's viewers.">
+      <Block title={`On your list · ${list?.length ?? 0}`} action={list?.length ? add : undefined}>
+        {list === null ? (
+          <Spinner />
+        ) : error && !list.length ? (
+          <Failed error={error} retry={load} />
+        ) : !list.length ? (
+          <div className="st-alerts-empty">
+            <p className="st-empty-line">No one yet. Add people you follow to hear when they watch your stories.</p>
+            {add}
+          </div>
+        ) : (
+          <Card className="st-watch">
+            {list.map((p) => (
+              <PersonRow
+                key={p.id}
+                p={p}
+                right={
+                  <button className="btn quiet small" onClick={() => setOn(p, false)} aria-label={'Remove ' + p.username}>
+                    Remove
+                  </button>
+                }
+              />
+            ))}
+          </Card>
+        )}
+      </Block>
+      {picking ? <AddWatchers chosen={list ?? []} onToggle={setOn} onClose={() => setPicking(false)} /> : null}
+    </Page>
+  );
+}
+
+/** The people you follow, ticked when they're on the story alerts list. Each click saves straight away. */
+function AddWatchers({ chosen, onToggle, onClose }: { chosen: Profile[]; onToggle: (p: Profile, on: boolean) => void; onClose: () => void }) {
+  const { me } = useMe();
+  const following = useLoad(() => listPeople(me.id, 'following').then((all) => all.filter((p) => p.id !== me.id && !p.is_blocked)), []);
+  const [q, setQ] = useState('');
+  const on = new Set(chosen.map((p) => p.id));
+  const n = q.trim().toLowerCase();
+  const shown = (following.data ?? []).filter((p) => !n || `${p.username} ${p.full_name}`.toLowerCase().includes(n));
+  return (
+    <Modal title="Add people" onClose={onClose}>
+      <div className="st-modal-body st-watch-pick">
+        {following.loading ? (
+          <Spinner />
+        ) : following.error ? (
+          <Failed error={following.error} retry={following.reload} />
+        ) : !following.data?.length ? (
+          <p className="st-empty-line">You aren't following anyone yet. Story alerts are for people you follow.</p>
+        ) : (
+          <>
+            <input className="st-input st-search-input" placeholder="Search people you follow" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people you follow" autoFocus />
+            {shown.length ? (
+              <Card className="st-candidates">
+                {shown.map((p) => (
+                  <PersonRow key={p.id} p={p} onOpen={false} right={<input type="checkbox" className="round-check" checked={on.has(p.id)} onChange={() => onToggle(p, !on.has(p.id))} aria-label={(on.has(p.id) ? 'Remove ' : 'Add ') + p.username} />} />
+                ))}
+              </Card>
+            ) : (
+              <p className="st-empty-line">No one by that name.</p>
+            )}
+          </>
+        )}
+        <button className="btn block big" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </Modal>
   );
 }
 

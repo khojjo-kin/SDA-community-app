@@ -1,7 +1,10 @@
 // Pieces shared by the Professional dashboard, Plus, the tick application and fundraisers: menus,
-// saved-card helpers, the renewal terms line, progress bars and the pay dialog wrapper.
-import React, { useEffect, useRef, useState } from 'react';
-import { confirmPay, money, type PayRequest } from '../lib/pay';
+// saved-card helpers, the renewal terms line, progress bars, the pay dialog wrapper, paying with a
+// saved card, and opening posts from the dashboard's grids.
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { FriendlyError } from 'shared/theme';
+import { confirmPay, money, type PayRequest, stripe } from '../lib/pay';
+import { nav } from '../lib/router';
 import { Icon, Link, toast, useOutside } from '../ui/kit';
 import '../styles/pro.css';
 
@@ -17,6 +20,23 @@ export async function pay(req: PayRequest): Promise<boolean> {
   const ok = await confirmPay(req);
   if (ok) (globalThis as any).__demoConfirmed?.(req.clientSecret);
   return ok;
+}
+
+/**
+ * Confirms a payment (or a card for after a free week) with a card already saved on the member's
+ * Stripe customer, as the iPhone's checkout does: no card form; Stripe shows the bank's own check if
+ * one is needed. Throws with Stripe's reason when it doesn't go through.
+ */
+export async function payWithSavedCard(clientSecret: string, cardId: string, intent: 'payment' | 'setup' = 'payment'): Promise<void> {
+  if (__DEMO__) {
+    // The demo's stand-in for Stripe takes the saved card as it is.
+    await new Promise((r) => setTimeout(r, 500));
+    (globalThis as any).__demoConfirmed?.(clientSecret);
+    return;
+  }
+  const s = await stripe();
+  const res = intent === 'setup' ? await s.confirmCardSetup(clientSecret, { payment_method: cardId }) : await s.confirmCardPayment(clientSecret, { payment_method: cardId });
+  if (res?.error) throw new FriendlyError(res.error.message || 'The payment did not go through. Try another card.');
 }
 
 /** Opens a Stripe page (payout setup, the payout dashboard) in the browser. */
@@ -48,6 +68,21 @@ export async function copyText(text: string): Promise<boolean> {
       return false;
     }
   }
+}
+
+/* ---------- opening posts from the dashboard ---------- */
+
+/**
+ * Opens a post from one of the dashboard's grids or tables, as grids do everywhere (src/lib/grid-open.ts
+ * on the iPhone): a Short in the Shorts player, anything else in the post dialog with the rest of the
+ * list, so its arrows step through it. The dashboard provides the dialog; elsewhere the post's page opens.
+ */
+export type OpenPost = (id: string, list?: string[]) => void;
+export const OpenPostContext = createContext<OpenPost>((id) => nav('/p/' + id));
+
+export function useOpenPost() {
+  const open = useContext(OpenPostContext);
+  return (post: { id: string; kind?: string }, list?: string[]) => (post.kind === 'reel' ? nav('/shorts/' + post.id) : open(post.id, list));
 }
 
 /* ---------- words and dates ---------- */

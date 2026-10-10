@@ -406,6 +406,41 @@ a.pro-person:hover { background: var(--hover); }
 .pro-hint { font-size: 12.5px; font-weight: 400; color: var(--fg3); }
 .pro-count { align-self: flex-end; font-style: normal; font-weight: 400; font-size: 12px; color: var(--fg3); }
 
+/* ---------- Your tools: Inspiration and Best practices ---------- */
+.pro-insp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.pro-insp-grid .tile { aspect-ratio: 3 / 4; }
+.pro-bp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pro-bp-card { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg2); }
+.pro-bp-icon { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 4px; background: var(--surface2); color: var(--fg); }
+.pro-bp-card h3 { font-size: 16px; line-height: 22px; font-weight: 700; }
+.pro-bp-card p { flex: 1; color: var(--fg2); line-height: 20px; }
+.pro-bp-go { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; color: var(--accent2); font-weight: 600; }
+.pro-bp-go:hover { text-decoration: underline; }
+/* The top posts are buttons now (they open the post dialog). */
+button.pro-top { display: block; width: 100%; padding: 0; }
+
+/* ---------- paying for Plus with a saved card ---------- */
+.pro-paywith { display: grid; gap: 8px; }
+.pro-box > .pro-paywith { margin: 8px 0 4px; }
+.pro-paywith h3 { font-size: 14px; line-height: 18px; font-weight: 700; }
+.pro-paywith-list { display: grid; border: 1px solid var(--line2); border-radius: 14px; overflow: hidden; background: var(--bg); }
+.pro-paywith-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; text-align: left; color: var(--fg); transition: background 0.12s; }
+.pro-paywith-card + .pro-paywith-card { border-top: 1px solid var(--line); }
+.pro-paywith-card:hover:not(:disabled) { background: var(--hover); }
+.pro-paywith-card:disabled { cursor: default; opacity: 0.5; }
+.pro-paywith-card .grow { display: grid; gap: 2px; }
+.pro-paywith-card b { font-size: 14px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-paywith-card .grow > span { font-size: 12.5px; line-height: 16px; }
+.pro-paywith-dot { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--fg3); display: grid; place-items: center; }
+.pro-paywith-dot.on { border-color: var(--accent); }
+.pro-paywith-dot.on::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.pro-paywith-new { flex: none; display: grid; place-items: center; width: 42px; height: 28px; border-radius: 6px; background: var(--surface2); color: var(--fg); }
+
+@media (max-width: 1100px) {
+  .pro-insp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pro-bp-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1180px) {
   .pro-split { grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; }
   .pro-plus-grid, .pro-fund-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; }

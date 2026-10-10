@@ -6,10 +6,9 @@ import { count, fmt } from 'shared/theme';
 import type { Stats, StatsTop } from 'shared/types';
 import { useMe } from '../lib/me';
 import { money, paymentsConfig } from '../lib/pay';
-import { nav } from '../lib/router';
 import { ColumnChart, Donut, LineChart, SERIES, Spark } from '../ui/charts';
 import { Avatar, Failed, Icon, Link, Spinner, Verified, useLoad } from '../ui/kit';
-import { longDay, shortDay } from './pro-kit';
+import { longDay, shortDay, useOpenPost } from './pro-kit';
 import { FundraiserRow, PayoutBox } from './pro-money';
 
 export type Section = 'overview' | 'content' | 'audience' | 'income';
@@ -212,11 +211,13 @@ function followersOverTime(s: Stats) {
 }
 
 function TopGrid({ top }: { top: StatsTop[] }) {
+  const open = useOpenPost();
   if (!top.length) return <p className="muted-text">Nothing shared in this period. Share a post or a Short to see how it does here.</p>;
+  const ids = top.map((t) => t.id);
   return (
     <div className="pro-top-grid">
       {top.map((t) => (
-        <Link key={t.id} to={'/p/' + t.id} className="pro-top" title={`${count(t.views, 'view')} · ${count(t.likes, 'like')}`}>
+        <button key={t.id} className="pro-top" onClick={() => open(t, ids)} title={`${count(t.views, 'view')} · ${count(t.likes, 'like')}`} aria-label={`${t.kind === 'reel' ? 'Short' : 'Post'}, ${count(t.views, 'view')}`}>
           {thumbOf(t) ? <img src={thumbOf(t)} alt="" /> : <span className="pro-top-blank" />}
           {t.kind === 'reel' ? (
             <span className="pro-top-kind">
@@ -226,7 +227,7 @@ function TopGrid({ top }: { top: StatsTop[] }) {
           <span className="pro-top-stats">
             <Icon name="eye" size={14} color="#fff" /> {fmt(t.views)}
           </span>
-        </Link>
+        </button>
       ))}
     </div>
   );
@@ -236,6 +237,8 @@ function TopGrid({ top }: { top: StatsTop[] }) {
 
 function Content({ pair, days }: { pair: Pair; days: number }) {
   const { now, before } = pair;
+  const open = useOpenPost();
+  const ids = now.top.map((t) => t.id);
   return (
     <>
       <div className="pro-tiles">
@@ -266,7 +269,7 @@ function Content({ pair, days }: { pair: Pair; days: number }) {
                 </thead>
                 <tbody>
                   {now.top.map((t) => (
-                    <tr key={t.id} onClick={() => nav('/p/' + t.id)}>
+                    <tr key={t.id} onClick={() => open(t, ids)}>
                       <td>
                         <span className="pro-ad-cell">
                           <span className="pro-ad-thumb">{thumbOf(t) ? <img src={thumbOf(t)} alt="" /> : <Icon name="image" size={18} />}</span>
@@ -474,7 +477,18 @@ function Income() {
               ))}
             </div>
           ) : (
-            <p className="muted-text">{me.sub_price_pence ? 'Nobody subscribes yet.' : 'Offer subscriptions from the iPhone app (Settings → Subscriptions) to earn from your posts.'}</p>
+            <p className="muted-text">
+              {me.sub_price_pence ? (
+                'Nobody subscribes yet.'
+              ) : (
+                <>
+                  Offer subscriptions to earn from your posts.{' '}
+                  <Link to="/accounts/subscriptions" className="link-btn inline">
+                    Set a monthly price
+                  </Link>
+                </>
+              )}
+            </p>
           )}
         </section>
         <section className="pro-card">

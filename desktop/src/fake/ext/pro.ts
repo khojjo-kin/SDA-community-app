@@ -132,13 +132,16 @@ export const ext: Ext = {
     if (mine) Object.assign(mine, { stripe_customer_id: 'cus_demo_me', stripe_subscription_id: 'sub_demo_me', plan: 'monthly', trial_used: true, stripe_account_id: null, charges_enabled: false, payouts_enabled: false, details_submitted: false });
     const grace = bill('u_grace');
     if (grace) Object.assign(grace, { stripe_customer_id: 'cus_demo_grace', stripe_subscription_id: 'sub_demo_grace', plan: 'yearly', trial_used: true, stripe_account_id: 'acct_demo_grace', charges_enabled: true, payouts_enabled: true, details_submitted: true });
+    // Daniel had his free week long ago and has a card saved from an ad, so Plus offers to pay with it.
     if (!bill('u_daniel')) {
-      T('community_billing').push({ user_id: 'u_daniel', status: 'none', current_period_end: null, cancel_at_period_end: false, stripe_customer_id: 'cus_demo_daniel', stripe_subscription_id: null, plan: null, trial_used: false, stripe_account_id: 'acct_demo_daniel', charges_enabled: true, payouts_enabled: false, details_submitted: true, updated_at: ago(300) });
+      T('community_billing').push({ user_id: 'u_daniel', status: 'none', current_period_end: null, cancel_at_period_end: false, stripe_customer_id: 'cus_demo_daniel', stripe_subscription_id: null, plan: null, trial_used: true, stripe_account_id: 'acct_demo_daniel', charges_enabled: true, payouts_enabled: false, details_submitted: true, updated_at: ago(300) });
     }
     cards.set('demo_me', [{ id: 'pm_demo_visa', ...SAMPLES[0] }]);
     defaults.set('demo_me', 'pm_demo_visa');
     cards.set('u_grace', [{ id: 'pm_demo_grace', ...SAMPLES[1] }]);
     defaults.set('u_grace', 'pm_demo_grace');
+    cards.set('u_daniel', [{ id: 'pm_demo_daniel', ...SAMPLES[3] }]);
+    defaults.set('u_daniel', 'pm_demo_daniel');
 
     // Two earlier ads of mine: one ran its course, one was refunded.
     if (!T('community_promotions').some((p) => p.user_id === 'demo_me')) {
