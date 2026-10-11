@@ -22,7 +22,8 @@ export function useCounts() {
   const [unreadChats, setUnreadChats] = useState(0);
   const [unreadNotices, setUnreadNotices] = useState(0);
   const load = useCallback(() => {
-    fetchThreads().then((ts) => setUnreadChats(ts.filter((t) => t.has_messages && !t.muted && t.unread_count > 0).length), () => {});
+    // Message requests have their own count in the inbox; the badge counts only chats.
+    fetchThreads().then((ts) => setUnreadChats(ts.filter((t) => t.has_messages && !t.muted && !t.request && t.unread_count > 0).length), () => {});
     countUnreadNotices().then(setUnreadNotices, () => {});
   }, []);
   useEffect(() => {

@@ -3,8 +3,10 @@
 // voice messages, saved replies and a heart. Used full size on /direct and small inside the corner
 // inbox (compact). New messages, "Seen" and typing arrive live over Supabase Realtime, on the same
 // channels as the iPhone app, with a refresh every few seconds in case the connection drops.
+// A message request shows Block, Delete and Accept in place of the message box, offers no calls, and
+// isn't marked read (so they can't see you've read it) until you accept.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, setBlock, setThreadMuted, uploadImage } from 'shared/api';
+import { acceptMessageRequest, askErhaInThread, askFaq, deleteMessageRequest, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, setBlock, setThreadMuted, uploadImage } from 'shared/api';
 import { usePrefs } from 'shared/prefs';
 import { supabase } from 'shared/supabase';
 import { useCalls } from 'shared/calls';
@@ -20,6 +22,7 @@ import { ActiveFace, STREAK_FROM, StreakBadge } from './chat-threads';
 import { CallLog, EmojiPop, OnceMark, PhotoPile, PhotoViewer, RecordingBar, ScreenshotLine, SharedPost, SnapBubble, SnapViewer, TypingBubble, VOICE_LIMIT_MS, VOICE_MIN_MS, VoiceMessage, VoiceRecorder, activeWords, buildRows, firstName, micProblem, pauseVoice, takeDraft, timeOf, uploadVoice, type RecPhase, type Row, type VoiceClip } from './chat-bits';
 import { WallpaperPicker, useChatWallpaper, wallName, wallpaperCss } from './chat-wallpaper';
 import { NoteBubble } from './notes';
+import { RequestBar } from './social';
 
 /** Ways to start a chat with Erha, offered while it is still nearly empty (sent in the app's language). */
 const ERHA_OPENERS = ['d.messages.erhaOpener1', 'd.messages.erhaOpener2', 'd.messages.erhaOpener3'];
@@ -41,7 +44,11 @@ const REPORT_REASONS = [
 type Pending = { photos: { url: string; size: number }[]; once: boolean };
 type Rec = { phase: RecPhase; ms: number; levels: number[]; clip?: VoiceClip };
 
-export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand, onClose }: { threadId: string; openPost?: (id: string) => void; onChanged?: () => void; compact?: boolean; onBack?: () => void; onExpand?: () => void; onClose?: () => void }) {
+/**
+ * `leaveTo` is where the full chat goes once it is deleted or the person blocked (the inbox, or the
+ * Requests column for a request); `onAccepted` runs once a request has been accepted.
+ */
+export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand, onClose, leaveTo = '/direct', onAccepted }: { threadId: string; openPost?: (id: string) => void; onChanged?: () => void; compact?: boolean; onBack?: () => void; onExpand?: () => void; onClose?: () => void; leaveTo?: string; onAccepted?: () => void }) {
   const { me } = useMe();
   const prefs = usePrefs();
   const calls = useCalls();
@@ -65,6 +72,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   const [rec, setRec] = useState<Rec | null>(null);
   const [picker, setPicker] = useState(false);
   const [reporting, setReporting] = useState(false);
+  // Accept, Delete or Block on a request is being saved.
+  const [answering, setAnswering] = useState(false);
   const log = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const file = useRef<HTMLInputElement>(null);
@@ -88,6 +97,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   // The recording in progress, if any.
   const recorder = useRef<VoiceRecorder | null>(null);
   const isErha = thread?.other_id === ERHA_ID;
+  // A message request: answered with the bar below the messages, and never marked read until accepted.
+  const isRequest = !!thread?.request;
+  const requestRef = useRef(isRequest);
+  requestRef.current = isRequest;
   // Plus: read without the other person seeing "Seen" (Settings → Read quietly). Nothing is marked read meanwhile.
   const quiet = !!me.plus && prefs.readQuietly;
   const quietRef = useRef(quiet);
@@ -104,9 +117,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       loadedOnce.current = true;
       const opened = openedHere.current;
       setMsgs(rows.map((m) => (opened.has(m.id) ? { ...m, media_url: '', opened_at: m.opened_at ?? opened.get(m.id)! } : m)));
-      // Their newest message is marked read once, while this window is in front and you aren't reading quietly.
+      // Their newest message is marked read once, while this window is in front, you aren't reading
+      // quietly and the chat isn't a request you have yet to accept.
       const theirs = [...rows].reverse().find((m) => m.sender_id !== me.id);
-      if (theirs && theirs.id !== markedId.current && !quietRef.current && !document.hidden) {
+      if (theirs && theirs.id !== markedId.current && !quietRef.current && !requestRef.current && !document.hidden) {
         markedId.current = theirs.id;
         markThreadRead(me.id, threadId).catch(() => {
           markedId.current = '';
@@ -130,6 +144,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         if (!alive) return;
         setThread(t);
         threadRef.current = t;
+        // Known before the first load, so a request is never marked read.
+        requestRef.current = !!t?.request;
         if (!t) return;
         load();
         fetchTheirLastRead(threadId, t.other_id).then((r) => alive && setTheirRead(r), () => {});
@@ -181,7 +197,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
   // "Active now" and the streak go stale, so the card is asked for again every minute while open.
   useEffect(() => {
     const timer = setInterval(() => {
-      fetchThread(threadId).then((t) => t && setThread((cur) => (cur ? { ...cur, active_at: t.active_at, streak: t.streak, other_plus: t.other_plus } : cur)), () => {});
+      fetchThread(threadId).then((t) => t && setThread((cur) => (cur ? { ...cur, active_at: t.active_at, streak: t.streak, other_plus: t.other_plus, request: t.request } : cur)), () => {});
     }, 60e3);
     return () => clearInterval(timer);
   }, [threadId]);
@@ -523,8 +539,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
     );
   }
 
-  // In-app calls, the same as on the iPhone: the other person's phone or Mac rings. Not while recording.
+  // In-app calls, the same as on the iPhone: the other person's phone or Mac rings. Not while
+  // recording, and not from a request (accept it first).
   const callsOff = calls.inCall || !!rec;
+  const canCall = !isErha && !isRequest;
   const call = (kind: 'voice' | 'video') => {
     if (callsOff) return;
     pauseVoice();
@@ -540,28 +558,69 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       toast(t(thread.muted ? 'd.messages.unmuted' : 'd.messages.muted'));
       changed();
     }, toastError);
+  /** Away from a chat that has gone (deleted, or the person blocked). */
+  const leave = () => {
+    if (compact) onBack?.();
+    else nav(leaveTo);
+  };
   const removeChat = async () => {
     if (!(await ask(t('inbox.deleteQuestion'), t('d.messages.deleteChatBody'), t('common.delete')))) return;
     try {
       await hideThread(threadId);
       toast(t('d.messages.chatDeleted'));
       changed();
-      if (compact) onBack?.();
-      else nav('/direct');
+      leave();
     } catch (e) {
       toastError(e);
     }
   };
   const blockThem = async () => {
     if (!(await ask(t('profile.blockQuestion', { username: thread.username }), t('d.messages.blockBody'), t('profile.block')))) return;
+    setAnswering(true);
     try {
       await setBlock(me.id, thread.other_id, true);
       toast(t('profile.blocked', { username: thread.username }));
       changed();
-      if (compact) onBack?.();
-      else nav('/direct');
+      leave();
     } catch (e) {
       toastError(e);
+    } finally {
+      setAnswering(false);
+    }
+  };
+
+  /* ----- a message request: accept it into the inbox, or delete it ----- */
+
+  const acceptRequest = async () => {
+    if (answering) return;
+    setAnswering(true);
+    try {
+      await acceptMessageRequest(threadId);
+      requestRef.current = false;
+      setThread((cur) => (cur ? { ...cur, request: false } : cur));
+      toast(t('d.social.requestAccepted'));
+      changed();
+      // Now it is yours to read: their messages are marked read as any chat's.
+      load();
+      onAccepted?.();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setAnswering(false);
+    }
+  };
+  const deleteRequest = async () => {
+    if (answering || !(await ask(t('d.social.deleteRequestQ'), '', t('common.delete')))) return;
+    setAnswering(true);
+    try {
+      await deleteMessageRequest(threadId);
+      toast(t('d.social.requestDeleted'));
+      changed();
+      leave();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setAnswering(false);
     }
   };
   const reportThem = (reason: string) => {
@@ -576,7 +635,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       case 'snap':
         return <SnapBubble mine={r.mine} opened={!!m.opened_at} onOpen={() => openSnap(m)} />;
       case 'call':
-        return <CallLog m={m} mine={r.mine} onCall={isErha || callsOff ? undefined : () => call(m.call_kind === 'video' ? 'video' : 'voice')} />;
+        return <CallLog m={m} mine={r.mine} onCall={!canCall || callsOff ? undefined : () => call(m.call_kind === 'video' ? 'video' : 'voice')} />;
       case 'voice':
         return <VoiceMessage m={m} mine={r.mine} locked={!!rec} />;
       case 'post':
@@ -624,7 +683,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         </span>
       </button>
       <span className="grow" />
-      {!isErha ? (
+      {canCall ? (
         <>
           <button className="icon-btn" aria-label={t('d.messages.voiceCall')} disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={20} />
@@ -652,7 +711,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
         </span>
       </Link>
       <span className="grow" />
-      {!isErha ? (
+      {canCall ? (
         <>
           <button className="icon-btn" aria-label={t('d.messages.voiceCall')} disabled={callsOff} onClick={() => call('voice')}>
             <Icon name="phone" size={24} />
@@ -674,10 +733,10 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
       <div
         className="cv-main"
         onDragOver={(e) => {
-          if (!isErha && e.dataTransfer.types.includes('Files')) e.preventDefault();
+          if (!isErha && !isRequest && e.dataTransfer.types.includes('Files')) e.preventDefault();
         }}
         onDrop={(e) => {
-          if (isErha || !e.dataTransfer.files.length) return;
+          if (isErha || isRequest || !e.dataTransfer.files.length) return;
           e.preventDefault();
           addPhotos(Array.from(e.dataTransfer.files));
         }}
@@ -753,7 +812,7 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
               </button>
             ))}
           </div>
-        ) : faqs.length && !compact ? (
+        ) : faqs.length && !compact && !isRequest ? (
           <div className="chips cv-faqs" aria-label={t('d.messages.faqs')}>
             <span className="cv-faqs-h">{t('d.messages.faqs')}</span>
             {faqs.map((f) => (
@@ -840,6 +899,8 @@ export function Chat({ threadId, openPost, onChanged, compact, onBack, onExpand,
 
         {rec ? (
           <RecordingBar phase={rec.phase} ms={rec.ms} levels={rec.levels} onDiscard={() => finishRecording(false)} onSend={() => finishRecording(true)} />
+        ) : isRequest ? (
+          <RequestBar username={thread.username} busy={answering} onAccept={acceptRequest} onDelete={deleteRequest} onBlock={blockThem} />
         ) : (
           <form
             className="composer cv-composer"

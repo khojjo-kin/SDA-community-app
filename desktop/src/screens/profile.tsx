@@ -19,6 +19,7 @@ import { Highlights } from '../ui/profile-highlights';
 import { AboutAccount, AlertsBell, BioText, FundraiserCard, type PictureRing, ProfilePicture, UpcomingLives } from '../ui/profile-parts';
 import { ProfileStyleDialog, useProfileLook } from '../ui/profile-style';
 import { SubscribeDialog, subscribeTo } from '../ui/profile-subscribe';
+import { MuteDialog, toggleRestrict } from '../ui/social';
 import { StoryViewer } from '../ui/stories';
 import { ProfileGrid, type ProfileTab, ProfileTabs } from './profile-grid';
 import '../styles/profile.css';
@@ -68,7 +69,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
   const { data: person, error, loading, reload, set } = useLoad(() => profileByUsername(username), [username]);
   const [list, setList] = useState<'followers' | 'following' | null>(null);
   const [menu, setMenu] = useState<'gear' | 'more' | 'following' | 'report' | null>(null);
-  const [dialog, setDialog] = useState<'about' | 'style' | 'subscription' | null>(openStyle ? 'style' : null);
+  const [dialog, setDialog] = useState<'about' | 'style' | 'subscription' | 'mute' | null>(openStyle ? 'style' : null);
   const [stories, setStories] = useState<StoryGroup[] | null>(null);
   // Whether all their stories have been watched, and whether any is for close friends (a blue ring).
   const [storyState, setStoryState] = useState({ seen: false, close: false });
@@ -197,6 +198,12 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     } catch (e) {
       toastError(e);
     }
+  };
+  // Restrict (asked first) or lift it; they aren't told. On someone else's profile `restricted` says
+  // whether you have restricted them.
+  const restrict = async () => {
+    const on = !person.restricted;
+    if (await toggleRestrict(me.id, person, on)) set({ ...person, restricted: on });
   };
   const copyLink = async () => {
     const link = location.origin + location.pathname + '#/u/' + person.username;
@@ -504,8 +511,14 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
           onClose={() => setMenu(null)}
           items={[
             { label: person.is_blocked ? t('profile.unblock') : t('profile.block'), danger: true, bold: true, onClick: block },
+            ...(person.is_blocked ? [] : [{ label: person.restricted ? t('d.social.unrestrict') : t('d.social.restrict'), danger: true, bold: true, onClick: restrict }]),
             { label: t('profile.report'), danger: true, bold: true, onClick: () => setMenu('report') },
-            ...(person.is_blocked ? [] : [{ label: person.is_close_friend ? t('profile.removeCloseFriend') : t('profile.addCloseFriend'), onClick: closeFriend }]),
+            ...(person.is_blocked
+              ? []
+              : [
+                  { label: t('d.social.mute'), onClick: () => setDialog('mute') },
+                  { label: person.is_close_friend ? t('profile.removeCloseFriend') : t('profile.addCloseFriend'), onClick: closeFriend },
+                ]),
             { label: t('profile.about'), onClick: () => setDialog('about') },
             { label: t('profile.copyLink'), onClick: copyLink },
           ]}
@@ -554,6 +567,25 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
               <Icon name="crown" size={20} />
             </button>
           ) : null}
+          {/* Mute and Restrict, as in Instagram's Following menu. */}
+          <button
+            onClick={() => {
+              setMenu(null);
+              setDialog('mute');
+            }}
+          >
+            <span className="grow">{t('d.social.mute')}</span>
+            <Icon name="right" size={18} />
+          </button>
+          <button
+            onClick={() => {
+              setMenu(null);
+              restrict();
+            }}
+          >
+            <span className="grow">{person.restricted ? t('d.social.unrestrict') : t('d.social.restrict')}</span>
+            <Icon name="right" size={18} />
+          </button>
           <button
             className="danger"
             onClick={() => {
@@ -568,6 +600,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
       {dialog === 'about' ? <AboutAccount person={person} onClose={() => setDialog(null)} /> : null}
       {dialog === 'style' ? <ProfileStyleDialog onClose={() => setDialog(null)} /> : null}
       {dialog === 'subscription' ? <SubscribeDialog creator={person} onClose={() => setDialog(null)} onChanged={reload} /> : null}
+      {dialog === 'mute' ? <MuteDialog userId={person.id} username={person.username} onClose={() => setDialog(null)} /> : null}
       {stories ? <StoryViewer groups={stories} start={0} onClose={() => setStories(null)} /> : null}
     </div>
   );

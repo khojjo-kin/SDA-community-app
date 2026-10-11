@@ -1,8 +1,8 @@
 // Settings pages about who sees you and who can reach you: Account privacy, Close friends, Blocked,
-// Story, live and location (with story alerts and the friends' map), Activity status, Messages and
-// story replies, and Notifications.
+// Restricted accounts, Muted accounts, Story, live and location (with story alerts and the friends'
+// map), Activity status, Messages and story replies, and Notifications.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { amSharingLocation, countCloseFriends, fetchFollowAlerts, fetchStoryWatchList, fetchThreads, listBlocked, listCloseFriends, listPeople, searchProfiles, setBlock, setCloseFriend, setFollowAlerts, setStoryWatch, setThreadMuted, stopSharingLocation, updateProfile } from 'shared/api';
+import { amSharingLocation, countCloseFriends, fetchFollowAlerts, fetchStoryWatchList, fetchThreads, listBlocked, listCloseFriends, listMuted, listPeople, listRestricted, searchProfiles, setBlock, setCloseFriend, setFollowAlerts, setMute, setRestricted, setStoryWatch, setThreadMuted, stopSharingLocation, updateProfile } from 'shared/api';
 import type { FollowAlerts, Profile, StoryReplies } from 'shared/types';
 import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
@@ -110,6 +110,78 @@ export function Blocked() {
               right={
                 <button className="btn quiet small" onClick={() => setBlock(me.id, p.id, false).then(() => { list.reload(); toast(t('profile.unblocked', { username: p.username })); }, toastError)}>
                   {t('profile.unblock')}
+                </button>
+              }
+            />
+          ))}
+        </Card>
+      )}
+    </Page>
+  );
+}
+
+/* ---------- Restricted accounts and Muted accounts ---------- */
+
+/** One person on a list with a button that takes them off it: gone from the list at once, back if the save fails. */
+function useRemovable(list: { data: Profile[] | undefined; set: (v: Profile[]) => void; reload: () => void }) {
+  return (p: Profile, save: () => Promise<unknown>, done: string) => {
+    list.set((list.data ?? []).filter((x) => x.id !== p.id));
+    save().then(
+      () => toast(done),
+      (e) => {
+        toastError(e);
+        list.reload();
+      },
+    );
+  };
+}
+
+/** The people you restricted, with Unrestrict (they aren't told either way). */
+export function RestrictedAccounts() {
+  const { me } = useMe();
+  const list = useLoad(() => listRestricted(me.id), []);
+  const remove = useRemovable(list);
+  return (
+    <Page title={t('d.social.restrictedAccounts')}>
+      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.social.noRestricted')}</p> : (
+        <Card className="st-restricted">
+          {list.data.map((p) => (
+            <PersonRow
+              key={p.id}
+              p={p}
+              right={
+                <button className="btn quiet small" onClick={() => remove(p, () => setRestricted(me.id, p.id, false), t('d.social.unrestrictedToast', { username: p.username }))}>
+                  {t('d.social.unrestrict')}
+                </button>
+              }
+            />
+          ))}
+        </Card>
+      )}
+    </Page>
+  );
+}
+
+/** What of theirs you muted, in words: their posts, their stories, or both. */
+const mutedWhat = (p: Profile) => (p.muted_posts && p.muted_stories ? t('d.social.postsAndStories') : p.muted_stories ? t('profile.alertsStories') : t('profile.alertsPosts'));
+
+/** The people you muted, what of theirs, and Unmute (both posts and stories come back). */
+export function MutedAccounts() {
+  const { me } = useMe();
+  const list = useLoad(() => listMuted(me.id), []);
+  const remove = useRemovable(list);
+  return (
+    <Page title={t('d.social.mutedAccounts')}>
+      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.social.noMuted')}</p> : (
+        <Card className="st-muted">
+          {list.data.map((p) => (
+            <PersonRow
+              key={p.id}
+              p={p}
+              sub={mutedWhat(p)}
+              right={
+                <button className="btn quiet small" onClick={() => remove(p, () => setMute(me.id, p.id, { posts: false, stories: false }), t('d.social.unmutedToast', { username: p.username }))}>
+                  {t('d.social.unmute')}
                 </button>
               }
             />
