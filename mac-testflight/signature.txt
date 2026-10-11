@@ -2,11 +2,11 @@ Executable=/Users/runner/work/SDA-community-app/SDA-community-app/desktop/releas
 Identifier=Kojo.SDAAPPGEMINI
 Format=app bundle with Mach-O universal (x86_64 arm64)
 CodeDirectory v=20400 size=629 flags=0x0(none) hashes=9+7 location=embedded
-Signature size=9095
+Signature size=9094
 Authority=Apple Distribution: Kingsford Toku (QRMLKZR9B8)
 Authority=Apple Worldwide Developer Relations Certification Authority
 Authority=Apple Root CA
-Timestamp=Oct 11, 2026 at 4:15:32 AM
+Timestamp=Oct 11, 2026 at 5:38:33 AM
 Info.plist entries=36
 TeamIdentifier=QRMLKZR9B8
 Sealed Resources version=2 rules=13 files=9
@@ -57,7 +57,7 @@ Dict {
     NSBluetoothPeripheralUsageDescription = This app needs access to Bluetooth
     NSPrefersDisplaySafeAreaCompatibilityMode = false
     DTXcodeBuild = 16F6
-    CFBundleVersion = 2610110413
+    CFBundleVersion = 2610110536
     NSMainNibFile = MainMenu
     NSMicrophoneUsageDescription = Community uses your microphone for voice messages and calls.
     CFBundleIdentifier = Kojo.SDAAPPGEMINI
@@ -66,7 +66,7 @@ Dict {
     }
     ElectronAsarIntegrity = Dict {
         Resources/app.asar = Dict {
-            hash = 0f794ff1ee193beaf903dc15ec71753e7fd6bf49d66e4869ac01aaf7d990f6aa
+            hash = a476d2db1b91da5a223510eb353bad2a2dd230bed87bf0f1dde108b18d09b0c5
             algorithm = SHA256
         }
     }

@@ -1,8 +1,8 @@
 {
   "url": "http://localhost:47821/",
   "title": "Community",
-  "rootLength": 11860,
-  "text": "Community\n\nSee photos and videos from your church family.\n\nSign in to SDA app\n\nWelcome back! Please sign in to continue\n\nApple\nGoogle\n\nor\n\nEmail address or username\nUse phone\nPassword\nContinue\nDon’t have an account?\nSign up\n\nSecured by\n\nDevelopment mode\n\nDon't have an account? Sign up\n\nThe same account works in the Community app on iPhone.\n\nTerms\nPrivacy\nCommunity guidelines\nChild safety"
+  "rootLength": 12356,
+  "text": "Community\nSEVENTH-DAY ADVENTIST\nSign in to SDA app\n\nWelcome back! Please sign in to continue\n\nApple\nGoogle\n\nor\n\nEmail address or username\nUse phone\nPassword\nContinue\nDon’t have an account?\nSign up\n\nSecured by\n\nDevelopment mode\n\nDon't have an account? Sign up\n\nTerms\nPrivacy\nCommunity guidelines\nChild safety"
 }
 
 console.warning: Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview

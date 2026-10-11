@@ -8,23 +8,23 @@ installer key: from desktop-signing
 {
   "url": "http://localhost:47821/",
   "title": "Community",
-  "rootLength": 11860,
-  "text": "Community\n\nSee photos and videos from your church family.\n\nSign in to SDA app\n\nWelcome back! Please sign in to continue\n\nApple\nGoogle\n\nor\n\nEmail address or username\nUse phone\nPassword\nContinue\nDon’t have an account?\nSign up\n\nSecured by\n\nDevelopment mode\n\nDon't have an account? Sign up\n\nThe same account works in the Community app on iPhone.\n\nTerms\nPrivacy\nCommunity guidelines\nChild safety"
+  "rootLength": 12356,
+  "text": "Community\nSEVENTH-DAY ADVENTIST\nSign in to SDA app\n\nWelcome back! Please sign in to continue\n\nApple\nGoogle\n\nor\n\nEmail address or username\nUse phone\nPassword\nContinue\nDon’t have an account?\nSign up\n\nSecured by\n\nDevelopment mode\n\nDon't have an account? Sign up\n\nTerms\nPrivacy\nCommunity guidelines\nChild safety"
 }
--rw-r--r--  1 runner  staff  1720 Oct 11 04:15 release/builder-debug.yml
+-rw-r--r--  1 runner  staff  1720 Oct 11 05:38 release/builder-debug.yml
 
 release:
 total 8
-drwxr-xr-x   5 runner  staff   160 Oct 11 04:15 .
-drwxr-xr-x  18 runner  staff   576 Oct 11 04:13 ..
-drwxr-xr-x   3 runner  staff    96 Oct 11 04:13 .icon-icns
--rw-r--r--   1 runner  staff  1720 Oct 11 04:15 builder-debug.yml
-drwxr-xr-x   4 runner  staff   128 Oct 11 04:15 mas-universal
+drwxr-xr-x   5 runner  staff   160 Oct 11 05:38 .
+drwxr-xr-x  18 runner  staff   576 Oct 11 05:36 ..
+drwxr-xr-x   3 runner  staff    96 Oct 11 05:36 .icon-icns
+-rw-r--r--   1 runner  staff  1720 Oct 11 05:38 builder-debug.yml
+drwxr-xr-x   4 runner  staff   128 Oct 11 05:38 mas-universal
 
 release/mas-universal:
-total 450488
-drwxr-xr-x  4 runner  staff        128 Oct 11 04:15 .
-drwxr-xr-x  5 runner  staff        160 Oct 11 04:15 ..
--rw-r--r--  1 runner  staff  230648627 Oct 11 04:15 Community-1.1.0-universal.pkg
-drwxr-xr-x  3 runner  staff         96 Oct 11 04:14 Community.app
-upload: 0 (build 2610110413, release/mas-universal/Community-1.1.0-universal.pkg)
+total 451312
+drwxr-xr-x  4 runner  staff        128 Oct 11 05:38 .
+drwxr-xr-x  5 runner  staff        160 Oct 11 05:38 ..
+-rw-r--r--  1 runner  staff  231071222 Oct 11 05:38 Community-1.1.0-universal.pkg
+drwxr-xr-x  3 runner  staff         96 Oct 11 05:37 Community.app
+upload: 0 (build 2610110536, release/mas-universal/Community-1.1.0-universal.pkg)

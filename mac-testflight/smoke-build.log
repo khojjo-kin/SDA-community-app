@@ -5,5 +5,5 @@
   • completed installing native dependencies
   • packaging       platform=darwin arch=arm64 electron=44.7.0 appOutDir=release/mac-arm64
   • downloading     url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-darwin-arm64.zip size=130 MB parts=8
-  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-darwin-arm64.zip duration=763ms
+  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-darwin-arm64.zip duration=809ms
   • skipped macOS code signing  reason=identity explicitly is set to null
