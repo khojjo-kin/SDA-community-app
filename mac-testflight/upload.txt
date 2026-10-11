@@ -1,0 +1,3 @@
+Running altool at path '/Applications/Xcode_26.3.app/Contents/SharedFrameworks/ContentDelivery.framework/Resources/altool'...
+
+2026-10-11 04:11:36.637 ERROR: [altool.600001EF44C0] File does not exist at path: . (13)

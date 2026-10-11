@@ -1,0 +1,30 @@
+installer key: new
+  1) DCB19468E9D878614056B8DAF1F464BA2C8481F4 "Apple Distribution: Kingsford Toku (QRMLKZR9B8)"
+  2) 2D7D45BE89F2EE3CA762B2E8F464AED75BBD60B8 "3rd Party Mac Developer Installer: Kingsford Toku (QRMLKZR9B8)"
+     2 valid identities found
+  1) DCB19468E9D878614056B8DAF1F464BA2C8481F4 "Apple Distribution: Kingsford Toku (QRMLKZR9B8)"
+  2) 2D7D45BE89F2EE3CA762B2E8F464AED75BBD60B8 "3rd Party Mac Developer Installer: Kingsford Toku (QRMLKZR9B8)"
+     2 valid identities found
+{
+  "url": "http://localhost:47821/",
+  "title": "Community",
+  "rootLength": 11860,
+  "text": "Community\n\nSee photos and videos from your church family.\n\nSign in to SDA app\n\nWelcome back! Please sign in to continue\n\nApple\nGoogle\n\nor\n\nEmail address or username\nUse phone\nPassword\nContinue\nDon’t have an account?\nSign up\n\nSecured by\n\nDevelopment mode\n\nDon't have an account? Sign up\n\nThe same account works in the Community app on iPhone.\n\nTerms\nPrivacy\nCommunity guidelines\nChild safety"
+}
+-rw-r--r--  1 runner  staff  1720 Oct 11 04:11 release/builder-debug.yml
+
+release:
+total 8
+drwxr-xr-x   5 runner  staff   160 Oct 11 04:11 .
+drwxr-xr-x  18 runner  staff   576 Oct 11 04:09 ..
+drwxr-xr-x   3 runner  staff    96 Oct 11 04:09 .icon-icns
+-rw-r--r--   1 runner  staff  1720 Oct 11 04:11 builder-debug.yml
+drwxr-xr-x   4 runner  staff   128 Oct 11 04:11 mas-universal
+
+release/mas-universal:
+total 450480
+drwxr-xr-x  4 runner  staff        128 Oct 11 04:11 .
+drwxr-xr-x  5 runner  staff        160 Oct 11 04:11 ..
+-rw-r--r--  1 runner  staff  230642356 Oct 11 04:11 Community-1.1.0-universal.pkg
+drwxr-xr-x  3 runner  staff         96 Oct 11 04:09 Community.app
+upload: 0 (build 2610110409)

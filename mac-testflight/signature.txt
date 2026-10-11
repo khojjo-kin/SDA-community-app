@@ -1,0 +1,16 @@
+Executable=/Users/runner/work/SDA-community-app/SDA-community-app/desktop/release/mas-universal/Community.app/Contents/MacOS/Community
+Identifier=Kojo.SDAAPPGEMINI
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20400 size=629 flags=0x0(none) hashes=9+7 location=embedded
+Signature size=9095
+Authority=Apple Distribution: Kingsford Toku (QRMLKZR9B8)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+Timestamp=Oct 11, 2026 at 4:11:14 AM
+Info.plist entries=36
+TeamIdentifier=QRMLKZR9B8
+Sealed Resources version=2 rules=13 files=9
+Internal requirements count=1 size=184
+Executable=/Users/runner/work/SDA-community-app/SDA-community-app/desktop/release/mas-universal/Community.app/Contents/MacOS/Community
+warning: Specifying ':' in the path is deprecated and will not work in a future release
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.application-identifier</key><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string><key>com.apple.developer.team-identifier</key><string>QRMLKZR9B8</string><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.application-groups</key><array><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string></array><key>com.apple.security.device.audio-input</key><true/><key>com.apple.security.device.camera</key><true/><key>com.apple.security.files.downloads.read-write</key><true/><key>com.apple.security.files.user-selected.read-write</key><true/><key>com.apple.security.network.client</key><true/><key>com.apple.security.network.server</key><true/><key>com.apple.security.personal-information.location</key><true/></dict></plist>
