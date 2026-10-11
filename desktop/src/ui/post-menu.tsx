@@ -12,6 +12,7 @@ import { nav } from '../lib/router';
 import { Avatar, Icon, Modal, Spinner, ask, toast, toastError } from './kit';
 import { type AltMedia, altOf, copyText, postLink, updatePost } from './post-data';
 import { EmojiButton, insertAt, useTopEscape } from './post-extras';
+import { MuteDialog } from './social';
 
 /** The reason admins read for copyright reports: the same English words the iPhone sends (report.copyright). */
 export const COPYRIGHT_REASON = 'Copyright or trademark';
@@ -35,7 +36,7 @@ export function PostMenu({ post, onClose, onDeleted }: { post: Post; onClose: ()
   const { me } = useMe();
   // 'menu' shows the choices; the others replace it with their dialog; 'busy' hides it while a
   // confirmation (drawn by the app, on top) is open.
-  const [view, setView] = useState<'menu' | 'report' | 'promote' | 'edit' | 'busy'>('menu');
+  const [view, setView] = useState<'menu' | 'report' | 'promote' | 'edit' | 'mute' | 'busy'>('menu');
   const mine = post.user_id === me.id;
   const first = useRef<HTMLButtonElement>(null);
   useTopEscape(first, onClose);
@@ -54,6 +55,7 @@ export function PostMenu({ post, onClose, onDeleted }: { post: Post; onClose: ()
   if (view === 'report') return <ReportDialog post={post} onClose={onClose} />;
   if (view === 'promote') return <PromoteDialog post={post} onClose={onClose} />;
   if (view === 'edit') return <EditDialog post={post} onClose={onClose} />;
+  if (view === 'mute') return <MuteDialog userId={post.user_id} username={post.username} onClose={onClose} />;
   if (view === 'busy') return null;
 
   const copy = run(async () => {
@@ -134,6 +136,8 @@ export function PostMenu({ post, onClose, onDeleted }: { post: Post; onClose: ()
             toast(t(post.saved ? 'd.posts.unsavedToast' : 'd.posts.savedToast'));
           }),
         },
+        // Their posts and/or stories kept off your feeds and story tray; they aren't told.
+        { label: t('d.social.mute'), onClick: () => setView('mute') },
         {
           label: t('profile.blockUser', { username: post.username }),
           danger: true,

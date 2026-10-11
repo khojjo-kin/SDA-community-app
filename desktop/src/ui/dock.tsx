@@ -11,6 +11,7 @@ import { Avatar, Icon, Spinner } from './kit';
 import { Chat } from './chat-view';
 import { ThreadRow, usePresence, useThreads } from './chat-threads';
 import '../styles/messages.css';
+import '../styles/social.css';
 
 export function MessagesDock() {
   const { me } = useMe();
@@ -19,7 +20,8 @@ export function MessagesDock() {
   const [open, setOpen] = useState(false);
   // The chat open inside the panel, or null for the list.
   const [chat, setChat] = useState<string | null>(null);
-  const { threads, reload } = useThreads();
+  // Message requests stay out of the list and the count; a line at the top leads to them.
+  const { threads, requests, reload } = useThreads();
   // The app is open on this page, so friends see you as active.
   usePresence(!hidden);
   // While you share your location (the friends' map), it is sent again every couple of minutes, as on the iPhone.
@@ -80,6 +82,12 @@ export function MessagesDock() {
         </button>
       </header>
       <div className="dock-list">
+        {requests?.length ? (
+          <button type="button" className="sc-dock-req" onClick={() => nav('/direct/requests')}>
+            {t('d.social.requestsCount', { count: requests.length })}
+            <Icon name="right" size={16} stroke={2} />
+          </button>
+        ) : null}
         {threads === null ? <Spinner /> : null}
         {threads && !threads.length ? <p className="muted-text center pad">{t('d.frame.noMessages')}</p> : null}
         {(threads ?? []).map((t) => (

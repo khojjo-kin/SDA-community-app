@@ -12,7 +12,7 @@ import { Icon, Link, ask } from '../ui/kit';
 import { AboutPage, AccountsCentre, AccountStatus, FamilyCentre } from './settings-account';
 import { AdsPayments, CreatorSubscriptions } from './settings-money';
 import { Accessibility, Appearance, Archiving, ChatStreaks, ContentPrefs, Language, LikeCounts } from './settings-prefs';
-import { AccountPrivacy, ActivityStatus, Blocked, CloseFriends, MessagesReplies, Notifications, StoryAlerts, StoryLiveLocation } from './settings-privacy';
+import { AccountPrivacy, ActivityStatus, Blocked, CloseFriends, MessagesReplies, MutedAccounts, Notifications, RestrictedAccounts, StoryAlerts, StoryLiveLocation } from './settings-privacy';
 import { ChatWallpaper, ShortsSettings } from './settings-media';
 import { CreatorTools, EditProfile, ProfileViewers, Professional } from './settings-profile';
 import { SIcon, type SIconName } from './settings-ui';
@@ -75,11 +75,15 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
   },
   {
     label: 'd.settings.groupInteract',
-    entries: [{ id: 'messages', label: 'd.settings.messagesReplies', icon: 'send', words: 'chat dm story replies read receipts seen calls', page: MessagesReplies }],
+    entries: [
+      { id: 'messages', label: 'd.settings.messagesReplies', icon: 'send', words: 'chat dm story replies read receipts seen calls', page: MessagesReplies },
+      { id: 'restricted', label: 'd.social.restrictedAccounts', icon: 'shield', words: 'restrict unrestrict limit comments message requests', page: RestrictedAccounts },
+    ],
   },
   {
     label: 'clips.whatYouSee',
     entries: [
+      { id: 'muted', label: 'd.social.mutedAccounts', icon: 'mute', words: 'mute unmute muted hide posts stories feed tray', page: MutedAccounts },
       { id: 'content', label: 'd.settings.contentPrefs', icon: 'sliders', words: 'feed for you explore shorts interests topics more less sensitive recommendations', page: ContentPrefs },
       { id: 'shorts', label: 'tabs.clips', icon: 'reels', words: 'shorts videos sound mute muted captions subtitles caption language translate', page: ShortsSettings },
       { id: 'counts', label: 'd.settings.likeCounts', icon: 'counts', words: 'view counts likes hide numbers profile display', page: LikeCounts },

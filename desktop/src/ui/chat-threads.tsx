@@ -1,6 +1,6 @@
 // The list of chats, shared by the full inbox (/direct) and the small inbox in the corner: loading
 // it (kept live over Realtime, as on the iPhone), presence, and one row of the list.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchThreads, isOnline, touchPresence } from 'shared/api';
 import { listen } from 'shared/store';
 import { supabase } from 'shared/supabase';
@@ -13,15 +13,21 @@ import '../styles/messages.css';
 /** Streaks only show from three days, so a couple of quick replies don't light a flame. */
 export const STREAK_FROM = 3;
 
-/** The chats with at least one message, newest first, refreshed when anything changes. */
-export function useThreads(): { threads: Thread[] | null; reload: () => void } {
-  const [threads, setThreads] = useState<Thread[] | null>(null);
+/**
+ * The chats with at least one message, newest first, refreshed when anything changes: `threads` is
+ * the inbox, `requests` the message requests (chats someone else started that you haven't answered
+ * or accepted, from people you don't follow or have restricted), which live in their own folder.
+ */
+export function useThreads(): { threads: Thread[] | null; requests: Thread[] | null; reload: () => void } {
+  const [all, setAll] = useState<Thread[] | null>(null);
   const reload = useCallback(() => {
     fetchThreads().then(
-      (ts) => setThreads(ts.filter((t) => t.has_messages)),
-      () => setThreads((cur) => cur ?? []),
+      (ts) => setAll(ts.filter((t) => t.has_messages)),
+      () => setAll((cur) => cur ?? []),
     );
   }, []);
+  const threads = useMemo(() => all && all.filter((t) => !t.request), [all]);
+  const requests = useMemo(() => all && all.filter((t) => !!t.request), [all]);
   useEffect(() => {
     reload();
     const off = listen('threads', reload);
@@ -38,7 +44,7 @@ export function useThreads(): { threads: Thread[] | null; reload: () => void } {
       clearInterval(timer);
     };
   }, [reload]);
-  return { threads, reload };
+  return { threads, requests, reload };
 }
 
 /** Tells the server I'm here, at once and every minute while the window is in front, so friends see "Active now". */

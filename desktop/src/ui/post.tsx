@@ -19,6 +19,7 @@ import { type GridSource, altOf, copyText, isShort, openShortsFrom, postLink, ri
 import { AiInfo, EmojiButton, EyeOffIcon, LockedMedia, PollCard, PromptBanner, TagsButton, Veil, insertAt, useVeil } from './post-extras';
 import { PostMenu } from './post-menu';
 import { usePlayer } from './player';
+import { LikedBy, RestrictedTag } from './social';
 import { StoryViewer } from './stories';
 
 /** The key of what every comment box says before anything is typed (the iPhone's "Comment…"); drawn with t(). */
@@ -186,10 +187,15 @@ export function ActionRow({ id, onComment, onShare }: { id: string; onComment: (
 /** "1 like", "12 likes", "1.2K likes" (the number written as the iPhone writes it). */
 const likes = (n: number) => tn('d.posts.likes', n, { count: fmt(n) });
 
-/** The likes line. A hidden like count shows only to the author; everyone else reads "Liked by others". */
+/**
+ * The likes line. When someone you follow liked someone else's post: "Liked by grace_mensah and
+ * others" with their picture, as Instagram. A hidden like count shows only to the author; everyone
+ * else reads "Liked by others".
+ */
 export function LikeLine({ post }: { post: Post }) {
   const { me } = useMe();
   const mine = post.user_id === me.id;
+  if (!mine && post.liked_by_username && post.like_count > 0) return <LikedBy post={post} />;
   if (post.hide_likes && !mine) {
     if (post.liked) {
       // "you" is drawn in bold inside the sentence.
@@ -861,8 +867,10 @@ function CommentRow({ c, canDelete, onReply, onDelete }: { c: Comment; canDelete
       toastError(e);
     }
   };
+  // A comment from someone the post's owner restricted: greyed with a small label, for the owner only
+  // (nobody else receives it; its writer sees it as usual).
   return (
-    <div className="comment">
+    <div className={'comment' + (c.restricted ? ' sc-held' : '')}>
       <Avatar src={c.avatar_url} name={c.username} size={32} onClick={() => nav('/u/' + c.username)} />
       <div className="comment-body">
         <Link to={'/u/' + c.username} className="uname">
@@ -870,6 +878,7 @@ function CommentRow({ c, canDelete, onReply, onDelete }: { c: Comment; canDelete
         </Link>
         {c.verified ? <Verified size={12} /> : null} <RichText text={c.text} />
         <div className="comment-meta">
+          {c.restricted ? <RestrictedTag /> : null}
           <span>{ago(c.created_at)}</span>
           {likeCount ? <span>{likes(likeCount)}</span> : null}
           {onReply ? <button onClick={onReply}>{t('d.posts.reply')}</button> : null}
