@@ -1,0 +1,1586 @@
+== tests/admin.test.cjs
+ok   the navigation has the iPhone console sections
+ok   and the app pages admins look after
+ok   waiting publishers are counted in the navigation
+ok   so are identity checks and Plus requests
+ok   the dashboard's needs-attention list has publisher requests
+ok   and open support chats, identity checks and Plus requests
+ok   a needs-attention chip opens its section
+ok   publisher requests are listed with their notes
+ok   a request without a note says so
+ok   approved publishers are listed apart
+ok   approving a publisher says they can publish
+ok   and moves them to the publishers
+ok   the pending count in the navigation goes down
+ok   declining a request asks first, then declines
+ok   the declined request leaves the list
+ok   and the count goes down again
+ok   revoking a publisher says they can no longer publish
+ok   and takes them off the list
+ok   the dashboard's count follows the decisions
+ok   feedback lists ratings, ideas and problems
+ok   the average rating is shown
+ok   a review shows its stars
+ok   a review without words says so
+ok   where it was sent from is shown
+ok   the Problems filter shows only problems
+ok   a former member cannot be opened
+ok   feedback can be searched
+ok   clicking the member opens them in People
+ok   the queue lists the open chats
+ok   each chat says who is looking after it
+ok   a chat the team is answering says so
+ok   until one is chosen, the pane invites a choice
+ok   opening a chat gives it its own address
+ok   the conversation shows the member's and the assistant's messages
+ok   the member is on the left and the assistant on the right
+ok   the header says the assistant is answering
+ok   typing tells the member someone is typing
+ok   the reply is sent under your name
+ok   the header says you are answering now
+ok   the box is empty for the next message
+ok   the chat now shows as answered by you in the queue
+ok   closing a chat asks first, then closes it
+ok   the chat shows as closed
+ok   and leaves the open queue
+ok   the Support count goes down
+ok   All shows closed chats too
+ok   the member's name opens them in People
+ok   help requests sit beside the chats
+ok   no sideways scrolling in Support
+ok   an identity check shows the ID photo and the selfie
+ok   with the name on the document and its kind
+ok   and the notability answers with their links
+ok   a request sent before photos were needed says so
+ok   and cannot be approved
+ok   a photo opens full size
+ok   and closes again
+ok   approving gives the tick
+ok   and the request leaves the list
+ok   the Plus tab has its own address and requests
+ok   approving Plus activates it for a month
+ok   then nothing is left waiting
+ok   the requests count follows
+ok   a church waiting shows who suggested it
+ok   a church can be edited
+ok   and shows its new details
+ok   a pending church can be approved
+ok   and leaves the waiting list
+ok   the churches count follows
+ok   it is now listed
+ok   a church can be deleted
+ok   and is gone
+ok   a word can be added
+ok   and is listed in lowercase
+ok   a phrase is refused with the reason
+ok   removing a word offers Undo
+ok   Undo puts it back
+ok   the list can be searched
+ok   ads are listed, running ones first
+ok   an ad can be ended early
+ok   and then says so
+ok   fundraisers are listed with what they have raised
+ok   a report offers removing the post and suspending the account
+ok   removing the reported post settles the report
+ok   the totals come from the server
+ok   a payment can be logged for a member
+ok   a refund is money out
+ok   live activity is shown a day at a time
+ok   short videos are called Shorts there
+ok   a member's record still opens without the update
+ok   the tick can be given
+ok   Plus can be given
+ok   an account can be suspended
+ok   an admin note can be saved
+ok   owners can make a member an admin
+ok   feedback labels follow the White appearance
+ok   no script errors
+ALL ADMIN CHECKS PASSED
+== tests/calls.test.cjs
+ok   caller sees the call screen with who they are calling
+ok   the other window rings, wherever it is in the app
+ok   it shows who is calling
+ok   caller sees the call is ringing
+ok   both sides connect and show the call timer
+ok   caller sees the other person's video
+ok   callee sees the caller's video
+ok   mute toggles
+ok   hanging up ends the call on the other side too
+ok   the call screen closes by itself
+ok   the call is noted in the chat
+ok   a declined call says so to the caller
+ok   no script errors
+ALL CALL CHECKS PASSED
+== tests/church.test.cjs
+ok   the verse of the day shows at the top of the Bible, with its words and reference
+ok   Read the chapter opens it at the verse, marked for a moment
+ok   the verse of the day can be hidden
+ok   and brought back from the Bible's menu
+ok   a chapter shows its verses
+ok   click and shift-click choose a run of verses
+ok   the bar names the verses chosen
+ok   a colour highlights them and the bar goes
+ok   a second colour
+ok   a note needs one verse
+ok   the note dialog names the verse and shows its words
+ok   a note is saved
+ok   the verse shows its note mark, and keeps its colour
+ok   Copy puts the verse and its reference on the clipboard
+ok   Highlights & notes lists my marks, newest first
+ok   with the words of verses already read on this computer
+ok   and my notes
+ok   the Notes filter
+ok   a colour filter
+ok   yellow
+ok   a mark opens its verse in the chapter
+ok   No colour takes the highlight off
+ok   Delete takes the note off
+ok   the list follows
+ok   a mark can be removed from the list
+ok   removing one with a note asks first
+ok   Share offers to send the verse to people
+ok   and sends it
+ok   the verse arrives in the chat
+ok   Post opens Create with the verses as the caption
+ok   today shows this week's memory text
+ok   and today's study
+ok   the quarter and its lessons are listed, this week marked
+ok   the publishers' newest posts show on today, pinned first
+ok   the lesson can be saved
+ok   Read opens the lesson at the day to study
+ok   the lesson shows its memory text
+ok   verse links in the reading open the verse
+ok   a day can be marked done
+ok   progress shows in the lesson list
+ok   Saved lists the lesson and the day
+ok   the reading follows the appearance
+ok   the feed lists every post, the pinned one first
+ok   a post reads in full, with its link
+ok   an admin gets Edit, Pin, Copy link and Delete
+ok   a post needs a title
+ok   a link must start with https://
+ok   a photo can be added
+ok   publishing a post
+ok   it opens, with its kind, lesson, photo, paragraphs and link
+ok   Edit fills in the post
+ok   editing a post
+ok   the change shows
+ok   an admin pins a post
+ok   pinned posts lead the feed
+ok   and unpins it
+ok   deleting a post
+ok   it leaves the feed
+ok   adding needs an audio file, a title and an artist
+ok   choosing a file fills in a title from its name
+ok   adding a song to Pod
+ok   it opens in the player, with its length read from the file
+ok   Play starts it here, the bar stepping aside
+ok   the bar keeps playing while browsing
+ok   the new song is in the list
+ok   the bar opens the full player
+ok   shuffle turns on
+ok   repeat: all
+ok   repeat: this track
+ok   repeat: off again
+ok   Next plays the next track, and the page follows it
+ok   Previous goes back
+ok   a track can be saved to the library from the player
+ok   a track opens by its link
+ok   Copy link gives the track’s address
+ok   the owner deletes a track
+ok   it leaves Pod
+ok   its link then says so
+ok   an admin edits a hymn
+ok   saving the hymn
+ok   the new words show
+ok   only that hymn changed
+ok   without the lesson service, today says the lessons couldn't be loaded
+ok   and the publishers' posts still show
+ok   Try again loads them when the service is back
+ok   members who are not publishers see the posts but no Publish
+ok   and are offered to become one
+ok   asking needs a note
+ok   Daniel asks to publish
+ok   and sees his request pending
+ok   the feed shows where his request is
+ok   only approved publishers can write
+ok   other people's posts have no options for him
+ok   members do not get Edit on hymns
+ok   Add to Pod is for Plus members and admins
+ok   a refused request says so
+ok   asking again keeps the note to change
+ok   asking again makes it pending
+ok   turned-off publishing says so, without asking again
+ok   no sideways scrolling
+ok   no script errors
+ALL CHURCH CHECKS PASSED
+== tests/community.test.cjs
+ok   churches are listed A to Z
+ok   admins see a church waiting for review, marked Pending review
+ok   a church of mine that an admin turned down is marked Not approved
+ok   location is not asked for until Near me is clicked
+ok   when location is refused the list says so and stays A to Z
+ok   Near me sorts the nearest church first, unpinned ones last
+ok   each pinned church shows how far away it is
+ok   the list is headed Nearest first
+ok   A to Z sorts by name again
+ok   members do not see churches others suggested that are waiting for review
+ok   Add a church opens the form beside the list
+ok   the form opens with no intro line
+ok   a church needs a name
+ok   a website that does not look right is refused
+ok   the church can be pinned where the member is
+ok   the member is thanked and told it waits for an admin
+ok   it is saved as pending, with its pin and website
+ok   its page opens, waiting for an admin
+ok   a member cannot approve it
+ok   the list shows it to the member as Pending review
+ok   an admin sees Approve and Reject, and who suggested it
+ok   approving says so
+ok   it is approved, and by whom
+ok   Edit church opens with its details
+ok   saving says so
+ok   the page shows the corrected details
+ok   the corrections are saved
+ok   making it my church asks first
+ok   it says this is my church now
+ok   the page says Your church and offers to leave
+ok   I am in its members list
+ok   my profile has the church
+ok   the list shows it first, as My church
+ok   leaving says so
+ok   and it comes off my profile
+ok   deleting asks first
+ok   deleting says so
+ok   the church is gone from the list and the database
+ok   and from my profile
+ok   turning a church down asks first
+ok   rejecting says so
+ok   it is marked not approved, and can be approved after all
+ok   it leaves the list for everyone but the member who suggested it
+ok   and approved after all
+ok   it lists for everyone again
+ok   Yours lists the ones I am in
+ok   one I own shows that people are waiting to join
+ok   Discover offers Follow on a page and Request to join on a private community
+ok   search finds by name, in both lists
+ok   Discover can show pages only
+ok   asking to join from the list says so
+ok   the card says Requested and the request is saved
+ok   a private community hides its posts until you are in
+ok   people not in it cannot post or manage it
+ok   withdrawing a request asks first
+ok   the request is withdrawn
+ok   asking to join from its page says an admin will let you in
+ok   the page then says Requested
+ok   an app admin sees a private community and can manage it
+ok   Create opens the form
+ok   choosing Community shows its form
+ok   the handle is made from the name
+ok   a taken handle is refused
+ok   handles are lowercase without spaces
+ok   the community is saved as private, with its church and cover
+ok   its creator is its owner
+ok   its page opens
+ok   it says what it is, and where
+ok   the owner can post and manage it
+ok   an empty community invites the first post
+ok   Edit community opens with its details
+ok   saving says so
+ok   the page shows the changes
+ok   the changes are saved
+ok   Create post asks Create for a post in this community
+ok   and the Create dialog opens
+ok   deleting asks first
+ok   deleting says so
+ok   it is gone, with its members
+ok   and gone from Yours
+ok   a page has no choice of who can join
+ok   the page is saved as a public page
+ok   a page counts followers, and its owner posts
+ok   the Members button shows how many are waiting
+ok   posts show as a grid
+ok   a post opens in the post dialog
+ok   or as a feed
+ok   the choice is remembered
+ok   the members page opens
+ok   approving a request lets them in
+ok   they move to the members
+ok   declining a request says so
+ok   the request is gone
+ok   making someone an admin says so
+ok   they are marked Admin
+ok   removing someone asks first
+ok   removing says so
+ok   they are gone
+ok   the owner (me) has no menu
+ok   back on the community, nobody is waiting
+ok   no script errors
+ALL COMMUNITY CHECKS PASSED
+== tests/events.test.cjs
+ok   the Events page opens on Upcoming
+ok   with the events near you first, then each day
+ok   the one under way is first near you, and marked as happening now
+ok   every upcoming event is listed under its day, soonest first
+ok   rows show who is going, and my own answer
+ok   with nothing open, the right side offers to create one
+ok   Going lists the events I answered
+ok   Yours lists the ones I made
+ok   Create event opens the form beside the list
+ok   a title is needed
+ok   the pin is placed where this computer is (the map opened there)
+ok   a church can be chosen
+ok   sharing makes the event
+ok   at the day and times chosen
+ok   and opens its page
+ok   it appears in the list
+ok   the page shows when, where and whose
+ok   Edit opens the form with what is there
+ok   Save changes it
+ok   and the list follows
+ok   Going answers the event
+ok   Interested changes the answer
+ok   the same again takes it back
+ok   who's going lists them
+ok   and who is interested
+ok   only the organiser (or an admin) gets the ⋯ menu: an app admin sees it on someone else's
+ok   calling it off marks it, and it leaves Upcoming
+ok   Delete removes it
+ok   a church's page shows its next events
+ok   See all opens the list narrowed to the church
+ok   and back to every event
+ok   Add an event starts one at that church
+ok   a community's page shows its events
+ok   Event starts one in the community
+ok   a page without events shows none
+ok   the map has four layers
+ok   Friends is first, with the faces as before
+ok   Events: the upcoming events with a place, as pins and a list (tiles or not)
+ok   nearest first, with where you are
+ok   the address says which layer
+ok   choosing one shows its card
+ok   View event opens it
+ok   Churches: the listed churches with a pin
+ok   a church pin shows its card
+ok   Nearby starts off, says what others see, and shows nobody
+ok   turning it on keeps only a rough place
+ok   and shows adults nearby (not anyone over a day old, nor far away)
+ok   two people at one rough place are set apart
+ok   a person shows View profile and Message
+ok   turning it off takes you (and them) off the map
+ok   Nearby is for adults only
+ok   the streak shows beside the verse of the day
+ok   with the last seven days, the ones read ticked
+ok   a chapter read counts towards today, once
+ok   the day is kept for me
+ok   and the streak shows it
+ok   the card is drawn on a canvas, square, and not blank
+ok   with the verse and its reference
+ok   a background changes the picture
+ok   a photo of my own can be the background
+ok   Tall makes a story-shaped card
+ok   a font can be chosen
+ok   Save downloads the card as a PNG
+ok   Post asks Create for a post
+ok   which opens with the card, ready to crop
+ok   Your story asks Create for a story, which opens with the card
+ok   Share sends the card to people as a photo
+ok   no script errors
+ALL EVENTS CHECKS PASSED
+== tests/frame.test.cjs
+ok   the rail is narrow at rest
+ok   the rail widens to show labels under the pointer
+ok   switching appearance turns the app white
+ok   the white background is white
+ok   appearance is remembered
+ok   and back to dark
+ok   Create offers Post, Story, Short, Live video and Ad
+ok   the small inbox lists chats
+ok   a chat in the small inbox opens it there, on the same page
+ok   expanding it opens the full chat
+ok   the floating button hides in the full inbox
+ok   notification filters narrow the list
+ok   notifications are grouped by day
+ok   search shows recent searches before typing
+ok   search finds people as you type
+ok   Explore shows a four-column grid
+ok   Suggested lists people with a reason
+ok   Switch accounts lists both sample accounts
+ok   switching account starts the app again as that account
+ok   and back
+ok   Church apps opens the Hymnal
+ok   no script errors
+ALL FRAME CHECKS PASSED
+== tests/i18n.test.cjs
+ok   English has the rail labels
+ok   the page says it is in English
+ok   choosing French changes the app at once
+ok   and the page language
+ok   and back to English
+ok   English logs no script errors
+ok   tw: Home shows no raw keys
+ok   tw: the rail is translated
+ok   tw: the page says its language
+ok   tw: no script errors
+ok   ee: Home shows no raw keys
+ok   ee: the rail is translated
+ok   ee: the page says its language
+ok   ee: no script errors
+ok   fr: Home shows no raw keys
+ok   fr: the rail is translated
+ok   fr: the page says its language
+ok   fr: no script errors
+ok   es: Home shows no raw keys
+ok   es: the rail is translated
+ok   es: the page says its language
+ok   es: no script errors
+ok   pt: Home shows no raw keys
+ok   pt: the rail is translated
+ok   pt: the page says its language
+ok   pt: no script errors
+ok   de: Home shows no raw keys
+ok   de: the rail is translated
+ok   de: the page says its language
+ok   de: no script errors
+ok   it: Home shows no raw keys
+ok   it: the rail is translated
+ok   it: the page says its language
+ok   it: no script errors
+ok   sw: Home shows no raw keys
+ok   sw: the rail is translated
+ok   sw: the page says its language
+ok   sw: no script errors
+ok   yo: Home shows no raw keys
+ok   yo: the rail is translated
+ok   yo: the page says its language
+ok   yo: no script errors
+ok   ha: Home shows no raw keys
+ok   ha: the rail is translated
+ok   ha: the page says its language
+ok   ha: no script errors
+ok   ig: Home shows no raw keys
+ok   ig: the rail is translated
+ok   ig: the page says its language
+ok   ig: no script errors
+ok   ar: Home shows no raw keys
+ok   ar: the rail is translated
+ok   ar: the page says its language
+ok   ar: no script errors
+ok   hi: Home shows no raw keys
+ok   hi: the rail is translated
+ok   hi: the page says its language
+ok   hi: no script errors
+ok   zh: Home shows no raw keys
+ok   zh: the rail is translated
+ok   zh: the page says its language
+ok   zh: no script errors
+ok   ko: Home shows no raw keys
+ok   ko: the rail is translated
+ok   ko: the page says its language
+ok   ko: no script errors
+ok   ja: Home shows no raw keys
+ok   ja: the rail is translated
+ok   ja: the page says its language
+ok   ja: no script errors
+ok   ru: Home shows no raw keys
+ok   ru: the rail is translated
+ok   ru: the page says its language
+ok   ru: no script errors
+ok   tl: Home shows no raw keys
+ok   tl: the rail is translated
+ok   tl: the page says its language
+ok   tl: no script errors
+ok   id: Home shows no raw keys
+ok   id: the rail is translated
+ok   id: the page says its language
+ok   id: no script errors
+ok   fr: every main page shows no raw keys
+ok   fr: and no script errors
+ok   ar: every main page shows no raw keys
+ok   ar: and no script errors
+ok   tw: every main page shows no raw keys
+ok   tw: and no script errors
+ok   ja: every main page shows no raw keys
+ok   ja: and no script errors
+ok   every desktop key is in every language
+ok   every translation keeps the {gaps}
+     2098 desktop keys × 20 languages
+ALL I18N CHECKS PASSED
+== tests/messages.test.cjs
+ok   the inbox is headed with your username
+ok   a compose button starts a new message
+ok   chats are listed under "Messages"
+ok   with no chat open, the right side invites you to send a message
+ok   your note comes first, "Note…" while you have none
+ok   friends' notes show over their pictures
+ok   Grace's note shows its song
+ok   Daniel's note shows its place
+ok   Daniel's note keeps its colour
+ok   an expired note is not shown
+ok   Grace has the green active dot
+ok   Daniel has no dot, and shows when he was last active
+ok   the 5-day streak with Grace shows
+ok   an unread chat is bold with a blue dot
+ok   a note stops at 60 characters
+ok   the editor counts characters as you type
+ok   it says notes disappear after 24 hours
+ok   songs are searched on Pod
+ok   a song can be previewed with the app player
+ok   the chosen song shows in the bubble
+ok   a colour can be picked, including the theme's own
+ok   your note appears first
+ok   with its song
+ok   in the colour you chose
+ok   the song preview stops when the editor closes
+ok   reopening keeps close friends and the place
+ok   deleting it brings back "Note…"
+ok   a friend's note opens in a card
+ok   its song plays in the app player
+ok   replying opens the chat with the note quoted
+ok   the header says "Active now"
+ok   the header shows the streak
+ok   voice and video call buttons are in the header
+ok   Grace's note shows over her picture in the chat
+ok   a view-once photo arrives as "Photo · View once"
+ok   the photo itself is not drawn in the chat
+ok   opening it shows the photo, full window
+ok   afterwards it reads "Opened"
+ok   and cannot be opened again
+ok   my own view-once photo says "Opened" once they have
+ok   an attached photo waits with a "View once" switch
+ok   the switch turns on
+ok   it is sent as view once, reading "Delivered"
+ok   and is not drawn as a photo
+ok   a screenshot notice is a quiet line in the middle
+ok   call logs, photos and voice messages show
+ok   the header says when Daniel was active
+ok   "Seen" shows under your last message once they have read it
+ok   information opens the details beside the chat
+ok   muting shows the muted mark in the list
+ok   Erha answers in the chat
+ok   an empty message box offers the microphone
+ok   recording takes the message box’s place: discard, the time, send
+ok   the time counts up while recording
+ok   calls are off while recording
+ok   the bars follow the microphone
+ok   the voice message appears in the chat
+ok   with its length
+ok   it is sent with its length in seconds
+ok   it is uploaded as a WAV file, labelled audio/wav
+ok   the message points at the uploaded recording
+ok   it plays back
+ok   discard throws the recording away
+ok   a recording under a second is too short
+ok   Escape discards a recording
+ok   holding the microphone records, and letting go sends
+ok   photos sent together show as one pile with "+1"
+ok   the viewer steps through them
+ok   with the buttons and the arrow keys
+ok   a photo can be saved to the computer
+ok   forward shows the photos and people to send them to
+ok   forwarding sends the photos and the words to that chat
+ok   a message offers Copy when pointed at
+ok   and copies its words
+ok   Shift+Enter starts a new line, and the box grows
+ok   Enter sends it, line breaks kept
+ok   a chat starts without a wallpaper
+ok   the chooser shows None and each wallpaper
+ok   each with a sample chat
+ok   None is chosen to begin with
+ok   choosing one marks it
+ok   the chat is drawn over the wallpaper
+ok   the details say which
+ok   times and "Seen" stay light over it
+ok   Report asks why
+ok   and sends the reason
+ok   the small inbox’s chat has it too
+ok   the small inbox records and sends voice messages too
+ok   Send message opens the people picker at /direct/new
+ok   recent chats are suggested first
+ok   picking someone opens a chat with them
+ok   the floating button shows "Messages" and three faces
+ok   the small inbox lists chats with a compose button
+ok   a chat opens inside the small inbox, without leaving the page
+ok   and sends a message from there
+ok   the reply arrives in the small inbox
+ok   back returns to the list
+ok   expand opens the full chat
+ok   the small inbox's compose button opens the picker
+ok   White turns the inbox white
+ok   your bubbles stay green in White
+ok   their bubbles are light grey in White
+ok   the wallpaper stays chosen after a reload
+ok   over the dark wallpaper, times and the name stay light in White
+ok   None takes the wallpaper away
+ok   past the daily allowance, Erha's limit message shows
+ok   Erha says it in the chat too
+ok   with a way to get Plus
+ok   without Plus, no wallpaper is drawn
+ok   the details mark wallpapers as a Plus perk
+ok   the chooser leads to Community Plus
+ok   choosing one opens Plus instead
+ok   without microphone access, it says how to allow it
+ok   reading quietly says so under the header
+ok   and the chat is not marked read
+ok   reading normally marks it read
+ok   the inbox has a Map button that opens the map
+ok   friends sharing with you are faces on the map
+ok   and listed beside it, with when they were updated
+ok   people not sharing with you aren't shown (not following back, not on their close friends list, over a day old)
+ok   the map is OpenStreetMap, credited
+ok   without the tiles (offline here) the faces still show over a plain grid
+ok   your location starts off
+ok   zooming in spreads the faces apart
+ok   scrolling zooms out
+ok   dragging moves the map
+ok   "Show everyone" frames them all again
+ok   choosing a face shows who, when, and Message
+ok   choosing someone in the list goes to them
+ok   sharing sends your place to mutual followers
+ok   and says so
+ok   your own face shows as "You"
+ok   the settings show sharing on, updated just now
+ok   and the two choices of who sees it, with no explanation under them
+ok   who can see it changes straight away
+ok   your face shows who sees it
+ok   Message opens the chat with them
+ok   stopping takes your place off the map and the server
+ok   the map follows White
+ok   without location access, it says how to allow it
+ok   no script errors
+ALL MESSAGES CHECKS PASSED
+== tests/polish.test.cjs
+ok   the feed shows the shapes of its posts while it loads
+ok   Explore shows a shimmering mosaic while it loads
+ok   a profile shows its picture, name and grid as shapes while it loads
+ok   a Shorts tab shows tall tiles while it loads
+ok   Settings → Payments shows rows of shapes while it loads
+ok   a skeleton shape shimmers in the theme colours
+ok   Payments is in the Settings column
+ok   it replaces Ads and payments (and its Plus row)
+ok   the column shows names only, no lines under them
+ok   the page is called Payments
+ok   saved cards, subscriptions and transactions
+ok   the saved card shows with its expiry and as the default
+ok   Add card opens the card dialog to save one
+ok   the new card is listed
+ok   a card can be made the default
+ok   removing asks first
+ok   and the card is gone
+ok   Community Plus shows its plan and when it renews
+ok   cancelling Plus asks first, with what happens
+ok   Plus then ends at the end of the period
+ok   and can be renewed again
+ok   a creator subscription shows its price and renewal
+ok   it can be cancelled, then resumed
+ok   and renews again
+ok   Creator subscriptions opens my own
+ok   transactions are grouped by month
+ok   every payment is listed
+ok   a refunded payment says so
+ok   a payment opens with its status, date, method and reference
+ok   the old Ads and payments address opens Payments
+ok   searching Settings for "card" finds Payments
+ok   Settings → edit: no intro, footnote or explaining line
+ok   Settings → account: no intro, footnote or explaining line
+ok   Settings → payments: no intro, footnote or explaining line
+ok   Settings → professional: no intro, footnote or explaining line
+ok   Settings → creator: no intro, footnote or explaining line
+ok   Settings → subscriptions: no intro, footnote or explaining line
+ok   Settings → viewers: no intro, footnote or explaining line
+ok   Settings → content: no intro, footnote or explaining line
+ok   Settings → shorts: no intro, footnote or explaining line
+ok   Settings → counts: no intro, footnote or explaining line
+ok   Settings → streaks: no intro, footnote or explaining line
+ok   Settings → appearance: no intro, footnote or explaining line
+ok   Settings → archive: no intro, footnote or explaining line
+ok   Settings → language: no intro, footnote or explaining line
+ok   Settings → accessibility: no intro, footnote or explaining line
+ok   Settings → family: no intro, footnote or explaining line
+ok   Settings → status: no intro, footnote or explaining line
+ok   no boxed banners or info boxes on the main pages
+ok   the Church apps menu lists names only
+ok   a creator with subscriptions on and posts for subscribers shows Subscribe
+ok   and her subscriber posts are offered as plain words under the grid
+ok   a creator with subscriptions on but no subscriber posts shows no Subscribe
+ok   once he keeps a post for subscribers, Subscribe shows
+ok   with subscriptions off there is no Subscribe and nothing offered under the grid
+ok   someone I already subscribe to shows Subscribed
+ok   my empty Posts tab says "Share your first post", as the iPhone
+ok   with no line explaining it
+ok   in a handwriting script (Snell Roundhand on a Mac, else Great Vibes)
+ok   the script is asked for from Google Fonts
+ok   in the page text colour (white in Dark)
+ok   it writes itself letter by letter
+ok   then a fine stroke is drawn under it
+ok   and dark ink in White
+ok   the empty Shorts tab too
+ok   the log-in page has the pictures on the left and the form on the right
+ok   with the mark, the name and "Seventh-day Adventist"
+ok   and no tagline or explaining note
+ok   the corner button switches it to White
+ok   and back to Dark
+ok   no sideways scrolling
+ok   no script errors
+ok   sign-in: the Clerk form sits on the right, the pictures on the left
+ok   sign-in: Clerk is coloured for Dark
+ok   sign-in: the page is dark
+ok   sign-in: "Sign up" under a line, no tagline or note
+ok   sign-in: the pictures step back while typing
+ok   sign-in: White turns the page white
+ok   sign-in: and Clerk is drawn again in the White colours
+ok   sign-up: Clerk's sign-up form, in White, with the iPhone's line
+ok   setting up an account: the mark, the name and White
+ok   setting up an account: and Dark
+ok   sign-in: no script errors
+ALL POLISH CHECKS PASSED
+== tests/posts.test.cjs
+ok   actions run heart, comment, repost, share, then save
+ok   the comment count sits beside the comment button
+ok   the header shows the time as "2 h"
+ok   the author has a story ring
+ok   likes line under the actions
+ok   a post in a community says where
+ok   the story ring opens the author's story
+ok   a poll shows its question and options without results before voting
+ok   voting shows percentages for every option
+ok   my choice is marked
+ok   the total is shown
+ok   clicking my choice again takes the vote back
+ok   voting again counts the new choice
+ok   a prompt shows as a highlighted banner
+ok   the banner carries the question
+ok   Answer puts the cursor in the comment box
+ok   the answer is posted as a comment
+ok   AI info explains the label
+ok   AI info closes
+ok   a hidden like count is not shown to others
+ok   commenting off: no comment box and no comment button
+ok   the tag button lists the people tagged
+ok   a tagged person opens their profile
+ok   a post for subscribers is locked for someone who does not subscribe
+ok   its caption and comments stay hidden
+ok   the header has the For subscribers label
+ok   Subscribe goes to the creator's profile
+ok   a sensitive post is covered
+ok   its photo is blurred
+ok   See post uncovers it
+ok   a paid ad says Sponsored under the name
+ok   Sponsored posts lead For you
+ok   someone else's post: Report, Unfollow, Save, Block, Go to post, Copy link, About this account
+ok   the report reasons are the iPhone's, copyright included
+ok   a copyright report explains how to send a formal notice
+ok   and offers the Copyright policy
+ok   the report reaches the admins with its reason
+ok   my post: Delete, Edit, Promote, Hide like count, Turn off commenting, Mark as sensitive, Copy link, About this account
+ok   Hide like count: only I see the number now
+ok   the menu now offers Show like count
+ok   Turn off commenting: the author is told and can still comment
+ok   the menu now offers Turn on commenting
+ok   Edit changes the caption
+ok   and the alt text of the photo
+ok   Copy link confirms
+ok   Mark as sensitive labels my post for me (and does not cover it for me)
+ok   3 days at £1.00 a day comes to £3.00
+ok   the payment dialog asks for the right amount
+ok   after paying, the post is Sponsored
+ok   and the promotion is confirmed
+ok   saved: the hidden like count, commenting off and the new caption
+ok   a tile for subscribers has a lock and is covered
+ok   a sensitive tile is covered
+ok   a Short has the Shorts badge
+ok   several photos have the carousel badge
+ok   hover counts leave out a hidden like count
+ok   hover counts show likes and comments otherwise
+ok   Explore: a photo opens in the dialog with arrows either side
+ok   the right arrow moves to the next post in the mosaic
+ok   ← goes back to the previous one
+ok   → goes to the next one
+ok   arrows in a comment being written move the cursor, not the post
+ok   the first post has no previous arrow
+ok   and ← does nothing there
+ok   the last post has no next arrow
+ok   and → does nothing there
+ok   my profile: the first post opens with only a next arrow
+ok   the comment box says "Comment…"
+ok   → steps through my grid
+ok   the last of my posts has only a previous arrow
+ok   the left arrow steps back
+ok   a Short in Explore opens /shorts/<id>
+ok   the player starts at that Short
+ok   with Explore's other Shorts round it
+ok   a Short shows how many have watched it, and can be reposted (as on the iPhone)
+ok   Repost on a Short reposts it
+ok   a Short's comments say "Comment…" too
+ok   Back returns to where it was opened from
+ok   a profile's Short opens the player at it
+ok   a link to a Short starts at it and carries on with the Shorts feed
+ok   a Short that is gone says so
+ok   the feed comment box says "Comment…"
+ok   Share offers Copy link, Add to story and Repost
+ok   Add to story asks Create for a story with the post
+ok   and the share dialog closes
+ok   Copy link copies the post link
+ok   Share finds people to send to by name
+ok   a post with a song names it under the author
+ok   clicking the song plays it in the player
+ok   Shorts start muted when the setting says so
+ok   captions stay off when they are switched off
+ok   the sound button changes the setting for every Short
+ok   CC turns captions on and keeps it
+ok   Explore leaves sensitive posts out when the member asks for less
+ok   so does For you
+ok   Following is left as it is
+ok   and they come back with Standard
+ok   Create new post: title, drag here, Select from computer
+ok   the file picker takes several files
+ok   the emoji button adds to the caption
+ok   Escape closes the emoji box, not the composer
+ok   a tagged person is added
+ok   the AI label switch turns on
+ok   advanced settings: hide likes, commenting, profile only (Plus), sensitive
+ok   a creator with a subscription can choose the audience, Everyone by default
+ok   the new post is on my profile
+ok   it has its poll (the author sees the results)
+ok   its prompt
+ok   the AI label
+ok   the place
+ok   and the alt text
+ok   the tagged person
+ok   Escape closes the tagged list and leaves the post open
+ok   Escape closes the menu and leaves the post open
+ok   and it leads my home feed with its poll
+ok   a photo dragged onto the dialog is picked up
+ok   a post kept to my profile tells me so
+ok   and it stays off the home feed
+SKIP a Short from a video (ffmpeg is needed to make a WebM this Chromium can open)
+ok   Post to starts on my profile
+ok   it offers my profile and the communities I can post in (not a page I only follow)
+ok   choosing a community shows it under Post to
+ok   a post in a community has no subscriber audience, no story and no profile-only switch
+ok   Add music lists the songs on Pod
+ok   and finds them by name
+ok   the song chosen shows under Add music
+ok   sharing into a community goes to it
+ok   the post is in the community, with its song
+ok   a community's Post button starts with the community chosen
+ok   my post carries its song
+ok   and went on my story too
+ok   White: the card has a light background
+ok   White: the poll box is light
+ok   White: the dialog has its arrows
+ok   the audience choice is offered to a creator with a subscription
+ok   the new post has the lock on its tile
+ok   and says For subscribers, uncovered for its author
+ok   my empty Posts tab invites me to share
+ok   its words write themselves letter by letter
+ok   until they are all written
+ok   clicking it opens Create for a post
+ok   my empty Shorts tab too
+ok   which opens Create for a Short
+ok   with reduce motion on, the words are there at once, without a cursor
+ok   no script errors
+ALL POSTS CHECKS PASSED
+== tests/pro.test.cjs
+ok   the dashboard is titled Professional dashboard
+ok   pill tabs: Insights, Ad tools, Fundraisers and Your tools
+ok   Insights shows six tiles
+ok   the tiles are views, reach, followers, content, likes and comments
+ok   the views and followers chart is drawn
+ok   the chart switches to new followers
+ok   the period changes the dates shown
+ok   top content and the monthly recap are shown
+ok   Insights opens a menu of Overview, Content, Audience and Income
+ok   Content opens its own page
+ok   Content lists posts with their views
+ok   a post in the list opens in the post dialog, on the dashboard
+ok   Audience shows followers over time and new followers
+ok   Income shows subscribers, monthly income, fundraisers and Plus
+ok   Your tools opens a menu of Inspiration, Best practices and saved replies
+ok   Inspiration opens its own page
+ok   Inspiration lists other people's posts, not mine
+ok   a post opens in the post dialog
+ok   a Short opens in the Shorts player
+ok   Best practices shows the tips
+ok   a tip opens its tool: Close friends
+ok   Saved replies opens Creator tools and controls
+ok   Add to your story and New Short open Create
+ok   Ad tools opens /dashboard/ads
+ok   "Ad tools has a new look" shows the first time
+ok   hovering Insights shows no explaining tooltip
+ok   the new look note is remembered once dismissed
+ok   the ads table has Ads, Views, Ad goal, Spend, Status and Ends
+ok   my earlier ads are listed
+ok   the Refunded filter shows the refunded ad
+ok   no active ads yet: the filter says so
+ok   Your current top post is offered
+ok   promoting opens the top post
+ok   the total follows the days chosen
+ok   the stepper adds days one at a time
+ok   the one-off terms are beside the button
+ok   the card payment dialog asks for £7.00
+ok   the ad starts once paid
+ok   the new ad is listed as Active
+ok   sorting by Most spent puts the £7.00 ad first
+ok   sorting by Oldest puts the ended ad first
+ok   Columns hides Ad goal and adds Days
+ok   my saved card is shown with Default
+ok   adding a card saves it without charging
+ok   the card is saved
+ok   two cards are listed
+ok   removing a card asks first, then removes it
+ok   one card is left
+ok   payment history lists the ad just paid for
+ok   Plus shows my plan and when it renews
+ok   hiding my tick says I am still verified
+ok   the switch shows the tick is hidden
+ok   and it shows again
+ok   Plus links to profile style and profile viewers
+ok   Plus no longer sends fonts and wallpapers to the iPhone
+ok   Plus links to the chat wallpaper and story alerts
+ok   App font opens the chooser with its four fonts
+ok   choosing Poppins sets the whole app in it at once
+ok   the App font line names the font
+ok   and back to the standard font
+ok   the fundraiser shows what has been raised
+ok   anonymous gifts say Anonymous
+ok   the gift dialog starts on £10
+ok   the gift is paid by card
+ok   a thank-you follows the gift
+ok   the total includes the gift
+ok   the gift tops the supporters, anonymously
+ok   Share copies the link
+ok   a new fundraiser without payouts asks to set them up
+ok   the new fundraiser has its page
+ok   its cover photo was uploaded
+ok   the owner sees it is not taking donations yet
+ok   setting up payouts finishes (in the demo)
+ok   the fundraiser can take donations now
+ok   ending it asks first
+ok   the fundraiser shows it has ended
+ok   the Fundraisers tab lists it as Ended
+ok   no script errors (demo account)
+ok   an account with no ads sees No ads available
+ok   a new member is offered a free week
+ok   the renewal terms sit beside the button
+ok   the free week saves a card without charging
+ok   the free week starts
+ok   Plus is on, yearly, in the free week
+ok   cancelling explains nothing is charged
+ok   cancelling keeps Plus to the end of the week
+ok   the subscription says when it ends
+ok   resuming renews as normal
+ok   the free week carries on
+ok   verification offers the free notable path and the Plus path
+ok   the form asks for the document photo first
+ok   both photos show a preview
+ok   the review shows both photos
+ok   the request is sent
+ok   coming back shows the request is being reviewed
+ok   no script errors (Joseph)
+ok   Plus offers to pay with the saved card, chosen to begin with
+ok   a new card can be chosen instead
+ok   paying with the saved card needs no card form
+ok   the card form never opened
+ok   Plus is on, monthly, renewing
+ok   the payment is in the history, made with the saved card
+ok   no script errors (Daniel)
+ALL PRO CHECKS PASSED
+== tests/profile.test.cjs
+ok   my profile shows my username with the tick
+ok   the counts read posts, followers and following
+ok   the picture is 150 points
+ok   my category shows under the counts
+ok   Plus members see their profile views
+ok   Edit profile and View archive are wide buttons
+ok   Edit profile opens the settings
+ok   View archive opens the archive
+ok   the gear menu offers settings, Profile style, archive, activity and Log out
+ok   Your activity opens from the gear
+ok   five icon tabs on my own profile
+ok   the tabs are icons only
+ok   Posts is the open tab
+ok   my posts show in the grid
+ok   the grid has three columns
+ok   tiles are portrait 3:4
+ok   tiles have small gaps
+ok   the Tagged tab has its own address
+ok   Tagged shows the posts I am tagged in
+ok   Shorts is the open tab at /shorts
+ok   my empty Shorts tab invites me to share one
+ok   an empty Reposts tab says so
+ok   Saved shows what I saved
+ok   a tile opens the post
+ok   Discover people shows on my profile
+ok   a suggestion has a name and a reason
+ok   Follow on a suggestion follows them
+ok   the X stops suggesting them
+ok   See all goes to the suggestions page
+ok   Discover people can be closed
+ok   and opened again from the person button
+ok   my highlights end with New
+ok   a highlight opens in the story viewer
+ok   right-clicking my highlight opens the editor
+ok   the cover can be chosen from its stories
+ok   picking a story picture makes it the cover
+ok   a story can be taken out
+ok   Plus members can upload their own cover
+ok   saving the highlight confirms
+ok   the highlight is renamed with its new cover
+ok   the story taken out is gone from it
+ok   the row shows the new name
+ok   a highlight can be deleted
+ok   and leaves the row
+ok   New goes to the archive, where highlights are made
+ok   Profile style offers every ring colour and theme
+ok   the preview takes the theme
+ok   saving the profile style confirms
+ok   the ring colour and theme are saved
+ok   my profile now wears the theme
+ok   without Plus, Profile style offers Community Plus
+ok   and choices say they are part of Plus
+ok   the upsell opens Plus
+ok   Grace's Plus theme draws its band
+ok   her ring wears her Plus colour (gold) for a new story
+ok   Following, Message, Subscribe and the bell show
+ok   no gear on someone else, but a … menu
+ok   the bio links @mentions
+ok   the website shows
+ok   a Saved tab only on your own profile
+ok   the fundraiser card shows title, progress and raised of goal
+ok   Donate opens the fundraiser
+ok   her planned lives are listed
+ok   Remind me sets a reminder
+ok   the reminder is saved
+ok   pressing it again removes it
+ok   and the reminder is gone
+ok   the bell offers posts, stories, Shorts and live videos
+ok   the switches are saved
+ok   the bell shows it is on
+ok   and they are remembered
+ok   Escape closes the bell menu
+ok   Subscribe opens the payment dialog at her price
+ok   paying subscribes
+ok   the button now says Subscribed
+ok   the subscription is on
+ok   managing it shows when it renews
+ok   it can be cancelled
+ok   then shows when it ends, with Resume
+ok   and resumed
+ok   the … menu has Block, Report, About this account and Copy profile link
+ok   About this account shows when she joined, where she is based, her tick and account type
+ok   Copy profile link confirms
+ok   the link is on the clipboard
+ok   reporting thanks you
+ok   the report is sent
+ok   her highlights show, with no New circle
+ok   her highlights wear her ring colour
+ok   no editing on someone else's highlights
+ok   her highlight plays its two stories
+ok   the ring opens her story
+ok   changing tabs keeps the scroll position
+ok   her Tagged tab shows posts she is tagged in
+ok   an empty Shorts tab on someone else
+ok   Shorts are tall tiles with view counts
+ok   the Following menu offers close friends, the subscription and Unfollow
+ok   Unfollow turns the button back to Follow back
+ok   and the bell goes
+ok   Discover people stays shut on someone else at first
+ok   following again
+ok   following opens Discover people, as on Instagram
+ok   Message opens the chat
+ok   a LIVE badge shows while they broadcast
+ok   hidden lists show the counts but do not open
+ok   the LIVE ring opens the broadcast
+ok   a private account I do not follow shows the lock
+ok   its lists do not open
+ok   Follow sends a request
+ok   the request is saved and the buttons say Requested
+ok   the request can be withdrawn
+ok   Block asks first
+ok   blocking confirms
+ok   the block is saved
+ok   under 14, Message hides for people you do not follow
+ok   under 14, my profile shows it stays private
+ok   White: the page is white
+ok   White: the name on her band stays white
+ok   White: the open tab is dark
+ok   White: my name reads dark on white
+ok   Dark: my name reads light
+ok   no script errors
+ALL PROFILE CHECKS PASSED
+== tests/settings.test.cjs
+ok   Settings has its column with grouped sections
+ok   Accounts Centre has no line underneath, and Payments follows it
+ok   the open page is highlighted
+ok   a section opens on the right with its address
+ok   search keeps only the matching settings
+ok   search finds Accounts Centre by what it holds
+ok   search says when nothing matches
+ok   an unknown section opens Edit profile
+ok   the bio counts its characters
+ok   saving the profile confirms
+ok   the new bio shows on the profile
+ok   private account turns on and stays on
+ok   activity status turns off and stays off
+ok   view counts turn off and stay off
+ok   chat streaks turn off and stay off
+ok   topics to see more of are added
+ok   the summary says what you are into
+ok   topics and the sensitive filter are saved
+ok   Appearance switches to White
+ok   and back to Dark
+ok   Appearance lists the four fonts with their samples
+ok   each font is drawn in itself
+ok   the standard font is chosen to begin with
+ok   choosing a font says so
+ok   the whole app is set in it at once
+ok   its Google Fonts stylesheet is added
+ok   the font stays after a reload
+ok   Standard puts the app back in the computer's font
+ok   the chat wallpaper row opens the picker
+ok   Appearance stays highlighted in the column
+ok   Content preferences links to the Shorts settings
+ok   caption languages: the app language and 19 others
+ok   Shorts settings are saved
+ok   and stay after a reload
+ok   captions back on, in the app language
+ok   Story alerts opens from Story, live and location
+ok   it lists who you are told about
+ok   Add people lists the people you follow, Grace ticked
+ok   ticking someone adds them at once
+ok   they are on the list
+ok   the addition is saved
+ok   Remove takes them off
+ok   and that is saved too
+ok   Story, live and location offers to share your location on the map
+ok   it opens the friends' map
+ok   search finds Shorts by captions
+ok   search finds Appearance by font
+ok   search finds Story alerts
+ok   Language lists the 20 languages and the computer's own
+ok   the language choice is kept after a reload
+ok   and the app is in French
+ok   your subscribers are listed
+ok   a new monthly price is saved
+ok   the page shows the new price
+ok   the creators you subscribe to are listed
+ok   cancelling a subscription says when it ends, and can be resumed
+ok   resuming it renews again
+ok   adding a close friend puts them on the list
+ok   removing them takes them off
+ok   blocked accounts are listed
+ok   unblocking removes them
+ok   turning on alerts from someone shows on the list
+ok   Accounts Centre shows your birthday only to you
+ok   it lists where you are logged in
+ok   it lists the accounts on this computer
+ok   the sign-in security button is there
+ok   Plus: profile viewers are listed
+ok   Your activity shows the posts you liked
+ok   account history says when you joined
+ok   live chat: the assistant answers
+ok   its answer is labelled as the assistant
+ok   then a person from the team answers under their name
+ok   and the chat says they are here
+ok   a review with stars is sent
+ok   a request to the team is sent and listed
+ok   a screenshot can be attached
+ok   reporting a problem is sent
+ok   the privacy page shows the document
+ok   the terms page shows the document
+ok   the guidelines page shows the document
+ok   the child-safety page shows the document
+ok   the copyright page shows the document
+ok   the documents have lists and bold words
+ok   a link to another document opens it here
+ok   About shows the version and the documents
+ok   Settings → About shows the same
+ok   (Nunito chosen as the demo account)
+ok   without Plus, profile viewers offers Community Plus
+ok   without Plus the app keeps its standard font
+ok   without Plus, the font chooser offers Community Plus
+ok   its fonts are a preview that cannot be chosen
+ok   without Plus, story alerts offers Community Plus
+ok   a member without a birthday is asked for it
+ok   the question cannot be closed without answering
+ok   an impossible date is refused
+ok   a 13-year-old is told what the under-14 rules mean
+ok   and then the app carries on
+ok   no sideways scrolling
+ok   no script errors
+ok   sign-up asks for the date of birth first
+ok   under 13 is turned away and nothing is made
+ok   going back in on this computer is still refused
+ok   Back to the start signs out
+ok   no script errors at sign-up
+ALL SETTINGS CHECKS PASSED
+== tests/social.test.cjs
+ok   a post someone you follow liked says "Liked by … and others"
+ok   with their small picture
+ok   "others" shows the count on hover
+ok   the newest like from someone you follow is the one named
+ok   a post without one keeps its count
+ok   the post dialog says it too
+ok   the rail badge counts only chats, not requests
+ok   so does the floating Messages button
+ok   the small inbox lists no requests
+ok   but leads to them, with how many
+ok   which opens the Requests column
+ok   the chats leave requests out
+ok   "Requests (2)" sits beside "Messages"
+ok   the Requests column lists both, newest first
+ok   under a "Message requests" heading
+ok   a request opens beside the column
+ok   Block, Delete and Accept take the message box’s place
+ok   it asks whether to accept
+ok   no calls from a request
+ok   reading it doesn’t mark it read
+ok   accepting says so
+ok   and moves the chat into the inbox
+ok   where you can write back
+ok   one request left
+ok   the accepted chat is saved and now marked read
+ok   a restricted person's comment shows to you, the owner
+ok   greyed, with a small "Restricted" label
+ok   and Delete
+ok   nobody else receives it
+ok   its writer sees it as usual, unmarked (they aren’t told)
+ok   the … menu offers Unrestrict for someone restricted, and Mute
+ok   Unrestrict works straight away
+ok   and is saved
+ok   his message is no longer a request (you follow him)
+ok   his comment is no longer marked
+ok   Restrict asks first
+ok   restricting confirms
+ok   his new comments are restricted
+ok   and his message is a request again
+ok   Ruth's posts are on Home to begin with
+ok   Mute opens with a switch for posts and one for stories, both off
+ok   muting posts is saved
+ok   her profile still shows her posts
+ok   her posts are gone from Home
+ok   her stories are not muted
+ok   a post's … menu offers Mute for its author
+ok   Joseph's story is in the tray
+ok   the Following menu opens Mute too, and stories can be muted
+ok   his story leaves the tray
+ok   his posts stay
+ok   the dialog remembers what is muted
+ok   both off unmutes
+ok   and his story comes back
+ok   Muted accounts lists who and what
+ok   it sits under What you see
+ok   Unmute confirms
+ok   and takes her off the list
+ok   her posts are back on Home
+ok   Delete asks first
+ok   deleting says so
+ok   and empties the column
+ok   a new message from him brings it back as a request
+ok   Delete all clears the column
+ok   none left
+ok   Block from a request blocks them
+ok   the block is saved and the request is gone
+ok   Restricted accounts lists them
+ok   it sits under How others can interact with you
+ok   Unrestrict confirms
+ok   and empties the list
+ok   search finds Restricted accounts
+ok   and Muted accounts
+ok   White turns the Requests column white
+ok   the request bar reads dark on white
+ok   Liked by reads dark on white
+ok   no script errors
+ALL SOCIAL CHECKS PASSED
+== tests/stories.test.cjs
+ok   the story tray shimmers while it loads
+ok   Shorts show a skeleton while they load
+ok   someone live comes first, with the LIVE badge
+ok   then Your story
+ok   someone live shows once, as live
+ok   the circles are large, as on Instagram
+ok   a Plus member's ring is in the colour she chose
+ok   a Plus member comes first among unwatched stories
+ok   everyone else has the green ring
+ok   in White the names are dark on white
+ok   the tray scrolls with an arrow when it overflows, or fits
+ok   the viewer opens on Joseph with a bar per story
+ok   the Community wordmark is top left and Close top right
+ok   the story is a tall 9:16 card in the middle
+ok   the people before and after show as smaller, dimmed cards on both sides
+ok   the side cards show who and when
+ok   the reply bar asks to reply to Joseph, with heart and share
+ok   round previous and next buttons beside the card
+ok   Space pauses
+ok   and plays again
+ok   a heart is sent to Joseph
+ok   → moves to his next story
+ok   → again moves to the next person
+ok   ← goes back
+ok   the round next button moves on
+ok   the round previous button goes back
+ok   clicking a side card opens that person
+ok   someone else's story offers Report, Mute and About this account
+ok   and story notifications for him (I follow him)
+ok   turning them on says so
+ok   and it stays on
+ok   About this account shows when he joined
+ok   a sheet closes with Esc and the story stays open
+ok   reporting a story thanks you
+ok   Esc closes the viewer
+ok   Joseph's ring is grey now that both his stories are watched
+ok   Grace, not opened yet, keeps her green ring
+ok   and watched people move after the rest
+ok   muting says so
+ok   muting someone takes their stories off the tray
+ok   and unmuting brings them back
+ok   my story shows who saw it instead of a reply bar
+ok   with the first viewers' faces
+ok   Viewers lists everyone who watched, last watched first
+ok   as a Plus member I see rewatches and times
+ok   story alerts: I'm told when Grace watches (the bell is on)
+ok   ringing the bell for another viewer turns their alert on
+ok   my story offers Delete, Add to highlight and Story settings
+ok   Story settings: who can reply, close friends, archive and story alerts
+ok   a highlight opens in the same viewer
+ok   one tall 9:16 video, centred, filling the height
+ok   the actions sit to the right of the video, at its bottom
+ok   the name and caption sit at the bottom left, beside the video
+ok   the caption block has the name, the sound and the caption (no Follow: I follow him)
+ok   the sound button is in the video's bottom-right corner
+ok   round up and down buttons at the far right
+ok   likes, comments, share, save, more and the audio cover
+ok   captions show in time with the video
+ok   CC turns captions off
+ok   and on again
+ok   Translate captions shows them in Spanish
+ok   and back to the original
+ok   double-click likes the Short
+ok   the down button moves to the next Short
+ok   the up button goes back
+ok   ↓ moves to the next Short
+ok   ↑ goes back
+ok   the live shows who, its title and LIVE
+ok   comments stored on the server are shown
+ok   a live with a fundraiser has Donate
+ok   my comment posts and shows under my name
+ok   I can remove my own comment
+ok   Donate opens the fundraiser
+ok   the camera preview opens
+ok   and the microphone
+ok   Followers by default
+ok   Practice: only you
+ok   a fundraiser of mine can go with the live
+ok   Go live starts the broadcast
+ok   it says only I can see a practice
+ok   with my title and nobody watching yet
+ok   I can comment on my own live
+ok   the microphone and camera switch off
+ok   End asks first
+ok   ending leaves the screen and turns the camera off
+ok   Schedule a live lists my upcoming lives
+ok   a new live is scheduled
+ok   and cancelled
+ok   the viewer's window plays the broadcaster's camera
+ok   the broadcaster sees one person watching
+ok   the viewer's heart floats up on the broadcaster's screen
+ok   ending the live tells the viewer
+ok   Create → Story opens the story maker on a dark window
+ok   it offers photos and videos from the computer, Text and Collage
+ok   a text story starts with the cursor on the story
+ok   the words show on the story as they are typed, in the colour and style chosen
+ok   typing keeps going after choosing a colour
+ok   Done puts the text on the story
+ok   Background changes the colours behind a text story
+ok   a sticker is added with a click
+ok   and dragged from the panel onto the story, where it is dropped
+ok   clicking a sticker selects it, with bigger, smaller and remove
+ok   Delete removes the selected sticker
+ok   drawing with the mouse makes lines on the story
+ok   Undo takes the last line away
+ok   a mention is found by name and put on the story
+ok   text is dragged to a new place with the mouse
+ok   selected text can be made bigger
+ok   in White the panels take the app colours and the story stays dark around it
+ok   the share step has Your story (who can reply), Close friends, Message and Add to highlight
+ok   the people and the highlight chosen show in the share step
+ok   Share adds it to my story
+ok   it is saved as the iPhone stores a text story: background, text, sticker and mention
+ok   with its line in the 1000 x 1778 drawing space
+ok   the new highlight holds it
+ok   and its words are sent to Daniel
+ok   a new story goes to Home
+ok   the viewer shows the text, the sticker, the mention and the line
+ok   clicking the mention opens her profile
+ok   a photo opens in the editor, shown whole on a blurred copy
+ok   a filter shows on the photo straight away
+ok   Fill the frame makes the photo cover the story
+ok   the caption shows on the story
+ok   with no close friends yet, it asks to add some first
+ok   Grace is now a close friend
+ok   the share step counts close friends
+ok   choosing close friends keeps it out of highlights, as on the iPhone
+ok   it is shared with close friends
+ok   as a photo for close friends, filling the frame, with its caption
+ok   the Moon filter is baked into the uploaded photo (it is grey now)
+ok   two photos make a batch: both down the side, one at a time on the canvas
+ok   a batch has no text or drawing tools, as on the iPhone
+ok   the arrow shows the next one
+ok   Your story shares them all
+ok   each as its own story, the wide one shown whole
+ok   a video opens in the editor and plays there
+ok   a video has the text, sticker, mention and drawing tools, without filters
+ok   the video is shared
+ok   uploaded with a poster picture and its length, and the sticker
+ok   Collage asks for 2 to 4 photos
+ok   three photos show in the one-over-two layout
+ok   the collage is shared
+ok   as one story with its three photos and the sticker
+ok   Add to story starts the editor with the post's photo
+ok   and shares it
+ok   the post's photo is shared as it is, not uploaded again
+ok   and the page stays where it was
+ok   the archive draws each story small, with its words
+ok   close friends stories wear the star, and live ones say so
+ok   an archived story opens large, with Highlight, Share again and Delete
+ok   Highlight adds it to one of my highlights
+ok   the arrows step through the archive
+ok   Share again opens the editor with the story in it
+ok   changed and shared again
+ok   it keeps its text and background, with the new sticker
+ok   the archive shows it straight away
+ok   Delete removes an archived story
+ok   Esc closes the archived story
+ok   a close friends story shared again goes to close friends again
+ok   closing with a photo chosen asks first
+ok   Cancel keeps editing
+ok   Discard closes it without sharing
+ok   no script errors
+ALL STORIES CHECKS PASSED
+== tests/ui.test.cjs
+ok   home feed shows posts from people I follow
+ok   the two feeds from the iPhone app: For you and Following
+ok   story tray lists 5 people with stories plus mine
+ok   suggestions list someone I do not follow
+ok   unread messages badge on the rail
+ok   the rail has every section in Instagram order
+ok   the floating Messages button shows the unread count
+ok   unlike lowers the count
+ok   double-click likes again
+ok   save shows a confirmation
+ok   comment from the feed appears under the post
+ok   carousel moves to the second photo
+ok   post dialog shows caption, two comments and mine
+ok   comment in the dialog appears
+ok   own comment can be deleted
+ok   liking a comment shows its count
+ok   sharing a post confirms it was sent
+ok   story viewer opens with progress bars
+ok   story reply is sent
+ok   viewer closes with Escape
+ok   two photos are ready to crop
+ok   the Edit step offers the iPhone app's filters
+ok   Plus members get brightness, contrast, saturation and warmth
+ok   after sharing, my profile shows 3 posts
+ok   the new post has its caption and location
+ok   the new post was cropped square
+ok   the Moon filter was baked into the uploaded photo (black and white)
+ok   deleted post is gone from my profile
+ok   my story plays with its caption
+ok   my story shows who has seen it
+ok   explore shows every post
+ok   explore has tall tiles in the mosaic
+ok   reels shows the two reels
+ok   liking a reel updates its count
+ok   search opens the profile
+ok   esther has 0 followers before
+ok   following raises the count
+ok   followers list shows me
+ok   adding to close friends confirms
+ok   Message opens a new chat with esther
+ok   the reply arrives live without reloading
+ok   the new chat is listed
+ok   Erha answers in the chat
+ok   notifications list likes, comments and follows
+ok   profile edit shows on the profile
+ok   private account switch turns on
+ok   saved tab shows 2 saved posts
+ok   hymnal search opens Amazing Grace
+ok   following a page works
+ok   church details show service times
+ok   Grace's frequently asked questions show in the chat
+ok   tapping a question brings her saved answer
+ok   typing /shortcut fills in a saved reply
+ok   typing is shared on the same channel as the iPhone app
+ok   hymn favourites work
+ok   Pod opens the player bar
+ok   saving to Your library works
+ok   the professional dashboard shows views and a chart
+ok   the archive keeps my expired stories
+ok   a new highlight from the archive shows on my profile
+ok   Plus: profile viewers are listed
+ok   a help request is sent and listed
+ok   Church apps lists every church section
+ok   the More menu has every section
+ok   the admin dashboard shows the key numbers
+ok   the dashboard draws the activity chart, donuts and bars
+ok   the dashboard lists countries people use the app from
+ok   the dashboard flags what needs attention
+ok   hovering the chart shows the value for that day
+ok   the admin console groups every tool
+ok   People lists every account
+ok   People can be filtered to suspended accounts
+ok   People can be found by IP address
+ok   a person's record opens with their details
+ok   their sign-ins show app, address and country
+ok   other accounts on the same address are listed
+ok   their payments, donations and subscription are shown
+ok   a suspension can be lifted
+ok   a timed suspension is recorded with its reason
+ok   an account can be closed and restored
+ok   search finds people, posts, groups and fundraisers together
+ok   security shows alerts, warnings and blocked addresses
+ok   an alert can be resolved
+ok   an address can be blocked
+ok   money shows income, kinds and methods
+ok   donations are listed
+ok   transactions are still there
+ok   content can be reviewed
+ok   a new church can be approved
+ok   an announcement can be published
+ok   the audit log records what admins did
+ok   system health shows storage and scheduled jobs
+ok   everyone sees the announcement at the top of the app
+ok   a report can be decided
+ok   approving a tick request gives the tick
+ok   support requests can be answered
+ok   logging back in works
+ok   no sideways scrolling at 1440px
+ok   no sideways scrolling at 1000px
+ok   the rail stays narrow until the pointer is over it
+ok   a small window keeps the desktop rail (no phone bottom bar)
+ok   no script errors
+ALL UI CHECKS PASSED
+== tests/wiring.test.cjs
+ok   signed out: log-in page with the Clerk form
+ok   no demo banner in the real app
+ok   Clerk is loaded from its own domain with the key from .env
+ok   Clerk gets its screens bundle, this page as the return address, and the app colour
+ok   Supabase client uses the project URL and publishable key from .env
+ok   signed out, the database gets no token
+ok   "Sign up" swaps in Clerk's sign-up form
+ok   a new Clerk account is asked for a date of birth first
+ok   signed in, every database request carries the Clerk session token
+ok   a grown-up is then asked to pick a username
+ok   username is suggested from the email address
+ok   usernames follow the iPhone app rule (no dots)
+ok   consent for information that may show your faith is needed
+ok   after choosing a username the app opens
+ok   the profile was created under the Clerk user id
+ok   the birthday given at sign-up is on the account
+ok   Accounts Centre opens Clerk's account screen
+ok   log out goes through Clerk and back to the log-in page
+ok   the app contacts nothing but Clerk and fonts here
+ok   no script errors
+ALL WIRING CHECKS PASSED
