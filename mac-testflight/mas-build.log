@@ -5,13 +5,13 @@
   • completed installing native dependencies
   • packaging       platform=mas arch=x64 electron=44.7.0 appOutDir=release/mas-universal-x64-temp
   • downloading     url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-x64.zip size=133 MB parts=8
-  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-x64.zip duration=1.001s
+  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-x64.zip duration=767ms
   • executing @electron/rebuild  electronVersion=44.7.0 arch=arm64 buildFromSource=false appDir=./
   • installing native dependencies  arch=arm64
   • completed installing native dependencies
   • packaging       platform=mas arch=arm64 electron=44.7.0 appOutDir=release/mas-universal-arm64-temp
   • downloading     url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-arm64.zip size=130 MB parts=8
-  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-arm64.zip duration=1.342s
+  • downloaded      url=https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-mas-arm64.zip duration=760ms
   • packaging       platform=mas arch=universal electron=44.7.0 appOutDir=release/mas-universal
   • skipped macOS code signing  reason=identity explicitly is set to null
   • signing         file=release/mas-universal/Community.app platform=mas type=distribution identityName=Apple Distribution: Kingsford Toku (QRMLKZR9B8) identityHash=DCB19468E9D878614056B8DAF1F464BA2C8481F4 provisioningProfile=build/embedded.provisionprofile

@@ -6,11 +6,78 @@ Signature size=9095
 Authority=Apple Distribution: Kingsford Toku (QRMLKZR9B8)
 Authority=Apple Worldwide Developer Relations Certification Authority
 Authority=Apple Root CA
-Timestamp=Oct 11, 2026 at 4:11:14 AM
+Timestamp=Oct 11, 2026 at 4:15:32 AM
 Info.plist entries=36
 TeamIdentifier=QRMLKZR9B8
 Sealed Resources version=2 rules=13 files=9
 Internal requirements count=1 size=184
 Executable=/Users/runner/work/SDA-community-app/SDA-community-app/desktop/release/mas-universal/Community.app/Contents/MacOS/Community
-warning: Specifying ':' in the path is deprecated and will not work in a future release
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.application-identifier</key><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string><key>com.apple.developer.team-identifier</key><string>QRMLKZR9B8</string><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.application-groups</key><array><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string></array><key>com.apple.security.device.audio-input</key><true/><key>com.apple.security.device.camera</key><true/><key>com.apple.security.files.downloads.read-write</key><true/><key>com.apple.security.files.user-selected.read-write</key><true/><key>com.apple.security.network.client</key><true/><key>com.apple.security.network.server</key><true/><key>com.apple.security.personal-information.location</key><true/></dict></plist>
+Package "Community-1.1.0-universal.pkg":
+   Status: signed by a developer certificate issued by Apple (Development)
+   Certificate Chain:
+    1. 3rd Party Mac Developer Installer: Kingsford Toku (QRMLKZR9B8)
+       Expires: 2027-10-11 03:59:16 +0000
+       SHA256 Fingerprint:
+           8D 3D 00 43 8C 0F 36 E9 16 67 7A 17 F1 F6 28 64 88 46 EE 7A 5A C8 
+           C6 BC A3 15 43 2E D9 41 C5 FB
+       ------------------------------------------------------------------------
+    2. Apple Worldwide Developer Relations Certification Authority
+       Expires: 2030-02-20 00:00:00 +0000
+       SHA256 Fingerprint:
+           DC F2 18 78 C7 7F 41 98 E4 B4 61 4F 03 D6 96 D8 9C 66 C6 60 08 D4 
+           24 4E 1B 99 16 1A AC 91 60 1F
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+Dict {
+    DTCompiler = com.apple.compilers.llvm.clang.1_0
+    CFBundleInfoDictionaryVersion = 6.0
+    NSAudioCaptureUsageDescription = This app needs access to audio capture
+    CFBundleIconFile = icon.icns
+    CFBundleName = Community
+    DTSDKName = macosx15.5
+    NSSupportsAutomaticGraphicsSwitching = true
+    NSBluetoothAlwaysUsageDescription = This app needs access to Bluetooth
+    NSPrincipalClass = AtomApplication
+    LSApplicationCategoryType = public.app-category.social-networking
+    CFBundleDisplayName = Community
+    NSLocationWhenInUseUsageDescription = Community uses your location when you share it with friends on the map or look for churches near you.
+    NSHighResolutionCapable = true
+    NSRequiresAquaSystemAppearance = false
+    DTSDKBuild = 24F74
+    NSCameraUsageDescription = Community uses your camera for photos, videos and calls.
+    CFBundleShortVersionString = 1.1.0
+    ElectronTeamID = QRMLKZR9B8
+    CFBundlePackageType = APPL
+    NSBluetoothPeripheralUsageDescription = This app needs access to Bluetooth
+    NSPrefersDisplaySafeAreaCompatibilityMode = false
+    DTXcodeBuild = 16F6
+    CFBundleVersion = 2610110413
+    NSMainNibFile = MainMenu
+    NSMicrophoneUsageDescription = Community uses your microphone for voice messages and calls.
+    CFBundleIdentifier = Kojo.SDAAPPGEMINI
+    LSEnvironment = Dict {
+        MallocNanoZone = 0
+    }
+    ElectronAsarIntegrity = Dict {
+        Resources/app.asar = Dict {
+            hash = 0f794ff1ee193beaf903dc15ec71753e7fd6bf49d66e4869ac01aaf7d990f6aa
+            algorithm = SHA256
+        }
+    }
+    DTXcode = 1640
+    NSLocationUsageDescription = Community uses your location when you share it with friends on the map or look for churches near you.
+    NSQuitAlwaysKeepsWindows = false
+    NSAppTransportSecurity = Dict {
+        NSAllowsArbitraryLoads = true
+    }
+    CFBundleExecutable = Community
+    LSMinimumSystemVersion = 12.0
+    ITSAppUsesNonExemptEncryption = false
+    NSHumanReadableCopyright = Community
+}

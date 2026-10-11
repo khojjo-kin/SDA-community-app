@@ -1,7 +1,7 @@
-installer certificate: created 388W22L653 Mac Installer Distribution: Kingsford Toku
+installer certificate: found 388W22L653 Mac Installer Distribution: Kingsford Toku 2027-10-11T03:59:16.000+00:00
 app certificate: PRZR6A95J9 Apple Distribution: Kingsford Toku 2027-09-09T04:34:21.000+00:00
 app certificate matches the saved key: True
-profile: created Community Mac App Store 2027-09-09T04:34:21.000+00:00
+profile: found Community Mac App Store 2027-09-09T04:34:21.000+00:00
 latest builds:
    IOS 3.0.0 121 2026-10-10T16:46:44-07:00 VALID
    IOS 3.0.0 2026100911 2026-10-10T16:08:40-07:00 VALID
