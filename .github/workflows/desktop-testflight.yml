@@ -10,7 +10,7 @@ on:
     branches: [desktop-testflight]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-testflight
@@ -45,7 +45,19 @@ jobs:
           echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
           pip3 install --quiet --break-system-packages pyjwt cryptography || pip3 install --quiet pyjwt cryptography
       - name: What App Store Connect has
-        run: python3 scripts/mas-probe.py
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          python3 scripts/mas-probe.py 2>&1 | tee "$RUNNER_TEMP/logs/probe.txt"
       - name: Remove the key
         if: always()
         run: rm -rf "$RUNNER_TEMP/signing"
+      # The logs go to the desktop-build-logs branch (under mac-testflight/), so they can be read
+      # without the Actions page.
+      - name: Save logs
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP"
+          rm -rf logrepo && git clone --quiet --depth 1 --branch desktop-build-logs "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" logrepo 2>/dev/null || { mkdir logrepo && cd logrepo && git init -q -b desktop-build-logs && git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" && cd ..; }
+          mkdir -p logrepo/mac-testflight && rm -rf logrepo/mac-testflight/* && cp -R logs/. logrepo/mac-testflight/ 2>/dev/null || true
+          echo "${{ github.sha }} run ${{ github.run_number }} ${{ job.status }}" > logrepo/mac-testflight/LATEST.txt
+          cd logrepo && git add -A && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -q -m "Mac TestFlight logs, run ${{ github.run_number }}" && git push -q origin desktop-build-logs
