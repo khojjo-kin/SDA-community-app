@@ -51,6 +51,22 @@
         "NSLocationUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you.",
         "NSLocationWhenInUseUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you."
       }
+    },
+    "mas": {
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false,
+      "provisioningProfile": "build/embedded.provisionprofile",
+      "type": "distribution",
+      "category": "public.app-category.social-networking",
+      "minimumSystemVersion": "12.0",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Community uses your camera for photos, videos and calls.",
+        "NSMicrophoneUsageDescription": "Community uses your microphone for voice messages and calls.",
+        "NSLocationUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you.",
+        "NSLocationWhenInUseUsageDescription": "Community uses your location when you share it with friends on the map or look for churches near you.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

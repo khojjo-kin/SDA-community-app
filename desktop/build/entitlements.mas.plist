@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The Mac App Store version: sandboxed, with what Community needs. The app serves its pages to
+     itself on localhost (network.server), talks to Supabase, Clerk and Stripe (network.client), uses
+     the camera and microphone for calls and voice messages, location for the friends' map and
+     churches near you, and opens photos and videos you choose. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.application-identifier</key><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string>
+  <key>com.apple.developer.team-identifier</key><string>QRMLKZR9B8</string>
+  <key>com.apple.security.application-groups</key>
+  <array><string>QRMLKZR9B8.Kojo.SDAAPPGEMINI</string></array>
+  <key>com.apple.security.network.client</key><true/>
+  <key>com.apple.security.network.server</key><true/>
+  <key>com.apple.security.device.camera</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <key>com.apple.security.personal-information.location</key><true/>
+  <key>com.apple.security.files.user-selected.read-write</key><true/>
+  <key>com.apple.security.files.downloads.read-write</key><true/>
+</dict>
+</plist>

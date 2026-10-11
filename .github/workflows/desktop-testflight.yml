@@ -1,10 +1,14 @@
 name: Community for Mac on TestFlight
 
-# Builds the desktop app (desktop/) for the Mac App Store and uploads it to TestFlight, as the
-# macOS version of the same App Store Connect app as the iPhone app (Kojo.SDAAPPGEMINI). Runs when
-# the desktop-testflight branch is pushed (push the desktop branch there to send a build).
-# The App Store Connect key and the distribution certificate are the iPhone build's, read from the
-# community-app branch.
+# Builds the desktop app (desktop/) for the Mac App Store and uploads it to TestFlight, as the macOS
+# version of the iPhone app's App Store Connect record (Kojo.SDAAPPGEMINI). Runs when the
+# desktop-testflight branch is pushed: `git push origin desktop:desktop-testflight`.
+#
+# Signing: the app is signed with the iPhone build's Apple Distribution certificate (key on the
+# community-app branch); the .pkg with a Mac Installer Distribution certificate whose key this
+# workflow makes once and keeps on the desktop-signing branch. scripts/mas-setup.py creates the
+# certificate and the Mac App Store profile through the App Store Connect API when missing.
+# Logs go to the desktop-build-logs branch (mac-testflight/).
 on:
   push:
     branches: [desktop-testflight]
@@ -19,12 +23,13 @@ concurrency:
 env:
   ASC_KEY_ID: PD6DWK7T4C
   ASC_ISSUER_ID: 232fdb99-c796-444e-8430-34452fd67484
+  TEAM: QRMLKZR9B8
 
 jobs:
   testflight:
     name: Mac App Store build
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: desktop
@@ -33,26 +38,89 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Collect the Apple key and certificate
+      - name: Use the newest Xcode 26
         run: |
+          resolve() { for x in "$@"; do if [ -d "$x" ]; then (cd "$x" && pwd -P); fi; done | { grep -viE 'beta|candidate' || true; } | sort -u -V | tail -1; }
+          XC=$(resolve /Applications/Xcode_26*.app); [ -n "$XC" ] || XC=$(resolve /Applications/Xcode_*.app)
+          sudo xcode-select -s "$XC/Contents/Developer"; xcodebuild -version
+      - name: Collect the Apple key and certificates
+        run: |
+          mkdir -p "$RUNNER_TEMP/signing" "$RUNNER_TEMP/logs"
+          S="$RUNNER_TEMP/signing"
           git fetch --quiet --depth 1 origin community-app
-          mkdir -p "$RUNNER_TEMP/signing"
-          git show FETCH_HEAD:ios/fastlane/AuthKey_PD6DWK7T4C.p8 > "$RUNNER_TEMP/signing/key.p8"
-          git show FETCH_HEAD:ios/PRZR6A95J9.p12 > "$RUNNER_TEMP/signing/dist.key" || true
-          git show FETCH_HEAD:ios/PRZR6A95J9.cer > "$RUNNER_TEMP/signing/dist.cer" || true
-          chmod 600 "$RUNNER_TEMP"/signing/*
-          echo "ASC_KEY_PATH=$RUNNER_TEMP/signing/key.p8" >> "$GITHUB_ENV"
-          echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
-          pip3 install --quiet --break-system-packages pyjwt cryptography || pip3 install --quiet pyjwt cryptography
-      - name: What App Store Connect has
+          git show FETCH_HEAD:ios/fastlane/AuthKey_PD6DWK7T4C.p8 > "$S/key.p8"
+          git show FETCH_HEAD:ios/PRZR6A95J9.p12 > "$S/dist.key"
+          if git fetch --quiet --depth 1 origin desktop-signing 2>/dev/null && git show FETCH_HEAD:mas-installer.key > "$S/installer.key" 2>/dev/null && [ -s "$S/installer.key" ]; then
+            echo "installer key: from desktop-signing" | tee -a "$RUNNER_TEMP/logs/status.txt"
+          else
+            openssl genrsa -out "$S/installer.key" 2048 2>/dev/null
+            echo "NEW_INSTALLER_KEY=1" >> "$GITHUB_ENV"
+            echo "installer key: new" | tee -a "$RUNNER_TEMP/logs/status.txt"
+          fi
+          chmod 600 "$S"/*
+          mkdir -p "$HOME/.appstoreconnect/private_keys" && cp "$S/key.p8" "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_PATH=$S/key.p8" >> "$GITHUB_ENV"
+          echo "SIGN_DIR=$S" >> "$GITHUB_ENV"
+          echo "INSTALLER_KEY=$S/installer.key" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$(date -u +%y%m%d%H%M)" >> "$GITHUB_ENV"
+          pip3 install --quiet --break-system-packages pyjwt cryptography 2>/dev/null || pip3 install --quiet pyjwt cryptography
+      - name: Certificates and profile from App Store Connect
+        run: python3 scripts/mas-setup.py 2>&1 | tee "$RUNNER_TEMP/logs/setup.txt"; exit ${PIPESTATUS[0]}
+      - name: Keep the new installer key
+        if: env.NEW_INSTALLER_KEY == '1'
         run: |
-          mkdir -p "$RUNNER_TEMP/logs"
-          python3 scripts/mas-probe.py 2>&1 | tee "$RUNNER_TEMP/logs/probe.txt"
-      - name: Remove the key
+          cd "$RUNNER_TEMP" && rm -rf keyrepo && mkdir keyrepo && cd keyrepo
+          git init -q -b desktop-signing
+          cp "$INSTALLER_KEY" mas-installer.key
+          printf 'Private key of the Mac Installer Distribution certificate used by .github/workflows/desktop-testflight.yml.\n' > README.txt
+          git add -A && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -q -m "Mac installer signing key"
+          git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" desktop-signing
+      - name: Put the certificates in a keychain
+        run: |
+          S="$SIGN_DIR"; KC="$RUNNER_TEMP/mas.keychain-db"; PASS=$(uuidgen)
+          security create-keychain -p "$PASS" "$KC"; security set-keychain-settings -lut 21600 "$KC"; security unlock-keychain -p "$PASS" "$KC"
+          for c in AppleWWDRCAG3 AppleWWDRCAG4 AppleRootCA-G3; do curl -fsSL --max-time 30 "https://www.apple.com/certificateauthority/$c.cer" -o "$S/$c.cer" && security import "$S/$c.cer" -k "$KC" > /dev/null 2>&1 || true; done
+          for n in dist installer; do
+            openssl x509 -inform der -in "$S/$n.cer" -out "$S/$n.pem"
+            openssl pkcs12 -export -legacy -inkey "$S/$n.key" -in "$S/$n.pem" -out "$S/$n.p12" -passout "pass:$PASS" 2>/dev/null || openssl pkcs12 -export -inkey "$S/$n.key" -in "$S/$n.pem" -out "$S/$n.p12" -passout "pass:$PASS"
+            security import "$S/$n.p12" -k "$KC" -P "$PASS" -f pkcs12 -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/security
+          done
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v "$KC" | tee -a "$RUNNER_TEMP/logs/status.txt"
+          security find-identity -v -p basic "$KC" | tee -a "$RUNNER_TEMP/logs/status.txt"
+          echo "CSC_KEYCHAIN=$KC" >> "$GITHUB_ENV"
+      - run: npm install --no-audit --no-fund > "$RUNNER_TEMP/logs/npm-install.log" 2>&1
+      - name: Build the app
+        run: node build.mjs 2>&1 | tail -5
+      - name: Open the app and look at it
+        run: |
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dir --arm64 --publish never -c.mac.identity=null > "$RUNNER_TEMP/logs/smoke-build.log" 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.56.0 > /dev/null 2>&1
+          APP=$(ls -d release/mac*/Community.app | head -1)
+          node scripts/smoke-electron.cjs "$APP/Contents/MacOS/Community" "$RUNNER_TEMP/logs" 2>&1 | tee -a "$RUNNER_TEMP/logs/status.txt"; exit ${PIPESTATUS[0]}
+      - name: Build for the Mac App Store
+        run: |
+          rm -rf release
+          npx electron-builder --mac mas --universal --publish never -c.appId=Kojo.SDAAPPGEMINI -c.buildVersion="$BUILD_NUMBER" -c.mas.identity="Kingsford Toku ($TEAM)" > "$RUNNER_TEMP/logs/mas-build.log" 2>&1; code=$?
+          tail -40 "$RUNNER_TEMP/logs/mas-build.log"
+          ls -la release release/* | tee -a "$RUNNER_TEMP/logs/status.txt"
+          exit $code
+      - name: Check the signature
+        run: |
+          APP=$(ls -d release/mas*/Community.app | head -1); PKG=$(ls release/*.pkg | head -1)
+          { codesign -dv --verbose=2 "$APP" 2>&1; codesign -d --entitlements :- "$APP" 2>&1 | head -60; pkgutil --check-signature "$PKG"; /usr/libexec/PlistBuddy -c 'Print' "$APP/Contents/Info.plist" | head -60; } | tee "$RUNNER_TEMP/logs/signature.txt"
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app --type macos --file "$PKG" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --output-format normal 2>&1 | tee "$RUNNER_TEMP/logs/upload.txt"; code=${PIPESTATUS[0]}
+          echo "upload: $code (build $BUILD_NUMBER)" | tee -a "$RUNNER_TEMP/logs/status.txt"
+          exit $code
+      - name: Remove the keys
         if: always()
-        run: rm -rf "$RUNNER_TEMP/signing"
-      # The logs go to the desktop-build-logs branch (under mac-testflight/), so they can be read
-      # without the Actions page.
+        run: |
+          rm -rf "$SIGN_DIR" "$HOME/.appstoreconnect/private_keys"
+          security delete-keychain "$RUNNER_TEMP/mas.keychain-db" > /dev/null 2>&1 || true
       - name: Save logs
         if: always()
         run: |
