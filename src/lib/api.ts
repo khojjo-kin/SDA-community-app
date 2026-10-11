@@ -385,8 +385,8 @@ export type FeedKind = 'foryou' | 'following' | 'subscribers';
  * from Community Plus members.
  */
 export async function fetchFeed(me: string, before?: string, kind: FeedKind = 'following'): Promise<Post[]> {
-  // Posts kept to the author's profile (Plus) stay off every feed.
-  let q = supabase.from('community_post_cards').select('*').eq('profile_only', false);
+  // Posts kept to the author's profile (Plus) stay off every feed, and so do posts by people you've muted.
+  let q = supabase.from('community_post_cards').select('*').eq('profile_only', false).eq('author_muted', false);
   if (kind === 'following') q = q.or(`following_author.eq.true,user_id.eq.${me},in_my_group.eq.true`);
   else if (kind === 'subscribers') q = q.eq('author_plus', true);
   q = q.order('created_at', { ascending: false }).limit(PAGE);
@@ -758,7 +758,8 @@ function group(stories: Story[], me: string): StoryGroup[] {
 
 export async function fetchStoryTray(me: string): Promise<StoryGroup[]> {
   await loadOwnSeen();
-  const rows: Story[] = ok(await supabase.from('community_story_cards').select('*').eq('in_tray', true).order('created_at', { ascending: true }).limit(300)) ?? [];
+  // Stories of people you've muted stay off the tray (their profile still shows them).
+  const rows: Story[] = ok(await supabase.from('community_story_cards').select('*').eq('in_tray', true).eq('author_muted', false).order('created_at', { ascending: true }).limit(300)) ?? [];
   return group(rows, me);
 }
 
@@ -1120,6 +1121,61 @@ export async function uploadAudio(me: string, uri: string): Promise<string> {
 }
 
 /* ---------- people pickers ---------- */
+
+/* ---------- message requests, mute and restrict (database v24) ---------- */
+
+/**
+ * Message requests: chats someone else started that you haven't answered or accepted, from people
+ * you don't follow (or have restricted). fetchThreads returns them too, marked `request`.
+ */
+export async function fetchMessageRequests(): Promise<Thread[]> {
+  return ok(await supabase.from('community_thread_cards').select('*').eq('request', true).order('last_message_at', { ascending: false }).limit(100)) ?? [];
+}
+
+/** Accepting a request moves the chat into the inbox; they can then see when you've read it. */
+export async function acceptMessageRequest(threadId: string) {
+  ok(await supabase.rpc('community_accept_request', { thread: threadId }));
+  announce('threads');
+}
+
+/** Deleting a request clears it for you; a new message from them brings it back as a request. */
+export async function deleteMessageRequest(threadId: string) {
+  await hideThread(threadId);
+}
+
+/** Mute someone's posts, stories or both (both off unmutes). They aren't told. */
+export async function setMute(me: string, userId: string, mute: { posts: boolean; stories: boolean }) {
+  if (!mute.posts && !mute.stories) ok(await supabase.from('community_mutes').delete().eq('muter_id', me).eq('muted_id', userId));
+  else ok(await supabase.from('community_mutes').upsert({ muter_id: me, muted_id: userId, posts: mute.posts, stories: mute.stories }, { onConflict: 'muter_id,muted_id' }));
+  announce('feed');
+  announce('stories');
+  announce('profile');
+}
+
+/**
+ * Restrict someone: their new comments on your posts show only to them and you, their messages
+ * arrive as requests, and they can't see when you're active or have read their messages. They
+ * aren't told.
+ */
+export async function setRestricted(me: string, userId: string, on: boolean) {
+  if (on) ok(await supabase.from('community_restricts').upsert({ restricter_id: me, restricted_id: userId }, { onConflict: 'restricter_id,restricted_id' }));
+  else ok(await supabase.from('community_restricts').delete().eq('restricter_id', me).eq('restricted_id', userId));
+  announce('threads');
+  announce('profile');
+  announce('feed');
+}
+
+/** People you've muted (posts, stories or both), most recent first. */
+export async function listMuted(me: string): Promise<Profile[]> {
+  const rows: any[] = ok(await supabase.from('community_mutes').select('muted_id').eq('muter_id', me).order('created_at', { ascending: false })) ?? [];
+  return profilesInOrder(rows.map((r) => r.muted_id));
+}
+
+/** People you've restricted, most recent first. */
+export async function listRestricted(me: string): Promise<Profile[]> {
+  const rows: any[] = ok(await supabase.from('community_restricts').select('restricted_id').eq('restricter_id', me).order('created_at', { ascending: false })) ?? [];
+  return profilesInOrder(rows.map((r) => r.restricted_id));
+}
 
 export async function listBlocked(me: string): Promise<Profile[]> {
   const rows: any[] = ok(await supabase.from('community_blocks').select('blocked_id').eq('blocker_id', me).order('created_at', { ascending: false })) ?? [];
