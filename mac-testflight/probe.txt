@@ -1,0 +1,31 @@
+== apps
+   ('6807178346', 'SDAAPPGEMINI', 'Kojo.SDAAPPGEMINI')
+   ('6771246499', 'SDA Community Gemini', 'com.sdacommunity.app')
+   ('6801308963', 'Church Community', 'ai.mwm.6ba863d3-0dbc-447d-94e9-8ab105c8b549')
+   ('6770165742', 'SeventhDayAdventist', 'ai.mwm.00a88ef5-a19b-440c-95ad-a7549f56a81c')
+== app store versions
+   ('8db3eb14-2620-43cc-9716-bade119e95c4', {'platform': 'MAC_OS', 'versionString': '1.0', 'appStoreState': 'PREPARE_FOR_SUBMISSION'})
+   ('cf49e475-08ab-41ff-8883-b5f322820883', {'platform': 'IOS', 'versionString': '1.0', 'appStoreState': 'PREPARE_FOR_SUBMISSION'})
+   ('c540d2d9-9a36-4102-bd58-5ccd81af48d3', {'platform': 'VISION_OS', 'versionString': '1.0', 'appStoreState': 'PREPARE_FOR_SUBMISSION'})
+== latest builds
+   {'version': '121', 'uploadedDate': '2026-10-10T16:46:44-07:00', 'expired': False, 'processingState': 'VALID'}
+   {'version': '2026100911', 'uploadedDate': '2026-10-10T16:08:40-07:00', 'expired': False, 'processingState': 'VALID'}
+   {'version': '120', 'uploadedDate': '2026-10-10T15:07:40-07:00', 'expired': False, 'processingState': 'VALID'}
+   {'version': '119', 'uploadedDate': '2026-10-10T13:07:38-07:00', 'expired': False, 'processingState': 'VALID'}
+   {'version': '2026100910', 'uploadedDate': '2026-10-10T11:50:08-07:00', 'expired': False, 'processingState': 'VALID'}
+== beta groups
+   ('2c3b0180-be5d-446a-9359-1e9ba653dd87', {'name': 'Kojo', 'isInternalGroup': True, 'hasAccessToAllBuilds': True})
+   ('f835fab9-012f-4919-ba58-5cf2eca3f7b7', {'name': 'Kojo', 'isInternalGroup': False, 'hasAccessToAllBuilds': None})
+== bundle ids
+   ('23P6M37K28', {'name': 'sdasso', 'identifier': 'Kojo.SDAAPPGEMINI.sso', 'platform': 'SERVICES', 'seedId': 'QRMLKZR9B8'})
+   ('3L2N82DB3B', {'name': 'Church Community', 'identifier': 'ai.mwm.6ba863d3-0dbc-447d-94e9-8ab105c8b549', 'platform': 'UNIVERSAL', 'seedId': 'QRMLKZR9B8'})
+   ('8BFSM82VCK', {'name': 'XC Kojo Seventh-Day-Adventist-Community', 'identifier': 'Kojo.Seventh-Day-Adventist-Community', 'platform': 'UNIVERSAL', 'seedId': 'QRMLKZR9B8'})
+   ('C4N9479U5M', {'name': 'SDAAPPGEMINI created by Xcode Cloud', 'identifier': 'Kojo.SDAAPPGEMINI', 'platform': 'UNIVERSAL', 'seedId': 'QRMLKZR9B8'})
+   ('VY22M9GLUR', {'name': 'kojotoku54sdacommunity c5b7a2c70ed3d58d6fb6d35f54df853f', 'identifier': 'com.sdacommunity.app', 'platform': 'UNIVERSAL', 'seedId': 'QRMLKZR9B8'})
+== certificates
+   ('5MDKUXNC8T', {'serialNumber': '70018121C89EE9FE8FF9686C035DD267', 'displayName': 'Kingsford Toku', 'name': 'Apple Distribution: Kingsford Toku', 'platform': None, 'expirationDate': '2027-09-08T09:11:27.000+00:00', 'certificateType': 'DISTRIBUTION'})
+   ('5Z6K39T22V', {'serialNumber': 'DB0C7658DD52F6A09942CFB397DA6D4', 'displayName': 'Kingsford Toku', 'name': 'Apple Development: Kingsford Toku', 'platform': None, 'expirationDate': '2027-08-31T20:09:23.000+00:00', 'certificateType': 'DEVELOPMENT'})
+   ('JR5CQGS35H', {'serialNumber': '2A5E990F6C186068AEEDFED3E6749B6C', 'displayName': 'Kingsford Toku', 'name': 'iOS Distribution: Kingsford Toku', 'platform': 'IOS', 'expirationDate': '2027-08-31T22:04:13.000+00:00', 'certificateType': 'IOS_DISTRIBUTION'})
+   ('LNB5JWT29S', {'serialNumber': '6809DD66C996A7FDF5EF27A8C0546507', 'displayName': 'Kingsford Toku', 'name': 'iOS Distribution: Kingsford Toku', 'platform': 'IOS', 'expirationDate': '2027-08-12T22:45:05.000+00:00', 'certificateType': 'IOS_DISTRIBUTION'})
+   ('PRZR6A95J9', {'serialNumber': '5336A4D09501A527787D8F49B18B2929', 'displayName': 'Kingsford Toku', 'name': 'Apple Distribution: Kingsford Toku', 'platform': None, 'expirationDate': '2027-09-09T04:34:21.000+00:00', 'certificateType': 'DISTRIBUTION'})
+== profiles
