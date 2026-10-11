@@ -23,6 +23,7 @@ import { Hymnal } from './screens/hymnal';
 import { Churches } from './screens/churches';
 import { Groups } from './screens/groups';
 import { FriendsMap } from './screens/map';
+import { Events } from './screens/events';
 import { Archive, Help } from './screens/account';
 import { Dashboard } from './screens/dashboard';
 import { Plus } from './screens/plus';
@@ -237,6 +238,9 @@ function Shell() {
       break;
     case 'map':
       screen = <FriendsMap />;
+      break;
+    case 'events':
+      screen = <Events path={route} />;
       break;
     case 'admin':
       screen = <Admin path={route} />;

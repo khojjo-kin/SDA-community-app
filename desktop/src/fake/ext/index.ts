@@ -2,6 +2,8 @@
 import { ext as admin } from './admin';
 import { ext as church } from './church';
 import { ext as community } from './community';
+import { ext as events } from './events';
+import { ext as social } from './social';
 import { ext as frame } from './frame';
 import { ext as messages } from './messages';
 import { ext as posts } from './posts';
@@ -10,4 +12,4 @@ import { ext as profile } from './profile';
 import { ext as settings } from './settings';
 import { ext as stories } from './stories';
 
-export const EXTENSIONS = [frame, profile, posts, stories, settings, pro, messages, church, community, admin];
+export const EXTENSIONS = [frame, profile, posts, stories, settings, pro, messages, church, community, admin, social, events];

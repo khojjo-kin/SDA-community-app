@@ -237,6 +237,8 @@ function ChurchApps({ close }: { close: () => void }) {
     { icon: 'hymnal', label: 'churchApps.hymnal', sub: 'd.frame.appHymnalSub', to: '/hymnal' },
     { icon: 'headphones', label: 'churchApps.pod', sub: 'd.frame.appPodSub', to: '/pod' },
     { icon: 'church', label: 'churchApps.churches', sub: 'd.frame.appChurchesSub', to: '/churches' },
+    { icon: 'calendar', label: 'churchApps.events', sub: '', to: '/events' },
+    { icon: 'pin', label: 'churchApps.map', sub: '', to: '/map' },
     { icon: 'people', label: 'd.frame.appGroups', sub: 'd.frame.appGroupsSub', to: '/groups' },
     { icon: 'sparkle', label: 'd.frame.appErha', sub: 'd.frame.appErhaSub', to: '/direct/erha' },
   ];

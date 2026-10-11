@@ -3,6 +3,9 @@ import type { LanguageCode } from 'shared/i18n';
 import type { AreaWords, Words } from './types';
 import { words as church } from './church';
 import { words as community } from './community';
+import { words as events } from './events';
+import { words as polish } from './polish';
+import { words as social } from './social';
 import { words as frame } from './frame';
 import { words as messages } from './messages';
 import { words as plus } from './plus';
@@ -13,7 +16,7 @@ import { words as settings } from './settings';
 import { words as settingsMore } from './settings-more';
 import { words as stories } from './stories';
 
-const AREAS: AreaWords[] = [frame, posts, profile, stories, messages, settings, settingsMore, plus, pro, church, community];
+const AREAS: AreaWords[] = [frame, posts, profile, stories, messages, settings, settingsMore, plus, pro, church, community, social, events, polish];
 
 /** language → key → words. English has every key. */
 export const DESKTOP_WORDS: Partial<Record<LanguageCode, Words>> = {};
