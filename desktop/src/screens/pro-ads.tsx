@@ -201,7 +201,7 @@ export function AdTools() {
               <Icon name="image" size={30} stroke={1.6} />
             </span>
             <h3>{t(ads.data.length === 0 ? 'd.pro.noAds' : NONE_LABEL[filter])}</h3>
-            <p>{ads.data.length === 0 ? t('d.pro.noAdsBody') : t('d.pro.tryAnotherFilter')}</p>
+            {ads.data.length === 0 ? null : <p>{t('d.pro.tryAnotherFilter')}</p>}
           </div>
         ) : null}
       </>
@@ -211,12 +211,7 @@ export function AdTools() {
     <div className="pro-split">
       <section className="pro-main">
         <div className="pro-section-head">
-          <h2 className="pro-with-info">
-            {t('d.pro.manageAds')}
-            <span className="pro-info" tabIndex={0} aria-label={t('d.pro.aboutAds')} data-tip={t('d.pro.aboutAdsTip')}>
-              <Icon name="info" size={18} />
-            </span>
-          </h2>
+          <h2>{t('d.pro.manageAds')}</h2>
           <div className="pro-filters">
             <Dropdown label={t(FILTERS.find((f) => f.value === filter)!.label)} items={shown(FILTERS)} value={filter} onChange={setFilter} menuLabel={t('d.pro.show')} />
             <Dropdown label={t(SORTS.find((s) => s.value === sort)!.label)} items={shown(SORTS)} value={sort} onChange={setSort} menuLabel={t('d.pro.sortBy')} />
@@ -232,7 +227,7 @@ export function AdTools() {
           <span className="pro-next-thumb">{top && thumbOf(top) ? <img src={thumbOf(top)} alt="" /> : <Icon name="image" size={22} />}</span>
           <span className="grow">
             <b>{t('d.pro.topPost')}</b>
-            <span>{top ? t('d.pro.topPostBody') : posts.data ? t('d.pro.topPostNone') : t('d.pro.topPostFinding')}</span>
+            {top ? null : <span>{posts.data ? t('d.pro.topPostNone') : t('d.pro.topPostFinding')}</span>}
           </span>
           <Icon name="right" size={20} />
         </button>
@@ -256,7 +251,6 @@ export function AdTools() {
         </Link>
 
         <h3 className="pro-aside-h">{t('creatorSubs.payouts')}</h3>
-        <p className="muted-text small pro-aside-p">{t('d.pro.payoutsFor')}</p>
         <PayoutBox compact />
         <Link to="/dashboard/fundraisers" className="pro-link-row">
           <Icon name="heart" size={20} />
@@ -338,7 +332,6 @@ function CreateAd({ posts, initialPostId, onClose, onDone }: { posts: Post[]; in
     return (
       <Modal title={t('d.pro.createAd')} onClose={onClose} wide className="pro-modal">
         <div className="pro-modal-body">
-          <p className="muted-text">{t('d.pro.choosePost')}</p>
           {posts.length ? (
             <div className="pro-pick-grid" role="listbox" aria-label={t('d.pro.yourPosts')}>
               {posts.map((p) => (
@@ -479,7 +472,6 @@ function NewLook({ onClose }: { onClose: () => void }) {
           </span>
         </div>
         <h2>{t('d.pro.newLook')}</h2>
-        <p>{t('d.pro.newLookBody')}</p>
       </div>
       <button className="pro-newlook-ok" onClick={onClose}>
         {t('d.pro.gotIt')}
@@ -503,16 +495,12 @@ export function Billing() {
       <div className="pro-split">
         <section className="pro-main">
           <div className="pro-section-head">
-            <div>
-              <h2>{t('plus.paymentHistory')}</h2>
-              <p className="muted-text">{t('d.pro.historySub')}</p>
-            </div>
+            <h2>{t('plus.paymentHistory')}</h2>
           </div>
           <PaymentHistory />
         </section>
         <aside className="pro-aside">
           <h3 className="pro-aside-h">{t('plus.paymentMethods')}</h3>
-          <p className="muted-text small pro-aside-p">{t('d.pro.methodsNote')}</p>
           <SavedCards />
         </aside>
       </div>

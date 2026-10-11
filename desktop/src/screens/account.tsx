@@ -10,7 +10,8 @@ import { openCreate } from '../lib/create';
 import { dateLocale, languageCode, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Empty, Failed, Icon, Link, Spinner, toast, toastError, useLoad } from '../ui/kit';
+import { Empty, Failed, Icon, Link, toast, toastError, useLoad } from '../ui/kit';
+import { GridSkeleton } from '../ui/skeleton';
 import { ArchiveViewer, StoryThumb } from '../ui/story-archive';
 import '../styles/settings.css';
 
@@ -86,13 +87,12 @@ export function Archive() {
           )
         ) : null}
       </div>
-      <p className="muted-text">{t('d.frame.archiveNote')}</p>
       {list.loading && !list.data ? (
-        <Spinner />
+        <GridSkeleton count={8} kind="shorts" />
       ) : list.error ? (
         <Failed error={list.error} retry={list.reload} />
       ) : !list.data?.length ? (
-        <Empty icon="archive" title={t('d.frame.noStories')} body={t('d.frame.noStoriesBody')}>
+        <Empty icon="archive" title={t('d.frame.noStories')}>
           <button className="btn" onClick={() => openCreate({ mode: 'story' })}>
             {t('profile.addToStory')}
           </button>

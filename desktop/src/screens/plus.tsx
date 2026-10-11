@@ -401,9 +401,7 @@ export function Plus() {
               <span className="pro-plus-have">
                 <Icon name="check" size={15} stroke={2.6} /> {me.plus_until ? t('plus.youHavePlusUntil', { day: longDay(me.plus_until) }) : t('plus.youHavePlus')}
               </span>
-            ) : (
-              <p className="muted-text">{t('d.plus.heroSub')}</p>
-            )}
+            ) : null}
           </header>
 
           {hasSub && billing ? (
@@ -578,9 +576,7 @@ export function Plus() {
                 <button className="btn block big" disabled={!button.on || !!busy} onClick={button.onClick}>
                   {busy === 'pay' ? t('d.plus.processing') : button.label}
                 </button>
-              ) : (
-                <p className="muted-text small center">{t('d.plus.onThisPlan')}</p>
-              )}
+              ) : null}
               {config?.test_mode ? <p className="pro-terms center">{t('d.plus.testMode')}</p> : null}
               <p className="pro-terms center">
                 <Icon name="lock" size={12} /> {t('d.plus.stripeCancelAnyTime')}

@@ -1,9 +1,11 @@
-// The banner admins publish from the console (service times, maintenance, events). Each one can be
-// closed, and stays closed on this computer.
+// The announcement admins publish from the console (service times, maintenance, events), as a plain
+// line of words above the page (no box, as the iPhone now sets such lines). Each one can be closed,
+// and stays closed on this computer.
 import React, { useEffect, useState } from 'react';
 import { type Announcement, liveAnnouncements } from '../lib/admin';
 import { t } from '../lib/i18n';
 import { Icon } from './kit';
+import '../styles/polish.css';
 
 const KEY = 'community.dismissedAnnouncements';
 const readDismissed = (): string[] => {

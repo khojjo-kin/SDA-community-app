@@ -12,8 +12,10 @@ import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
 import { AccountSwitcher } from './accounts';
-import { Avatar, Icon, type IconName, Link, Spinner, Verified, toastError, useOutside } from './kit';
+import { Avatar, Icon, type IconName, Link, Verified, toastError, useOutside } from './kit';
+import { RowsSkeleton } from './skeleton';
 import logo from './logo-white.png';
+import '../styles/polish.css';
 
 export type Panel = 'notifications' | null;
 export type CreateMode = 'post' | 'story' | 'short' | 'live' | 'ad';
@@ -228,19 +230,19 @@ function MoreMenu({ close, openSwitcher }: { close: () => void; openSwitcher: ()
   );
 }
 
-/** The church's own apps, the way Instagram lists Meta's: one place for all of them, as on the iPhone. */
+/** The church's own apps, the way Instagram lists Meta's: one place for all of them, as on the iPhone. Names only. */
 function ChurchApps({ close }: { close: () => void }) {
-  // label and sub are keys, drawn with t() below.
-  const apps: { icon: IconName; label: string; sub: string; to: string }[] = [
-    { icon: 'bible', label: 'churchApps.bible', sub: 'd.frame.appBibleSub', to: '/bible' },
-    { icon: 'lesson', label: 'churchApps.sabbathSchool', sub: 'd.frame.appLessonsSub', to: '/lessons' },
-    { icon: 'hymnal', label: 'churchApps.hymnal', sub: 'd.frame.appHymnalSub', to: '/hymnal' },
-    { icon: 'headphones', label: 'churchApps.pod', sub: 'd.frame.appPodSub', to: '/pod' },
-    { icon: 'church', label: 'churchApps.churches', sub: 'd.frame.appChurchesSub', to: '/churches' },
-    { icon: 'calendar', label: 'churchApps.events', sub: '', to: '/events' },
-    { icon: 'pin', label: 'churchApps.map', sub: '', to: '/map' },
-    { icon: 'people', label: 'd.frame.appGroups', sub: 'd.frame.appGroupsSub', to: '/groups' },
-    { icon: 'sparkle', label: 'd.frame.appErha', sub: 'd.frame.appErhaSub', to: '/direct/erha' },
+  // label is a key, drawn with t() below.
+  const apps: { icon: IconName; label: string; to: string }[] = [
+    { icon: 'bible', label: 'churchApps.bible', to: '/bible' },
+    { icon: 'lesson', label: 'churchApps.sabbathSchool', to: '/lessons' },
+    { icon: 'hymnal', label: 'churchApps.hymnal', to: '/hymnal' },
+    { icon: 'headphones', label: 'churchApps.pod', to: '/pod' },
+    { icon: 'church', label: 'churchApps.churches', to: '/churches' },
+    { icon: 'calendar', label: 'churchApps.events', to: '/events' },
+    { icon: 'pin', label: 'churchApps.map', to: '/map' },
+    { icon: 'people', label: 'd.frame.appGroups', to: '/groups' },
+    { icon: 'sparkle', label: 'd.frame.appErha', to: '/direct/erha' },
   ];
   return (
     <div className="popover apps-pop" role="menu">
@@ -261,7 +263,6 @@ function ChurchApps({ close }: { close: () => void }) {
           </span>
           <span className="app-text">
             <b>{t(a.label)}</b>
-            <span>{t(a.sub)}</span>
           </span>
         </a>
       ))}
@@ -434,14 +435,13 @@ export function NotificationsPanel({ close }: { close: () => void }) {
             <span className="nav-dot static" />
           </button>
         ) : null}
-        {list === null ? <Spinner /> : null}
+        {list === null ? <RowsSkeleton count={6} /> : null}
         {list && !shown.length ? (
           <div className="empty small">
             <span className="empty-ring">
               <Icon name="heart" size={30} />
             </span>
             <p>{filter === 'all' ? t('notifications.emptyTitle') : t('bibleMarks.emptyFilter')}</p>
-            <span className="muted-text">{t('d.frame.noticesEmpty')}</span>
           </div>
         ) : null}
         {shown.map((n) => {

@@ -365,7 +365,6 @@ export function AboutAccount({ userId, onClose }: { userId: string; onClose: () 
               {p.username}
               {p.verified ? <Verified size={14} /> : null}
             </b>
-            <p>{t('profile.aboutIntro')}</p>
           </div>
           {joined && !Number.isNaN(joined.getTime()) ? <AboutRow icon="calendar" title={t('profile.dateJoined')} value={monthYear(joined)} /> : null}
           {p.country ? <AboutRow icon="location" title={t('profile.basedIn')} value={p.country} /> : null}
@@ -497,7 +496,6 @@ export function StorySettings({ onClose, onLeave }: { onClose: () => void; onLea
         {me.plus ? (
           <>
             <h3>{t('settings.storyAlerts')}</h3>
-            <p className="sv-settings-note">{t('d.stories.alertsNote')}</p>
             {alerts === null ? <Spinner size={20} /> : null}
             {alerts && !alerts.length ? <p className="sv-settings-note">{t('d.stories.noOneYet')}</p> : null}
             {(alerts ?? []).map((p) => (

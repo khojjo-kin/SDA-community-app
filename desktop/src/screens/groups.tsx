@@ -139,7 +139,7 @@ function GroupsHome() {
 
       <h3 className="section-h">{t('d.community.yours')}</h3>
       {mine.loading && !mine.data ? <Spinner /> : mine.error && !mine.data ? <Failed error={mine.error} retry={mine.reload} /> : null}
-      {mine.data && !yours.length ? <p className="muted-text cm-none">{needle ? t('d.community.noneOfYours') : t('d.community.notInAny')}</p> : null}
+      {mine.data && !yours.length && needle ? <p className="muted-text cm-none">{t('d.community.noneOfYours')}</p> : null}
       <div className="group-grid cm-grid-cards">{yours.map((g) => <GroupCard key={g.id} g={g} />)}</div>
 
       <div className="cm-section-head">
@@ -157,11 +157,11 @@ function GroupsHome() {
         needle && yours.length ? (
           <p className="muted-text cm-none">{t('d.community.nothingElse')}</p>
         ) : needle ? (
-          <Empty icon="search" title={t('d.community.nothingMatches')} body={t('d.community.tryAnotherName')} />
+          <Empty icon="search" title={t('d.community.nothingMatches')} />
         ) : kind !== 'all' ? (
           <p className="muted-text cm-none">{kind === 'page' ? t('d.community.noPagesToDiscover') : t('d.community.noCommunitiesToDiscover')}</p>
         ) : (
-          <Empty icon="users" title={t('bibleMarks.emptyFilter')} body={t('d.community.startOne')}>
+          <Empty icon="users" title={t('bibleMarks.emptyFilter')}>
             <button className="btn" onClick={() => nav('/groups/new')}>
               {t('common.create')}
             </button>

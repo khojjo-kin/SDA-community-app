@@ -751,12 +751,13 @@ function sampleVideo() {
     await page.waitForSelector('.pp-first');
     const writing = page.locator('.pp-first .pp-writing');
     const progress = () => writing.evaluate((el) => [Number(el.dataset.shown), Number(el.dataset.total)]);
-    check('my empty Posts tab invites me to share', (await page.locator('.pp-first').getAttribute('aria-label')) === 'Share your first photo or Short');
+    // The iPhone's words since its newest update, signed in a handwriting script (tests/polish.test.cjs checks the face).
+    check('my empty Posts tab invites me to share', (await page.locator('.pp-first').getAttribute('aria-label')) === 'Share your first post');
     await wait(900);
     const [part, total] = await progress();
     check('its words write themselves letter by letter', part > 0 && part < total, part + '/' + total);
     await page.waitForFunction(() => { const el = document.querySelector('.pp-first .pp-writing'); return el && el.dataset.shown === el.dataset.total; }, null, { timeout: 6000 }).catch(() => {});
-    check('until they are all written', (await page.locator('.pp-first .pp-written').innerText()) === 'Share your first photo or Short');
+    check('until they are all written', (await page.locator('.pp-first .pp-written').innerText()) === 'Share your first post');
     await page.locator('.pp-first').scrollIntoViewIfNeeded();
     await shot('posts-24-empty-tab-dark');
     await page.locator('.pp-first').click();

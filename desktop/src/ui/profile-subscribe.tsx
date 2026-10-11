@@ -16,6 +16,14 @@ import '../styles/profile.css';
 const LIVE = ['active', 'trialing', 'past_due'];
 
 /**
+ * Whether a profile shows Subscribe, as on the iPhone: only for a creator who has subscriptions on and
+ * keeps posts for subscribers, or for someone already subscribed (to see or cancel it).
+ */
+export function offersSubscribe(p: Profile): boolean {
+  return !!p.subscribed || (!!p.sub_price_pence && (p.subscriber_posts ?? 0) > 0);
+}
+
+/**
  * Starts (or, for a failed renewal, pays) a subscription to `creator`, then waits until Stripe has it
  * on. Returns true once subscribed.
  */

@@ -305,7 +305,6 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
                 <Icon name="image" size={20} />
                 <span className="grow">
                   <b>{t('d.profile.uploadPhoto')}</b>
-                  <span className="muted-text small block">{t('d.profile.uploadAny')}</span>
                 </span>
                 <input type="file" accept="image/*" hidden disabled={uploading} aria-label={t('d.profile.uploadCoverLabel')} onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -318,7 +317,6 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
                 <Icon name="image" size={20} />
                 <span className="grow">
                   <b>{t('d.profile.uploadPhoto')}</b>
-                  <span className="muted-text small block">{t('d.profile.uploadWithPlus')}</span>
                 </span>
                 <span className="prof-plus-tag">{t('common.plus')}</span>
               </button>
@@ -330,7 +328,6 @@ export function HighlightEditor({ id, ringColor, onClose }: { id: string; ringCo
             <Icon name="crown" size={24} />
             <div className="grow">
               <b>{t('d.profile.ownCover')}</b>
-              <p className="muted-text">{t('d.profile.ownCoverBody')}</p>
             </div>
             <button
               className="btn"

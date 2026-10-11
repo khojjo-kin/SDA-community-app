@@ -1,24 +1,58 @@
-// Before the app: the log-in page (Instagram's desktop layout, with Clerk's own forms), setting up a
-// new account as the iPhone does today (date of birth first, then the profile with consent for
-// information that may show your faith), and the screens for deactivated or suspended accounts.
+// Before the app: the log-in page (Instagram's 2026 desktop layout: the pictures on the left, the form
+// on the right, with Clerk's own forms), setting up a new account as the iPhone does today (date of
+// birth first, then the profile with consent for information that may show your faith), and the
+// screens for deactivated or suspended accounts. All of them follow the member's appearance, Dark or
+// White, like the iPhone's redesigned sign-in pages (src/components/AuthShell.tsx there); a button in
+// the corner switches it here, as the More menu does once signed in.
 import React, { useEffect, useRef, useState } from 'react';
 import { createProfile, MINOR_AGE, purgeDate, restoreAccount, setBirthDate, uploadImage } from 'shared/api';
 import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13 } from 'shared/age';
 import { noteConsentToRecord, recordConsentFor } from 'shared/consent';
 import { errText } from 'shared/theme';
 import type { Profile } from 'shared/types';
+import { setAppearance, useAppearance } from '../lib/appearance';
 import { useAuth } from '../lib/auth';
 import { dateLocale, t } from '../lib/i18n';
 import { rememberSize } from '../shims/expo-file-system';
-import { Avatar } from '../ui/kit';
+import { Avatar, Icon } from '../ui/kit';
 import { Wordmark } from '../ui/sidebar';
+import logo from '../ui/logo-white.png';
 import { LegalDialog } from './legal';
 import { BirthDateInput, CannotJoin, EMPTY_BIRTH, MinorRules, checkBirthDate, type BirthParts } from './settings-birthday';
-import art1 from '../../../assets/auth-bg.jpg';
-import art2 from '../../../assets/auth-church.jpg';
-import art3 from '../../../assets/auth-bible.jpg';
+import art1 from '../../../assets/auth-church.jpg';
+import art2 from '../../../assets/auth-bible.jpg';
+import art3 from '../../../assets/auth-desk.jpg';
+import '../styles/entry.css';
 
+/** The iPhone's sign-in photographs (portrait), shown as a fan of three that turns every few seconds. */
 const ART = [art1, art2, art3];
+
+/**
+ * The app's mark and name, with "Seventh-day Adventist" under them as on the iPhone. The mark is the
+ * white logo used as a stencil, so it takes the theme's text colour.
+ */
+export function Brand() {
+  return (
+    <div className="en-brand">
+      <span className="en-brand-row">
+        <span className="en-mark" style={{ WebkitMaskImage: `url(${logo})`, maskImage: `url(${logo})` }} aria-hidden="true" />
+        <Wordmark />
+      </span>
+      {/* The church's name, as the iPhone writes it in every language. */}
+      <span className="en-eyebrow">Seventh-day Adventist</span>
+    </div>
+  );
+}
+
+/** Switches Dark and White before signing in (More → Switch appearance does it afterwards). */
+function AppearanceButton() {
+  const look = useAppearance();
+  return (
+    <button type="button" className="en-look icon-btn" onClick={() => setAppearance(look === 'white' ? 'dark' : 'white')} aria-label={t('d.frame.appearance')} title={t('d.frame.appearance')}>
+      <Icon name={look === 'white' ? 'moon' : 'sun'} size={20} />
+    </button>
+  );
+}
 
 /**
  * A sentence with links (or anything else drawn differently) in its {gaps}, kept whole for
@@ -52,8 +86,11 @@ function LegalLinks() {
 
 export function Login() {
   const auth = useAuth();
+  const look = useAppearance();
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>(() => (location.hash === '#/sign-up' ? 'sign-up' : 'sign-in'));
   const [art, setArt] = useState(0);
+  // While a field of the form is being typed in, the pictures step back, as the iPhone's photo folds away.
+  const [typing, setTyping] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const t = setInterval(() => setArt((a) => (a + 1) % ART.length), 5000);
@@ -64,26 +101,32 @@ export function Login() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // Clerk's form is drawn again in the new colours when the appearance changes.
   useEffect(() => {
     if (!box.current || auth.demo) return;
     return auth.mountForm(box.current, mode);
-  }, [mode, auth.ready]);
+  }, [mode, auth.ready, look]);
+  const isField = (e: React.FocusEvent) => !!(e.target as HTMLElement).matches?.('input, textarea, select');
   return (
-    <main className="login">
-      <div className="login-art" aria-hidden="true">
-        <div className="phone back">
-          <img src={ART[(art + 1) % ART.length]} alt="" />
-        </div>
-        <div className="phone front">
-          {ART.map((src, i) => (
-            <img key={src} src={src} alt="" className={i === art ? 'on' : ''} />
-          ))}
+    <main className="login en-login">
+      <AppearanceButton />
+      <div className={'en-art' + (typing ? ' typing' : '')} aria-hidden="true">
+        <div className="en-fan">
+          {ART.map((src, i) => {
+            // The picture in front, the next one on the right, the one after it on the left.
+            const place = ['front', 'right', 'left'][(i - art + ART.length) % ART.length];
+            return (
+              <div key={src} className={'en-photo ' + place}>
+                <img src={src} alt="" />
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div className="login-side">
-        <div className="login-card">
-          <Wordmark />
-          <p className="login-tag">{t('d.frame.loginTag')}</p>
+      <div className="en-side" onFocus={(e) => isField(e) && setTyping(true)} onBlur={(e) => isField(e) && setTyping(false)}>
+        <div className="en-form">
+          <Brand />
+          {mode === 'sign-up' && !auth.demo ? <p className="en-tag">{t('auth.joinTagline')}</p> : null}
           {auth.error ? (
             <div className="login-error">
               <b>{t('d.frame.signInDown')}</b>
@@ -94,8 +137,7 @@ export function Login() {
             </div>
           ) : auth.demo ? (
             <div className="demo-login">
-              <p>{t('d.frame.demoLogin')}</p>
-              <button className="btn block" onClick={auth.demoSignIn}>
+              <button className="btn block big" onClick={auth.demoSignIn}>
                 {t('d.frame.demoLogIn')}
               </button>
             </div>
@@ -104,25 +146,24 @@ export function Login() {
           )}
         </div>
         {!auth.demo ? (
-          <div className="login-card small">
+          <p className="en-switch">
             {mode === 'sign-in' ? (
-              <p>
+              <>
                 {t('auth.noAccount')}{' '}
                 <a href="#/sign-up" className="link-btn">
                   {t('auth.signUp')}
                 </a>
-              </p>
+              </>
             ) : (
-              <p>
+              <>
                 {t('auth.haveAccount')}{' '}
                 <a href="#/sign-in" className="link-btn">
                   {t('auth.logIn')}
                 </a>
-              </p>
+              </>
             )}
-          </div>
+          </p>
         ) : null}
-        <p className="login-note">{t('d.frame.sameAccount')}</p>
         <LegalLinks />
       </div>
     </main>
@@ -235,9 +276,10 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
   if (stage === 'checking') return <main className="onboard" />;
   if (stage === 'child') {
     return (
-      <main className="onboard">
+      <main className="onboard en-onboard">
+        <AppearanceButton />
         <div className="login-card st-onboard">
-          <Wordmark />
+          <Brand />
           <CannotJoin action={t('age.backToStart')} onAction={leave} busy={busy} />
         </div>
       </main>
@@ -245,9 +287,10 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
   }
   if (stage === 'minor') {
     return (
-      <main className="onboard">
+      <main className="onboard en-onboard">
+        <AppearanceButton />
         <div className="login-card st-onboard">
-          <Wordmark />
+          <Brand />
           <h2>{t('d.frame.minorTitle')}</h2>
           <p className="muted-text">{t('d.frame.minorIntro')}</p>
           <MinorRules />
@@ -260,7 +303,8 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
   }
   if (stage === 'birthday') {
     return (
-      <main className="onboard">
+      <main className="onboard en-onboard">
+        <AppearanceButton />
         <form
           className="login-card st-onboard"
           onSubmit={(e) => {
@@ -268,7 +312,7 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
             birthdayNext();
           }}
         >
-          <Wordmark />
+          <Brand />
           <h2>{t('age.title')}</h2>
           <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} note={t('age.why')} autoFocus />
           <button className="btn block big">{t('age.continue')}</button>
@@ -278,7 +322,8 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
     );
   }
   return (
-    <main className="onboard">
+    <main className="onboard en-onboard">
+      <AppearanceButton />
       <form
         className="login-card st-onboard"
         onSubmit={(e) => {
@@ -286,9 +331,8 @@ export function Onboarding({ onDone }: { onDone: (p: Profile | null) => void }) 
           create();
         }}
       >
-        <Wordmark />
+        <Brand />
         <h2>{t('d.frame.createProfile')}</h2>
-        <p className="muted-text">{t('d.frame.pickUsername')}</p>
         <label className="st-photo-pick">
           <Avatar src={photo?.url ?? user.imageUrl} name={name || username || '?'} size={88} />
           <span className="link-btn">{photo ? t('d.frame.changePhoto') : t('d.frame.addPhoto')}</span>
@@ -358,9 +402,10 @@ export function Deactivated({ profile, onRestored }: { profile: Profile; onResto
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   return (
-    <main className="onboard">
+    <main className="onboard en-onboard">
+      <AppearanceButton />
       <div className="login-card">
-        <Wordmark />
+        <Brand />
         <h2>{t('d.frame.deactivatedTitle')}</h2>
         <p className="muted-text">
           {t('d.frame.deactivatedBody', { username: profile.username, date: purgeDate(profile.deleted_at!).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) })}
@@ -394,9 +439,10 @@ export function Suspended() {
   const auth = useAuth();
   const [doc, setDoc] = useState('');
   return (
-    <main className="onboard">
+    <main className="onboard en-onboard">
+      <AppearanceButton />
       <div className="login-card">
-        <Wordmark />
+        <Brand />
         <h2>{t('d.frame.suspendedTitle')}</h2>
         <p className="muted-text">{t('d.frame.suspendedBody')}</p>
         <button type="button" className="link-btn" onClick={() => setDoc('guidelines')}>

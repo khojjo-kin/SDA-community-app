@@ -2,7 +2,8 @@
 // profile) and what each shows: Posts as a grid of portrait 3:4 tiles, Shorts as tall tiles with view
 // counts, Saved (your own only), Reposts and Tagged. A post opens the post dialog, which steps through
 // the tab's posts; a Short opens the Shorts player at it, with the tab's other Shorts round it. Your
-// own empty Posts and Shorts tabs write their invitation out letter by letter and open Create.
+// own empty Posts and Shorts tabs write their invitation out letter by letter in a handwriting script
+// and open Create.
 import React, { useEffect, useState } from 'react';
 import { fetchReposts, fetchSaved, fetchUserPosts } from 'shared/api';
 import { listen, putPosts } from 'shared/store';
@@ -12,11 +13,13 @@ import type { Post, Profile } from 'shared/types';
 import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Empty, Failed, Icon, type IconName, Spinner, useLoad } from '../ui/kit';
+import { Empty, Failed, Icon, type IconName, useLoad } from '../ui/kit';
 import { Tile } from '../ui/post';
 import { type GridSource, LIST_SOURCE, gridIds, openShortsFrom } from '../ui/post-data';
+import { GridSkeleton } from '../ui/skeleton';
 import '../styles/profile.css';
 import '../styles/posts.css';
+import '../styles/polish.css';
 
 export type ProfileTab = 'posts' | 'reels' | 'saved' | 'reposts' | 'tagged';
 
@@ -100,19 +103,17 @@ function ShortTile({ post, onOpen }: { post: Post; onOpen: (post: Post) => void 
   );
 }
 
-/** Subscriber-only posts this viewer can't see yet, as a card after the grid. */
+/**
+ * Subscriber-only posts this viewer can't see yet, under the grid: centred words, the way a private
+ * account says so, with no card around them (as on the iPhone). Only shown while subscriptions are on.
+ */
 function SubscriberCard({ person, onSubscribe }: { person: Profile; onSubscribe: () => void }) {
   const n = person.subscriber_posts ?? 0;
   return (
-    <button className="prof-subcard" onClick={onSubscribe} disabled={!person.sub_price_pence}>
-      <span className="prof-card-icon accent">
-        <Icon name="lock" size={20} />
-      </span>
-      <span className="prof-card-text">
-        <b>{tn('profile.subOnly', n, { count: fmt(n) })}</b>
-        <span className="prof-card-sub">{person.sub_price_pence ? t('profile.subscribeToSee') : t('profile.onlySubscribers')}</span>
-      </span>
-      {person.sub_price_pence ? <Icon name="right" size={18} /> : null}
+    <button className="prof-subcard po-subwords" onClick={onSubscribe}>
+      <Icon name="lock" size={26} />
+      <b>{tn('profile.subOnly', n, { count: fmt(n) })}</b>
+      <span className="po-subwords-go">{t('profile.subscribeToSee')}</span>
     </button>
   );
 }
@@ -120,10 +121,12 @@ function SubscriberCard({ person, onSubscribe }: { person: Profile; onSubscribe:
 /* ---------- words that write themselves ---------- */
 
 /*
- * As the iPhone's WritingText (src/components/WritingText.tsx): letter by letter in the app's green,
- * with a soft cursor blinking just after the last letter, then they rest; after a pause they write once
- * more, then stay. The whole line is laid out from the start (the letters still to come are clear), so
- * nothing moves as they appear. With "reduce motion" on, the words are simply there.
+ * As the iPhone's WritingText (src/components/WritingText.tsx): letter by letter, with a soft cursor
+ * blinking just after the last letter, then they rest; after a pause they write once more, then stay.
+ * The whole line is laid out from the start (the letters still to come are clear), so nothing moves as
+ * they appear. With "reduce motion" on, the words are simply there. On the empty profile they are
+ * signed in a handwriting script, in the page's text colour (white in Dark), as the iPhone now signs
+ * them, with a fine stroke drawn under them once written.
  */
 const LETTER_MS = 52;
 const SPACE_MS = 95;
@@ -216,7 +219,7 @@ export function WritingText({ text, again = true }: { text: string; again?: bool
     // `letters` follows `text`.
   }, [text, reduce, again]);
   return (
-    <span className="pp-writing" data-shown={shown} data-total={letters.length}>
+    <span className={'pp-writing' + (shown >= letters.length ? ' done' : '')} data-shown={shown} data-total={letters.length}>
       <span className="pp-sr">{text}</span>
       <span aria-hidden="true">
         <span className="pp-written">{letters.slice(0, shown).join('')}</span>
@@ -227,18 +230,34 @@ export function WritingText({ text, again = true }: { text: string; again?: bool
   );
 }
 
-/** "Share your first photo or Short": on your own empty tab, the words write themselves; a click opens Create. */
-function ShareFirst({ icon, title, body, onClick }: { icon: IconName; title: string; body: string; onClick: () => void }) {
+/**
+ * The handwriting face: Snell Roundhand, the flowing script the iPhone signs with, which every Mac has;
+ * elsewhere Great Vibes, a similar script from Google Fonts (asked for the first time it is needed, as
+ * lib/font.ts does for the app's faces); the system's cursive face until it arrives or if it can't.
+ */
+const SCRIPT_CSS = 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap';
+function useScriptFace() {
+  useEffect(() => {
+    if (document.querySelector(`link[href="${SCRIPT_CSS}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = SCRIPT_CSS;
+    document.head.appendChild(link);
+  }, []);
+}
+
+/** "Share your first post": on your own empty tab, the words sign themselves; a click opens Create. */
+function ShareFirst({ icon, title, onClick }: { icon: IconName; title: string; onClick: () => void }) {
+  useScriptFace();
   return (
     <div className="empty pp-first-wrap">
-      <button type="button" className="pp-first" onClick={onClick} aria-label={title}>
+      <button type="button" className="pp-first po-signed" onClick={onClick} aria-label={title}>
         <span className="empty-ring">
           <Icon name={icon} size={34} stroke={1.5} />
         </span>
-        <span className="pp-first-title">
+        <span className="pp-first-title po-script">
           <WritingText text={title} />
         </span>
-        <span className="pp-first-body">{body}</span>
       </button>
     </div>
   );
@@ -256,33 +275,34 @@ export function ProfileGrid({ person, tab, mine, openPost, onCreate, onSubscribe
   useEffect(() => listen('profile', reload), [person.id, tab]);
   useEffect(() => listen('feed', reload), [person.id, tab]);
 
-  if (loading && !data) return <Spinner />;
+  // While the tab loads, the shape of its grid shimmers where the tiles will be.
+  if (loading && !data) return <GridSkeleton kind={tab === 'reels' ? 'shorts' : 'posts'} count={tab === 'reels' ? 8 : 9} />;
   if (error) return <Failed error={error} retry={reload} />;
   const posts = data ?? [];
   // Posts kept for subscribers, which this viewer can't see yet.
-  const locked = tab === 'posts' && !mine && !person.subscribed && (person.subscriber_posts ?? 0) > 0 ? <SubscriberCard person={person} onSubscribe={onSubscribe} /> : null;
+  // Only while the creator has subscriptions on: with them off there is nothing to offer (as on the iPhone).
+  const locked = tab === 'posts' && !mine && !person.subscribed && (person.subscriber_posts ?? 0) > 0 && !!person.sub_price_pence ? <SubscriberCard person={person} onSubscribe={onSubscribe} /> : null;
 
   if (!posts.length) {
     if (locked) return <div className="prof-grid-end">{locked}</div>;
-    const name = person.username;
     switch (tab) {
       case 'saved':
-        return <Empty icon="bookmark" title={t('ssPub.save')} body={t('d.profile.savedBody')} />;
+        return <Empty icon="bookmark" title={t('ssPub.save')} />;
       case 'reposts':
-        return <Empty icon="repost" title={t('profile.emptyNoReposts')} body={mine ? t('profile.emptyMyRepostsBody') : t('profile.emptyTheirRepostsBody', { username: name })} />;
+        return <Empty icon="repost" title={t('profile.emptyNoReposts')} />;
       case 'tagged':
-        return <Empty icon="tagged" title={mine ? t('d.profile.photosOfYou') : t('d.profile.noPhotos')} body={mine ? t('d.profile.taggedMineBody') : t('d.profile.taggedTheirsBody', { username: name })} />;
+        return <Empty icon="tagged" title={mine ? t('d.profile.photosOfYou') : t('d.profile.noPhotos')} />;
       case 'reels':
         return mine ? (
-          <ShareFirst icon="reels" title={t('d.profile.firstShort')} body={t('d.profile.firstShortBody')} onClick={() => onCreate('short')} />
+          <ShareFirst icon="reels" title={t('d.profile.firstShort')} onClick={() => onCreate('short')} />
         ) : (
-          <Empty icon="reels" title={t('d.profile.noShorts')} body={t('profile.emptyNoClipsBody', { username: name })} />
+          <Empty icon="reels" title={t('d.profile.noShorts')} />
         );
       default:
         return mine ? (
-          <ShareFirst icon="camera" title={t('d.profile.firstPost')} body={t('d.profile.firstPostBody')} onClick={() => onCreate('post')} />
+          <ShareFirst icon="camera" title={t('profile.shareFirstPost')} onClick={() => onCreate('post')} />
         ) : (
-          <Empty icon="camera" title={t('profile.emptyNoPosts')} body={t('profile.emptyNoPostsBody', { username: name })} />
+          <Empty icon="camera" title={t('profile.emptyNoPosts')} />
         );
     }
   }

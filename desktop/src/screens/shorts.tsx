@@ -21,6 +21,7 @@ import { nav } from '../lib/router';
 import '../styles/stories.css';
 import '../styles/posts.css';
 import { Avatar, Empty, Failed, Icon, Link, Modal, Verified, toast, toastError } from '../ui/kit';
+import '../styles/skeleton.css';
 import { PostMenu, ShareDialog, useFlags } from '../ui/post';
 import { AiInfo } from '../ui/post-extras';
 import { type GridSource, fetchMoreLike, isShort, recallShorts, tasteKey, tasteOf, tuneFeed } from '../ui/post-data';
@@ -307,13 +308,13 @@ export function Shorts({ openPost, startId }: { openPost: (id: string) => void; 
       {error ? <Failed error={error} retry={() => load(true)} /> : null}
       {!ids && !error ? <ShortSkeleton /> : null}
       {missing ? (
-        <Empty icon="reels" title={t('d.posts.shortUnavailable')} body={t('profile.unavailableBody')}>
+        <Empty icon="reels" title={t('d.posts.shortUnavailable')}>
           <button className="btn" onClick={() => nav('/shorts')}>
             {t('d.posts.watchShorts')}
           </button>
         </Empty>
       ) : ids && !ids.length ? (
-        <Empty icon="reels" title={t('d.posts.noShorts')} body={t('clips.emptyBody')} />
+        <Empty icon="reels" title={t('d.posts.noShorts')} />
       ) : null}
       {startId ? (
         // Opened from a grid or a link: back to where it was opened from.
@@ -338,25 +339,25 @@ export function Shorts({ openPost, startId }: { openPost: (id: string) => void; 
   );
 }
 
-/** While Shorts load: where the video, its actions and its caption will be. */
+/** While Shorts load: where the video, its actions and its caption will be, in the app's skeleton shimmer (ui/skeleton.tsx). */
 function ShortSkeleton() {
   return (
     <div className="reel sh-item sh-skeleton" aria-hidden="true">
       <div className="sh-row">
         <div className="sh-video">
-          <div className="sh-frame sv-shimmer" />
+          <div className="sh-frame sk" />
           <div className="sh-info">
             <div className="sh-who">
-              <span className="sv-shimmer sh-sk-dot" />
-              <span className="sv-shimmer sh-sk-line" style={{ width: 150 }} />
+              <span className="sk sk-round sh-sk-dot" />
+              <span className="sk sh-sk-line" style={{ width: 150 }} />
             </div>
-            <span className="sv-shimmer sh-sk-line" style={{ width: 260 }} />
-            <span className="sv-shimmer sh-sk-line" style={{ width: 200 }} />
+            <span className="sk sh-sk-line" style={{ width: 260 }} />
+            <span className="sk sh-sk-line" style={{ width: 200 }} />
           </div>
         </div>
         <div className="sh-actions">
           {[0, 1, 2, 3, 4].map((i) => (
-            <span key={i} className="sv-shimmer sh-sk-dot" />
+            <span key={i} className="sk sk-round sh-sk-dot" />
           ))}
         </div>
       </div>

@@ -122,7 +122,6 @@ export function ChurchSelect({ value, onChange, disabled }: { value: string; onC
           </option>
         ))}
       </select>
-      <span className="cm-hint">{t('d.community.churchHint')}</span>
     </label>
   );
 }

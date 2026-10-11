@@ -82,7 +82,8 @@ button.prof-pill:disabled { opacity: 1; cursor: default; }
 .prof-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .prof-cards:empty { display: none; }
 .prof-lives { display: flex; flex-direction: column; gap: 8px; }
-.prof-card, .prof-request, .prof-subcard { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface); }
+/* Plain words on the page with their icon (the dashboard, a scheduled live, a follow request): no card around them, as on the iPhone. */
+.prof-card, .prof-request, .prof-subcard { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
 .prof-request { margin-top: 18px; }
 .prof-card-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
 .prof-card-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; }
@@ -227,7 +228,7 @@ button.prof-pill:disabled { opacity: 1; cursor: default; }
 .prof-style-band:not(.on) + .prof-style-dots { padding-top: 4px; }
 .prof-style-dots .prof-hl-ring { width: 50px; height: 50px; padding: 4px; }
 .prof-style-dots .prof-hl-cover { width: 42px; height: 42px; }
-.prof-upsell { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--fg); }
+.prof-upsell { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; color: var(--fg); }
 .prof-upsell > svg { flex: none; color: var(--accent2); }
 .prof-upsell p { margin-top: 2px; font-size: 13px; line-height: 18px; }
 .prof-style-locked { opacity: 0.45; }

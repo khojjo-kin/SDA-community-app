@@ -13,12 +13,13 @@ import { profileByUsername } from '../lib/extra';
 import { t, tn, tSplit } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Avatar, ChoiceMenu, Empty, Failed, Icon, Link, Modal, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { Avatar, ChoiceMenu, Empty, Failed, Icon, Link, Modal, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
 import { DiscoverPeople } from '../ui/profile-discover';
 import { Highlights } from '../ui/profile-highlights';
 import { AboutAccount, AlertsBell, BioText, FundraiserCard, type PictureRing, ProfilePicture, UpcomingLives } from '../ui/profile-parts';
 import { ProfileStyleDialog, useProfileLook } from '../ui/profile-style';
-import { SubscribeDialog, subscribeTo } from '../ui/profile-subscribe';
+import { SubscribeDialog, offersSubscribe, subscribeTo } from '../ui/profile-subscribe';
+import { ProfileSkeleton, RowsSkeleton } from '../ui/skeleton';
 import { StoryViewer } from '../ui/stories';
 import { ProfileGrid, type ProfileTab, ProfileTabs } from './profile-grid';
 import '../styles/profile.css';
@@ -104,9 +105,10 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
     requestAnimationFrame(() => window.scrollTo(0, y));
   }, [tab]);
 
-  if (loading && !person) return <Spinner />;
+  // While the profile loads, its picture, name, counts and grid shimmer where they will be.
+  if (loading && !person) return <ProfileSkeleton />;
   if (error) return <Failed error={error} retry={reload} />;
-  if (!person) return <Empty icon="user" title={t('d.profile.pageMissing')} body={t('d.profile.pageMissingBody')} />;
+  if (!person) return <Empty icon="user" title={t('d.profile.pageMissing')} />;
 
   const mine = person.id === me.id;
   // A private account I don't follow: the counts show, the photos don't. Under-14 accounts are always
@@ -297,7 +299,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
             {t('profile.message')}
           </button>
         ) : null}
-        {person.sub_price_pence || person.subscribed ? (
+        {offersSubscribe(person) ? (
           person.subscribed ? (
             <button className="prof-btn wide" onClick={() => setDialog('subscription')} aria-haspopup="dialog">
               {t('d.profile.subscribed')} <Icon name="down" size={14} stroke={2.4} />
@@ -404,7 +406,6 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
                   </Link>
                 ) : null}
                 {!mine && person.follows_me ? <span className="prof-muted small">{t('profile.followsYou')}</span> : null}
-                {mine && me.restricted ? <span className="prof-muted small">{t('d.profile.under14Private')}</span> : null}
               </div>
               {/* Who looked at your profile is a Plus perk: everyone else sees nothing here at all. */}
               {mine && person.plus ? (
@@ -450,7 +451,6 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
             <Icon name="block" size={34} stroke={1.5} />
           </span>
           <h2>{t('profile.youBlocked')}</h2>
-          <p>{t('profile.youBlockedBody')}</p>
         </div>
       ) : locked ? (
         <div className="prof-private">
@@ -458,7 +458,6 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
             <Icon name="lock" size={34} stroke={1.5} />
           </span>
           <h2>{t('profile.private')}</h2>
-          <p>{t('d.profile.privateBody')}</p>
           {person.requested ? (
             <button className="prof-btn small" onClick={withdraw}>
               {t('profile.requested')}
@@ -479,7 +478,8 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
           >
             <ProfileTabs person={person} tab={tab === 'saved' && !mine ? 'posts' : tab} mine={mine} />
           </div>
-          <ProfileGrid person={person} tab={tab === 'saved' && !mine ? 'posts' : tab} mine={mine} openPost={openPost} onCreate={onCreate} onSubscribe={subscribe} />
+          {/* Drawn afresh for each tab, so a tab that is loading shows its skeleton, never the last tab's tiles. */}
+          <ProfileGrid key={person.id + ':' + tab} person={person} tab={tab === 'saved' && !mine ? 'posts' : tab} mine={mine} openPost={openPost} onCreate={onCreate} onSubscribe={subscribe} />
         </>
       )}
 
@@ -543,7 +543,7 @@ function ProfileScreen({ username, tab, openPost, onCreate, openStyle }: Props) 
             <span className="grow">{person.is_close_friend ? t('profile.removeCloseFriend') : t('profile.addCloseFriend')}</span>
             <Icon name="star" size={20} fill={person.is_close_friend ? 'currentColor' : undefined} />
           </button>
-          {person.sub_price_pence || person.subscribed ? (
+          {offersSubscribe(person) ? (
             <button
               onClick={() => {
                 setMenu(null);
@@ -592,7 +592,7 @@ function PeopleList({ person, which, onClose }: { person: Profile; which: 'follo
         <input placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('common.search')} />
       </div>
       <div className="list-pad">
-        {people === null ? <Spinner /> : null}
+        {people === null ? <RowsSkeleton count={6} right /> : null}
         {people && !shown.length ? <p className="muted-text center pad">{q ? t('d.profile.noResults') : which === 'followers' ? t('d.profile.noFollowers') : t('d.profile.noFollowing')}</p> : null}
         {shown.map((p) => (
           <div className="row" key={p.id}>

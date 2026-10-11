@@ -70,10 +70,10 @@ export function Churches({ id }: { id?: string; path?: string }) {
   const church = (list.data ?? []).find((c) => c.id === id) ?? null;
   let detail: React.ReactNode;
   if (id === 'new') detail = <ChurchNew onAdded={list.reload} />;
-  else if (!id) detail = <Empty icon="church" title={t('d.community.chooseChurch')} body={t('d.community.chooseChurchBody')} />;
+  else if (!id) detail = <Empty icon="church" title={t('d.community.chooseChurch')} />;
   else if (church) detail = <ChurchDetail key={church.id} c={church} onChanged={list.reload} />;
   else if (list.loading || !list.data) detail = list.error ? <Failed error={list.error} retry={list.reload} /> : <Spinner />;
-  else detail = <Empty icon="church" title={t('d.community.churchGone')} body={t('d.community.churchGoneBody')} />;
+  else detail = <Empty icon="church" title={t('d.community.churchGone')} />;
 
   const row = ({ church: c, km }: Entry, isMine = false) => {
     const town = townOf(c);

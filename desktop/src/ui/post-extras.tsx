@@ -271,7 +271,7 @@ export function PollCard({ post }: { post: Post }) {
           </button>
         );
       })}
-      <div className="pp-poll-foot">{results ? tn('postExtras.votes', total, { count: fmt(total) }) + (mine !== null ? ' · ' + t('d.posts.takeVoteBack') : '') : t('d.posts.voteToSee')}</div>
+      <div className="pp-poll-foot">{results ? tn('postExtras.votes', total, { count: fmt(total) }) : t('d.posts.voteToSee')}</div>
     </div>
   );
 }

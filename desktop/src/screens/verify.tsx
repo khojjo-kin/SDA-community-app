@@ -272,7 +272,6 @@ export function Verify() {
             <Verified size={44} />
           </span>
           <h2>{t('d.plus.getTick')}</h2>
-          <p className="muted-text">{t('d.plus.getTickSub')}</p>
         </div>
         {declined ? <Notice kind="warn">{t('d.plus.declined')}</Notice> : null}
         <div className="pro-paths">
@@ -333,7 +332,7 @@ export function Verify() {
             <input value={knownAs} onChange={(e) => setKnownAs(e.target.value)} placeholder={t('d.plus.knownAsHint')} maxLength={200} aria-label={t('d.plus.knownAs')} />
           </label>
         </Card>
-        <Card title={t('d.plus.linksOptional')} sub={t('d.plus.linksSub')}>
+        <Card title={t('d.plus.linksOptional')}>
           {links.map((l, i) => (
             <label key={i} className="form-row">
               <input value={l} onChange={(e) => { setLinks((cur) => cur.map((x, j) => (j === i ? e.target.value : x))); setFormError(''); }} placeholder={i === 0 ? 'https://' : t('d.plus.anotherLink', { n: i + 1, max: MAX_LINKS })} maxLength={300} aria-label={t('d.plus.linkN', { n: i + 1 })} inputMode="url" />

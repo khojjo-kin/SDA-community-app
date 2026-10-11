@@ -114,17 +114,19 @@ p.st-hint { font-size: 14px; line-height: 20px; }
 .st-profile-card .st-row-text > b { font-size: 16px; display: inline-flex; align-items: center; gap: 4px; }
 .st-profile-card .btn { flex: none; }
 
-.st-notice { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--fg2); line-height: 20px; margin: 14px 0; }
+/* Plain, well-set words with an icon: no box around them (the iPhone's newest look). */
+.st-notice { display: flex; gap: 12px; align-items: flex-start; color: var(--fg2); line-height: 20px; margin: 14px 0; }
 .st-notice > svg { flex: none; margin-top: 1px; color: var(--fg); }
 .st-notice .link-btn { white-space: nowrap; }
 
-.st-upsell { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 18px; background: var(--surface); }
-.st-upsell-icon { width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+/* A Plus perk you don't have yet: its name and the way to get Plus, as a plain line (no box). */
+.st-upsell { display: flex; align-items: center; gap: 14px; }
+.st-upsell-icon { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--accent2); }
 .st-upsell > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .st-upsell b { font-size: 16px; }
 .st-upsell p { color: var(--fg2); line-height: 19px; }
 
-.st-status, .st-done { display: flex; gap: 16px; align-items: flex-start; padding: 20px; border-radius: 18px; background: var(--surface); margin-bottom: 34px; }
+.st-status, .st-done { display: flex; gap: 16px; align-items: center; margin-bottom: 34px; }
 .st-status b { font-size: 16px; }
 .st-status p { color: var(--fg2); line-height: 20px; margin-top: 4px; }
 .st-status-icon { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
@@ -144,7 +146,7 @@ p.st-hint { font-size: 14px; line-height: 20px; }
 .st-chip.price.picked { border-color: var(--accent); color: var(--accent2); background: var(--surface); }
 .st-price { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 0 16px; height: 48px; border-radius: 12px; background: var(--surface); color: var(--fg2); max-width: 320px; }
 .st-price input { flex: 1; min-width: 0; height: 100%; font-size: 16px; color: var(--fg); font-variant-numeric: tabular-nums; }
-.st-summary { display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 18px; background: var(--surface); margin-bottom: 30px; color: var(--accent2); }
+.st-summary { display: flex; flex-direction: column; gap: 8px; margin-bottom: 30px; color: var(--accent2); }
 .st-summary b { color: var(--fg); font-size: 22px; line-height: 28px; font-weight: 800; }
 .st-kbd { flex: none; font: 600 12.5px/1 var(--font); padding: 6px 9px; border-radius: 7px; background: var(--surface2); color: var(--fg); border-bottom: 2px solid var(--line2); }
 
@@ -192,12 +194,12 @@ p.st-hint { font-size: 14px; line-height: 20px; }
 /* Short enough that the floating Messages button never covers the box you type in. */
 .st-help-chat { position: sticky; top: 24px; width: 380px; flex: none; height: min(720px, calc(100vh - 240px)); min-height: 420px; }
 .demo-banner ~ .main .st-help-chat { top: 50px; height: min(720px, calc(100vh - 266px)); }
-.st-help-hero { display: flex; align-items: center; gap: 16px; width: 100%; padding: 20px 22px; border-radius: 22px; background: var(--accent); color: var(--on-accent); text-align: left; margin-bottom: 34px; transition: background 0.15s, transform 0.1s; }
-.st-help-hero:hover { background: var(--accent-hover); }
-.st-help-hero:active { transform: scale(0.99); }
-.st-help-hero .st-row-text > b { font-size: 18px; line-height: 24px; }
-.st-help-hero .st-row-text > span { color: var(--on-accent); opacity: 0.9; font-size: 14px; }
-.st-help-hero-icon { width: 54px; height: 54px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--on-accent) 18%, transparent); }
+/* Chat with support: the icon and the words as a row on the page, no coloured card (as on the iPhone). */
+.st-help-hero { display: flex; align-items: center; gap: 16px; width: 100%; padding: 10px 12px; margin: -10px -12px 24px; width: calc(100% + 24px); border-radius: 14px; color: var(--fg); text-align: left; transition: background 0.15s; }
+.st-help-hero:hover { background: var(--hover); }
+.st-help-hero .st-row-text > b { font-size: 18px; line-height: 24px; font-weight: 800; }
+.st-help-hero > svg { color: var(--fg2); }
+.st-help-hero-icon { width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
 .st-qa + .st-qa { border-top: 1px solid var(--line); }
 .st-qa button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px 18px; text-align: left; font-size: 15px; line-height: 20px; color: var(--fg); }
 .st-qa button span { flex: 1; }

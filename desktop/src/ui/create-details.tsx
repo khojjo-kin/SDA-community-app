@@ -124,7 +124,6 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
       {extras.prompt !== null ? (
         <EditCard icon={<Icon name="chatdots" size={16} stroke={2} />} title={t('createFlow.prompt')} removeLabel={t('d.posts.removePrompt')} onRemove={() => set({ prompt: null })}>
           <textarea className="pp-field" value={extras.prompt} maxLength={200} rows={2} autoFocus placeholder={t('createFlow.promptPlaceholder')} aria-label={t('createFlow.prompt')} onChange={(e) => set({ prompt: e.target.value })} />
-          <span className="pp-field-note">{t('d.posts.peopleAnswer')}</span>
         </EditCard>
       ) : null}
 
@@ -146,7 +145,7 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
           <Icon name="location" size={18} />
         )}
       </label>
-      <SwitchRow title={t('createFlow.aiLabel')} sub={t('d.posts.aiLabelSub')} on={extras.ai} onChange={(ai) => set({ ai })} disabled={busy} />
+      <SwitchRow title={t('createFlow.aiLabel')} on={extras.ai} onChange={(ai) => set({ ai })} disabled={busy} />
       {/* Where it goes: your profile, or a community or page you can post in (a group's Post button picks it). */}
       {groups.length || extras.groupId ? (
         <Section icon={group ? (group.kind === 'page' ? 'crown' : 'users') : 'user'} title={t('create.postTo')} value={group ? group.name : extras.groupId ? '' : t('create.yourProfile')} open={open === 'place'} onToggle={() => toggle('place')}>
@@ -192,11 +191,10 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
           </div>
         </div>
       ) : null}
-      {mode === 'post' && singleVideo ? <SwitchRow title={t('d.posts.shareAsShort')} sub={t('d.posts.shareAsShortSub')} on={extras.asShort} onChange={(asShort) => set({ asShort })} disabled={busy} /> : null}
-      {canStory ? <SwitchRow title={t('createFlow.alsoStory')} sub={t('d.posts.alsoStorySub')} on={extras.toStory} onChange={(toStory) => set({ toStory })} disabled={busy} /> : null}
+      {mode === 'post' && singleVideo ? <SwitchRow title={t('d.posts.shareAsShort')} on={extras.asShort} onChange={(asShort) => set({ asShort })} disabled={busy} /> : null}
+      {canStory ? <SwitchRow title={t('createFlow.alsoStory')} on={extras.toStory} onChange={(toStory) => set({ toStory })} disabled={busy} /> : null}
       {photos.length ? (
         <Section icon="eye" title={t('d.posts.accessibility')} value={extras.alts.some((a) => a.trim()) ? t('d.posts.altAdded') : ''} open={open === 'alt'} onToggle={() => toggle('alt')}>
-          <p className="pp-sec-note">{t('d.posts.altExplain')}</p>
           {photos.map((p) => (
             <label key={p.i} className="pp-alt-row">
               <img src={p.url} alt="" />
@@ -206,11 +204,11 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
         </Section>
       ) : null}
       <Section icon="sliders" title={t('d.posts.advanced')} open={open === 'advanced'} onToggle={() => toggle('advanced')}>
-        <SwitchRow title={t('createFlow.hideLikes')} sub={t('d.posts.hideLikesSub')} on={extras.hideLikes} onChange={(hideLikes) => set({ hideLikes })} />
-        <SwitchRow title={t('createFlow.commentsOff')} sub={t('d.posts.commentsOffSub')} on={extras.commentsOff} onChange={(commentsOff) => set({ commentsOff })} />
+        <SwitchRow title={t('createFlow.hideLikes')} on={extras.hideLikes} onChange={(hideLikes) => set({ hideLikes })} />
+        <SwitchRow title={t('createFlow.commentsOff')} on={extras.commentsOff} onChange={(commentsOff) => set({ commentsOff })} />
         {/* Kept to the profile: Plus members switch it on; everyone else is shown where to get it. Not for a post in a group. */}
         {extras.groupId ? null : me.plus ? (
-          <SwitchRow title={t('createFlow.profileOnly')} sub={t('d.posts.profileOnlySub')} on={extras.profileOnly} onChange={(profileOnly) => set({ profileOnly })} />
+          <SwitchRow title={t('createFlow.profileOnly')} on={extras.profileOnly} onChange={(profileOnly) => set({ profileOnly })} />
         ) : (
           <button type="button" className="pp-switch-row" onClick={() => nav('/plus')}>
             <span className="pp-switch-text">
@@ -220,7 +218,7 @@ export function DetailsPanel({ mode, items, caption, setCaption, location, setLo
             <span className="pp-accent">{t('createFlow.tryPlus')}</span>
           </button>
         )}
-        <SwitchRow title={t('d.posts.markSensitive')} sub={t('d.posts.markSensitiveSub')} on={extras.sensitive} onChange={(sensitive) => set({ sensitive })} />
+        <SwitchRow title={t('d.posts.markSensitive')} on={extras.sensitive} onChange={(sensitive) => set({ sensitive })} />
       </Section>
       {error ? (
         <p className="form-error pp-share-error" role="alert">

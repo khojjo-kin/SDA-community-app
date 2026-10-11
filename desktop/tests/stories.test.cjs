@@ -50,7 +50,7 @@ const check = (name, ok, extra = '') => {
       check('the story tray shimmers while it loads', (await page.locator('.sv-tray .sv-skeleton .sv-shimmer').count()) >= 5);
       await page.evaluate(() => (location.hash = '/shorts'));
       await page.waitForSelector('.sh-skeleton', { timeout: 5000 }).catch(() => {});
-      check('Shorts show a skeleton while they load', (await page.locator('.sh-skeleton .sv-shimmer').count()) >= 5);
+      check('Shorts show a skeleton while they load', (await page.locator('.sh-skeleton .sk').count()) >= 5);
       await page.context().close();
 
       page = await open();
@@ -699,7 +699,8 @@ async function storyMaker({ open, shot }) {
   await startStory();
   await stage.locator('.stc-mode', { hasText: 'Collage' }).click();
   await page.waitForSelector('.stc-collage');
-  check('Collage asks for 2 to 4 photos', (await stage.locator('.stc-collage').innerText()).includes('Choose 2 to 4 photos') && (await stage.locator('.stc-collage').getByRole('button', { name: 'Next' }).isDisabled()));
+  // The count says how many more are needed; no help line explains it any more (the polish pass).
+  check('Collage asks for 2 to 4 photos', (await stage.locator('.stc-collage').innerText()).includes('Choose 2 more to continue') && (await stage.locator('.stc-collage-help').count()) === 0 && (await stage.locator('.stc-collage').getByRole('button', { name: 'Next' }).isDisabled()));
   await page.setInputFiles('[data-testid=collage-files]', [photo('a.png', 800, 800, [220, 120, 40]), photo('b.png', 800, 800, [40, 120, 220]), photo('c.png', 800, 800, [120, 200, 80])]);
   await page.waitForSelector('.stc-collage-frame.n3 img:nth-child(3)');
   check('three photos show in the one-over-two layout', (await stage.locator('.stc-collage-frame.n3 img').count()) === 3);

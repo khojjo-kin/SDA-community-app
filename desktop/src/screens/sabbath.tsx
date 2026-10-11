@@ -255,7 +255,7 @@ export function SabbathSchool({ path = '/lessons' }: { path?: string }) {
   else if (seg[0] === 'write') detail = <Editor key="new" />;
   else if (seg[0] === 'publish') detail = <PublishRequest />;
   else if (seg[1]) detail = <LessonPage key={seg[0] + '/' + seg[1]} quarterId={seg[0]} lessonId={seg[1]} wantDay={query.get('day') ?? ''} />;
-  else detail = <Empty icon="lesson" title={t('d.church.pageMissing')} body={t('d.church.chooseLesson')} />;
+  else detail = <Empty icon="lesson" title={t('d.church.pageMissing')} />;
 
   return (
     <div className="split-page">
@@ -289,14 +289,13 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
     };
   }, [list, quarterId]);
 
-  const nav2 = (to: string, icon: IconName, title: string, sub: string, on: boolean) => (
+  const nav2 = (to: string, icon: IconName, title: string, on: boolean) => (
     <Link to={to} className={'hymn-row' + (on ? ' on' : '')}>
       <span className="hymn-no small">
         <Icon name={icon} size={18} />
       </span>
       <span className="row-text">
         <b>{title}</b>
-        <span>{sub}</span>
       </span>
     </Link>
   );
@@ -325,8 +324,8 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
         ) : null}
       </header>
       <div className="split-scroll">
-        {nav2('/lessons', 'sparkle', t('liveSchedule.today'), t('d.church.todayLessonSub'), section === 'today')}
-        {nav2('/lessons/posts', 'lesson', t('ssPub.section'), t('d.church.publishersSub'), section === 'posts')}
+        {nav2('/lessons', 'sparkle', t('liveSchedule.today'), section === 'today')}
+        {nav2('/lessons/posts', 'lesson', t('ssPub.section'), section === 'posts')}
         {error && !data ? (
           <div className="ch-list-error">
             <p>{errText(error)}</p>
@@ -395,7 +394,7 @@ function LessonList({ quarter, section, openLesson }: { quarter: QuarterState; s
 
 function SavedList({ progress }: { progress: LessonProgress }) {
   const items = [...progress.saved].reverse();
-  if (!items.length) return <p className="muted-text pad center">{t('d.church.savedEmpty')}</p>;
+  if (!items.length) return <p className="muted-text pad center">{t('bibleMarks.emptyFilter')}</p>;
   return (
     <>
       {items.map((s) => {
@@ -426,7 +425,7 @@ function DoneList({ progress }: { progress: LessonProgress }) {
     const { quarterId, lessonId } = parseKey(x.k);
     return lessonComplete(quarterId, lessonId, 7, progress);
   });
-  if (!items.length) return <p className="muted-text pad center">{t('d.church.doneEmpty')}</p>;
+  if (!items.length) return <p className="muted-text pad center">{t('bibleMarks.emptyFilter')}</p>;
   return (
     <>
       {items.map((x) => {
@@ -874,7 +873,6 @@ function Posts() {
           </button>
         ) : null}
       </div>
-      <p className="muted-text ch-sub">{t('d.church.postsIntro')}</p>
       {posts === null ? error ? <Failed error={error} retry={load} /> : <Spinner /> : null}
       {posts && !posts.length ? <Empty icon="lesson" title={t('ssPub.empty')} /> : null}
       <div className="ch-post-list">
@@ -908,7 +906,7 @@ function PostPage({ id }: { id: string }) {
   useEffect(load, [id]);
 
   if (post === undefined) return error ? <Failed error={error} retry={load} /> : <Spinner />;
-  if (post === null) return <Empty icon="lesson" title={t('ssPub.notFound')} body={t('profile.unavailableBody')} />;
+  if (post === null) return <Empty icon="lesson" title={t('ssPub.notFound')} />;
   const canEdit = post.mine || admin;
   const name = post.full_name || post.username;
   const paragraphs = post.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
@@ -1104,7 +1102,7 @@ function Editor({ id }: { id?: string }) {
   if (id && existing === null) return <Empty icon="lesson" title={t('ssPub.notFound')} />;
   if (existing ? !((existing.mine && canPublish) || admin) : !canPublish) {
     return (
-      <Empty icon="lesson" title={t('ssPub.onlyPublishers')} body={t('d.church.onlyPublishersBody')}>
+      <Empty icon="lesson" title={t('ssPub.onlyPublishers')}>
         <PublisherEntry publisher={publisher} />
       </Empty>
     );
@@ -1240,7 +1238,6 @@ function PublishRequest() {
   else if (!row || again) {
     body = (
       <div className="ch-ask">
-        <p className="muted-text">{t('d.church.askIntro')}</p>
         <label className="form-row">
           {t('ssPub.aboutYou')}
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={6} placeholder={t('ssPub.aboutPlaceholder')} autoFocus />

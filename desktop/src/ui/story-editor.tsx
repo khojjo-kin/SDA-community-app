@@ -326,13 +326,7 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
             ) : null}
             <input ref={moreInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { onMore(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
           </div>
-        ) : (
-          <ul className="stc-tips" aria-label={t('d.stories.tips')}>
-            <li>{t('d.stories.tipDrag')}</li>
-            <li>{t('d.stories.tipResize')}</li>
-            <li>{t('d.stories.tipDoubleClick')}</li>
-          </ul>
-        )}
+        ) : null}
       </div>
 
       {/* middle: the story */}
@@ -533,7 +527,6 @@ export function StoryEditor({ d, set, size, page, setPage, bottom, onLeave, onMo
 
             {tool === 'sticker' ? (
               <div className="stc-panel-body">
-                <p className="stc-note">{t('d.stories.stickerHint')}</p>
                 <div className="stc-emoji">
                   {EMOJI.map((e) => (
                     <button

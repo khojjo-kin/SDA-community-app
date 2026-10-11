@@ -178,7 +178,7 @@ function Creator({ request, onClose }: { request: CreateRequest; onClose: () => 
     if (busy) return;
     if (d.kind === 'text' && !d.overlays.length && !d.strokes.length) return toast(t('d.stories.writeFirst'));
     if (to === 'close_friends' && friends === 0) {
-      if (await ask(t('d.stories.closeFriendsEmpty'), t('d.stories.closeFriendsEmptyBody'), t('d.stories.addPeople'), false)) setFriendsSheet(true);
+      if (await ask(t('d.stories.closeFriendsEmpty'), '', t('d.stories.addPeople'), false)) setFriendsSheet(true);
       return;
     }
     setBusy({ text: t('create.uploading'), done: 0, total: 1 });

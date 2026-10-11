@@ -1,0 +1,45 @@
+/* Skeletons (ui/skeleton.tsx): soft shapes with a light sweeping shimmer, in the theme's own surface
+   colours so they sit right in Dark and White. With reduce motion on (app.css), the shimmer stands still. */
+
+.sk {
+  display: block;
+  flex: none;
+  border-radius: 6px;
+  background: linear-gradient(100deg, var(--surface) 0%, var(--surface) 38%, var(--surface2) 50%, var(--surface) 62%, var(--surface) 100%);
+  background-size: 260% 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+.sk-round { border-radius: 50%; }
+.sk-dim { opacity: 0.7; }
+@keyframes sk-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+.sk-group { width: 100%; }
+.sk-shapes { display: contents; }
+
+/* A feed post: the same width and spacing as .feed-post. */
+.sk-feed .sk-post { display: grid; gap: 10px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.sk-post-head { display: flex; align-items: center; gap: 10px; padding-bottom: 2px; }
+.sk-post-media { aspect-ratio: 4 / 5; }
+.sk-post-actions { display: flex; gap: 14px; padding-top: 2px; }
+
+/* Tiles: a profile's portrait grid, its Shorts four across, Explore's mosaic. */
+.sk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.sk-grid .sk-tile { border-radius: 0; aspect-ratio: 3 / 4; }
+.sk-grid-shorts { grid-template-columns: repeat(4, 1fr); }
+.sk-grid-shorts .sk-tile { aspect-ratio: 9 / 16; }
+.sk-grid-mosaic { grid-auto-flow: dense; gap: 4px; }
+.sk-grid-mosaic .sk-tile.tall { grid-row: span 2; aspect-ratio: auto; }
+
+/* Rows of a list. */
+.sk-rows { display: grid; }
+.sk-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.sk-row-text { flex: 1; min-width: 0; display: grid; gap: 8px; }
+
+/* A profile: picture beside the name and counts, then the grid. */
+.sk-profile { max-width: 720px; margin: 0 auto; padding: 20px 0; }
+.sk-profile-head { display: flex; align-items: flex-start; gap: 30px; margin: 0 8px 44px; }
+.sk-profile-info { flex: 1; display: grid; gap: 14px; padding-top: 22px; }
+.sk-profile-counts { display: flex; gap: 28px; }

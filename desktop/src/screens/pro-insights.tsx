@@ -74,7 +74,6 @@ export function Insights({ section, days, setDays, stats }: { section: Section; 
             <Icon name="chart" size={30} stroke={1.6} />
           </span>
           <h3>{t('d.pro.creatorOnly')}</h3>
-          <p>{t('d.pro.creatorOnlyBody')}</p>
           <Link to="/accounts/professional" className="btn">
             {t('d.pro.switchType')}
           </Link>
@@ -507,12 +506,9 @@ function Income() {
               {me.sub_price_pence ? (
                 t('d.pro.nobodySubscribes')
               ) : (
-                <>
-                  {t('d.pro.offerSubs')}{' '}
-                  <Link to="/accounts/subscriptions" className="link-btn inline">
-                    {t('d.pro.setMonthlyPrice')}
-                  </Link>
-                </>
+                <Link to="/accounts/subscriptions" className="link-btn inline">
+                  {t('d.pro.setMonthlyPrice')}
+                </Link>
               )}
             </p>
           )}

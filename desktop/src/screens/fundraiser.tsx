@@ -60,7 +60,7 @@ function FundraiserView({ id }: { id: string }) {
 
   if (data.error && !data.data) return <Failed error={data.error} retry={data.reload} />;
   if (!data.data) return <Spinner />;
-  if (!f) return <Empty icon="heart" title={t('d.plus.fundUnavailable')} body={t('d.plus.mayBeDeleted')} />;
+  if (!f) return <Empty icon="heart" title={t('d.plus.fundUnavailable')} />;
 
   const mine = f.user_id === me.id;
   const ended = hasEnded(f);
@@ -354,7 +354,6 @@ function DonateDialog({ f, onClose, onGiven }: { f: Fundraiser; onClose: () => v
         <div className="pro-toggle-row">
           <span className="grow">
             <b>{t('d.plus.giveAnon')}</b>
-            <span className="muted-text small">{t('d.plus.giveAnonSub')}</span>
           </span>
           <Toggle on={anonymous} onChange={setAnonymous} label={t('d.plus.giveAnon')} />
         </div>
@@ -471,7 +470,6 @@ function FundraiserForm({ editId }: { editId?: string }) {
           <p>
             <b>{t('d.plus.setUpToReceive')}</b>
           </p>
-          <p className="muted-text">{t('d.plus.giftsStraight')}</p>
           <div className="pro-btns">
             <button className="btn big" onClick={() => nav('/dashboard/fundraisers')}>
               {t('creatorSubs.setUpPayouts')}
@@ -489,7 +487,7 @@ function FundraiserForm({ editId }: { editId?: string }) {
   if (me.restricted === true) body = <Empty icon="heart" title={t('d.plus.fundAge')} />;
   else if (existing.error && !existing.data) body = <Failed error={existing.error} retry={existing.reload} />;
   else if (editId && existing.data === undefined) body = <Spinner />;
-  else if (editId && !existing.data) body = <Empty icon="heart" title={t('d.plus.fundNotFound')} body={t('d.plus.mayBeDeleted')} />;
+  else if (editId && !existing.data) body = <Empty icon="heart" title={t('d.plus.fundNotFound')} />;
   else if (existing.data && existing.data.user_id !== me.id) body = <Empty icon="heart" title={t('d.plus.onlyOwn')} />;
   else {
     const shown = cover?.uri || coverUrl;
@@ -522,7 +520,7 @@ function FundraiserForm({ editId }: { editId?: string }) {
             <span>£</span>
             <input value={goal} onChange={(e) => setGoal(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="1,000" inputMode="decimal" maxLength={12} aria-label={t('d.plus.goalLabel')} />
           </span>
-          <span className={errors.goal ? 'form-error' : 'pro-hint'}>{errors.goal ?? t('d.plus.goalHint')}</span>
+          {errors.goal ? <span className="form-error">{errors.goal}</span> : null}
         </label>
         <label className="form-row">
           <span>{t('d.plus.story')}</span>

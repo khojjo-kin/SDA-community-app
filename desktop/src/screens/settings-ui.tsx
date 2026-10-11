@@ -153,16 +153,16 @@ export function PersonRow({ p, sub, right, onOpen }: { p: Pick<Profile, 'usernam
   );
 }
 
-/** For a Community Plus perk, when you don't have Plus. */
-export function PlusUpsell({ title, body }: { title: string; body: string }) {
+/** For a Community Plus perk, when you don't have Plus: its name and Get Community Plus (a line under it only if given). */
+export function PlusUpsell({ title, body }: { title: string; body?: string }) {
   return (
     <div className="st-upsell">
       <span className="st-upsell-icon">
-        <Icon name="crown" size={26} />
+        <Icon name="crown" size={22} />
       </span>
       <div>
         <b>{title}</b>
-        <p>{body}</p>
+        {body ? <p>{body}</p> : null}
       </div>
       <Link to="/plus" className="btn">
         {t('d.settings.getPlus')}

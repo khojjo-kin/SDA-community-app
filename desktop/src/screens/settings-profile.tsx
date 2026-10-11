@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import { deleteFaq, deleteSavedReply, fetchChurches, fetchFaqs, fetchProfileViewers, fetchSavedReplies, saveFaq, saveReply, updateProfile, uploadImage, withTimeout } from 'shared/api';
 import { ago } from 'shared/theme';
-import { t, tSplit, tn } from '../lib/i18n';
+import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { rememberSize } from '../shims/expo-file-system';
-import { Avatar, Failed, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
-import { Block, Card, LinkRow, Notice, Page, PersonRow, PlusUpsell, RadioRow, Toggle } from './settings-ui';
+import { Avatar, Failed, Icon, Modal, ask, toast, toastError, useLoad } from '../ui/kit';
+import { RowsSkeleton } from '../ui/skeleton';
+import { Block, Card, LinkRow, Page, PersonRow, PlusUpsell, RadioRow, Toggle } from './settings-ui';
 
 declare const __DEMO__: boolean;
 
@@ -48,7 +49,6 @@ export function EditProfile() {
   };
   const usernameOk = /^[a-z0-9_]{3,30}$/.test(form.username);
   const changed = JSON.stringify(form) !== JSON.stringify(start());
-  const categoryLine = tSplit('d.settings.categoryCreator', 'link');
 
   async function changePhoto(f: File) {
     const url = URL.createObjectURL(f);
@@ -169,30 +169,18 @@ export function EditProfile() {
               </option>
             ))}
           </select>
-          <em className="st-hint">{t('d.settings.genderPrivate')}</em>
         </label>
         <label className="form-row st-field">
           <span>{t('d.settings.pronouns')}</span>
           <input value={form.pronouns} onChange={set('pronouns')} maxLength={40} placeholder={t('d.settings.pronouns')} />
         </label>
+        {/* A category is for creator accounts (Settings → Professional account). */}
         {creator ? (
           <label className="form-row st-field">
             <span>{t('d.settings.category')}</span>
             <input value={form.category} onChange={set('category')} maxLength={40} placeholder={t('d.settings.categoryExample')} />
-            <em className="st-hint">{t('d.settings.categoryNote')}</em>
           </label>
-        ) : (
-          <div className="form-row st-field">
-            <span>{t('d.settings.category')}</span>
-            <p className="st-hint">
-              {categoryLine[0]}
-              <Link to="/accounts/professional" className="link-btn inline">
-                {t('d.settings.creatorAccountLink')}
-              </Link>
-              {categoryLine[1]}
-            </p>
-          </div>
-        )}
+        ) : null}
         <label className="form-row st-field">
           <span>{t('d.settings.church')}</span>
           <select className="st-select" value={form.church_id} onChange={set('church_id')}>
@@ -203,7 +191,6 @@ export function EditProfile() {
               </option>
             ))}
           </select>
-          <em className="st-hint">{t('d.settings.churchNote')}</em>
         </label>
         <div className="form-row st-field">
           <span>{t('d.settings.contactOptions')}</span>
@@ -211,7 +198,6 @@ export function EditProfile() {
             <input value={form.contact_email} onChange={set('contact_email')} maxLength={200} placeholder={t('profile.email')} aria-label={t('d.settings.contactEmail')} inputMode="email" />
             <input value={form.contact_phone} onChange={set('contact_phone')} maxLength={40} placeholder={t('d.settings.phone')} aria-label={t('d.settings.contactPhone')} inputMode="tel" />
           </div>
-          <em className="st-hint">{t('d.settings.contactNote')}</em>
         </div>
         {err ? <p className="field-error">{err}</p> : null}
         <div className="st-submit">
@@ -248,15 +234,15 @@ export function Professional() {
     }
   }
   return (
-    <Page title={t('d.settings.professional')} intro={t('d.settings.professionalIntro')}>
+    <Page title={t('d.settings.professional')}>
       <Block title={t('d.settings.accountType')}>
         <Card>
-          <RadioRow name="account-type" icon="user" title={t('d.settings.personal')} sub={t('d.settings.personalSub')} checked={type === 'personal'} onChange={() => setType('personal')} />
-          <RadioRow name="account-type" icon="chart" title={t('d.settings.creator')} sub={t('d.settings.creatorSub')} checked={type === 'creator'} onChange={() => setType('creator')} />
+          <RadioRow name="account-type" icon="user" title={t('d.settings.personal')} checked={type === 'personal'} onChange={() => setType('personal')} />
+          <RadioRow name="account-type" icon="chart" title={t('d.settings.creator')} checked={type === 'creator'} onChange={() => setType('creator')} />
         </Card>
       </Block>
       {type === 'creator' ? (
-        <Block title={t('d.settings.category')} note={t('d.settings.categoryNote')}>
+        <Block title={t('d.settings.category')}>
           <div className="st-chips">
             {CATEGORIES.map((key) => {
               const c = t(key);
@@ -279,8 +265,8 @@ export function Professional() {
       {me.account_type === 'creator' ? (
         <Block title={t('d.settings.yourTools')}>
           <Card>
-            <LinkRow icon="chart" title={t('d.settings.dashboard')} sub={t('d.settings.dashboardSub')} to="/dashboard" />
-            <LinkRow icon="reply" title={t('settings.creatorTools')} sub={t('d.settings.creatorToolsSub')} to="/accounts/creator" />
+            <LinkRow icon="chart" title={t('d.settings.dashboard')} to="/dashboard" />
+            <LinkRow icon="reply" title={t('settings.creatorTools')} to="/accounts/creator" />
           </Card>
         </Block>
       ) : null}
@@ -297,14 +283,13 @@ export function SavedReplies() {
   return (
     <Block
       title={t('d.settings.savedReplies')}
-      note={t('d.settings.savedRepliesNote')}
       action={
         <button className="btn quiet small" onClick={() => setEdit({ shortcut: '', body: '' })}>
           {t('d.settings.newReply')}
         </button>
       }
     >
-      {list.loading ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.settings.noReplies')}</p> : null}
+      {list.loading ? <RowsSkeleton count={2} avatar={24} /> : list.error ? <Failed error={list.error} retry={list.reload} /> : !list.data?.length ? <p className="st-empty-line">{t('d.settings.noReplies')}</p> : null}
       {list.data?.length ? (
         <Card>
           {list.data.map((r) => (
@@ -366,7 +351,6 @@ function Faqs() {
   return (
     <Block
       title={t('d.settings.faqs')}
-      note={t('d.settings.faqsNote')}
       action={
         (faqs.data?.length ?? 0) < 8 ? (
           <button className="btn quiet small" onClick={() => setEdit({ question: '', answer: '' })}>
@@ -379,7 +363,6 @@ function Faqs() {
         <div className="st-row">
           <span className="st-row-text">
             <b>{t('d.settings.showFaqs')}</b>
-            <span>{t('d.settings.showFaqsSub')}</span>
           </span>
           <Toggle label={t('d.settings.showFaqs')} on={me.faq_enabled} onChange={(v) => updateProfile(me.id, { faq_enabled: v }).then(refresh, toastError)} />
         </div>
@@ -433,13 +416,10 @@ export function CreatorTools() {
   if (me.account_type !== 'creator') {
     return (
       <Page title={t('settings.creatorTools')}>
-        <Notice icon="chart">
-          {t('d.settings.creatorToolsNeed')}{' '}
-          <Link to="/accounts/professional" className="link-btn inline">
-            {t('d.settings.switchType')}
-          </Link>
-        </Notice>
         <SavedReplies />
+        <Card>
+          <LinkRow icon="chart" title={t('d.settings.switchType')} to="/accounts/professional" />
+        </Card>
       </Page>
     );
   }
@@ -466,13 +446,13 @@ export function ProfileViewers() {
   return (
     <Page title={t('settings.profileViewers')} intro={me.views_week ? tn('d.settings.viewersWeek', me.views_week) : t('d.settings.viewersNone')}>
       {!me.plus ? (
-        <PlusUpsell title={t('plus.allViewers')} body={t('d.settings.viewersUpsell')} />
+        <PlusUpsell title={t('plus.allViewers')} />
       ) : list.loading ? (
-        <Spinner />
+        <RowsSkeleton count={3} />
       ) : list.error ? (
         <Failed error={list.error} retry={list.reload} />
       ) : !list.data?.length ? (
-        <p className="st-empty-line">{t('d.settings.viewersEmpty')}</p>
+        <p className="st-empty-line">{t('events.noOneYet')}</p>
       ) : (
         <Card>
           {list.data.map((v) => (
