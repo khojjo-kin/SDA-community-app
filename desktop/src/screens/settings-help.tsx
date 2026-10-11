@@ -12,6 +12,7 @@ import { useMe } from '../lib/me';
 import { nav, parts, useRoute } from '../lib/router';
 import { rememberSize } from '../shims/expo-file-system';
 import { Icon, Link, Modal, Spinner, toast, toastError, useLoad } from '../ui/kit';
+import { RowsSkeleton } from '../ui/skeleton';
 import { LEGAL_DOCS } from './legal';
 import { Block, Card, LinkRow } from './settings-ui';
 
@@ -91,7 +92,6 @@ function HelpCentre() {
         </span>
         <span className="st-row-text">
           <b>{t('help.chat')}</b>
-          <span>{t('d.settings-more.chatSub')}</span>
         </span>
         <Icon name="right" size={20} stroke={2.2} />
       </button>
@@ -126,7 +126,7 @@ function HelpCentre() {
           </button>
         }
       >
-        {tickets.loading ? <Spinner /> : !tickets.data?.length ? <p className="st-empty-line">{t('d.settings-more.noRequests')}</p> : null}
+        {tickets.loading ? <RowsSkeleton count={1} avatar={24} /> : null}
         {(tickets.data ?? []).map((tk) => (
           <section key={tk.id} className="st-card ticket">
             <div className="ticket-head">
@@ -246,7 +246,6 @@ function TicketDialog({ onClose }: { onClose: (sent: boolean) => void }) {
           }
         }}
       >
-        <p className="st-text">{t('d.settings-more.ticketIntro')}</p>
         <label className="form-row">
           <span>{t('d.settings-more.subject')}</span>
           <input value={subject} maxLength={140} onChange={(e) => setSubject(e.target.value)} placeholder={t('d.settings-more.subjectPlaceholder')} autoFocus />
@@ -336,7 +335,6 @@ function ReportProblem() {
         <Icon name="back" size={18} /> {t('d.settings-more.helpCentre')}
       </Link>
       <h1 className="st-title">{t('help.reportProblem')}</h1>
-      <p className="st-intro">{t('d.settings-more.problemIntro')}</p>
       <label className="form-row st-field">
         <span>{t('d.settings-more.whatHappenedQ')}</span>
         <textarea rows={6} maxLength={1700} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('help.problemPlaceholder')} aria-label={t('d.settings-more.whatHappened')} autoFocus />

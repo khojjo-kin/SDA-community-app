@@ -1,0 +1,78 @@
+/* The polish area: Settings → Payments (screens/settings-payments.tsx), in the settings pages'
+   own rows and cards (styles/settings.css), with the theme's colours only. */
+
+/* The space on the left of every row, so cards, subscriptions and payments line up. */
+.po-lead { flex: none; width: 46px; display: grid; place-items: center; }
+.po-round { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--fg); }
+.po-round.plus { color: var(--accent2); }
+.po-bad { color: var(--like) !important; }
+.st-row-text > span.po-wait { display: block; width: 120px; height: 10px; margin-top: 4px; border-radius: 5px; background: var(--surface); }
+
+/* Saved cards */
+.po-card:disabled { opacity: 0.6; }
+.po-default { flex: none; color: var(--accent2); font-weight: 600; font-size: 14px; }
+.po-add { color: var(--accent2); }
+.po-add b { flex: 1; font-weight: 600; font-size: 15px; }
+
+/* Subscriptions: the row opens the Plus page or the profile; its button renews, cancels or pays. */
+.po-sub { padding-top: 9px; padding-bottom: 9px; }
+.po-sub-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; }
+.po-sub-open:hover b { text-decoration: underline; }
+.po-sub .btn { flex: none; }
+.po-name { display: inline-flex; align-items: center; gap: 4px; }
+.po-rows-wait { padding: 0 18px; border-top: 1px solid var(--line); }
+
+/* Transactions, by month */
+.po-tx-list { display: grid; gap: 18px; }
+.po-month-h { font-size: 14px; line-height: 18px; font-weight: 700; color: var(--fg2); margin: 0 0 8px 2px; }
+.po-tx { padding-top: 10px; padding-bottom: 10px; }
+.po-amount { flex: none; display: grid; justify-items: end; gap: 2px; }
+.po-amount b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.po-amount b.back { color: var(--accent2); }
+.po-amount b.refunded { color: var(--fg2); }
+.po-amount b.failed { color: var(--fg3); text-decoration: line-through; }
+.po-amount > span { color: var(--fg3); font-size: 12.5px; font-weight: 600; }
+.po-retry { display: flex; align-items: center; gap: 14px; color: var(--fg2); line-height: 19px; padding: 6px 0; }
+.po-retry span { flex: 1; }
+
+/* One payment's details */
+.po-detail { width: 420px; max-width: calc(100vw - 32px); }
+.po-detail-top { display: grid; justify-items: center; gap: 8px; padding: 18px 24px 22px; text-align: center; }
+.po-detail-amount { font-size: 34px; line-height: 40px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.po-detail-amount.back { color: var(--accent2); }
+.po-detail-amount.failed { color: var(--fg2); text-decoration: line-through; }
+.po-detail-title { font-size: 16px; font-weight: 600; }
+.po-facts { margin: 0; padding-bottom: 8px; }
+.po-facts > div { display: flex; align-items: center; gap: 16px; padding: 12px 20px; min-height: 48px; border-top: 1px solid var(--line); }
+.po-facts dt { color: var(--fg2); }
+.po-facts dd { flex: 1; margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.po-ref { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; text-align: right; color: var(--fg); }
+.po-ref span { overflow-wrap: anywhere; }
+.po-ref svg { flex: none; color: var(--fg2); }
+.po-ref:hover svg { color: var(--fg); }
+
+/* ---------- the rail's Church apps menu: names only, so each name sits level with its icon ---------- */
+.apps-pop a { align-items: center; }
+
+/* ---------- the admins' announcement above the page: plain words, no box ---------- */
+.announce.bar.info, .announce.bar.success, .announce.bar.warning, .announce.bar { padding: 10px 4px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; }
+.announce.bar > svg { color: var(--accent2); }
+.announce.bar.warning > svg { color: var(--like); }
+
+/* ---------- your own empty profile: the invitation signed in a handwriting script ---------- */
+/* In the page's text colour (white in Dark), as the iPhone signs "Share your first post". */
+.po-signed { gap: 10px; color: var(--fg2); }
+.po-signed .empty-ring { border-color: var(--fg); color: var(--fg); }
+.po-script { font-family: 'Snell Roundhand', 'Great Vibes', 'Apple Chancery', cursive; font-size: 44px; line-height: 64px; font-weight: 400; letter-spacing: 0; padding: 0 12px; }
+.po-script .pp-written { color: var(--fg); }
+.po-script .pp-cursor { width: 1.5px; background: var(--fg); opacity: 0.7; vertical-align: -0.05em; }
+/* A fine stroke drawn under the words once they are written. */
+.po-script .pp-writing { display: inline-block; }
+.po-script .pp-writing::after { content: ''; display: block; height: 1.5px; width: 55%; margin: -6px auto 0; border-radius: 1px; background: var(--fg); opacity: 0; transform: scaleX(0); transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.5s ease; }
+.po-script .pp-writing.done::after { opacity: 0.55; transform: scaleX(1); }
+
+/* Subscriber-only posts under a profile's grid: centred words, no card. */
+.prof-subcard.po-subwords { display: grid; justify-items: center; gap: 6px; width: 100%; padding: 18px 12px; background: none; border-radius: 12px; text-align: center; color: var(--fg); }
+.prof-subcard.po-subwords:hover { background: var(--hover); }
+.po-subwords b { font-size: 16px; }
+.po-subwords-go { color: var(--prof-link, var(--accent2)); font-weight: 700; font-size: 15px; }

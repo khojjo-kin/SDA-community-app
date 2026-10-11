@@ -47,7 +47,8 @@ async function newPage(browser, base, errors) {
     // The layout and the search.
     await goto('/accounts/edit');
     check('Settings has its column with grouped sections', (await page.locator('.st-nav-title').innerText()) === 'Settings' && (await page.locator('.st-group-h').count()) >= 9);
-    check('Accounts Centre has its line underneath', (await page.locator('.st-nav-item', { hasText: 'Accounts Centre' }).locator('small').count()) === 1);
+    // Names only, as on the iPhone: no line under Accounts Centre any more (the polish pass); Payments sits under it.
+    check('Accounts Centre has no line underneath, and Payments follows it', (await page.locator('.st-nav-item', { hasText: 'Accounts Centre' }).locator('small').count()) === 0 && (await page.locator('.st-group').first().locator('.st-nav-item').allInnerTexts()).map((x) => x.trim()).join('|') === 'Accounts Centre|Payments');
     check('the open page is highlighted', (await page.locator('.st-nav-item.on').innerText()).includes('Edit profile'));
     await page.locator('.st-nav-item', { hasText: 'Notifications' }).click();
     await wait();

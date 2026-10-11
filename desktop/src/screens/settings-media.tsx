@@ -45,7 +45,7 @@ export function FontChooser({ onChosen }: { onChosen?: () => void }) {
   };
   return (
     <>
-      {plus ? null : <PlusUpsell title={t('d.settings-more.fontsUpsellTitle')} body={t('d.settings-more.fontsUpsellBody')} />}
+      {plus ? null : <PlusUpsell title={t('d.settings-more.fontsUpsellTitle')} />}
       <Card className={'st-fonts' + (plus ? '' : ' preview')}>
         {APP_FONTS.map((f) => {
           const on = plus && appFontById(appFont).id === f.id;
@@ -77,13 +77,13 @@ export function WallpaperRow() {
   const { me } = useMe();
   const { chatWallpaper } = usePrefs();
   const value = me.plus ? wallpaperById(chatWallpaper)?.name ?? t('create.none') : t('common.plus');
-  return <LinkRow icon="wallpaper" title={t('settings.chatWallpaper')} sub={t('d.settings-more.wallpaperSub')} value={value} to="/accounts/chat-wallpaper" />;
+  return <LinkRow icon="wallpaper" title={t('settings.chatWallpaper')} value={value} to="/accounts/chat-wallpaper" />;
 }
 
 /** Settings → Chat wallpaper: the picker the chats use (it offers Plus to members without it). */
 export function ChatWallpaper() {
   return (
-    <Page title={t('settings.chatWallpaper')} intro={t('d.settings-more.wallpaperIntro')}>
+    <Page title={t('settings.chatWallpaper')}>
       <div className="st-wallpaper">
         <WallpaperPicker onDone={() => nav('/accounts/appearance')} />
       </div>
@@ -108,21 +108,21 @@ export function ShortsSettings() {
   const prefs = usePrefs();
   const [languages, setLanguages] = useState(false);
   return (
-    <Page title={t('tabs.clips')} intro={t('d.settings-more.shortsIntro')}>
+    <Page title={t('tabs.clips')}>
       <Block title={t('clips.sound')}>
         <Card>
-          <ToggleRow icon="mute" title={t('d.settings-more.startMuted')} sub={t('d.settings-more.startMutedSub')} on={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
+          <ToggleRow icon="mute" title={t('d.settings-more.startMuted')} on={prefs.reelsMuted} onChange={(v) => setPrefs({ reelsMuted: v })} />
         </Card>
       </Block>
       <Block title={t('clips.captions')}>
         <Card>
-          <ToggleRow icon="text" title={t('feed.showCaptions')} sub={t('d.settings-more.captionsSub')} on={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
-          <LinkRow icon="globe" title={t('settings.captionLanguage')} sub={t('d.settings-more.captionLanguageSub')} value={captionName(prefs.captionLang)} onClick={() => setLanguages(true)} testId="caption-language" />
+          <ToggleRow icon="text" title={t('feed.showCaptions')} on={prefs.captions} onChange={(v) => setPrefs({ captions: v })} />
+          <LinkRow icon="globe" title={t('settings.captionLanguage')} value={captionName(prefs.captionLang)} onClick={() => setLanguages(true)} testId="caption-language" />
         </Card>
       </Block>
       <Block title={t('clips.whatYouSee')}>
         <Card>
-          <LinkRow icon="sliders" title={t('d.settings-more.contentTitle')} sub={t('d.settings-more.contentPrefsSub')} to="/accounts/content" />
+          <LinkRow icon="sliders" title={t('d.settings-more.contentTitle')} to="/accounts/content" />
         </Card>
       </Block>
       {languages ? (

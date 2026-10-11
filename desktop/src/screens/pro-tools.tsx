@@ -29,7 +29,6 @@ export function Inspiration() {
           <Icon name="bulb" size={30} stroke={1.6} />
         </span>
         <h3>{t('d.pro.inspirationEmpty')}</h3>
-        <p>{t('d.pro.inspirationEmptyBody')}</p>
       </div>
     );
   } else {
@@ -46,7 +45,6 @@ export function Inspiration() {
       <div className="pro-ins-head">
         <div>
           <h2>{t('d.pro.inspiration')}</h2>
-          <p className="muted-text">{t('d.pro.inspirationSub')}</p>
         </div>
         <button className="pro-chip" onClick={posts.reload} disabled={posts.loading}>
           {t('d.pro.refresh')}
@@ -79,7 +77,6 @@ export function BestPractices() {
       <div className="pro-ins-head">
         <div>
           <h2>{t('d.pro.bestPractices')}</h2>
-          <p className="muted-text">{t('d.pro.bestPracticesSub')}</p>
         </div>
       </div>
       <div className="pro-bp-grid">

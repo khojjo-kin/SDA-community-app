@@ -35,7 +35,7 @@ function Drop({ onFiles, className, children }: { onFiles: (files: File[]) => vo
   );
 }
 
-function Mode({ icon, glyph, title, sub, colors, onClick }: { icon?: IconName; glyph?: string; title: string; sub: string; colors: [string, string]; onClick: () => void }) {
+function Mode({ icon, glyph, title, colors, onClick }: { icon?: IconName; glyph?: string; title: string; colors: [string, string]; onClick: () => void }) {
   return (
     <button className="stc-mode" onClick={onClick}>
       <span className="stc-mode-icon" style={{ background: `linear-gradient(45deg, ${colors[0]}, ${colors[1]})` }}>
@@ -43,7 +43,6 @@ function Mode({ icon, glyph, title, sub, colors, onClick }: { icon?: IconName; g
       </span>
       <span className="stc-mode-text">
         <b>{title}</b>
-        <span>{sub}</span>
       </span>
       <Icon name="right" size={16} color="var(--fg3)" stroke={2} />
     </button>
@@ -64,15 +63,14 @@ export function StartCard({ onFiles, onText, onCollage }: { onFiles: (files: Fil
           <Icon name="video" size={40} stroke={1.3} />
         </span>
         <h3>{t('d.stories.dragHere')}</h3>
-        <p>{t('d.stories.chooseUpTo')}</p>
         <button className="btn" onClick={() => input.current?.click()}>
           {t('d.stories.selectFromComputer')}
         </button>
         <input ref={input} type="file" accept="image/*,video/*" multiple hidden data-testid="story-files" onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
       </Drop>
       <div className="stc-modes">
-        <Mode glyph="Aa" title={t('d.stories.text')} sub={t('d.stories.textSub')} colors={['#4a5df6', '#b13df0']} onClick={onText} />
-        <Mode icon="collage" title={t('d.stories.collage')} sub={t('d.stories.collageSub')} colors={['#0fb58a', '#0a6cf0']} onClick={onCollage} />
+        <Mode glyph="Aa" title={t('d.stories.text')} colors={['#4a5df6', '#b13df0']} onClick={onText} />
+        <Mode icon="collage" title={t('d.stories.collage')} colors={['#0fb58a', '#0a6cf0']} onClick={onCollage} />
       </div>
     </div>
   );
@@ -114,7 +112,6 @@ export function CollageCard({ photos, onFiles, onRemove, onBack, onNext }: { pho
       <Drop className="stc-collage-body" onFiles={onFiles}>
         <CollagePreview photos={photos} onAdd={pick} />
         <div className="stc-collage-side">
-          <p className="stc-collage-help">{t('d.stories.collageHelp')}</p>
           <div className="stc-collage-list">
             {photos.map((p, i) => (
               <div key={p.url} className="stc-collage-item">

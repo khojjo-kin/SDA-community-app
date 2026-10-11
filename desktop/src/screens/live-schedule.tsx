@@ -188,7 +188,6 @@ export function ScheduleDialog({ onClose }: { onClose: () => void }) {
             </label>
           </div>
           {!times.length ? <p className="sv-settings-note">{t('d.frame.noTimes')}</p> : null}
-          <p className="sv-settings-note">{t('d.frame.scheduleNote')}</p>
           <div className="lv-sched-actions">
             {list?.length ? (
               <button type="button" className="btn quiet" onClick={() => setView('list')}>

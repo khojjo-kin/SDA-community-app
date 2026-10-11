@@ -163,7 +163,7 @@ function PodHome({ adding }: { adding: boolean }) {
       </div>
       {list.loading && !list.data ? <Spinner /> : list.error ? <Failed error={list.error} retry={list.reload} /> : null}
       {list.data && !list.data.length ? (
-        <Empty icon="headphones" title={tab === 'library' ? t('d.church.libraryEmpty') : t('bibleMarks.emptyFilter')} body={tab === 'library' ? t('d.church.libraryEmptyBody') : canAdd ? t('d.church.podEmptyAdd') : t('d.church.podEmpty')} />
+        <Empty icon="headphones" title={tab === 'library' ? t('d.church.libraryEmpty') : t('bibleMarks.emptyFilter')} />
       ) : null}
       <div className="pod-list">{(list.data ?? []).map((it, _i, all) => row(it, all))}</div>
       {menuFor ? (
@@ -213,7 +213,7 @@ function NowPlaying({ id }: { id: string }) {
     if (loaded.loading) return <Spinner />;
     if (loaded.error) return <Failed error={loaded.error} retry={loaded.reload} />;
     return (
-      <Empty icon="headphones" title={t('d.church.trackGone')} body={t('profile.unavailableBody')}>
+      <Empty icon="headphones" title={t('d.church.trackGone')}>
         <Link to="/pod" className="btn quiet">
           {t('d.church.backToPod')}
         </Link>
@@ -470,7 +470,7 @@ function AddToPod({ onClose }: { onClose: () => void }) {
   if (!canAdd) {
     return (
       <Modal onClose={onClose} title={t('d.church.addToPod')}>
-        <Empty icon="headphones" title={t('d.church.podPlusOnly')} body={t('d.church.podPlusOnlyBody')}>
+        <Empty icon="headphones" title={t('d.church.podPlusOnly')}>
           <Link to="/plus" className="btn">
             {t('d.church.seePlus')}
           </Link>
@@ -499,7 +499,6 @@ function AddToPod({ onClose }: { onClose: () => void }) {
           <input ref={coverInput} type="file" accept="image/*" hidden data-testid="pod-cover" onChange={(e) => { pickCover(e.target.files?.[0]); e.target.value = ''; }} />
           <div className="grow">
             <b>{t('d.church.cover')}</b>
-            <p className="muted-text small">{cover ? t('d.church.coverChosen') : t('d.church.coverHint')}</p>
             {cover ? (
               <button className="link-btn danger" onClick={() => setCover(null)} disabled={busy}>
                 {t('noteNew.removePlace')}

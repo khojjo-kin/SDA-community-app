@@ -405,7 +405,8 @@ const check = (name, ok, extra = '') => {
     await page.waitForSelector('.prof-actions');
     check('under 14, Message hides for people you do not follow', (await actions.getByRole('button', { name: 'Message' }).count()) === 0);
     await goto('/u/you');
-    check('under 14, my profile says it stays private', (await page.locator('.prof-lock').count()) === 1 && (await page.locator('.prof-bio').innerText()).includes('under 14 stay private'));
+    // The lock says it; no line explains it any more (the polish pass).
+    check('under 14, my profile shows it stays private', (await page.locator('.prof-lock').count()) === 1 && !(await page.locator('.prof-bio').innerText()).includes('under 14 stay private'));
     await page.evaluate(() => {
       const d = window.__profileDemo;
       Object.assign(d.T('community_profiles').find((p) => p.id === 'demo_me'), { restricted: false, is_private: false });

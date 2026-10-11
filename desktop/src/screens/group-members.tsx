@@ -32,7 +32,7 @@ export function GroupMembers({ id }: { id: string }) {
   if (data.loading && !data.data) return <Spinner />;
   if (data.error && !data.data) return <Failed error={data.error} retry={data.reload} />;
   const { g, manage, people, waiting } = data.data!;
-  if (!g) return <Empty icon="users" title={t('d.community.groupGone')} body={t('d.community.groupGoneBody')} />;
+  if (!g) return <Empty icon="users" title={t('d.community.groupGone')} />;
 
   const page = g.kind === 'page';
   const word = page ? t('liveSetup.followers') : t('d.community.members');
@@ -108,7 +108,6 @@ export function GroupMembers({ id }: { id: string }) {
       {waiting.length ? (
         <section className="cm-section" aria-label={t('adminPub.requests')}>
           <h3 className="cm-h">{t('d.community.requestsCount', { count: fmt(waiting.length) })}</h3>
-          <p className="muted-text cm-section-note">{page ? t('d.community.askedToFollow') : t('d.community.askedToJoin')}</p>
           {shownWaiting.map((m) => row(m, true))}
         </section>
       ) : null}

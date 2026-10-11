@@ -10,6 +10,7 @@ import { t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Link, Spinner, Verified, toastError } from '../ui/kit';
+import { FeedSkeleton, GridSkeleton, RowsSkeleton } from '../ui/skeleton';
 import { AccountSwitcher } from '../ui/accounts';
 import { FeedPost, Tile } from '../ui/post';
 import { type GridSource, gridIds, tasteKey, tasteOf, tuneFeed } from '../ui/post-data';
@@ -133,10 +134,11 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
         </div>
         <div className="feed">
           {error ? <Failed error={error} retry={load} /> : null}
-          {ids === null && !error ? <Spinner /> : null}
+          {/* While the feed loads, the shapes of its first posts shimmer where they will be. */}
+          {ids === null && !error ? <FeedSkeleton /> : null}
           {ids && !ids.length ? (
             kind === 'following' ? (
-              <Empty icon="image" title={t('home.welcome')} body={t('d.posts.welcomeBody')}>
+              <Empty icon="image" title={t('home.welcome')}>
                 <div className="btn-row">
                   <button className="btn" onClick={() => setKind('foryou')}>
                     {t('d.posts.seeForYou')}
@@ -147,7 +149,7 @@ export function Home({ openPost, onCreate }: { openPost: (id: string) => void; o
                 </div>
               </Empty>
             ) : (
-              <Empty icon="image" title={t('bibleMarks.emptyFilter')} body={t('d.posts.nobodyPosted')} />
+              <Empty icon="image" title={t('bibleMarks.emptyFilter')} />
             )
           ) : null}
           {(ids ?? []).map((id) => (
@@ -345,8 +347,8 @@ export function Explore({ openPost }: { openPost: (id: string, list?: string[]) 
     <div className="page explore">
       <SearchBox />
       {error ? <Failed error={error} retry={load} /> : null}
-      {!posts && !error ? <Spinner /> : null}
-      {posts && !posts.length ? <Empty icon="compass" title={t('d.posts.exploreEmpty')} body={t('d.posts.exploreEmptyBody')} /> : null}
+      {!posts && !error ? <GridSkeleton kind="mosaic" count={10} /> : null}
+      {posts && !posts.length ? <Empty icon="compass" title={t('d.posts.exploreEmpty')} /> : null}
       <div className="mosaic">
         {all.map((p, i) => {
           // In each block of five, one tall tile, alternating right and left.
@@ -497,7 +499,7 @@ export function PeopleToFollow() {
   return (
     <div className="page suggested-page">
       <h1 className="page-title">{t('d.posts.suggested')}</h1>
-      {!people ? <Spinner /> : null}
+      {!people ? <RowsSkeleton count={8} right /> : null}
       {people && !people.length ? <p className="muted-text">{t('d.posts.followingEveryone')}</p> : null}
       {(people ?? []).map((p) => (
         <Suggestion

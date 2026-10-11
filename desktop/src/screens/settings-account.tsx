@@ -10,11 +10,12 @@ import type { Session } from '../lib/admin';
 import { t, tSplit, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
-import { Avatar, Failed, Icon, Link, Spinner, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
+import { Avatar, Failed, Icon, Link, Verified, ask, toast, toastError, useLoad } from '../ui/kit';
 import { LEGAL_DETAILS } from './legal-docs.gen';
 import { AboutCommunity, isPlaceholder } from './legal';
 import { BirthdayQuestion, MinorRules } from './settings-birthday';
-import { Block, Card, LinkRow, Notice, Page, SIcon, longDate } from './settings-ui';
+import { RowsSkeleton } from '../ui/skeleton';
+import { Block, Card, LinkRow, Page, SIcon, longDate } from './settings-ui';
 
 /* ---------- Accounts Centre ---------- */
 
@@ -22,7 +23,7 @@ export function AccountsCentre() {
   const { me } = useMe();
   const auth = useAuth();
   return (
-    <Page title={t('d.settings.accountsCentre')} intro={t('d.settings.accountsCentreIntro')}>
+    <Page title={t('d.settings.accountsCentre')}>
       <div className="st-profile-card">
         <Avatar src={me.avatar_url} name={me.username} size={56} />
         <span className="st-row-text">
@@ -41,20 +42,20 @@ export function AccountsCentre() {
           <LinkRow
             icon="key"
             title={t('d.settings.security')}
-            sub={auth.demo ? t('d.settings.securityDemo') : auth.user?.email ? t('d.settings.securitySubEmail', { email: auth.user.email }) : t('d.settings.securitySub')}
+            sub={auth.user?.email || undefined}
             external
             testId="clerk-account"
             onClick={() => (auth.demo ? toast(t('d.settings.securityDemoToast')) : auth.openAccount())}
           />
           <BirthdayRow />
-          <LinkRow icon="download" title={t('d.settings.download')} sub={t('d.settings.downloadSub')} to="/help/chat" />
+          <LinkRow icon="download" title={t('d.settings.download')} to="/help/chat" />
         </Card>
       </Block>
 
       <LoginActivity />
       <AccountsHere />
 
-      <Block title={t('d.settings.deactivateTitle')} note={t('d.settings.deactivateNote')}>
+      <Block title={t('d.settings.deactivateTitle')}>
         <button
           className="btn danger-outline"
           onClick={async () => {
@@ -87,7 +88,7 @@ function BirthdayRow() {
       <span className="st-row-text">
         <b>{t('d.settings.birthday')}</b>
         <span>
-          {born.loading ? t('d.settings.loading') : born.data ? t('d.settings.birthdaySet', { date: longDate(born.data) }) : t('d.settings.birthdayMissing')}
+          {born.loading ? t('d.settings.loading') : born.data ? longDate(born.data) : t('d.settings.notSet')}
         </span>
       </span>
       {!born.loading && !born.data ? (
@@ -187,9 +188,9 @@ function LoginActivity() {
     list.reload();
   };
   return (
-    <Block title={t('settings.loginActivitySub')} note={viaClerk ? undefined : t('d.settings.loginNote')}>
+    <Block title={t('settings.loginActivitySub')}>
       {list.loading ? (
-        <Spinner />
+        <RowsSkeleton count={2} avatar={24} />
       ) : list.error ? (
         <Failed error={list.error} retry={list.reload} />
       ) : !list.data?.length ? (
@@ -266,7 +267,6 @@ function AccountsHere() {
         <LinkRow
           icon="pluscircle"
           title={t('d.settings.addAccount')}
-          sub={t('d.settings.addAccountSub', { count: MAX_ACCOUNTS })}
           onClick={() => {
             if (auth.demo) return toast(t('d.settings.demoSwitch'));
             if (auth.accounts.length >= MAX_ACCOUNTS) return toast(t('d.settings.maxAccounts', { count: MAX_ACCOUNTS }));
@@ -291,15 +291,12 @@ export function AccountStatus() {
     [t('d.settings.privacy'), me.is_private || me.restricted ? t('d.settings.privateAccount') : t('d.settings.publicAccount')],
   ];
   return (
-    <Page title={t('d.settings.accountStatus')} intro={t('d.settings.statusIntro')}>
+    <Page title={t('d.settings.accountStatus')}>
       <div className="st-status">
         <span className="st-status-icon">
           <Icon name="check" size={26} stroke={2.4} />
         </span>
-        <div>
-          <b>{t('d.settings.goodStanding')}</b>
-          <p>{t('d.settings.goodStandingText')}</p>
-        </div>
+        <b>{t('d.settings.goodStanding')}</b>
       </div>
       <Block title={t('d.settings.aboutAccount')}>
         <Card>
@@ -315,8 +312,8 @@ export function AccountStatus() {
       </Block>
       <Block title={t('d.settings.keepingSafe')}>
         <Card>
-          <LinkRow icon="users" title={t('legal.guidelines')} sub={t('d.settings.guidelinesSub')} to="/legal/guidelines" />
-          <LinkRow icon="lifebuoy" title={t('d.settings.askAccount')} sub={t('d.settings.askAccountSub')} to="/help/chat" />
+          <LinkRow icon="users" title={t('legal.guidelines')} to="/legal/guidelines" />
+          <LinkRow icon="lifebuoy" title={t('d.settings.askAccount')} to="/help/chat" />
         </Card>
       </Block>
     </Page>
@@ -331,14 +328,13 @@ export function FamilyCentre() {
   const parentsLine = tSplit('d.settings.parentsText', 'email');
   if (me.restricted) {
     return (
-      <Page title={t('settings.under14')} intro={t('d.settings.under14Intro')}>
+      <Page title={t('settings.under14')}>
         <MinorRules />
-        <Notice icon="calendar">{t('d.settings.under14Birthday')}</Notice>
       </Page>
     );
   }
   return (
-    <Page title={t('d.settings.under14Accounts')} intro={t('d.settings.under14AccountsIntro')}>
+    <Page title={t('d.settings.under14Accounts')}>
       <Block title={t('d.settings.under14Changes')}>
         <MinorRules you={false} />
       </Block>
@@ -349,7 +345,7 @@ export function FamilyCentre() {
           {parentsLine[1]}
         </p>
         <Card>
-          <LinkRow icon="shield" title={t('legal.childSafety')} sub={t('d.settings.childSafetySub')} to="/legal/child-safety" />
+          <LinkRow icon="shield" title={t('legal.childSafety')} to="/legal/child-safety" />
         </Card>
       </Block>
     </Page>

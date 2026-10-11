@@ -50,7 +50,6 @@ export function GoLive() {
         <div className="lv-over static">
           <Icon name="live" size={44} color="rgba(255,255,255,.7)" />
           <h2>{t('goLive.notAvailable')}</h2>
-          <p>{t('goLive.notAvailableBody')}</p>
           <button className="btn block" onClick={() => back('/')}>
             {t('goLive.goBack')}
           </button>
@@ -530,7 +529,6 @@ function Broadcast() {
               <button className="lv-go" onClick={start} disabled={!stream || busy} aria-label={t('goLive.goLive')}>
                 <span style={{ background: LIVE_RED }}>{busy ? <Spinner size={22} /> : <Icon name="live" size={32} color="#fff" stroke={2.2} />}</span>
               </button>
-              <p className="lv-hint">{audience === 'practice' ? t('d.frame.practiceHint') : t('d.frame.upToWatch', { count: MAX_VIEWERS })}</p>
             </div>
           )}
         </div>

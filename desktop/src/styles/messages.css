@@ -309,8 +309,8 @@ body:has(.now-playing) .main:has(> .direct.mx) { height: calc(100vh - 80px); }
 .mx-wall-modal { width: min(640px, 100%); }
 .mx-wall { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 18px; }
 .mx-wall-sub { color: var(--fg2); font-size: 13.5px; }
-.mx-wall-upsell { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 14px; background: var(--surface); text-align: left; }
-.mx-wall-upsell:hover { background: var(--surface2); }
+.mx-wall-upsell { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px; border-radius: 12px; text-align: left; }
+.mx-wall-upsell:hover { background: var(--hover); }
 .mx-wall-upsell > svg { color: var(--fg2); flex: none; }
 .mx-wall-crown { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
 .mx-wall-upsell-text { flex: 1; display: flex; flex-direction: column; gap: 2px; line-height: 18px; }

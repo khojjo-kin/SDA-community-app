@@ -172,7 +172,7 @@
 .ch-week-day.today { color: var(--fg); }
 .ch-week-day.today i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
 .ch-today-go { border-radius: 24px; }
-.ch-note-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: var(--surface); }
+.ch-note-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 6px 2px; }
 .ch-note-card .grow { display: flex; flex-direction: column; gap: 2px; line-height: 19px; }
 
 /* ---------- Sabbath School: the publishers' posts ---------- */

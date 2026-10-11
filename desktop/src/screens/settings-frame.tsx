@@ -10,22 +10,22 @@ import { parts } from '../lib/router';
 import { AccountSwitcher } from '../ui/accounts';
 import { Icon, Link, ask } from '../ui/kit';
 import { AboutPage, AccountsCentre, AccountStatus, FamilyCentre } from './settings-account';
-import { AdsPayments, CreatorSubscriptions } from './settings-money';
+import { CreatorSubscriptions } from './settings-money';
+import { Payments } from './settings-payments';
 import { Accessibility, Appearance, Archiving, ChatStreaks, ContentPrefs, Language, LikeCounts } from './settings-prefs';
 import { AccountPrivacy, ActivityStatus, Blocked, CloseFriends, MessagesReplies, MutedAccounts, Notifications, RestrictedAccounts, StoryAlerts, StoryLiveLocation } from './settings-privacy';
 import { ChatWallpaper, ShortsSettings } from './settings-media';
 import { CreatorTools, EditProfile, ProfileViewers, Professional } from './settings-profile';
 import { SIcon, type SIconName } from './settings-ui';
 
-// Names and lines here are keys for t() (lib/i18n.ts), turned into words where they're drawn.
+// Names here are keys for t() (lib/i18n.ts), turned into words where they're drawn. Each line is only
+// its icon and name, as on the iPhone; the search also finds it by its English search words.
 type Entry = {
   id: string;
   /** The name's key. */
   label: string;
   icon: SIconName;
-  /** The key of a line under the name (only Accounts Centre has one, as on Instagram). */
-  sub?: string;
-  /** More words the search finds it by (English, whatever the app's language; the name and line are searched in the app's language). */
+  /** More words the search finds it by (English, whatever the app's language; the name is searched in the app's language). */
   words?: string;
   /** The page, or `to`: a page elsewhere in the app. */
   page?: () => React.ReactElement;
@@ -42,7 +42,9 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
   {
     label: 'settings.section.account',
     entries: [
-      { id: 'account', label: 'd.settings.accountsCentre', icon: 'account', sub: 'd.settings.accountsCentreSub', words: 'email password security birthday birth date login activity devices sessions where logged in switch add account deactivate delete download information clerk', page: AccountsCentre },
+      { id: 'account', label: 'd.settings.accountsCentre', icon: 'account', words: 'email password security personal details birthday birth date login activity devices sessions where logged in switch add account deactivate delete download information clerk', page: AccountsCentre },
+      // Saved cards, Community Plus and creator subscriptions, and every payment (as the iPhone's Payments row, in place of Plus).
+      { id: 'payments', label: 'payments.title', icon: 'card', words: 'subscribe subscription subscriptions community plus premium card cards credit debit payment payments payment methods wallet transactions history receipts billing refunds donations renew cancel', page: Payments },
     ],
   },
   {
@@ -59,7 +61,7 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
       { id: 'creator', label: 'settings.creatorTools', icon: 'chart', words: 'saved replies faq frequently asked questions shortcuts', page: CreatorTools },
       { id: 'subscriptions', label: 'd.settings.creatorSubs', icon: 'crown', words: 'subscribe subscribers monthly price payouts cancel resume exclusive', page: CreatorSubscriptions },
       { id: 'viewers', label: 'settings.profileViewers', icon: 'eye', words: 'who viewed visitors views plus', page: ProfileViewers },
-      { id: 'ads', label: 'd.settings.adsPayments', icon: 'card', words: 'ads promote boost payment history plus billing receipts', page: AdsPayments },
+      { id: 'your-ads', label: 'settings.yourAds', icon: 'ad', words: 'ads advert advertising promote boost campaign sponsored', to: '/dashboard/ads' },
     ],
   },
   {
@@ -116,7 +118,7 @@ const GROUPS: { label: string; entries: Entry[] }[] = [
 ];
 
 /** Older addresses, and the iPhone's names for the same pages. */
-const ALIASES: Record<string, string> = { replies: 'creator', 'saved-replies': 'creator', faq: 'creator', 'login-activity': 'account', 'account-type': 'professional', 'story-settings': 'story', 'view-counts': 'counts', theme: 'appearance', 'plus-font': 'appearance', 'app-font': 'appearance', 'clips-settings': 'content', 'reel-settings': 'shorts', 'live-location': 'story', 'creator-subscriptions': 'subscriptions', 'profile-viewers': 'viewers', 'under-14': 'family' };
+const ALIASES: Record<string, string> = { replies: 'creator', 'saved-replies': 'creator', faq: 'creator', 'login-activity': 'account', 'account-type': 'professional', 'story-settings': 'story', 'view-counts': 'counts', theme: 'appearance', 'plus-font': 'appearance', 'app-font': 'appearance', 'clips-settings': 'content', 'reel-settings': 'shorts', 'live-location': 'story', 'creator-subscriptions': 'subscriptions', 'profile-viewers': 'viewers', 'under-14': 'family', ads: 'payments', 'payment-methods': 'payments', transactions: 'payments' };
 
 export function Settings({ path }: { path: string }) {
   const { me } = useMe();
@@ -131,14 +133,13 @@ export function Settings({ path }: { path: string }) {
   const current = all.find((e) => e.page && e.id === (ALIASES[asked] ?? asked)) ?? all.find((e) => e.id === 'edit')!;
   const Page = current.page!;
   const needle = q.trim().toLowerCase();
-  const found = needle ? all.filter((e) => `${t(e.label)} ${e.sub ? t(e.sub) : ''} ${e.words ?? ''}`.toLowerCase().includes(needle)) : [];
+  const found = needle ? all.filter((e) => `${t(e.label)} ${e.words ?? ''}`.toLowerCase().includes(needle)) : [];
 
   const item = (e: Entry) => (
     <Link key={e.id} to={e.to ?? '/accounts/' + e.id} className={'st-nav-item' + (e.id === (current.parent ?? current.id) ? ' on' : '')}>
       <SIcon name={e.icon} />
       <span className="st-nav-text">
         <span>{t(e.label)}</span>
-        {e.sub ? <small>{t(e.sub)}</small> : null}
       </span>
       {e.external ? <SIcon name="external" size={16} /> : null}
     </Link>
@@ -164,7 +165,6 @@ export function Settings({ path }: { path: string }) {
             ) : (
               <div className="st-none">
                 <b>{t('settings.noneFound')}</b>
-                <span>{t('settings.tryDifferentWord')}</span>
               </div>
             )
           ) : (

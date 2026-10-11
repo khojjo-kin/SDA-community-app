@@ -137,7 +137,6 @@ export function PayoutBox({ onChange, compact }: { onChange?: (s: PayoutStatus) 
           </button>
         ) : null}
       </div>
-      {compact ? null : <p className="muted-text small">{t('d.pro.payoutsNote')}</p>}
     </div>
   );
 }
@@ -155,7 +154,7 @@ export function SavedCards({ compact }: { compact?: boolean }) {
     setBusy(true);
     try {
       const secret = await startAddCard();
-      const ok = await pay({ title: t('d.pro.addACard'), detail: t('d.pro.addCardDetail'), amountPence: 0, currency: 'GBP', clientSecret: secret, intent: 'setup', action: t('checkout.saveCard') });
+      const ok = await pay({ title: t('d.pro.addACard'), amountPence: 0, currency: 'GBP', clientSecret: secret, intent: 'setup', action: t('checkout.saveCard') });
       if (ok) {
         list.set(await fetchSavedCards());
         toast(t('d.pro.cardSaved'));
@@ -241,7 +240,7 @@ export function PaymentHistory({ limit }: { limit?: number }) {
   if (list.error && !list.data) return <Failed error={list.error} retry={list.reload} />;
   if (!list.data) return <Spinner size={22} />;
   const rows = limit ? list.data.slice(0, limit) : list.data;
-  if (!rows.length) return <Empty icon="receipt" title={t('d.pro.noPayments')} body={t('d.pro.noPaymentsBody')} />;
+  if (!rows.length) return <Empty icon="receipt" title={t('d.pro.noPayments')} />;
   return (
     <div className="table-wrap">
       <table className="table pro-table">
@@ -319,10 +318,7 @@ export function FundraisersTab() {
     <div className="pro-split">
       <section className="pro-main">
         <div className="pro-section-head">
-          <div>
-            <h2>{t('d.pro.yourFundraisers')}</h2>
-            <p className="muted-text">{t('d.pro.fundraisersSub')}</p>
-          </div>
+          <h2>{t('d.pro.yourFundraisers')}</h2>
           {restricted ? null : (
             <Link to="/fundraisers/new" className="btn">
               <Icon name="plus" size={16} stroke={2.4} /> {t('d.pro.startFundraiser')}

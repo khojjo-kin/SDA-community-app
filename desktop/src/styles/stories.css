@@ -98,9 +98,9 @@
 /* ---------- sheets opened from a story (the app's own colours) ---------- */
 .sv-sheet { width: min(420px, 100%); }
 .sv-seen-count { padding: 0 24px 8px; color: var(--fg2); }
-.sv-plus-note { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 0 16px 8px; padding: 10px 12px; border-radius: 12px; background: var(--hover); text-align: left; }
+.sv-plus-note { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 0 16px 8px; padding: 8px 10px; border-radius: 12px; text-align: left; }
 .sv-plus-note span { flex: 1; }
-.sv-plus-note:hover { background: var(--press, var(--hover)); }
+.sv-plus-note:hover { background: var(--hover); }
 .sv-viewer { padding: 6px 12px 6px 20px; }
 .sv-viewer .row-main { padding: 2px 0; }
 .sv-viewer .row-text b { display: flex; align-items: center; }

@@ -160,7 +160,7 @@ function inline(text: string, openDoc: (id: string) => void, key = ''): React.Re
 export function LegalArticle({ id, openDoc }: { id: string; openDoc: (id: string) => void }) {
   if (id === 'about') return <AboutCommunity openDoc={openDoc} />;
   const md = LEGAL_MARKDOWN[id];
-  if (!md) return <Empty icon="info" title={t('legal.notFound')} body={t('d.frame.docMoved')} />;
+  if (!md) return <Empty icon="info" title={t('legal.notFound')} />;
   const blocks = parseMarkdown(md).filter((b) => !(b.type === 'p' && /^Last updated:/i.test(b.text)));
   const [first, ...rest] = blocks[0]?.type === 'h1' ? blocks : [{ type: 'h1' as const, text: LEGAL_DOCS.find((d) => d.id === id)?.label ?? '' }, ...blocks];
   return (

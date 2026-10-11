@@ -10,7 +10,8 @@ import type { Session } from '../lib/admin';
 import { dateLocale, languageCode, t } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { parts, useRoute } from '../lib/router';
-import { Avatar, Empty, Failed, Icon, type IconName, Link, Spinner, useLoad } from '../ui/kit';
+import { Avatar, Empty, Failed, Icon, type IconName, Link, useLoad } from '../ui/kit';
+import { GridSkeleton, RowsSkeleton } from '../ui/skeleton';
 import { Tile } from '../ui/post';
 import { LIST_SOURCE, gridIds } from '../ui/post-data';
 
@@ -79,11 +80,10 @@ function LikedPosts({ openPost }: { openPost: (id: string, list?: string[]) => v
   return (
     <div className="st-page wide">
       <h1 className="st-title">{t('d.frame.likes')}</h1>
-      <p className="st-intro">{t('d.frame.likesIntro')}</p>
-      {likes.loading ? <Spinner /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : all.length ? (
+      {likes.loading ? <GridSkeleton count={6} /> : likes.error ? <Failed error={likes.error} retry={likes.reload} /> : all.length ? (
         <div className="grid st-activity-grid">{all.map((p) => <Tile key={p.id} post={p} onOpen={(id) => openPost(id, ids)} grid={all} source={LIST_SOURCE} />)}</div>
       ) : (
-        <Empty icon="heart" title={t('d.frame.noLikes')} body={t('d.frame.noLikesBody')} />
+        <Empty icon="heart" title={t('d.frame.noLikes')} />
       )}
     </div>
   );
@@ -95,8 +95,7 @@ function MyComments({ openPost }: { openPost: (id: string) => void }) {
   return (
     <div className="st-page wide">
       <h1 className="st-title">{t('live.comments')}</h1>
-      <p className="st-intro">{t('d.frame.commentsIntro')}</p>
-      {comments.loading ? <Spinner /> : comments.error ? <Failed error={comments.error} retry={comments.reload} /> : comments.data?.length ? (
+      {comments.loading ? <RowsSkeleton count={4} square /> : comments.error ? <Failed error={comments.error} retry={comments.reload} /> : comments.data?.length ? (
         <div className="st-card">
           {comments.data.map((c) => {
             const p = getPostNow(c.post_id);
@@ -114,7 +113,7 @@ function MyComments({ openPost }: { openPost: (id: string) => void }) {
           })}
         </div>
       ) : (
-        <Empty icon="comment" title={t('d.frame.noComments')} body={t('d.frame.noCommentsBody')} />
+        <Empty icon="comment" title={t('d.frame.noComments')} />
       )}
     </div>
   );
@@ -144,7 +143,6 @@ function AccountHistory() {
   return (
     <div className="st-page wide">
       <h1 className="st-title">{t('d.frame.accountHistory')}</h1>
-      <p className="st-intro">{t('d.frame.historyIntro')}</p>
       <div className="st-card st-timeline">
         {(sessions.data ?? []).map((s) => (
           <div key={s.id} className="st-row">
@@ -170,7 +168,7 @@ function AccountHistory() {
           </span>
         </div>
       </div>
-      {sessions.loading ? <Spinner /> : null}
+      {sessions.loading ? <RowsSkeleton count={2} avatar={24} /> : null}
     </div>
   );
 }

@@ -63,16 +63,13 @@ export function WallpaperPicker({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="mx-wall">
-      {plus ? (
-        <p className="mx-wall-sub">{t('d.messages.wallSub')}</p>
-      ) : (
+      {plus ? null : (
         <button type="button" className="mx-wall-upsell" onClick={toPlus}>
           <span className="mx-wall-crown">
             <Icon name="crown" size={22} />
           </span>
           <span className="mx-wall-upsell-text">
             <b>{t('d.messages.wallPerk')}</b>
-            <span>{t('d.messages.wallPerkBody')}</span>
           </span>
           <Icon name="right" size={18} stroke={2} />
         </button>

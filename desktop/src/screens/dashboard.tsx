@@ -17,9 +17,9 @@ import { BestPractices, Inspiration } from './pro-tools';
 
 // label and hint are keys for t(), read where the menu is drawn.
 const TOOLS = [
-  { value: 'inspiration', label: 'd.pro.inspiration', hint: 'd.pro.inspirationHint', path: '/dashboard/inspiration' },
-  { value: 'best-practices', label: 'd.pro.bestPractices', hint: 'd.pro.bestPracticesHint', path: '/dashboard/best-practices' },
-  { value: 'creator', label: 'd.pro.savedReplies', hint: 'd.pro.savedRepliesHint', path: '/accounts/creator' },
+  { value: 'inspiration', label: 'd.pro.inspiration', path: '/dashboard/inspiration' },
+  { value: 'best-practices', label: 'd.pro.bestPractices', path: '/dashboard/best-practices' },
+  { value: 'creator', label: 'd.pro.savedReplies', path: '/accounts/creator' },
 ];
 
 /** The post dialog with previous and next arrows, as main.tsx's (it takes the list and onOpen). */
@@ -53,7 +53,6 @@ export function Dashboard({ path, openPost }: { path?: string; openPost?: OpenPo
           <Dropdown
             label={t('d.pro.insights')}
             active={tab === 'insights'}
-            tip={tab === 'insights' ? undefined : t('d.pro.insightsTip')}
             items={SECTIONS.map((s) => ({ value: s.value, label: t(s.label) }))}
             value={tab === 'insights' ? section : undefined}
             onChange={(v) => nav(SECTIONS.find((s) => s.value === v)!.path)}
@@ -68,8 +67,7 @@ export function Dashboard({ path, openPost }: { path?: string; openPost?: OpenPo
           <Dropdown
             label={t('d.pro.yourTools')}
             active={tab === 'tools'}
-            tip={tab === 'tools' ? undefined : t('d.pro.yourToolsTip')}
-            items={TOOLS.map((x) => ({ value: x.value, label: t(x.label), hint: t(x.hint) }))}
+            items={TOOLS.map((x) => ({ value: x.value, label: t(x.label) }))}
             value={tool}
             onChange={(v) => nav(TOOLS.find((x) => x.value === v)!.path)}
             menuLabel={t('d.pro.yourTools')}

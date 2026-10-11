@@ -102,7 +102,8 @@ const check = (name, ok, extra = '') => {
     await page.getByRole('button', { name: 'Add a church' }).click();
     await page.waitForSelector('.cm-pane');
     check('Add a church opens the form beside the list', (await hash()) === '#/churches/new');
-    check('a member is told an admin checks each new church', (await page.locator('.cm-pane-intro').innerText()).includes('An admin checks each new church'));
+    // No line explaining the form (the polish pass); the member is told an admin checks it once they add it, below.
+    check('the form opens with no intro line', (await page.locator('.cm-pane-intro').count()) === 0);
     await page.getByRole('button', { name: 'Add church' }).click();
     check('a church needs a name', (await page.locator('.cm-pane .form-error').first().innerText()) === "Add the church's name.");
     await page.getByLabel('Church name').fill('Ebenezer SDA Church');

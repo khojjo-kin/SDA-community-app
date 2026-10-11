@@ -161,7 +161,8 @@ async function confirmPayment(page, button) {
     await page.getByRole('button', { name: 'Got it' }).click();
     await page.locator('.pro-tabs .pro-pill', { hasText: 'Insights' }).hover();
     await page.waitForTimeout(300);
-    check('hovering Insights explains it', (await page.locator('.pro-drop', { hasText: 'Insights' }).locator('.pro-tip').evaluate((el) => getComputedStyle(el).opacity)) === '1' && (await page.locator('.pro-drop', { hasText: 'Insights' }).locator('.pro-tip').innerText()) === 'See how your content is performing.');
+    // No tooltip explaining the tab any more (the polish pass): its name is enough.
+    check('hovering Insights shows no explaining tooltip', (await page.locator('.pro-drop', { hasText: 'Insights' }).locator('.pro-tip').count()) === 0);
     await page.reload();
     await page.waitForSelector('.pro-ads-table');
     await page.waitForTimeout(500);
@@ -334,7 +335,8 @@ async function confirmPayment(page, button) {
     await B.page.waitForSelector('.pro-newlook');
     await B.page.getByRole('button', { name: 'Got it' }).click();
     await B.page.waitForSelector('.pro-empty');
-    check('an account with no ads sees No ads available', (await B.page.locator('.pro-empty h3').innerText()) === 'No ads available' && (await B.page.locator('.pro-empty p').innerText()) === 'Ads that you create will appear here.');
+    // Only the title: no line explaining it (the polish pass).
+    check('an account with no ads sees No ads available', (await B.page.locator('.pro-empty h3').innerText()) === 'No ads available' && (await B.page.locator('.pro-empty p').count()) === 0);
     await B.shot('pro-08-no-ads-dark');
 
     // Plus: yearly with the free week, then cancel and resume

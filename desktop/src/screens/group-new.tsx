@@ -109,7 +109,7 @@ export function GroupNew() {
               <i>@</i>
               <input value={handle} onChange={(e) => changeHandle(e.target.value)} placeholder={t('d.community.handlePlaceholder')} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-label={t('d.community.handle')} />
             </span>
-            <span className={errors.handle ? 'form-error' : 'cm-hint'}>{errors.handle ?? t('d.community.handleHint')}</span>
+            {errors.handle ? <span className="form-error">{errors.handle}</span> : null}
           </label>
           <label className="form-row">
             <span>{t('d.community.description')}</span>

@@ -458,7 +458,11 @@ export function CreateDialog({ onClose, start = 'post', request }: { onClose: ()
                   })}
                 </div>
               ) : (
-                <p className="muted-text pad">{t('d.posts.adjustPlus')}</p>
+                <p className="pad">
+                  <button type="button" className="link-btn" onClick={() => nav('/plus')}>
+                    {t('d.frame.getPlus')}
+                  </button>
+                </p>
               )}
             </div>
           ) : null}

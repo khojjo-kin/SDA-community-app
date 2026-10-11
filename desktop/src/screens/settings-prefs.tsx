@@ -10,7 +10,7 @@ import { useMe } from '../lib/me';
 import { languageCode, t } from '../lib/i18n';
 import { Icon, Modal, toastError } from '../ui/kit';
 import { FontChooser, WallpaperRow } from './settings-media';
-import { Block, Card, LinkRow, Notice, Page, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
+import { Block, Card, LinkRow, Page, RadioRow, ToggleRow, useProfileFlag } from './settings-ui';
 
 // The small choices kept on this computer, read once when the app starts (as the iPhone does).
 loadPrefs();
@@ -154,14 +154,16 @@ export function ContentPrefs() {
   };
   const list = adding === 'less' ? less : more;
   return (
-    <Page title={t('d.settings-more.contentTitle')} intro={t('d.settings-more.contentIntro')}>
-      <div className="st-summary">
-        <Icon name="sparkle" size={22} />
-        <b>{more.length ? t('feed.summary', { topics: listOf(more.map(phrase)) }) : t('feed.summaryEmpty')}</b>
-      </div>
+    <Page title={t('d.settings-more.contentTitle')}>
+      {more.length ? (
+        <div className="st-summary">
+          <Icon name="sparkle" size={22} />
+          <b>{t('feed.summary', { topics: listOf(more.map(phrase)) })}</b>
+        </div>
+      ) : null}
       {section('more', t('feed.moreTitle'))}
       {section('less', t('feed.lessTitle'))}
-      <Block title={t('feed.sensitive')} note={restricted ? t('d.settings-more.sensitiveUnder14') : t('d.settings-more.sensitiveLess')}>
+      <Block title={t('feed.sensitive')}>
         <Card>
           <RadioRow name="sensitive" title={t('feed.standard')} checked={!restricted && filter === 'standard'} disabled={restricted} onChange={() => chooseFilter('standard')} />
           <RadioRow name="sensitive" title={t('feed.less')} checked={restricted || filter === 'less'} disabled={restricted} onChange={() => chooseFilter('less')} />
@@ -169,7 +171,7 @@ export function ContentPrefs() {
       </Block>
       <Block title={t('tabs.clips')}>
         <Card>
-          <LinkRow icon="reels" title={t('d.settings-more.shortsSettings')} sub={t('d.settings-more.shortsSettingsSub')} to="/accounts/shorts" />
+          <LinkRow icon="reels" title={t('d.settings-more.shortsSettings')} to="/accounts/shorts" />
         </Card>
       </Block>
       {adding ? (
@@ -215,9 +217,8 @@ export function LikeCounts() {
   return (
     <Page title={t('d.settings-more.likeCounts')}>
       <Card>
-        <ToggleRow title={t('d.settings-more.showViewCounts')} sub={t('d.settings-more.showViewCountsSub')} on={on} onChange={set} />
+        <ToggleRow title={t('d.settings-more.showViewCounts')} on={on} onChange={set} />
       </Card>
-      <p className="st-text st-gap-top">{t('d.settings-more.likeCountsNote')}</p>
     </Page>
   );
 }
@@ -229,7 +230,7 @@ export function ChatStreaks() {
   return (
     <Page title={t('settings.chatStreaks')}>
       <Card>
-        <ToggleRow icon="flame" title={t('settings.chatStreaks')} sub={t('settings.chatStreaksSub')} on={on} onChange={set} />
+        <ToggleRow icon="flame" title={t('settings.chatStreaks')} on={on} onChange={set} />
       </Card>
     </Page>
   );
@@ -240,12 +241,12 @@ export function ChatStreaks() {
 export function Appearance() {
   const look = useAppearance();
   return (
-    <Page title={t('d.settings-more.appearance')} intro={t('d.settings-more.appearanceIntro')}>
+    <Page title={t('d.settings-more.appearance')}>
       <Card>
         <RadioRow name="appearance" icon="moon" title={t('theme.dark')} checked={look === 'dark'} onChange={() => setAppearance('dark')} />
         <RadioRow name="appearance" icon="sun" title={t('theme.white')} checked={look === 'white'} onChange={() => setAppearance('white')} />
       </Card>
-      <Block title={t('settings.appFont')} note={t('d.settings-more.appFontNote')}>
+      <Block title={t('settings.appFont')}>
         <FontChooser />
       </Block>
       <Block title={t('d.settings-more.chats')}>
@@ -262,11 +263,11 @@ export function Appearance() {
 export function Archiving() {
   const { me } = useMe();
   return (
-    <Page title={t('d.settings-more.archiving')} intro={t('d.settings-more.archivingIntro')}>
+    <Page title={t('d.settings-more.archiving')}>
       <Card>
-        <LinkRow icon="archive" title={t('d.settings-more.storiesArchive')} sub={t('d.settings-more.storiesArchiveSub')} to="/archive" />
-        <LinkRow icon="bookmark" title={t('settings.saved')} sub={t('d.settings-more.savedSub')} to={'/u/' + me.username + '/saved'} />
-        <LinkRow icon="activity" title={t('settings.yourActivity')} sub={t('d.settings-more.activitySub')} to="/activity" />
+        <LinkRow icon="archive" title={t('d.settings-more.storiesArchive')} to="/archive" />
+        <LinkRow icon="bookmark" title={t('settings.saved')} to={'/u/' + me.username + '/saved'} />
+        <LinkRow icon="activity" title={t('settings.yourActivity')} to="/activity" />
       </Card>
     </Page>
   );
@@ -281,7 +282,7 @@ export function Language() {
   // A language is found by its own name, its English name or its code ("fr").
   const shown = n ? LANGUAGES.filter((l) => `${l.native} ${l.name} ${l.code}`.toLowerCase().includes(n)) : LANGUAGES;
   return (
-    <Page title={t('language.title')} intro={t('d.settings-more.languageIntro')}>
+    <Page title={t('language.title')}>
       <input className="st-input st-search-input" placeholder={t('language.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('language.search')} />
       <Card>
         <RadioRow name="language" title={t('d.settings-more.computerLanguage')} sub={t('d.settings-more.computerLanguageSub', { name: languageName(computerLanguage()) })} checked={language === ''} onChange={() => setPrefs({ language: '' })} />
@@ -293,7 +294,7 @@ export function Language() {
           ))}
         </Card>
       ) : (
-        <p className="st-empty-line">{t('d.settings-more.noLanguages')}</p>
+        <p className="st-empty-line">{t('language.noneFound')}</p>
       )}
     </Page>
   );
@@ -335,6 +336,8 @@ const SHORTCUTS: [string, string, string][] = [
   ['← →', '', 'd.settings-more.shortcutStory'],
   ['Esc', '', 'd.settings-more.shortcutClose'],
   ['Tab', '', 'd.settings-more.shortcutTab'],
+  // Making everything larger is the browser's (or the Mac's) zoom.
+  ['⌘ +  ⌘ −', 'Ctrl +  Ctrl −', 'd.polish.zoom'],
 ];
 
 export function Accessibility() {
@@ -349,7 +352,7 @@ export function Accessibility() {
   return (
     <Page title={t('d.settings-more.accessibility')}>
       <Card>
-        <ToggleRow icon="access" title={t('d.settings-more.reduceMotion')} sub={t('d.settings-more.reduceMotionSub')} on={on} onChange={setReduceMotion} />
+        <ToggleRow icon="access" title={t('d.settings-more.reduceMotion')} on={on} onChange={setReduceMotion} />
       </Card>
       <Block title={t('d.settings-more.shortcuts')}>
         <Card>
@@ -363,7 +366,6 @@ export function Accessibility() {
           ))}
         </Card>
       </Block>
-      <Notice icon="text">{t('d.settings-more.zoomNote')}</Notice>
     </Page>
   );
 }

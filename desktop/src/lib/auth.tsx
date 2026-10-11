@@ -79,21 +79,30 @@ function mapUser(u: any): AuthUser | null {
   };
 }
 
-/** Clerk's forms, coloured to match the app. */
-const appearance = {
-  variables: {
-    colorPrimary: '#1fbf5a',
-    colorBackground: '#131920',
-    colorText: '#f3f5f7',
-    colorTextSecondary: '#a4adb9',
-    colorInputBackground: '#1b222a',
-    colorInputText: '#f3f5f7',
-    colorNeutral: '#f3f5f7',
-    borderRadius: '10px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  elements: { card: { boxShadow: 'none', border: '0' }, rootBox: { width: '100%' }, cardBox: { width: '100%', boxShadow: 'none' } },
-};
+/**
+ * Clerk's forms, coloured to match the app in its current appearance (app.css's Dark and White
+ * colours): the form sits on the page colour with soft filled fields, as the iPhone's sign-in pages do.
+ */
+function appearance() {
+  const white = document.documentElement.dataset.theme === 'white';
+  const c = white
+    ? { primary: '#16a34a', page: '#ffffff', text: '#0f1419', text2: '#57606a', field: '#f0f2f4' }
+    : { primary: '#1fbf5a', page: '#0b1014', text: '#f3f5f7', text2: '#a4adb9', field: '#1b222a' };
+  return {
+    variables: {
+      colorPrimary: c.primary,
+      colorBackground: c.page,
+      colorText: c.text,
+      colorTextSecondary: c.text2,
+      colorInputBackground: c.field,
+      colorInputText: c.text,
+      colorNeutral: c.text,
+      borderRadius: '12px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    },
+    elements: { card: { boxShadow: 'none', border: '0' }, rootBox: { width: '100%' }, cardBox: { width: '100%', boxShadow: 'none', border: '0' } },
+  };
+}
 
 // The demo has two sample accounts to switch between; the call test signs a second window in as
 // another sample person through __fakeMe.
@@ -147,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const base = 'https://' + clerkHost(CLERK_KEY) + '/npm/';
         const tag = { 'data-clerk-publishable-key': CLERK_KEY };
         const here = location.origin + location.pathname;
-        const options: any = { appearance, signInForceRedirectUrl: here, signUpForceRedirectUrl: here, afterSignOutUrl: here };
+        const options: any = { appearance: appearance(), signInForceRedirectUrl: here, signUpForceRedirectUrl: here, afterSignOutUrl: here };
         try {
           // Current Clerk: the screens come as a separate bundle next to clerk-js.
           await loadScript(base + '@clerk/ui@1/dist/ui.browser.js');
@@ -203,15 +212,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await window.Clerk.signOut({ redirectUrl: location.origin + location.pathname });
     },
     openAccount() {
-      if (!__DEMO__) window.Clerk.openUserProfile({ appearance });
+      if (!__DEMO__) window.Clerk.openUserProfile({ appearance: appearance() });
     },
     mountForm(el, mode) {
       if (__DEMO__ || !window.Clerk) return () => {};
       if (mode === 'sign-in') {
-        window.Clerk.mountSignIn(el, { appearance, signUpUrl: '#/sign-up', routing: 'virtual' });
+        window.Clerk.mountSignIn(el, { appearance: appearance(), signUpUrl: '#/sign-up', routing: 'virtual' });
         return () => window.Clerk.unmountSignIn(el);
       }
-      window.Clerk.mountSignUp(el, { appearance, signInUrl: '#/sign-in', routing: 'virtual' });
+      window.Clerk.mountSignUp(el, { appearance: appearance(), signInUrl: '#/sign-in', routing: 'virtual' });
       return () => window.Clerk.unmountSignUp(el);
     },
     demoSignIn() {
@@ -237,7 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     addAccount() {
       if (__DEMO__ || !window.Clerk) return;
-      window.Clerk.openSignIn({ appearance, forceRedirectUrl: location.origin + location.pathname, signUpForceRedirectUrl: location.origin + location.pathname });
+      window.Clerk.openSignIn({ appearance: appearance(), forceRedirectUrl: location.origin + location.pathname, signUpForceRedirectUrl: location.origin + location.pathname });
     },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

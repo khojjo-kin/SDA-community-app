@@ -150,7 +150,6 @@ export function ProfileStyleDialog({ onClose }: { onClose: () => void }) {
             <Icon name="crown" size={24} />
             <div className="grow">
               <b>{t('d.profile.partOfPlus')}</b>
-              <p className="muted-text">{t('d.profile.styleUpsell')}</p>
             </div>
             <button
               className="btn"

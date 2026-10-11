@@ -75,7 +75,7 @@
 .cm-sort button { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 600; }
 .cm-sort button:hover:not(.on):not(:disabled) { background: var(--surface2); }
 .cm-sort button.on { background: var(--fg); color: var(--bg); }
-.cm-note { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 4px 16px 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--fg2); font-size: 13px; line-height: 18px; }
+.cm-note { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 4px 16px 8px; color: var(--fg2); font-size: 13px; line-height: 18px; }
 .cm-note .link-btn { font-size: 13px; }
 
 .cm-church-row { gap: 12px; padding: 10px 20px 10px 24px; }
@@ -94,10 +94,9 @@
 /* ---------- churches: a church's page, and the add form ---------- */
 
 .church.cm-church { max-width: 680px; gap: 0; padding: 40px 40px 80px; }
-.cm-banner { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; padding: 14px 16px; border-radius: 14px; }
-.cm-banner.pending { background: color-mix(in srgb, var(--verified) 12%, transparent); }
+/* A church's standing (waiting for an admin, not approved): plain words with an icon, no box. */
+.cm-banner { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
 .cm-banner.pending > svg { color: var(--verified); }
-.cm-banner.rejected { background: color-mix(in srgb, var(--like) 11%, transparent); }
 .cm-banner.rejected > svg { color: var(--like); }
 .cm-banner > svg { flex: none; margin-top: 1px; }
 .cm-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; line-height: 20px; }

@@ -176,7 +176,7 @@ function PeopleSheet({ picked: start, onDone }: { picked: Profile[]; onDone: (p:
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !people.length ? <p className="muted-text pad">{q.trim() ? t('d.stories.noOneFoundTry') : t('d.stories.followOrChat')}</p> : null}
+        {people && !people.length && q.trim() ? <p className="muted-text pad">{t('createFlow.noPeople')}</p> : null}
         {(people ?? []).map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />
@@ -280,14 +280,13 @@ export function CloseFriendsSheet({ onClose }: { onClose: (count: number) => voi
   };
   return (
     <Modal onClose={() => onClose(on.size)} title={t('settings.closeFriends')} className="share stc-friends-sheet">
-      <p className="stc-sheet-note">{t('d.stories.closeFriendsNote')}</p>
       <div className="share-search">
         <Icon name="search" size={16} color="var(--fg2)" />
         <input placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('d.stories.searchFollowing')} />
       </div>
       <div className="share-list">
         {people === null ? <Spinner /> : null}
-        {people && !shown.length ? <p className="muted-text pad">{q.trim() ? t('d.stories.noOneFound') : t('d.stories.followToAdd')}</p> : null}
+        {people && !shown.length && q.trim() ? <p className="muted-text pad">{t('d.stories.noOneFound')}</p> : null}
         {shown.map((p) => (
           <label key={p.id} className="row">
             <Avatar src={p.avatar_url} name={p.username} size={44} />

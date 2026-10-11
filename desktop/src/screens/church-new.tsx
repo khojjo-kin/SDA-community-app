@@ -83,9 +83,6 @@ export function ChurchNew({ onAdded }: { onAdded: () => void }) {
   return (
     <div className="cm-pane">
       <h1 className="cm-pane-title">{t('d.community.addAChurch')}</h1>
-      <p className="muted-text cm-pane-intro">
-        {admin ? t('d.community.introAdmin') : t('d.community.introMember')}
-      </p>
       <form
         className="cm-form"
         onSubmit={(e) => {
@@ -98,7 +95,7 @@ export function ChurchNew({ onAdded }: { onAdded: () => void }) {
           <Icon name="location" size={22} />
           <div className="cm-pin-text">
             <b>{t('d.community.mapPin')}</b>
-            <span>{pin ? t('d.community.pinned') : t('d.community.pinHint')}</span>
+            {pin ? <span>{t('d.community.pinned')}</span> : null}
           </div>
           {pin ? (
             <button type="button" className="link-btn muted" onClick={() => setPin(null)}>
