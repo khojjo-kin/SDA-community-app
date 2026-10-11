@@ -42,7 +42,17 @@ jobs:
           (cd dist-demo && python3 -m http.server 8790 --bind 127.0.0.1 &)
           (cd dist-wire && python3 -m http.server 8791 --bind 127.0.0.1 &)
           sleep 2
-          sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/
+          sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/ 2>&1 | tee "$RUNNER_TEMP/web-tests.txt"; exit ${PIPESTATUS[0]}
+      # The test output goes to the desktop-build-logs branch (web-tests/), readable without the Actions page.
+      - name: Save the test output
+        if: always()
+        working-directory: .
+        run: |
+          cd "$RUNNER_TEMP"
+          rm -rf logrepo && git clone --quiet --depth 1 --branch desktop-build-logs "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" logrepo 2>/dev/null || { mkdir logrepo && cd logrepo && git init -q -b desktop-build-logs && git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" && cd ..; }
+          mkdir -p logrepo/web-tests && cp web-tests.txt logrepo/web-tests/ 2>/dev/null || true
+          echo "${{ github.sha }} run ${{ github.run_number }} ${{ job.status }}" > logrepo/web-tests/LATEST.txt
+          cd logrepo && git add -A && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -q -m "Web test output, run ${{ github.run_number }}" && git pull -q --rebase origin desktop-build-logs 2>/dev/null; git push -q origin desktop-build-logs
 
   mac:
     name: Mac app
