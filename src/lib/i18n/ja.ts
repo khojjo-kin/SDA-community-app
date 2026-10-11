@@ -1522,4 +1522,42 @@ export const ja: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': '最初の投稿をシェアしよう',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'リクエスト',
+  'inbox.requestsCount': 'リクエスト（{count}）',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'メッセージリクエスト',
+  'requests.empty': 'メッセージリクエストはありません',
+  'requests.deleteQuestion': 'このリクエストを削除しますか？',
+  'requests.deleted': 'リクエストを削除しました',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'ミュート',
+  'mute.unmute': 'ミュートを解除',
+  // Read out for each switch.
+  'mute.postsFrom': '{username}さんの投稿をミュート',
+  'mute.storiesFrom': '{username}さんのストーリーズをミュート',
+  'mute.muted': '{username}さんをミュートしました',
+  'mute.unmuted': '{username}さんのミュートを解除しました',
+  'mute.empty': 'ミュートしている人はいません',
+  'restrict.restrict': '制限',
+  'restrict.unrestrict': '制限を解除',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': '{username}さんを制限しますか？',
+  'restrict.confirm': 'アカウントを制限',
+  'restrict.done': '{username}さんを制限しました',
+  'restrict.undone': '{username}さんの制限を解除しました',
+  'restrict.empty': '制限している人はいません',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': '制限中のアカウント',
+  'settings.muted': 'ミュート中のアカウント',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name}さんがいいねしました',
+  'post.likedByOthers': '{name}さん他がいいねしました',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': '制限中',
+  // ======== end of v24 ========
 };

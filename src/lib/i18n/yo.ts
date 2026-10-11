@@ -1522,4 +1522,42 @@ export const yo: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Pín àtẹ̀jáde rẹ àkọ́kọ́',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Ìbéèrè',
+  'inbox.requestsCount': 'Ìbéèrè ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Ìbéèrè ìfiránṣẹ́',
+  'requests.empty': 'Kò sí ìbéèrè ìfiránṣẹ́',
+  'requests.deleteQuestion': 'Pa ìbéèrè yìí rẹ́?',
+  'requests.deleted': 'A ti pa ìbéèrè náà rẹ́',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Pa ohùn',
+  'mute.unmute': 'Tan ohùn',
+  // Read out for each switch.
+  'mute.postsFrom': 'Pa ohùn àtẹ̀jáde {username}',
+  'mute.storiesFrom': 'Pa ohùn ìtàn {username}',
+  'mute.muted': 'O ti pa ohùn {username}',
+  'mute.unmuted': 'O ti tan ohùn {username}',
+  'mute.empty': 'O kò tíì pa ohùn ẹnikẹ́ni',
+  'restrict.restrict': 'Ká lọ́wọ́ kò',
+  'restrict.unrestrict': 'Yọ ìkálọ́wọ́kò kúrò',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Ká {username} lọ́wọ́ kò?',
+  'restrict.confirm': 'Ká àkáǹtì náà lọ́wọ́ kò',
+  'restrict.done': 'O ti ká {username} lọ́wọ́ kò',
+  'restrict.undone': 'O ti yọ ìkálọ́wọ́kò {username} kúrò',
+  'restrict.empty': 'O kò tíì ká ẹnikẹ́ni lọ́wọ́ kò',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Àwọn àkáǹtì tí o ká lọ́wọ́ kò',
+  'settings.muted': 'Àwọn àkáǹtì tí o pa ohùn wọn',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} fẹ́ràn rẹ̀',
+  'post.likedByOthers': '{name} àti àwọn mìíràn fẹ́ràn rẹ̀',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'A ti ká a lọ́wọ́ kò',
+  // ======== end of v24 ========
 };

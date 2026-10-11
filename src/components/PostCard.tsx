@@ -8,7 +8,7 @@ import { useIsActivePost } from '../lib/autoplay';
 import { COPYRIGHT_REASON, explainCopyrightReport } from '../lib/copyright-report';
 // Named feel here because this card has a tap() of its own (the double tap on the photo).
 import { tap as feel } from '../lib/haptics';
-import { t } from '../lib/i18n';
+import { t, tSplit } from '../lib/i18n';
 import { reduceMotionNow } from '../lib/motion';
 import { useSession } from '../lib/session';
 import { dropAuthor, usePost } from '../lib/store';
@@ -17,6 +17,7 @@ import type { Post } from '../lib/types';
 import { FeedVideo } from './FeedVideo';
 import { BurstHeart, Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
+import { MuteSheet } from './MuteSheet';
 import { AiInfo, PollCard, PromptCard, TagsButton } from './PostExtras';
 import { Avatar, Button, IconButton, Sheet, SheetRow, useChoices, useToast } from './ui';
 
@@ -54,6 +55,8 @@ export function PostMenu({ post, visible, onClose, onBlocked }: { post: Post; vi
   const legal = useLegalSheet();
   // The reasons for a report: an alert on iPhone, a sheet on Android (whose alerts hold only three buttons).
   const choices = useChoices();
+  // Mute's switches (posts, stories), opened from this menu once it has slid away.
+  const [muting, setMuting] = useState(false);
   // A running ad can be topped up: the new days are added on after the current ones.
   const promotedUntil = post.boosted && post.boosted_until && new Date(post.boosted_until) > new Date() ? dayLabel(new Date(post.boosted_until)) : '';
   const act = (fn: () => Promise<void> | void) => async () => {
@@ -121,6 +124,7 @@ export function PostMenu({ post, visible, onClose, onBlocked }: { post: Post; vi
               toast(now === 'requested' ? `Requested to follow ${post.username}` : `Following ${post.username}`);
             })}
           />
+          <SheetRow icon="mute" label={t('mute.mute')} onPress={act(() => setMuting(true))} />
           <SheetRow
             icon="flag"
             label="Report"
@@ -159,6 +163,7 @@ export function PostMenu({ post, visible, onClose, onBlocked }: { post: Post; vi
         </>
       )}
     </Sheet>
+    {mine ? null : <MuteSheet visible={muting} onClose={() => setMuting(false)} userId={post.user_id} username={post.username} />}
     {choices.element}
     {legal.element}
     </>
@@ -204,7 +209,9 @@ export const PostCard = React.memo(function PostCard({ id, suggest }: { id: stri
   const lastTap = useRef(0);
   const inView = useIsActivePost(id);
 
-  if (!post) return null;
+  // Home leaves out the posts of someone whose posts were muted just now (the server leaves them out of
+  // every feed it sends after that); their profile and a post's own page still show them.
+  if (!post || (suggest && post.author_muted)) return null;
   const media = post.media ?? [];
   const first = media[0];
   // Portrait down to 4:5 and landscape up to 1.91:1, as Instagram shows them; a size that can't be read is drawn 4:5.
@@ -284,6 +291,10 @@ export const PostCard = React.memo(function PostCard({ id, suggest }: { id: stri
     const next = Math.max(0, Math.min(media.length - 1, Math.round(e.nativeEvent.contentOffset.x / mediaW)));
     if (next !== page) setPage(next);
   };
+  // "Liked by mary_k and others", with mary_k's face, when someone you follow liked it (Instagram style).
+  // The line then stands in for the count by the heart, which the author still sees on their own posts.
+  const likedBy = post.liked_by_username ? tSplit(post.like_count > 1 ? 'post.likedByOthers' : 'post.likedBy', 'name') : null;
+  const heartCount = (post.hide_likes || likedBy) && !mine ? undefined : post.like_count;
   const caption = post.caption ?? '';
   const lines = caption.split('\n');
   const long = caption.length > CAPTION_CUT || lines.length > 2;
@@ -380,12 +391,23 @@ export const PostCard = React.memo(function PostCard({ id, suggest }: { id: stri
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 10, paddingTop: 6 }}>
         {/* A hidden like count is still shown to the author. */}
-        <Act icon="heart" count={post.hide_likes && !mine ? undefined : post.like_count} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} scale={pop} onPress={() => like()} />
+        <Act icon="heart" count={heartCount} label={post.liked ? 'Unlike' : 'Like'} color={post.liked ? C.like : C.fg} fill={post.liked} scale={pop} onPress={() => like()} />
         {commentsClosed ? null : <Act icon="comment" count={post.comment_count} label="Comments" onPress={() => go(`/comments/${post.id}`)} />}
         <Act icon="repost" count={post.repost_count} label={post.reposted ? 'Remove repost' : 'Repost'} color={post.reposted ? C.ok : C.fg} onPress={() => safe(async () => { await setFlag(me, post, 'reposted', !post.reposted); toast(post.reposted ? 'Repost removed' : 'Reposted to your profile'); })} />
         <Act icon="send" label="Share" onPress={() => go(`/share/${post.id}`)} />
         <Act icon="bookmark" label={post.saved ? 'Remove from saved' : 'Save'} fill={post.saved} end onPress={() => safe(async () => { await setFlag(me, post, 'saved', !post.saved); toast(post.saved ? 'Removed from saved' : 'Saved'); })} />
       </View>
+
+      {likedBy ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 4 }}>
+          <Avatar uri={post.liked_by_avatar_url} name={post.liked_by_username ?? ''} size={18} />
+          <Text numberOfLines={1} style={{ flex: 1, color: C.fg, fontSize: 14 }}>
+            {likedBy[0]}
+            <Text style={{ fontWeight: '700' }}>{post.liked_by_username}</Text>
+            {likedBy[1]}
+          </Text>
+        </View>
+      ) : null}
 
       {caption ? (
         <Text style={{ color: C.fg, fontSize: 14, paddingHorizontal: 14, paddingTop: 4, lineHeight: 20 }} selectable>

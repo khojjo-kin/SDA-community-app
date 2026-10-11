@@ -1522,4 +1522,42 @@ export const ig: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Kesaa post mbụ gị',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Arịrịọ',
+  'inbox.requestsCount': 'Arịrịọ ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Arịrịọ ozi',
+  'requests.empty': 'Enweghị arịrịọ ozi',
+  'requests.deleteQuestion': 'Hichapụ arịrịọ a?',
+  'requests.deleted': 'Ehichapụla arịrịọ ahụ',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Mee ka ọ dị jụụ',
+  'mute.unmute': 'Weghachi ụda',
+  // Read out for each switch.
+  'mute.postsFrom': 'Mee ka post {username} dị jụụ',
+  'mute.storiesFrom': 'Mee ka akụkọ {username} dị jụụ',
+  'mute.muted': 'Emeela ka {username} dị jụụ',
+  'mute.unmuted': 'Eweghachila ụda {username}',
+  'mute.empty': 'Ị meghị ka onye ọ bụla dị jụụ',
+  'restrict.restrict': 'Machie',
+  'restrict.unrestrict': 'Wepụ mmachi',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Machie {username}?',
+  'restrict.confirm': 'Machie akaụntụ',
+  'restrict.done': 'Emachiela {username}',
+  'restrict.undone': 'Ewepụla mmachi {username}',
+  'restrict.empty': 'Ị machibeghị onye ọ bụla',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Akaụntụ emachiri',
+  'settings.muted': 'Akaụntụ ndị dị jụụ',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} nwere mmasị na ya',
+  'post.likedByOthers': '{name} na ndị ọzọ nwere mmasị na ya',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Emachiri',
+  // ======== end of v24 ========
 };

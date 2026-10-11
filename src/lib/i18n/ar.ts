@@ -1458,4 +1458,42 @@ export const ar: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'شارك منشورك الأول',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'الطلبات',
+  'inbox.requestsCount': 'الطلبات ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'طلبات المراسلة',
+  'requests.empty': 'لا توجد طلبات مراسلة',
+  'requests.deleteQuestion': 'هل تريد حذف هذا الطلب؟',
+  'requests.deleted': 'تم حذف الطلب',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'كتم',
+  'mute.unmute': 'إلغاء الكتم',
+  // Read out for each switch.
+  'mute.postsFrom': 'كتم منشورات {username}',
+  'mute.storiesFrom': 'كتم قصص {username}',
+  'mute.muted': 'تم كتم {username}',
+  'mute.unmuted': 'تم إلغاء كتم {username}',
+  'mute.empty': 'لم تكتم أي شخص',
+  'restrict.restrict': 'تقييد',
+  'restrict.unrestrict': 'إلغاء التقييد',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'هل تريد تقييد {username}؟',
+  'restrict.confirm': 'تقييد الحساب',
+  'restrict.done': 'تم تقييد {username}',
+  'restrict.undone': 'تم إلغاء تقييد {username}',
+  'restrict.empty': 'لم تقيّد أي شخص',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'الحسابات المقيّدة',
+  'settings.muted': 'الحسابات المكتومة',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'أعجب به {name}',
+  'post.likedByOthers': 'أعجب به {name} وآخرون',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'مقيّد',
+  // ======== end of v24 ========
 };

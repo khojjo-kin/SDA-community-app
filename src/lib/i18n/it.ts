@@ -1458,4 +1458,42 @@ export const it: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Condividi il tuo primo post',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Richieste',
+  'inbox.requestsCount': 'Richieste ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Richieste di messaggi',
+  'requests.empty': 'Nessuna richiesta di messaggi',
+  'requests.deleteQuestion': 'Eliminare questa richiesta?',
+  'requests.deleted': 'Richiesta eliminata',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Silenzia',
+  'mute.unmute': 'Riattiva',
+  // Read out for each switch.
+  'mute.postsFrom': 'Silenzia i post di {username}',
+  'mute.storiesFrom': 'Silenzia le storie di {username}',
+  'mute.muted': 'Hai silenziato {username}',
+  'mute.unmuted': 'Hai riattivato {username}',
+  'mute.empty': 'Non hai silenziato nessuno',
+  'restrict.restrict': 'Limita',
+  'restrict.unrestrict': 'Rimuovi limitazione',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Limitare {username}?',
+  'restrict.confirm': 'Limita account',
+  'restrict.done': 'Hai limitato {username}',
+  'restrict.undone': 'Hai rimosso la limitazione a {username}',
+  'restrict.empty': 'Non hai limitato nessuno',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Account limitati',
+  'settings.muted': 'Account silenziati',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Piace a {name}',
+  'post.likedByOthers': 'Piace a {name} e ad altri',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Limitato',
+  // ======== end of v24 ========
 };

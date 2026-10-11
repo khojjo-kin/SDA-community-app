@@ -1458,4 +1458,42 @@ export const tl: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'I-share ang una mong post',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Mga request',
+  'inbox.requestsCount': 'Mga request ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Mga message request',
+  'requests.empty': 'Walang message request',
+  'requests.deleteQuestion': 'I-delete ang request na ito?',
+  'requests.deleted': 'Na-delete ang request',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'I-mute',
+  'mute.unmute': 'I-unmute',
+  // Read out for each switch.
+  'mute.postsFrom': 'I-mute ang mga post ni {username}',
+  'mute.storiesFrom': 'I-mute ang mga story ni {username}',
+  'mute.muted': 'Na-mute si {username}',
+  'mute.unmuted': 'Na-unmute si {username}',
+  'mute.empty': 'Wala kang na-mute',
+  'restrict.restrict': 'I-restrict',
+  'restrict.unrestrict': 'I-unrestrict',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'I-restrict si {username}?',
+  'restrict.confirm': 'I-restrict ang account',
+  'restrict.done': 'Na-restrict si {username}',
+  'restrict.undone': 'Na-unrestrict si {username}',
+  'restrict.empty': 'Wala kang na-restrict',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Mga naka-restrict na account',
+  'settings.muted': 'Mga naka-mute na account',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Ni-like ni {name}',
+  'post.likedByOthers': 'Ni-like ni {name} at ng iba pa',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Naka-restrict',
+  // ======== end of v24 ========
 };

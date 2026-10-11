@@ -34,23 +34,33 @@ type CommentActions = { profile: (c: Comment) => void; reply: (c: Comment) => vo
 /** One comment. Memoised: the screen draws again on every key typed in the box below the list. */
 const CommentRow = React.memo(function CommentRow({ c, canDelete, mine, actions }: { c: Comment; canDelete: boolean; mine: boolean; actions: CommentActions }) {
   const pending = isPending(c);
+  // From someone the post's owner restricted: only the two of them see it. The owner sees it greyed,
+  // labelled, to delete (or leave); it isn't answered in public. Only ever set for the owner.
+  const restricted = !!c.restricted;
   return (
     <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 10 }}>
-      <Pressable onPress={() => actions.profile(c)} accessibilityLabel={`Open ${c.username}'s profile`}>
+      <Pressable onPress={() => actions.profile(c)} accessibilityLabel={`Open ${c.username}'s profile`} style={{ opacity: restricted ? 0.5 : 1 }}>
         <Avatar uri={c.avatar_url} name={c.full_name} size={36} />
       </Pressable>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13.5, flexShrink: 1 }}>{c.username}</Text>
+          <Text numberOfLines={1} style={{ color: restricted ? C.fg2 : C.fg, fontWeight: '600', fontSize: 13.5, flexShrink: 1 }}>{c.username}</Text>
           {c.verified ? <VerifiedTick size={12} /> : null}
           <Text style={{ color: C.fg2, fontSize: 12.5, marginLeft: 4 }}>{pending ? t('comments.posting') : ago(c.created_at)}</Text>
+          {restricted ? (
+            <View style={{ marginLeft: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, backgroundColor: C.surface }}>
+              <Text style={{ color: C.fg2, fontSize: 11, fontWeight: '600' }}>{t('comments.restricted')}</Text>
+            </View>
+          ) : null}
         </View>
-        <Text style={{ color: C.fg, fontSize: 14.5, lineHeight: 20, marginTop: 1 }} selectable>{c.text}</Text>
+        <Text style={{ color: restricted ? C.fg3 : C.fg, fontSize: 14.5, lineHeight: 20, marginTop: 1 }} selectable>{c.text}</Text>
         {pending ? null : (
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 5 }}>
-            <Pressable onPress={() => actions.reply(c)} hitSlop={6} accessibilityRole="button" style={dim}>
-              <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>Reply</Text>
-            </Pressable>
+            {restricted ? null : (
+              <Pressable onPress={() => actions.reply(c)} hitSlop={6} accessibilityRole="button" style={dim}>
+                <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>Reply</Text>
+              </Pressable>
+            )}
             {canDelete ? (
               <Pressable onPress={() => actions.remove(c)} hitSlop={6} accessibilityRole="button" style={dim}>
                 <Text style={{ color: C.fg2, fontSize: 12.5, fontWeight: '600' }}>{t('common.delete')}</Text>

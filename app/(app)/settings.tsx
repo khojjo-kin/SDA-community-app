@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import type { IconName } from '../../src/components/Icon';
 import { Divider, Empty, Row, Screen, ScreenHeader, SearchField, SectionLabel, Toggle, useToast } from '../../src/components/ui';
 import { useLogOut } from '../../src/lib/accounts';
-import { countCloseFriends, listBlocked, setTickHidden, updateProfile } from '../../src/lib/api';
+import { countCloseFriends, listBlocked, listMuted, listRestricted, setTickHidden, updateProfile } from '../../src/lib/api';
 import { fontById } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
 import { en, type Key, languageCode, languageName, useT } from '../../src/lib/i18n';
@@ -95,6 +95,8 @@ export default function Settings() {
   const [q, setQ] = useState('');
   const [friends, setFriends] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
+  const [restrictedCount, setRestrictedCount] = useState<number | null>(null);
+  const [mutedCount, setMutedCount] = useState<number | null>(null);
   // Switches saved on the account. Each save announces the change, so the profile loads again by itself.
   const [receipts, setReadReceipts] = useAccountSwitch(profile?.read_receipts ?? true, (next) => updateProfile(me, { read_receipts: next }));
   const [streaks, setStreaksEnabled] = useAccountSwitch(profile?.streaks_enabled ?? true, (next) => updateProfile(me, { streaks_enabled: next }));
@@ -106,6 +108,8 @@ export default function Settings() {
     useCallback(() => {
       countCloseFriends(me).then(setFriends).catch(() => {});
       listBlocked(me).then((b) => setBlocked(b.length)).catch(() => {});
+      listRestricted(me).then((r) => setRestrictedCount(r.length)).catch(() => {});
+      listMuted(me).then((m) => setMutedCount(m.length)).catch(() => {});
     }, [me]),
   );
 
@@ -193,6 +197,7 @@ export default function Settings() {
         { icon: 'activity', title: 'settings.yourActivity', href: '/activity', words: 'likes comments reposts history' },
         { icon: 'bell', title: 'common.notifications', href: '/notifications', words: 'likes follows comments' },
         { icon: 'sliders', title: 'settings.yourFeed', sub: 'settings.yourFeedSub', href: '/clips-settings', words: 'feed for you shorts clips reels interests topics more less sensitive recommendations' },
+        { icon: 'mute', title: 'settings.muted', value: mutedCount === null ? undefined : String(mutedCount), href: '/muted', words: 'mute muted unmute accounts people posts stories feed tray hide' },
         {
           icon: 'flame',
           title: 'settings.chatStreaks',
@@ -208,6 +213,7 @@ export default function Settings() {
       items: [
         { icon: 'star', title: 'settings.closeFriends', value: friends === null ? undefined : String(friends), href: '/close-friends', words: 'stories list' },
         { icon: 'block', title: 'settings.blocked', value: blocked === null ? undefined : String(blocked), href: '/blocked', words: 'block unblock accounts' },
+        { icon: 'shield', title: 'settings.restricted', value: restrictedCount === null ? undefined : String(restrictedCount), href: '/restricted', words: 'restrict restricted unrestrict accounts people comments message requests bully' },
         { icon: 'story', title: 'settings.storyReplies', value: t(REPLIES[profile?.story_replies ?? 'everyone'] ?? 'settings.repliesEveryone'), href: '/story-settings', words: 'stories reply messages' },
         {
           icon: 'eye',

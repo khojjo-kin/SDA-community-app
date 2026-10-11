@@ -1554,6 +1554,44 @@ export const en = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Share your first post',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Requests',
+  'inbox.requestsCount': 'Requests ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Message requests',
+  'requests.empty': 'No message requests',
+  'requests.deleteQuestion': 'Delete this request?',
+  'requests.deleted': 'Request deleted',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Mute',
+  'mute.unmute': 'Unmute',
+  // Read out for each switch.
+  'mute.postsFrom': 'Mute posts from {username}',
+  'mute.storiesFrom': 'Mute stories from {username}',
+  'mute.muted': 'Muted {username}',
+  'mute.unmuted': 'Unmuted {username}',
+  'mute.empty': "You haven't muted anyone",
+  'restrict.restrict': 'Restrict',
+  'restrict.unrestrict': 'Unrestrict',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Restrict {username}?',
+  'restrict.confirm': 'Restrict account',
+  'restrict.done': 'Restricted {username}',
+  'restrict.undone': 'Unrestricted {username}',
+  'restrict.empty': "You haven't restricted anyone",
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Restricted accounts',
+  'settings.muted': 'Muted accounts',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Liked by {name}',
+  'post.likedByOthers': 'Liked by {name} and others',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Restricted',
+  // ======== end of v24 ========
 } as const;
 
 /** The name of one line of words. A typo in a key is caught by the type check. */

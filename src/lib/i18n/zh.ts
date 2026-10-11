@@ -1522,4 +1522,42 @@ export const zh: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': '分享你的第一条帖子',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': '请求',
+  'inbox.requestsCount': '请求（{count}）',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': '消息请求',
+  'requests.empty': '没有消息请求',
+  'requests.deleteQuestion': '要删除此请求吗？',
+  'requests.deleted': '请求已删除',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': '隐藏',
+  'mute.unmute': '取消隐藏',
+  // Read out for each switch.
+  'mute.postsFrom': '隐藏 {username} 的帖子',
+  'mute.storiesFrom': '隐藏 {username} 的快拍',
+  'mute.muted': '已隐藏 {username}',
+  'mute.unmuted': '已取消隐藏 {username}',
+  'mute.empty': '你没有隐藏任何人',
+  'restrict.restrict': '限制',
+  'restrict.unrestrict': '取消限制',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': '要限制 {username} 吗？',
+  'restrict.confirm': '限制账户',
+  'restrict.done': '已限制 {username}',
+  'restrict.undone': '已取消限制 {username}',
+  'restrict.empty': '你没有限制任何人',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': '受限账户',
+  'settings.muted': '已隐藏的账户',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} 赞了',
+  'post.likedByOthers': '{name} 等人赞了',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': '已限制',
+  // ======== end of v24 ========
 };

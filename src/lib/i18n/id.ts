@@ -1458,4 +1458,42 @@ export const id: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Bagikan postingan pertama Anda',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Permintaan',
+  'inbox.requestsCount': 'Permintaan ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Permintaan pesan',
+  'requests.empty': 'Tidak ada permintaan pesan',
+  'requests.deleteQuestion': 'Hapus permintaan ini?',
+  'requests.deleted': 'Permintaan dihapus',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Bisukan',
+  'mute.unmute': 'Bunyikan',
+  // Read out for each switch.
+  'mute.postsFrom': 'Bisukan postingan {username}',
+  'mute.storiesFrom': 'Bisukan cerita {username}',
+  'mute.muted': '{username} dibisukan',
+  'mute.unmuted': '{username} tidak lagi dibisukan',
+  'mute.empty': 'Anda belum membisukan siapa pun',
+  'restrict.restrict': 'Batasi',
+  'restrict.unrestrict': 'Hapus batasan',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Batasi {username}?',
+  'restrict.confirm': 'Batasi akun',
+  'restrict.done': '{username} dibatasi',
+  'restrict.undone': 'Batasan untuk {username} dihapus',
+  'restrict.empty': 'Anda belum membatasi siapa pun',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Akun yang dibatasi',
+  'settings.muted': 'Akun yang dibisukan',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Disukai oleh {name}',
+  'post.likedByOthers': 'Disukai oleh {name} dan lainnya',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Dibatasi',
+  // ======== end of v24 ========
 };
