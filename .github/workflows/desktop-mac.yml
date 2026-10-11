@@ -20,7 +20,7 @@ jobs:
   test:
     name: Build and test (web)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: desktop

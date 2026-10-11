@@ -4,11 +4,12 @@ The desktop version of Community, laid out like Instagram's 2026 desktop website
 on the left that opens out when you point at it, a centred feed with stories and suggestions, the
 post dialog with comments, Explore, Shorts, Messages (a full inbox plus a small floating one),
 Notifications, Create, profiles, the professional dashboard and settings. It has two appearances,
-Dark and White (More → Switch appearance, or Settings → Appearance). It uses the same accounts and
-data as the iPhone app:
+Dark and White (More → Switch appearance, or Settings → Appearance), and speaks the iPhone app's 20
+languages (Settings → Language; it follows the computer's language until you choose). It uses the
+same accounts and data as the iPhone app:
 
 - **Sign-in:** the same Clerk application (`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in the repository's `.env`)
-- **Data:** the same Supabase project, tables, storage bucket and access rules (database v1 to v20)
+- **Data:** the same Supabase project, tables, storage bucket and access rules (database v1 to v21)
 - **Payments:** the same Stripe account, through the iPhone app's payment functions; on the computer
   the card form is Stripe's own Payment Element
 - **Code:** the iPhone app's data layer is shared, not copied: `src/lib/api.ts`, `store.ts`,
@@ -32,29 +33,39 @@ root `tsconfig.json` that keeps the iPhone type check out of this folder.
 | Frame | Icon rail (Home, Shorts, Messages, Search, Notifications, Create, Dashboard, Profile, More, Church apps) that widens on hover; Create opens Post, Story, Short, Live video or Ad; More has Settings, Your activity, Saved, Archive, Switch appearance, Report a problem, Help, Admin console, Switch accounts and Log out; ⌘K searches |
 | Home | Stories row with people who are live, For you and Following, endless scroll, Sponsored label on promoted posts; the side column with your account and Switch, Suggested for you (with why) and the legal links |
 | Posts | Photo carousels and videos, double-click to like, like, comment, repost, share to people, save, report, delete; polls, prompts, tagged people, AI label, audience (everyone, close friends, subscribers), hide like counts, turn off commenting, mark as sensitive, edit, promote with a card payment |
-| Post view | Media on the left, comments on the right, comment likes and replies |
-| Create | Pick, crop, the iPhone app's filters and adjustments, caption, location, alt text, tags, poll or prompt, AI label, audience |
-| Stories | Full-screen viewer with progress bars, keyboard arrows, side cards, replies, seen-by list (with rewatches for Plus), mute, delete; photo and video stories, everyone or close friends; archive and highlights |
-| Shorts | Full-height Shorts with sound, likes, comments, share and save; post a Short from Create |
+| Post view | Media on the left, comments on the right, comment likes and replies; previous and next arrows (and ← →) through the grid it was opened from; a song from Pod plays from the post |
+| Create | Pick, crop, the iPhone app's filters and adjustments, caption, location, alt text, tags, poll or prompt, AI label, audience, post to your profile or a community, add music from Pod, also share to your story |
+| Stories | Full-screen viewer with progress bars, keyboard arrows, side cards, replies, seen-by list (with rewatches for Plus), mute, delete. The story editor: up to 10 photos and videos at once, text stories, collages, text, drawing, emoji stickers, mentions, caption, filters; share to everyone or close friends, add to a highlight, send to people; Add to story from a post; archive with Share again |
+| Shorts | Full-height Shorts with sound, likes, comments, share, save and repost; a Short in any grid opens the player at it; start muted, captions and caption language from Settings; For you and Shorts follow your chosen topics |
 | Live | Go live from the computer (camera preview, title, Followers / Close friends / Practice, a fundraiser to collect for, schedule a live) and watch others, with chat, hearts and the viewer count; iPhone and desktop viewers watch alike |
 | Explore | Search box with recent searches and people, the four-column grid, Suggested people |
-| Messages | Inbox and chat side by side plus the floating Messages button with a small inbox; notes above the inbox, live updates, typing, presence (Active now), streaks, view-once photos, photos (pick or paste), hearts, shared posts, playing voice messages, Seen, mute, delete, saved replies, FAQs; Erha answers in her chat |
+| Messages | Inbox and chat side by side plus the floating Messages button with a small inbox; notes above the inbox, live updates, typing, presence (Active now), streaks, view-once photos, photos (pick or paste) and photo piles, hearts, shared posts, recording and playing voice messages, forwarding, Seen, reading quietly (Plus), chat wallpapers (Plus), mute, delete, report, saved replies, FAQs; Erha answers in her chat |
+| Map | Friends' live locations on a map (OpenStreetMap), share yours with mutual followers or close friends, stop sharing |
 | Calls | Voice and video calls inside the app, using the iPhone app's protocol, so a Mac can call an iPhone and the other way round |
 | Notifications | Panel with filters (all, people you follow, comments, follows, likes), likes, comments, reposts, follows, follow back, follow requests |
-| Profile | Picture with story ring and note, verified tick, Plus badge, Follow / Following / Requested, Message, Subscribe, close friends, block, report, highlights, Posts / Shorts / Tagged / Saved / Reposts, profile style, profile viewers |
-| Professional dashboard | Insights (views, reach, followers, top content), ads (promote a post, results, end), creator subscriptions and payouts, fundraisers, Plus, identity verification |
+| Profile | Picture with story ring and note, a typing invitation on your empty Posts and Shorts tabs, verified tick, Plus badge, Follow / Following / Requested, Message, Subscribe, close friends, block, report, highlights, Posts / Shorts / Tagged / Saved / Reposts, profile style, profile viewers |
+| Professional dashboard | Insights (views, reach, followers, top content), ads (promote a post, results, end), creator subscriptions and payouts, fundraisers, Inspiration (most-liked posts), Best practices, Plus (with a saved card), identity verification |
 | Fundraisers | Fundraiser page, give with a card, supporters |
 | Accounts | Up to five accounts signed in at once; Switch accounts from Home or More |
-| Settings | Instagram's grouped list with search: Accounts Centre, Edit profile, Notifications, Professional account, Creator tools, Creator subscriptions, Profile viewers, Ads and payments, Account privacy, Close friends, Blocked, Story/live/location, Activity status, Messages and story replies, Content preferences, Like and share counts, Chat streaks, Appearance, Archiving, Language, Accessibility, Under-14 accounts, Help, Privacy Centre, Account status, About |
+| Settings | Instagram's grouped list with search: Accounts Centre, Edit profile, Notifications, Professional account, Creator tools, Creator subscriptions, Profile viewers, Ads and payments, Account privacy, Close friends, Blocked, Story/live/location, Activity status, Messages and story replies, Content preferences, Like and share counts, Chat streaks, Appearance, Archiving, Language, Accessibility, App font (Plus), Chat wallpaper (Plus), Shorts, Story alerts, Under-14 accounts, Help, Privacy Centre, Account status, About |
 | Legal | Terms, Privacy, Community guidelines, Child safety and the rest, from the same files as the iPhone app and the website |
 | Safety | The age check and consent on first sign-in, and the under-14 rules |
-| Church | Bible with translations, Sabbath School lessons, Pod (podcasts with a player that keeps playing while you browse), Hymnal with favourites and text size, Churches, Communities and pages |
+| Bible | Translations, verse of the day, highlights in five colours, notes, copy, send or post verses, Highlights & notes |
+| Sabbath School | Lessons with progress, saved and completed, memory text; publishers' posts (studies, lesson helps, announcements, resources), writing them, pinning, asking to publish |
+| Pod | Songs and episodes with a player that keeps playing while you browse, a full player with shuffle and repeat, adding songs and episodes (Plus and admins) |
+| Hymnal | Favourites, text size; admins edit hymns |
+| Churches | Nearest first, add a church (reviewed by admins), make it your church; admins approve, edit and delete |
+| Communities and pages | Create, edit and delete; join, follow, request; post into them; members, join requests and roles |
 | Admin console | A full CRM for owners and admins (see below) |
 
-Still iPhone-only: recording voice messages (they play on the computer), the story editor's
-stickers and drawing, chat wallpapers and fonts, and showing the app in another language (the
-desktop saves your language choice but stays in English). Message requests aren't offered yet
-because the shared data layer has no call for them.
+Still iPhone-only: things that need a phone, such as screenshot alerts, the camera tools and
+haptics. Not in either app yet: message requests, muting or restricting someone, and "Liked by"
+lines, because the shared data layer has no calls for them. Arabic is translated but laid out left
+to right, as on the iPhone.
+
+The desktop's own words live in `desktop/src/i18n/<area>.ts` (English and the 19 other languages);
+words the iPhone app already has come from `src/lib/i18n`. The admin console stays in English, as
+on the iPhone.
 
 The legal pages are copied from `legal/` in the repository root. After changing a document there,
 run `cd desktop && node scripts/legal.mjs` and commit the generated `src/screens/legal-docs.gen.ts`.
@@ -73,7 +84,9 @@ nobody else can read or change any of it.
 | Security | Alerts (sign-in from a new country, many addresses in a day, sign-in from a blocked address) with resolve; live warnings (message, follow and comment bursts, heavily reported, widely blocked, new and very busy); addresses shared by several accounts; blocking addresses and ranges; suspended accounts; admin activity; blocked words; row-level security on every table |
 | Reports, Content | Decide reports; review and remove posts, reels, comments and stories; see and end lives |
 | Money | Income, donations, boosts, subscribers, failed and refunded payments; charts by day, kind, method and result; top supporters; transactions (record, export), donations, fundraisers (close), boosts (end), subscriptions |
-| Churches, Announcements | Approve, turn down or remove churches; publish a banner everyone sees at the top of the app |
+| Churches, Announcements | Approve, turn down, edit or remove churches; publish a banner everyone sees at the top of the app |
+| Publishers, Feedback, Support | Sabbath School publisher requests (approve, decline, revoke); members' reviews, ideas and problems; live support chats answered as an agent, and help requests |
+| Requests, Words, Ads | Tick and Plus requests with the ID document and selfie; offensive words; ads and fundraisers |
 | Audit log | Every admin change to an account, from the iPhone or the desktop, with CSV export |
 | System | Database size, largest tables, rows, storage, scheduled jobs and their last results |
 
@@ -119,5 +132,5 @@ node build.mjs --demo && node build.mjs --wire
 node tests/ui.test.cjs http://127.0.0.1:8790/       # every screen, on sample data
 node tests/wiring.test.cjs http://127.0.0.1:8791/   # Clerk sign-in and the Supabase client, with stand-ins
 node tests/calls.test.cjs http://127.0.0.1:8790/    # a real call between two windows, with test cameras
-sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/   # every suite: frame, posts, stories, profile, messages, settings, pro and the three above
+sh tests/run-all.sh http://127.0.0.1:8790/ http://127.0.0.1:8791/   # every suite: frame, posts, stories, profile, messages, settings, pro, church, community, admin, i18n and the three above
 ```

@@ -275,7 +275,11 @@ const check = (name, ok, extra = '') => {
     check('then shows when it ends, with Resume', (await page.locator('.prof-sub-status').innerText()).includes('ends') && (await page.locator('.prof-sub-foot').getByRole('button', { name: 'Resume subscription' }).count()) === 1);
     await page.locator('.prof-sub-foot').getByRole('button', { name: 'Resume subscription' }).click();
     check('and resumed', await toast('Your subscription will renew'));
-    await page.keyboard.press('Escape');
+    // The dialog ignores Escape while it is still finishing; try until it closes.
+    for (let i = 0; i < 12 && (await page.locator('.scrim').count()); i++) {
+      await page.keyboard.press('Escape');
+      await wait(300);
+    }
     await wait();
 
     // About this account, copy link, report

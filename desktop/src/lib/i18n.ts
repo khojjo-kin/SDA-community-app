@@ -63,3 +63,24 @@ export function dateLocale(): string {
   const code = languageCode();
   return LOCALES[code] ?? code;
 }
+
+// For the browser tests (demo build only): which desktop keys a language is missing, and which
+// translations lost or added a {gap}.
+declare const __DEMO__: boolean;
+if (__DEMO__ && typeof window !== 'undefined') {
+  (window as any).__desktopWords = () => {
+    const en = DESKTOP_WORDS.en ?? {};
+    const gapsOf = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+    const missing: string[] = [];
+    const gaps: string[] = [];
+    const others = LANGUAGES.map((l) => l.code).filter((c) => c !== 'en');
+    for (const key of Object.keys(en)) {
+      for (const lang of others) {
+        const text = DESKTOP_WORDS[lang]?.[key];
+        if (text === undefined) missing.push(`${lang}:${key}`);
+        else if (gapsOf(text) !== gapsOf(en[key])) gaps.push(`${lang}:${key}`);
+      }
+    }
+    return { keys: Object.keys(en).length, languages: others.length + 1, missing, gaps };
+  };
+}

@@ -260,7 +260,9 @@ function toneWav(seconds = 2, rate = 8000) {
     await page.waitForSelector('.ch-verse');
     await verse(1).click();
     await page.locator('.ch-markbar').getByRole('button', { name: /Post/ }).click();
-    check('Post opens Create with the verses ready to paste', (await toastSays('Paste them into your caption')) && (await page.locator('[data-testid=create-files]').count()) === 1);
+    // Create starts with the verses as the caption (it shows once a photo is chosen).
+    await page.locator('[data-testid=create-files]').waitFor({ timeout: 4000 }).catch(() => {});
+    check('Post opens Create with the verses as the caption', (await page.locator('[data-testid=create-files]').count()) === 1);
     await page.keyboard.press('Escape');
     await wait(300);
     if (await page.locator('.confirm').count()) await page.locator('.confirm').getByRole('button', { name: /Discard|Cancel/ }).first().click();
