@@ -171,7 +171,9 @@ function bibleChapter(url) {
       check('at the day and times chosen', start.getHours() === 19 && start.getMinutes() === 0 && end.getHours() === 20 && end.getMinutes() === 30 && Math.round((start - Date.now()) / 86400e3) >= 2);
     }
     check('and opens its page', (await hash()) === '#/events/' + made?.id && (await text('.ev-head h1')) === 'Choir rehearsal' && (await text('.ev-kind')).toLowerCase() === 'music');
-    check('it appears in the list', (await titles()).includes('Choir rehearsal'));
+    // The list reloads after the event is made; give it a moment.
+    await page.waitForFunction(() => [...document.querySelectorAll('.ev-list .ev-row-title')].some((e) => e.textContent.includes('Choir rehearsal')), null, { timeout: 6000 }).catch(() => {});
+    check('it appears in the list', (await titles()).includes('Choir rehearsal'), (await titles()).join(' | '));
     check('the page shows when, where and whose', (await text('.ev-facts')).includes('19:00 – 20:30') && (await text('.ev-facts')).includes('Hillside church hall') && (await text('.ev-facts')).includes('Riverside Adventist Fellowship') && (await text('.ev-organiser')).includes('you'));
 
     /* ---------- changing it ---------- */

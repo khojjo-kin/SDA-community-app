@@ -172,21 +172,29 @@ const check = (name, ok, extra = '') => {
       const order = await items.evaluateAll((els) => els.map((e) => e.querySelector('.tray-name').textContent));
       check('and watched people move after the rest', order.indexOf('joseph_k') > order.indexOf('grace_mensah'), order.join());
 
-      // Mute (kept on this computer)
+      // Mute from the viewer: kept on the account (database v24), so her stories leave the tray.
       await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('button').first().click();
       await page.waitForSelector('.sv-stage');
       await stage.getByRole('button', { name: 'More options' }).click();
       await page.locator('.sv-menu').getByRole('button', { name: 'Mute', exact: true }).click();
-      await page.keyboard.press('Escape');
-      await wait(900);
-      check('muting someone moves them to the end of the tray', (await items.last().innerText()).includes('grace_mensah') && (await items.last().getAttribute('class')).includes('is-muted'));
-      await page.locator('.tray-item', { hasText: 'grace_mensah' }).locator('button').first().click();
-      await page.waitForSelector('.sv-stage');
-      await stage.getByRole('button', { name: 'More options' }).click();
-      await page.locator('.sv-menu').getByRole('button', { name: 'Unmute' }).click();
-      await page.keyboard.press('Escape');
       await wait(600);
-      check('and unmuting brings them back', !(await items.last().getAttribute('class')).includes('is-muted'));
+      check('muting says so', (await page.locator('.toast', { hasText: 'Muted grace_mensah' }).count()) >= 1);
+      await page.keyboard.press('Escape');
+      const trayHas = (name) => page.evaluate((n) => [...document.querySelectorAll('.tray-item .tray-name')].some((e) => e.textContent.includes(n)), name);
+      await page.waitForFunction(() => ![...document.querySelectorAll('.tray-item .tray-name')].some((e) => e.textContent.includes('grace_mensah')), null, { timeout: 6000 }).catch(() => {});
+      check('muting someone takes their stories off the tray', !(await trayHas('grace_mensah')));
+      // Unmute from her profile's Mute dialog; her stories come back.
+      await page.evaluate(() => (location.hash = '#/u/grace_mensah'));
+      await wait(1200);
+      await page.locator('.prof-gear').first().click();
+      await page.locator('.choices').getByRole('button', { name: 'Mute' }).click();
+      await page.waitForSelector('.sc-mute .sc-mute-row');
+      await page.locator('.sc-mute-row', { hasText: 'Stories' }).click();
+      await wait(500);
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => (location.hash = '#/'));
+      await page.waitForFunction(() => [...document.querySelectorAll('.tray-item .tray-name')].some((e) => e.textContent.includes('grace_mensah')), null, { timeout: 6000 }).catch(() => {});
+      check('and unmuting brings them back', await trayHas('grace_mensah'));
       /* ---------- my own story ---------- */
       await page.locator('.tray-item.is-me button').first().click();
       await page.waitForSelector('.sv-stage');

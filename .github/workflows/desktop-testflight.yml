@@ -29,7 +29,7 @@ jobs:
   testflight:
     name: Mac App Store build
     runs-on: macos-15
-    timeout-minutes: 75
+    timeout-minutes: 100
     defaults:
       run:
         working-directory: desktop
@@ -65,7 +65,9 @@ jobs:
           echo "BUILD_NUMBER=$(date -u +%y%m%d%H%M)" >> "$GITHUB_ENV"
           pip3 install --quiet --break-system-packages pyjwt cryptography 2>/dev/null || pip3 install --quiet pyjwt cryptography
       - name: Certificates and profile from App Store Connect
-        run: python3 scripts/mas-setup.py 2>&1 | tee "$RUNNER_TEMP/logs/setup.txt"; exit ${PIPESTATUS[0]}
+        run: |
+          python3 scripts/mas-status.py 2>&1 | tee "$RUNNER_TEMP/logs/before.txt" || true
+          python3 scripts/mas-setup.py 2>&1 | tee "$RUNNER_TEMP/logs/setup.txt"; exit ${PIPESTATUS[0]}
       - name: Keep the new installer key
         if: env.NEW_INSTALLER_KEY == '1'
         run: |
@@ -119,6 +121,8 @@ jobs:
           if grep -qE "ERROR|error:|Failed" "$RUNNER_TEMP/logs/upload.txt"; then code=1; fi
           echo "upload: $code (build $BUILD_NUMBER, $PKG)" | tee -a "$RUNNER_TEMP/logs/status.txt"
           exit $code
+      - name: Wait for App Store Connect to process it
+        run: python3 scripts/mas-status.py "$BUILD_NUMBER" 2>&1 | tee "$RUNNER_TEMP/logs/after.txt"
       - name: Remove the keys
         if: always()
         run: |
