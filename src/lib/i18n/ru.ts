@@ -1192,4 +1192,334 @@ export const ru: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Заметка сохранена',
   'bibleMarks.noteDeleted': 'Заметка удалена',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Открыть настройки',
+  'createFlow.cameraOff': 'Доступ к камере выключен',
+  'createFlow.choosePhotos': 'Выбрать фото и видео',
+  'createFlow.recents': 'Недавние',
+  'createFlow.albums': 'Альбомы',
+  'goLive.endedAway': 'Твой эфир завершился, пока тебя не было',
+  'live.paused': 'Пауза',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Срок действия этой ссылки для настройки истёк.',
+  'payouts.country': 'Страна',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Твой аккаунт закрыт. Сделай его открытым, чтобы продвигать эту публикацию.',
+  'promote.profileOnly': 'Эта публикация есть только в твоём профиле, поэтому её нельзя продвигать.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Пожертвования пока не принимаются',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Не удалось удалить этот сбор средств. Вместо этого его можно завершить.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Этот трек не загрузился. Попробуй ещё раз.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Книга не найдена',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Публикация…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Сегодня',
+  'notifications.sectionYesterday': 'Вчера',
+  'notifications.sectionThisWeek': 'На этой неделе',
+  'notifications.sectionThisMonth': 'В этом месяце',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Отписаться от {username}?',
+  'profile.unfollow': 'Отписаться',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Выйти из аккаунта {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Запрос отправлен',
+  'verify.pending': 'На рассмотрении',
+  'verify.sentOn': 'Отправлено {date}',
+  'verify.notSent': 'Не удалось отправить запрос. Попробуй ещё раз.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Отправка…',
+  'chat.sent': 'Отправлено',
+  'chat.seen': 'Просмотрено',
+  'chat.notSent': 'Не отправлено · Нажми, чтобы повторить',
+  'chat.notSentTitle': 'Сообщение не отправлено',
+  'chat.copied': 'Скопировано',
+  'chat.deleted': 'Чат удалён',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'К последним сообщениям',
+  'chat.viewProfile': 'Посмотреть профиль',
+  'chat.noSavedReplies': 'Быстрых ответов пока нет',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Можно выбрать до 10 человек за раз',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Сообщение отправлено',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Сейчас не удаётся определить твою геопозицию. Проверь, что службы геолокации включены.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Цвет кольца',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Добавить из архива',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Запрос отправлен',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Чтобы вернуться, придётся снова отправить запрос.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Добавь описание',
+  // A community with no church chosen.
+  'groups.none': 'Нет',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Использовать мою геопозицию',
+  'churches.openSettings': 'Открыть настройки',
+  'churches.openSettingsLabel': 'Открой настройки, чтобы использовать геопозицию',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ожидает проверки',
+  'churches.notApproved': 'Не одобрена',
+  'churches.noMembers': 'Участников пока нет',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Она появится у всех, как только администратор её одобрит.',
+  'churches.thanksMakeYours': 'Спасибо! Сделать её своей церковью?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Платежи',
+  'payments.cards': 'Сохранённые карты',
+  'payments.addCard': 'Добавить карту',
+  // The add-card sheet's title.
+  'payments.addACard': 'Добавить карту',
+  'payments.cardSaved': 'Карта сохранена',
+  'payments.cardNotSaved': 'Не удалось сохранить карту. Попробуй ещё раз.',
+  'payments.cardOptions': 'Открывает действия с этой картой',
+  'payments.makeDefault': 'Сделать основной',
+  'payments.removeCard': 'Удалить карту',
+  'payments.removeQuestion': 'Удалить эту карту?',
+  'payments.removeBody': 'Карта {card} будет удалена из твоего аккаунта.',
+  'payments.removeBodyDefault': 'Карта {card} будет удалена из твоего аккаунта. Plus продлевается с этой карты, поэтому добавь другую до следующего продления.',
+  'payments.remove': 'Удалить',
+  'payments.cardRemoved': 'Карта удалена',
+  'payments.defaultSet': 'Plus будет продлеваться с этой карты',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Нет подписки',
+  'payments.activeUntil': 'Действует до {day}',
+  'payments.paymentFailed': 'Платёж не прошёл',
+  'payments.creatorSubs': 'Подписки на авторов',
+  'payments.none': 'Нет',
+  'payments.noPayments': 'Платежей пока нет',
+  // A payment's state.
+  'payments.paid': 'Оплачен',
+  'payments.failed': 'Не прошёл',
+  'payments.refunded': 'Возвращён',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Подписка на автора',
+  'payments.kindDonation': 'Пожертвование',
+  'payments.kindAd': 'Реклама',
+  'payments.kindRefund': 'Возврат',
+  'payments.kindOther': 'Платёж',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Оформлено администратором',
+  // One payment's details.
+  'payments.status': 'Статус',
+  'payments.date': 'Дата',
+  'payments.method': 'Способ оплаты',
+  'payments.reference': 'Номер платежа',
+  'payments.copied': 'Номер платежа скопирован',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Карточка со стихом',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Карточка',
+  'verseCard.make': 'Создать карточку',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Фон',
+  'verseCard.font': 'Шрифт',
+  'verseCard.layout': 'Макет',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Лес',
+  'verseCard.bgGreen': 'Зелёный',
+  'verseCard.bgNight': 'Ночь',
+  'verseCard.bgDusk': 'Сумерки',
+  'verseCard.bgDawn': 'Рассвет',
+  'verseCard.bgOcean': 'Океан',
+  'verseCard.bgPaper': 'Бумага',
+  'verseCard.bgWhite': 'Белый',
+  'verseCard.bgBlack': 'Чёрный',
+  'verseCard.photo': 'Фото',
+  'verseCard.choosePhoto': 'Выбрать фото',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'По левому краю',
+  'verseCard.alignCenter': 'По центру',
+  'verseCard.alignRight': 'По правому краю',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Квадратная',
+  'verseCard.tall': 'Вертикальная',
+  // What to do with the card.
+  'verseCard.toStory': 'Твоя история',
+  'verseCard.post': 'Опубликовать',
+  'verseCard.save': 'Сохранить',
+  'verseCard.saved': 'Сохранено',
+  'verseCard.allowPhotos': 'Чтобы сохранять карточки, разреши Community добавлять фото в настройках.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Сокращено, чтобы поместилось',
+  'verseCard.notFound': 'Этот стих не найден.',
+  'verseCard.failed': 'Не удалось создать карточку. Попробуй ещё раз.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Серия: {n} дн.',
+  'bible.streakStart': 'Начни серию',
+  'bible.readToday': 'Сегодня прочитано',
+  'bible.readAChapter': 'Прочитай сегодня главу',
+  'bible.bestStreak': 'Рекорд: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'День {n} — так держать',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Продолжить чтение',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Открыть {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'События',
+  'events.title': 'События',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Предстоящие',
+  'events.going': 'Иду',
+  'events.yours': 'Мои',
+  'events.interested': 'Интересно',
+  'events.create': 'Создать событие',
+  'events.nearYou': 'Рядом с тобой',
+  'events.useMyLocation': 'Использовать мою геопозицию',
+  'events.openSettings': 'Открыть настройки',
+  'events.emptyUpcoming': 'Предстоящих событий нет',
+  'events.emptyGoing': 'Планов пока нет',
+  'events.emptyYours': 'Событий пока нет',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'Идут: {count}',
+  'events.interestedCount': 'Интересуются: {count}',
+  // How far away an event is.
+  'events.km': '{km} км',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Отменено',
+  'events.ended': 'Завершено',
+  'events.now': 'Идёт сейчас',
+  // The kinds of event.
+  'events.kind.service': 'Богослужение',
+  'events.kind.bible_study': 'Изучение Библии',
+  'events.kind.youth': 'Молодёжь',
+  'events.kind.prayer': 'Молитва',
+  'events.kind.outreach': 'Евангелизация',
+  'events.kind.music': 'Музыка',
+  'events.kind.social': 'Общение',
+  'events.kind.other': 'Другое',
+  // The event page.
+  'events.event': 'Событие',
+  'events.gone': 'Этого события больше нет',
+  'events.openInMaps': 'Открыть в Картах',
+  'events.mapsFailed': 'Не удалось открыть Карты',
+  'events.organiser': 'Организатор',
+  'events.options': 'Другие действия',
+  'events.noOneYet': 'Пока никого',
+  'events.edit': 'Изменить',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Отменить',
+  'events.callOffQuestion': 'Отменить это событие?',
+  'events.callOffBody': 'Все, кто ответил, увидят, что событие отменено.',
+  'events.keep': 'Оставить',
+  'events.deleteQuestion': 'Удалить это событие?',
+  'events.deleteBody': 'Это действие нельзя отменить.',
+  'events.deleted': 'Событие удалено',
+  // Making or changing an event.
+  'events.new': 'Новое событие',
+  'events.editTitle': 'Изменить событие',
+  'events.save': 'Сохранить',
+  'events.saved': 'Сохранено',
+  'events.addCover': 'Добавить обложку',
+  'events.changeCover': 'Сменить обложку',
+  'events.removeCover': 'Убрать обложку',
+  'events.titleLabel': 'Название',
+  'events.titlePlaceholder': 'Название события',
+  'events.needTitle': 'Добавь название.',
+  'events.kindLabel': 'Тип',
+  'events.date': 'Дата',
+  'events.starts': 'Начало',
+  'events.ends': 'Конец',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Добавить',
+  'events.removeEnd': 'Убрать время окончания',
+  'events.prevMonth': 'Предыдущий месяц',
+  'events.nextMonth': 'Следующий месяц',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Выбери время, которое ещё не прошло.',
+  'events.place': 'Место',
+  'events.placePlaceholder': 'Церковный зал, ул. Садовая, 12',
+  'events.pinOnMap': 'Отметить на карте',
+  'events.movePin': 'Переместить метку',
+  'events.removePin': 'Убрать метку',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Передвинь карту к нужному месту',
+  'events.done': 'Готово',
+  'events.locationOff': 'Геопозиция для Community выключена. Включи её в настройках.',
+  'events.noFix': 'Сейчас не удаётся определить твою геопозицию.',
+  'events.church': 'Церковь',
+  'events.community': 'Сообщество',
+  'events.none': 'Нет',
+  'events.searchChurches': 'Поиск церквей',
+  'events.details': 'Подробности',
+  'events.detailsPlaceholder': 'Что планируется?',
+  'events.forMembers14': 'События доступны с 14 лет',
+  // On a church or community page.
+  'events.seeAll': 'Смотреть все',
+  'events.addEvent': 'Добавить событие',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Показать',
+  'auth.hide': 'Скрыть',
+  'auth.showPassword': 'Показать пароль',
+  'auth.hidePassword': 'Скрыть пароль',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Друзья',
+  'map.nearby': 'Рядом',
+  'map.churches': 'Церкви',
+  'map.events': 'События',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Показать моё местоположение',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Показывать меня в «Рядом»',
+  'map.nearbyPrivacy': 'Другие видят, где ты примерно находишься, но никогда — точно.',
+  'map.adultsOnly': 'Раздел «Рядом» доступен с 18 лет.',
+  'map.locationOff': 'Доступ к геопозиции для Community выключен.',
+  'map.allowLocation': 'Разреши доступ к геопозиции, чтобы пользоваться разделом «Рядом».',
+  'map.nearbyOnToast': 'Теперь тебя видно в «Рядом»',
+  'map.nearbyOffToast': 'Показ в «Рядом» выключен',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Сейчас рядом никого нет',
+  'map.onePerson': '1 человек рядом',
+  'map.personCount': 'Людей рядом: {n}',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Примерно в {n} км',
+  'map.noChurches': 'На карте пока нет церквей',
+  'map.oneChurch': '1 церковь',
+  'map.churchCount': 'Церквей: {n}',
+  'map.noEvents': 'На карте нет предстоящих событий',
+  'map.oneEvent': '1 предстоящее событие',
+  'map.eventCount': 'Предстоящих событий: {n}',
+  'map.nearestFirst': 'Сначала ближайшие',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Показать список',
+  'map.hideList': 'Скрыть список',
+  'map.going': 'Идут: {n}',
+  'map.happeningNow': 'Идёт сейчас',
+  'map.today': 'Сегодня',
+  'map.tomorrow': 'Завтра',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} от тебя',
+  'map.viewChurch': 'Открыть церковь',
+  'map.viewEvent': 'Открыть событие',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Маршрут',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Поделись первой публикацией',
+  // ======== end of v23 ========
 };

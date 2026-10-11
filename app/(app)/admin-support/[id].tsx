@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AdminFrame } from '../../../src/components/AdminFrame';
 import { Icon } from '../../../src/components/Icon';
-import { Avatar, Button, Empty, ErrorNote, Loading, useToast } from '../../../src/components/ui';
+import { Skeleton, SkeletonFrame } from '../../../src/components/Skeleton';
+import { Avatar, Button, Empty, ErrorNote, useToast } from '../../../src/components/ui';
 import { closeSupportChat, fetchSupportMessages, getProfile, sendAgentReply } from '../../../src/lib/api';
 import { useAppFont } from '../../../src/lib/fonts';
 import { useSession } from '../../../src/lib/session';
@@ -16,6 +17,34 @@ import { agentActive, bubbleRows, localMessage, mergeMessage, reconcile, Support
 const TYPING_EVERY_MS = 2000;
 /** A safety net under Realtime: the conversation is fetched again this often. */
 const POLL_MS = 10000;
+
+/** The chat while it loads: who it is with, and a few bubbles on either side. */
+function ChatSkeleton() {
+  const { width } = useWindowDimensions();
+  const bubbles = [
+    { mine: false, w: 0.62, h: 58 },
+    { mine: true, w: 0.46, h: 40 },
+    { mine: false, w: 0.7, h: 76 },
+    { mine: true, w: 0.38, h: 40 },
+  ];
+  return (
+    <SkeletonFrame style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, padding: 12 }}>
+        <Skeleton width={40} height={40} radius={20} x={28} />
+        <View style={{ gap: 7 }}>
+          <Skeleton width={140} height={12} x={80} />
+          <Skeleton width={Math.round((width - 120) * 0.7)} height={10} x={80} />
+        </View>
+      </View>
+      <View style={{ paddingHorizontal: 12, paddingTop: 18, gap: 10 }}>
+        {bubbles.map((b, i) => {
+          const w = Math.round((width - 24) * b.w);
+          return <Skeleton key={i} width={w} height={b.h} radius={18} x={b.mine ? width - 12 - w : 12} style={{ alignSelf: b.mine ? 'flex-end' : 'flex-start' }} />;
+        })}
+      </View>
+    </SkeletonFrame>
+  );
+}
 
 /**
  * One support chat, from the team's side. Answering here puts your name on the reply, and the
@@ -35,6 +64,8 @@ export default function AdminSupportChat() {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [text, setText] = useState('');
+  // What is in the box right now: a second tap on Send, before the box has emptied on screen, finds it empty.
+  const textNow = useRef('');
   const [closing, setClosing] = useState(false);
   const lastTyping = useRef(0);
   const alive = useRef(true);
@@ -109,6 +140,7 @@ export default function AdminSupportChat() {
   const sendTyping = useSupportTyping(status === 'ready' ? chatId : undefined);
 
   function change(t: string) {
+    textNow.current = t;
     setText(t);
     // Enough to keep the member's "typing" showing (it lasts 4 seconds), without a message per key.
     if (t.trim() && Date.now() - lastTyping.current >= TYPING_EVERY_MS) {
@@ -118,9 +150,10 @@ export default function AdminSupportChat() {
   }
 
   async function send() {
-    const body = text.trim();
+    const body = textNow.current.trim();
     if (!body || !chat) return;
     const local = localMessage(chat.id, me, 'agent', body, myName);
+    textNow.current = '';
     setText('');
     // The next words typed count as a new burst of typing, told at once.
     lastTyping.current = 0;
@@ -133,14 +166,18 @@ export default function AdminSupportChat() {
     } catch (e) {
       if (!alive.current) return;
       setMessages((prev) => (prev ?? []).filter((x) => x.id !== local.id));
-      setText((t) => (t.trim() ? t : body));
+      // Put the words back, unless something new has been typed meanwhile.
+      if (!textNow.current.trim()) {
+        textNow.current = body;
+        setText(body);
+      }
       toast(errText(e));
     }
   }
 
   function close() {
     if (!chat || closing) return;
-    Alert.alert('Close this chat?', 'The member can still read it. If they need more help, they can write again and it comes back to this list.', [
+    Alert.alert('Close this chat?', 'The member can still read it.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Close chat',
@@ -177,11 +214,11 @@ export default function AdminSupportChat() {
   return (
     <AdminFrame section="support" title="Support chat" right={right}>
       {status === 'loading' ? (
-        <Loading />
+        <ChatSkeleton />
       ) : status === 'error' ? (
         <ErrorNote message={error} onRetry={() => setAttempt((n) => n + 1)} />
       ) : status === 'missing' || !chat ? (
-        <Empty icon="lifebuoy" title="This chat isn't available" body="It may have been deleted along with the member's account." />
+        <Empty icon="lifebuoy" title="This chat isn't available" />
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {/* Who this is, and who is answering. */}
@@ -189,8 +226,8 @@ export default function AdminSupportChat() {
             <Avatar uri={member?.avatar_url} name={memberName} size={40} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '700', fontSize: 15.5, fontFamily: font }}>{memberName}</Text>
-              <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, lineHeight: 17, fontFamily: font }}>
-                {team ? `${chat.agent_name === myName ? 'You are' : `${chat.agent_name || 'The team'} is`} answering. The assistant is paused for now.` : 'The assistant is answering. Your reply takes over for half an hour.'}
+              <Text numberOfLines={1} style={{ color: team ? C.close : C.accent2, fontSize: 13, fontWeight: '600', fontFamily: font }}>
+                {team ? (chat.agent_name === myName ? "You're answering" : `${chat.agent_name || 'The team'} is answering`) : 'Assistant answering'}
               </Text>
             </View>
             <Icon name="right" size={16} color={C.fg2} weight={2} />

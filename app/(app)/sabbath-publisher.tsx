@@ -1,21 +1,24 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon, IconName } from '../../src/components/Icon';
 import { Button, Empty, ErrorNote, Field, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { fetchMyPublisher, requestPublisher } from '../../src/lib/api';
+import { useAppFont } from '../../src/lib/fonts';
+import { tap } from '../../src/lib/haptics';
 import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Publisher } from '../../src/lib/types';
 
 function Status({ icon, tone, title, note }: { icon: IconName; tone: string; title: string; note?: string }) {
+  const font = useAppFont('bold');
   return (
     <View style={{ alignItems: 'center', gap: 10, paddingTop: 28, paddingBottom: 8 }}>
       <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={40} color={tone} weight={2} />
       </View>
-      <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 21, fontWeight: '800', textAlign: 'center' }}>{title}</Text>
+      <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 21, fontWeight: '800', textAlign: 'center', fontFamily: font }}>{title}</Text>
       {note ? <Text style={{ color: C.fg2, fontSize: 15, lineHeight: 21, textAlign: 'center' }}>{note}</Text> : null}
     </View>
   );
@@ -32,6 +35,8 @@ export default function SabbathPublisher() {
   const [note, setNote] = useState('');
   const [again, setAgain] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Set at once on the first tap, so a quick second tap can't send the request twice. */
+  const sending = useRef(false);
 
   const load = useCallback(() => {
     if (!me) return;
@@ -46,16 +51,21 @@ export default function SabbathPublisher() {
   useFocusEffect(load);
 
   async function send() {
-    if (busy || !note.trim()) return;
+    if (sending.current || !note.trim()) return;
+    sending.current = true;
     setBusy(true);
     try {
       await requestPublisher(me, note, row?.status === 'rejected');
+      tap('success');
       toast(t('ssPub.sent'));
+      // The request shows as pending straight away; the server's copy follows.
+      setRow((r) => ({ user_id: me, status: 'pending', note: note.trim().slice(0, 1000), decided_by: null, decided_at: null, created_at: r?.created_at ?? new Date().toISOString() }));
       setAgain(false);
       load();
     } catch (e) {
       toast(errText(e));
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

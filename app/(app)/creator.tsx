@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Empty, Row, Screen, ScreenHeader } from '../../src/components/ui';
@@ -10,12 +10,19 @@ const REPLIES = { everyone: 'Everyone', following: 'People you follow', off: 'Of
 export default function Creator() {
   const { profile } = useSession();
   const router = useRouter();
+  // One screen per tap, however quickly a row is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
 
   if (profile?.account_type !== 'creator') {
     return (
       <Screen>
         <ScreenHeader title="Creator" />
-        <Empty icon="chart" title="Creator tools are off" action={<Button small label="Switch account type" onPress={() => router.push('/account-type')} style={{ marginTop: 8 }} />} />
+        <Empty icon="chart" title="Creator tools are off" action={<Button small label="Switch account type" onPress={() => open('/account-type')} style={{ marginTop: 8 }} />} />
       </Screen>
     );
   }
@@ -24,13 +31,13 @@ export default function Creator() {
     <Screen>
       <ScreenHeader title="Creator" />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-        <Row title="Dashboard" onPress={() => router.push('/dashboard')} />
-        <Row title="View counts on profile" value={profile.show_view_counts ? 'On' : 'Off'} onPress={() => router.push('/view-counts')} />
-        <Row title="Saved Reply" onPress={() => router.push('/saved-replies')} />
-        <Row title="Frequently Asked Questions" value={profile.faq_enabled ? 'On' : 'Off'} onPress={() => router.push('/faq')} />
-        <Row title="Category" value={profile.category || 'None'} onPress={() => router.push('/account-type')} />
-        <Row title="Story replies" value={REPLIES[profile.story_replies]} onPress={() => router.push('/story-settings')} />
-        <Row title="Switch account type" onPress={() => router.push('/account-type')} />
+        <Row icon="chart" title="Dashboard" onPress={() => open('/dashboard')} />
+        <Row icon="eye" title="View counts on profile" value={profile.show_view_counts ? 'On' : 'Off'} onPress={() => open('/view-counts')} />
+        <Row icon="reply" title="Saved Reply" onPress={() => open('/saved-replies')} />
+        <Row icon="question" title="Frequently Asked Questions" value={profile.faq_enabled ? 'On' : 'Off'} onPress={() => open('/faq')} />
+        <Row icon="tag" title="Category" value={profile.category || 'None'} onPress={() => open('/account-type')} />
+        <Row icon="comment" title="Story replies" value={REPLIES[profile.story_replies] ?? ''} onPress={() => open('/story-settings')} />
+        <Row icon="swap" title="Switch account type" onPress={() => open('/account-type')} />
       </ScrollView>
     </Screen>
   );

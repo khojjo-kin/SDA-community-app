@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardOpen } from '../../src/components/AssistiveButton';
 import { AgentTyping, AssistantThinking } from '../../src/components/ThinkingOrb';
 import { ErrorNote, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
-import { fetchSupportMessages, findSupportChat, sendSupportMessage, startSupportChat } from '../../src/lib/api';
+import { fetchSupportMessages, findSupportChat, sendSupportMessage, startSupportChat, withTimeout } from '../../src/lib/api';
 import { useAppFont } from '../../src/lib/fonts';
+import { tap } from '../../src/lib/haptics';
 import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { supabase } from '../../src/lib/supabase';
@@ -226,6 +227,10 @@ function TeamBadge() {
  */
 export type SupportView = { side: 'member' } | { side: 'team'; me: string; memberName: string };
 
+/** The member's own point of view: one object, so the memoised bubbles see the same one every time. */
+const MEMBER_VIEW: SupportView = { side: 'member' };
+const keyOfSupportRow = (r: { m: SupportMessage }) => r.m.id;
+
 /** The small line above a run of messages from one sender. */
 function Label({ m, view }: { m: SupportMessage; view: SupportView }) {
   const font = useAppFont();
@@ -252,8 +257,11 @@ function Label({ m, view }: { m: SupportMessage; view: SupportView }) {
   return view.side === 'team' ? <Text style={style}>{view.memberName}</Text> : null;
 }
 
-/** One message. `first` is set on the first of a run from the same sender, which carries the label. */
-export function SupportBubble({ m, view, first, stamp }: { m: SupportMessage; view: SupportView; first: boolean; stamp: boolean }) {
+/**
+ * One message. `first` is set on the first of a run from the same sender, which carries the label.
+ * Memoised: the screen draws again on every key typed, which changes no message.
+ */
+export const SupportBubble = React.memo(function SupportBubble({ m, view, first, stamp }: { m: SupportMessage; view: SupportView; first: boolean; stamp: boolean }) {
   const font = useAppFont();
   const right = view.side === 'member' ? m.role === 'member' : m.role !== 'member';
   // Green is "this side's" words: the member's own on their phone, the team's own replies on an admin's.
@@ -281,7 +289,7 @@ export function SupportBubble({ m, view, first, stamp }: { m: SupportMessage; vi
       </View>
     </View>
   );
-}
+});
 
 /**
  * The rows for an inverted list (newest first), each knowing whether it starts a run (gets a label)
@@ -365,14 +373,15 @@ export default function SupportChatScreen() {
     setError('');
     (async () => {
       try {
-        const c = await findSupportChat(me);
+        // With deadlines, so a request that never answers ends in Try again rather than loading for good.
+        const c = await withTimeout(findSupportChat(me));
         if (!live) return;
         if (!c) {
           setMessages((prev) => prev ?? []);
           return;
         }
         setChat(c);
-        const list = await fetchSupportMessages(c.id);
+        const list = await withTimeout(fetchSupportMessages(c.id));
         if (live) setMessages((prev) => reconcile(list, prev));
       } catch (e) {
         if (live) setError(errText(e));
@@ -435,50 +444,58 @@ export default function SupportChatScreen() {
     }, TYPING_MS);
   });
 
+  /**
+   * Your message is in the conversation the moment you press Send, and the box is clear for the next
+   * one; if it can't be sent it comes out again and its words go back in the box.
+   */
   async function send() {
     const body = text.trim();
     if (!body || messages === null) return;
-    let target = chat;
-    if (!target) {
-      // The first message starts the chat (two quick sends share the one being made).
-      try {
-        starting.current ??= startSupportChat(me);
-        target = await starting.current;
-        if (!alive.current) return;
-        setChat((c) => c ?? target);
-      } catch (e) {
-        starting.current = null;
-        toast(errText(e));
-        return;
-      }
-    }
-    const id = target.id;
-    const local = localMessage(id, me, 'member', body);
+    tap();
+    const local = localMessage(chat?.id ?? '', me, 'member', body);
     // What was already here, so a failed send can tell whether this message reached the server.
     const before = new Set((messages ?? []).map((m) => m.id));
     setText('');
     setMessages((prev) => [...(prev ?? []), local]);
-    // Writing again opens a chat the team had closed.
-    setChat((c) => (c ? { ...c, status: 'open' } : c));
     setWaiting((n) => n + 1);
+    const undo = (e: unknown) => {
+      setMessages((prev) => (prev ?? []).filter((x) => x.id !== local.id));
+      // Put the words back so nothing typed is lost, unless something new has been typed since.
+      setText((typed) => (typed.trim() ? typed : body));
+      toast(errText(e));
+    };
     try {
-      const res = await sendSupportMessage(me, id, body);
-      if (res.answered_by === 'agent') setChat((c) => (c && !agentActive(c) ? { ...c, ai_paused_until: new Date(Date.now() + 30 * 60e3).toISOString() } : c));
-      // The answer is saved by now; fetch it before the orb goes, in case its live update hasn't arrived.
-      const list = await fetchSupportMessages(id).catch(() => null);
-      if (list && alive.current) setMessages((prev) => reconcile(list, prev));
-    } catch (e) {
-      // Either the message didn't save, or it did and the assistant was too slow to answer. Ask the server which.
-      const list = await fetchSupportMessages(id).catch(() => null);
-      if (!alive.current) return;
-      const saved = !!list?.some((r) => !before.has(r.id) && sameAs(local, r));
-      if (saved && list) {
-        setMessages((prev) => reconcile(list, prev));
-      } else {
-        setMessages((prev) => (prev ?? []).filter((x) => x.id !== local.id));
-        // Put the words back so nothing typed is lost, unless something new has been typed since.
-        setText((typed) => (typed.trim() ? typed : body));
-        toast(errText(e));
+      let target = chat;
+      if (!target) {
+        // The first message starts the chat (two quick sends share the one being made).
+        try {
+          starting.current ??= startSupportChat(me);
+          target = await starting.current;
+        } catch (e) {
+          starting.current = null;
+          if (alive.current) undo(e);
+          return;
+        }
+        if (!alive.current) return;
+        const made = target;
+        setChat((c) => c ?? made);
+      }
+      const id = target.id;
+      // Writing again opens a chat the team had closed.
+      setChat((c) => (c ? { ...c, status: 'open' } : c));
+      try {
+        const res = await sendSupportMessage(me, id, body);
+        if (res.answered_by === 'agent') setChat((c) => (c && !agentActive(c) ? { ...c, ai_paused_until: new Date(Date.now() + 30 * 60e3).toISOString() } : c));
+        // The answer is saved by now; fetch it before the orb goes, in case its live update hasn't arrived.
+        const list = await fetchSupportMessages(id).catch(() => null);
+        if (list && alive.current) setMessages((prev) => reconcile(list, prev));
+      } catch (e) {
+        // Either the message didn't save, or it did and the assistant was too slow to answer. Ask the server which.
+        const list = await fetchSupportMessages(id).catch(() => null);
+        if (!alive.current) return;
+        const saved = !!list?.some((r) => !before.has(r.id) && sameAs(local, r));
+        if (saved && list) setMessages((prev) => reconcile(list, prev));
+        else undo(e);
       }
     } finally {
       if (alive.current) setWaiting((n) => Math.max(0, n - 1));
@@ -489,16 +506,18 @@ export default function SupportChatScreen() {
   const team = agentActive(chat);
   const last = messages?.[messages.length - 1];
   const thinking = waiting > 0 && !team && last?.role === 'member';
-  const rows = messages ? bubbleRows(messages) : [];
-  const view: SupportView = { side: 'member' };
+  // Worked out again only when the messages change, not on every key typed.
+  const rows = useMemo(() => (messages ? bubbleRows(messages) : []), [messages]);
+  const renderRow = useCallback(({ item }: { item: { m: SupportMessage; first: boolean; stamp: boolean } }) => <SupportBubble m={item.m} view={MEMBER_VIEW} first={item.first} stamp={item.stamp} />, []);
+  const view = MEMBER_VIEW;
 
   return (
     <Screen>
       <ScreenHeader title={t('support.title')} />
       {/* Who is answering: the assistant, or a named person from the team. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingBottom: 8, marginTop: -4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingBottom: 8, marginTop: -4, paddingHorizontal: 16 }}>
         {team ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.ok }} /> : <AssistantMark size={14} />}
-        <Text style={{ color: C.fg2, fontSize: 13, fontFamily: font }}>{team ? t('support.agentHere', { name: chat?.agent_name || t('support.someone') }) : t('support.assistantReplies')}</Text>
+        <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 13, fontFamily: font, flexShrink: 1 }}>{team ? t('support.agentHere', { name: chat?.agent_name || t('support.someone') }) : t('support.assistant')}</Text>
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {messages === null ? (
@@ -507,12 +526,13 @@ export default function SupportChatScreen() {
           <FlatList
             data={rows}
             inverted
-            keyExtractor={(r) => r.m.id}
+            keyExtractor={keyOfSupportRow}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, gap: 4 }}
+            // Dragging the conversation puts the keyboard away with it (the box follows it down).
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            renderItem={({ item }) => <SupportBubble m={item.m} view={view} first={item.first} stamp={item.stamp} />}
+            keyboardDismissMode="on-drag"
+            renderItem={renderRow}
             // Inverted: the "header" sits at the bottom, under the newest message.
             ListHeaderComponent={
               <View style={{ paddingTop: 6 }}>

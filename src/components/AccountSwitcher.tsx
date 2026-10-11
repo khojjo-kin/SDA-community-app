@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useClerk } from '@clerk/clerk-expo';
 import { useNavigationContainerRef, useRouter } from 'expo-router';
 import { type Account, liveOpen, MAX_ACCOUNTS, setAddingAccount, switchAccount, type SwitchTarget, useAccounts } from '../lib/accounts';
 import { cacheKey, readCache } from '../lib/cache';
 import { useCalls } from '../lib/calls';
+import { tap } from '../lib/haptics';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { C, errText } from '../lib/theme';
@@ -54,11 +55,28 @@ export function AccountSwitcher({ visible, onClose }: { visible: boolean; onClos
   const accounts = useAccounts();
   const faces = useFaces(accounts);
   const [busy, setBusy] = useState<string | null>(null);
+  // A ref as well: a second tap can arrive before the busy state has drawn.
+  const busyRef = useRef(false);
+  // Left to run even if the sheet goes meanwhile: what it does (a message, opening the sign-in page) still applies.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Closes the sheet, then does `then` once it has slid away: a message would otherwise be hidden
+   * under the sheet, and a new page opened while it is still going can leave it stuck on iPhone.
+   */
+  function closeThen(then: () => void) {
+    onClose();
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      then();
+    }, 380);
+  }
 
   /** A call or a live would be cut off by another account taking over: those end first. */
   function blocked() {
     if (inCall || liveOpen(nav.isReady() ? nav.getRootState() : undefined)) {
-      toast(t('accounts.busy'));
+      closeThen(() => toast(t('accounts.busy')));
       return true;
     }
     return false;
@@ -66,7 +84,9 @@ export function AccountSwitcher({ visible, onClose }: { visible: boolean; onClos
 
   async function pick(a: Account) {
     if (a.current) return onClose();
-    if (busy || blocked()) return;
+    if (busyRef.current || blocked()) return;
+    tap('select');
+    busyRef.current = true;
     setBusy(a.sessionId);
     try {
       // The app closes this screen (and the sheet with it) and opens again at Home as that account.
@@ -74,20 +94,25 @@ export function AccountSwitcher({ visible, onClose }: { visible: boolean; onClos
     } catch (e) {
       toast(errText(e));
     } finally {
+      busyRef.current = false;
       setBusy(null);
     }
   }
 
   function add() {
-    if (busy || blocked()) return;
+    if (busyRef.current || blocked()) return;
     if (accounts.length >= MAX_ACCOUNTS) {
-      toast(t('accounts.limit', { count: MAX_ACCOUNTS }));
+      closeThen(() => toast(t('accounts.limit', { count: MAX_ACCOUNTS })));
       return;
     }
-    onClose();
+    tap('light');
+    busyRef.current = true;
     // The sign-in pages, with this account still signed in; the app layout clears this when it shows again.
-    setAddingAccount(true);
-    router.replace('/sign-in');
+    closeThen(() => {
+      busyRef.current = false;
+      setAddingAccount(true);
+      router.replace('/sign-in');
+    });
   }
 
   return (

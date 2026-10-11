@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AdminFrame } from '../../src/components/AdminFrame';
 import { VerifiedTick } from '../../src/components/Icon';
@@ -20,20 +20,31 @@ export default function AdminPublishers() {
   const [list, setList] = useState<Publisher[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  /** Set at once on the first tap, so a quick second tap can't decide twice. */
+  const deciding = useRef(false);
+  const hasList = useRef(false);
+  hasList.current = list !== null;
 
   const load = useCallback(() => {
     if (!admin) return;
     setError('');
     fetchPublishers()
       .then(setList)
-      .catch((e) => setError(errText(e)));
-  }, [admin]);
+      .catch((e) => {
+        // With the list showing, a failed refresh keeps it and says why.
+        if (hasList.current) toast(errText(e));
+        else setError(errText(e));
+      })
+      .finally(() => setRefreshing(false));
+  }, [admin, toast]);
   useFocusEffect(load);
 
   const nameOf = (p: Publisher) => p.profile?.full_name || p.profile?.username || '?';
 
   async function decide(p: Publisher, status: 'approved' | 'rejected' | 'revoked') {
-    if (busy) return;
+    if (deciding.current) return;
+    deciding.current = true;
     setBusy(p.user_id);
     try {
       await decidePublisher(p.user_id, status);
@@ -43,6 +54,7 @@ export default function AdminPublishers() {
     } catch (e) {
       toast(errText(e));
     } finally {
+      deciding.current = false;
       setBusy('');
     }
   }
@@ -102,7 +114,7 @@ export default function AdminPublishers() {
       {list === null ? (
         error ? <ErrorNote message={error} onRetry={load} /> : <Loading />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 48 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.fg2} />}>
           <SectionLabel>{`${t('adminPub.requests')}${pending.length ? ` · ${pending.length}` : ''}`}</SectionLabel>
           {pending.length ? pending.map(card) : <Text style={{ color: C.fg3, paddingHorizontal: 16, paddingBottom: 8 }}>{t('adminPub.noRequests')}</Text>}
           <SectionLabel>{`${t('adminPub.title')}${approved.length ? ` · ${approved.length}` : ''}`}</SectionLabel>

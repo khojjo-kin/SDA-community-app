@@ -97,10 +97,36 @@ export function getPrefs(): Prefs {
   return current;
 }
 
+// Saves to the phone go one at a time, each writing the choices as they are when it starts, so the
+// last one written is always the newest: two quick changes can't finish in the wrong order and leave an
+// older set of choices to be read after a restart. Changes made while one is being written share the next.
+let writing = false;
+let unsaved = false;
+
+async function save() {
+  if (writing) {
+    unsaved = true;
+    return;
+  }
+  writing = true;
+  try {
+    do {
+      unsaved = false;
+      try {
+        await SecureStore.setItemAsync(KEY, JSON.stringify(current));
+      } catch {
+        // Kept for this run of the app; the next change tries again.
+      }
+    } while (unsaved);
+  } finally {
+    writing = false;
+  }
+}
+
 export function setPrefs(patch: Partial<Prefs>) {
   current = { ...current, ...patch };
   emit();
-  SecureStore.setItemAsync(KEY, JSON.stringify(current)).catch(() => {});
+  save();
 }
 
 export function usePrefs(): Prefs {

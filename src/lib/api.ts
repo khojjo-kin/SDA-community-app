@@ -4,12 +4,13 @@ import { File } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { MEDIA_BUCKET, supabase } from './supabase';
-import { announce, dropPost, patchAuthor, patchPost, putPosts } from './store';
+import { announce, dropPost, getPostNow, patchAuthor, patchPost, putPosts } from './store';
 import { FriendlyError } from './theme';
 import { t } from './i18n';
 import type { ActivityRow, AdminQueue, AdminStats, BillingStatus, CaptionLine, CreatorSub, DocumentType, Feedback, FollowAlerts, FriendLocation, Fundraiser, Note, StoryViewer, SupportChat, SupportMessage, OneOffPayment, PaymentsConfig, PayoutStatus, Promotion, SavedCard, SuggestedPerson, Supporter, ArchivedStory, Audience, Call, Church, Comment, ErhaMessage, Faq, Group, GroupMember, Highlight, HighlightItem, Hymn, LiveCard, LiveComment, Media, MemberCard, Message, Notice, PlusRequest, PodItem, Post, Profile, ProfileViewer, ReportCard, SavedReply, Stats, Story, StoryGroup, StoryItem, SupportTicket, Thread, Transaction } from './types';
 import type { LiveAudience, LiveSchedule, PostPoll } from './types';
 import type { BibleMark, BibleMarkColor, Publisher, SabbathPost, SabbathPostKind } from './types';
+import type { EventCard, EventInput, EventPerson, EventRsvp, NearbyPerson, ReadingStreak } from './types';
 
 function ok<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw res.error;
@@ -124,6 +125,29 @@ export async function requestFollow(me: string, userId: string) {
   announce('profile');
 }
 
+/**
+ * Follows someone, or asks to when their account is private. Where privacy isn't known (posts,
+ * suggestions, notifications), the database's refusal of a plain follow is answered with a request.
+ */
+export async function followOrRequest(me: string, userId: string, isPrivate?: boolean): Promise<'following' | 'requested'> {
+  if (isPrivate) {
+    await requestFollow(me, userId);
+    return 'requested';
+  }
+  try {
+    await setFollow(me, userId, true);
+    return 'following';
+  } catch (e) {
+    try {
+      await requestFollow(me, userId);
+    } catch {
+      // The request failed too, so the first refusal is the one worth showing.
+      throw e;
+    }
+    return 'requested';
+  }
+}
+
 /** Withdraws your own request (me = requester), or declines one sent to you (me = target). */
 export async function removeFollowRequest(requesterId: string, targetId: string) {
   ok(await supabase.from('community_follow_requests').delete().eq('requester_id', requesterId).eq('target_id', targetId));
@@ -146,10 +170,13 @@ export async function fetchFollowRequests(me: string): Promise<Profile[]> {
   return people.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
-/** Notes that I looked at someone's profile. Plus members can see who looked at theirs. */
+/**
+ * Notes that I looked at someone's profile. Plus members can see who looked at theirs. The server
+ * saves it (with its own clock) and skips my own profile and anyone blocked either way.
+ */
 export function recordProfileView(me: string, profileId: string) {
-  if (!me || me === profileId) return;
-  supabase.from('community_profile_views').upsert({ viewer_id: me, profile_id: profileId, viewed_at: new Date().toISOString() }, { onConflict: 'viewer_id,profile_id' }).then(() => {}, () => {});
+  if (!me || !profileId || me === profileId) return;
+  supabase.rpc('community_profile_viewed', { p_profile: profileId }).then(() => {}, () => {});
 }
 
 /** Who looked at my profile, newest first. Empty unless I have Plus (the database refuses otherwise). */
@@ -637,14 +664,19 @@ export async function fetchMyComments(me: string): Promise<Comment[]> {
   return rows;
 }
 
-export async function addComment(me: string, post: Post, text: string) {
-  ok(await supabase.from('community_comments').insert({ post_id: post.id, user_id: me, text: text.trim().slice(0, 2200) }));
-  patchPost(post.id, { comment_count: post.comment_count + 1 });
+/** Adds a comment and returns its id and time as stored (null if it can't be read back at once). */
+export async function addComment(me: string, post: Post, text: string): Promise<{ id: string; created_at: string } | null> {
+  const rows: { id: string; created_at: string }[] = ok(await supabase.from('community_comments').insert({ post_id: post.id, user_id: me, text: text.trim().slice(0, 2200) }).select('id, created_at')) ?? [];
+  // Counted from the post as it is now, so two comments sent close together both count.
+  const now = getPostNow(post.id) ?? post;
+  patchPost(post.id, { comment_count: now.comment_count + 1 });
+  return rows[0] ?? null;
 }
 
 export async function deleteComment(post: Post, commentId: string) {
   ok(await supabase.from('community_comments').delete().eq('id', commentId));
-  patchPost(post.id, { comment_count: Math.max(0, post.comment_count - 1) });
+  const now = getPostNow(post.id) ?? post;
+  patchPost(post.id, { comment_count: Math.max(0, now.comment_count - 1) });
 }
 
 export async function setCommentLike(me: string, commentId: string, next: boolean) {
@@ -857,20 +889,29 @@ export async function openThread(otherId: string): Promise<string> {
   return ok(await supabase.rpc('community_open_thread', { other: otherId }));
 }
 
-/** Messages in a chat, oldest first. Anything from before you deleted the chat is left out. */
-export async function fetchMessages(threadId: string, hiddenBefore?: string | null): Promise<Message[]> {
-  let q = supabase.from('community_messages').select('*').eq('thread_id', threadId).order('created_at', { ascending: false }).limit(200);
+/**
+ * Messages in a chat, oldest first: the newest `limit`, or with `before` the `limit` just before that
+ * moment (scrolling back). Anything from before you deleted the chat is left out.
+ */
+export async function fetchMessages(threadId: string, hiddenBefore?: string | null, page: { before?: string; limit?: number } = {}): Promise<Message[]> {
+  let q = supabase.from('community_messages').select('*').eq('thread_id', threadId).order('created_at', { ascending: false }).limit(page.limit ?? 200);
   if (hiddenBefore) q = q.gt('created_at', hiddenBefore);
+  if (page.before) q = q.lt('created_at', page.before);
   const rows: Message[] = ok(await q) ?? [];
   const postIds = [...new Set(rows.map((m) => m.post_id).filter(Boolean))] as string[];
   if (postIds.length) keep(ok(await supabase.from('community_post_cards').select('*').in('id', postIds)));
   return rows.reverse();
 }
 
-export async function sendMessage(me: string, threadId: string, msg: { text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number; call_url?: string; call_kind?: 'voice' | 'video'; view_once?: boolean }) {
+/**
+ * `id` is optional: a chat that shows the message before it is sent makes the id itself, so the copy
+ * the server sends back is recognised as the same message and never shown twice.
+ */
+export async function sendMessage(me: string, threadId: string, msg: { id?: string; text?: string; media_url?: string; post_id?: string; audio_url?: string; audio_seconds?: number; call_url?: string; call_kind?: 'voice' | 'video'; view_once?: boolean }) {
   const text = (msg.text ?? '').trim().slice(0, 5000) || (msg.post_id ? 'Sent a post' : msg.call_kind === 'video' ? 'Video call' : msg.call_kind === 'voice' ? 'Voice call' : '');
   ok(
     await supabase.from('community_messages').insert({
+      ...(msg.id ? { id: msg.id } : {}),
       thread_id: threadId,
       sender_id: me,
       text,
@@ -1132,8 +1173,16 @@ export async function deleteChurch(id: string) {
   ok(await supabase.from('community_churches').delete().eq('id', id));
 }
 
-export async function fetchChurchMembers(churchId: string): Promise<Profile[]> {
-  return ok(await supabase.from('community_profile_cards').select('*').eq('church_id', churchId).order('full_name')) ?? [];
+/** A to Z, 50 at a time; `from` is how many are already shown. */
+export async function fetchChurchMembers(churchId: string, from = 0): Promise<Profile[]> {
+  return ok(await supabase.from('community_profile_cards').select('*').eq('church_id', churchId).order('full_name').order('id').range(from, from + 49)) ?? [];
+}
+
+/** How many members have chosen a church. */
+export async function countChurchMembers(churchId: string): Promise<number> {
+  const { count: n, error } = await supabase.from('community_profile_cards').select('id', { count: 'exact', head: true }).eq('church_id', churchId);
+  if (error) throw error;
+  return n ?? 0;
 }
 
 /** Straight-line distance in kilometres. Close enough to sort a list of churches by. */
@@ -1148,11 +1197,11 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
 /* ---------- hymnal ---------- */
 
 export async function fetchHymns(): Promise<Pick<Hymn, 'number' | 'title' | 'section'>[]> {
-  return ok(await supabase.from('community_hymns').select('number,title,section').order('number')) ?? [];
+  return ok(await withTimeout(supabase.from('community_hymns').select('number,title,section').order('number'))) ?? [];
 }
 
 export async function fetchHymn(number: number): Promise<Hymn | null> {
-  return ok(await supabase.from('community_hymns').select('*').eq('number', number).maybeSingle());
+  return ok(await withTimeout(supabase.from('community_hymns').select('*').eq('number', number).maybeSingle()));
 }
 
 export async function saveHymn(me: string, hymn: Hymn) {
@@ -1248,9 +1297,11 @@ export async function removeBlockedWord(word: string) {
   ok(await supabase.from('community_blocked_words').delete().eq('word', word));
 }
 
-export async function fetchReports(status: 'open' | 'all' = 'open'): Promise<ReportCard[]> {
-  let q = supabase.from('community_report_cards').select('*').order('created_at', { ascending: false }).limit(200);
+/** Newest first, 50 at a time; `before` is the created_at of the last one shown. */
+export async function fetchReports(status: 'open' | 'all' = 'open', before?: string): Promise<ReportCard[]> {
+  let q = supabase.from('community_report_cards').select('*').order('created_at', { ascending: false }).limit(50);
   if (status === 'open') q = q.eq('status', 'open');
+  if (before) q = q.lt('created_at', before);
   return ok(await q) ?? [];
 }
 
@@ -1258,10 +1309,12 @@ export async function decideReport(me: string, id: string, status: 'dismissed' |
   ok(await supabase.from('community_reports').update({ status, decided_by: me, decided_at: new Date().toISOString() }).eq('id', id));
 }
 
-export async function fetchMembers(q = ''): Promise<MemberCard[]> {
-  let query = supabase.from('community_member_cards').select('*').order('created_at', { ascending: false }).limit(100);
+/** Newest first, 50 at a time; `before` is the created_at of the last one shown. */
+export async function fetchMembers(q = '', before?: string): Promise<MemberCard[]> {
+  let query = supabase.from('community_member_cards').select('*').order('created_at', { ascending: false }).limit(50);
   const needle = searchWords(q);
   if (needle) query = query.or(`username.ilike.%${needle}%,full_name.ilike.%${needle}%`);
+  if (before) query = query.lt('created_at', before);
   return ok(await query) ?? [];
 }
 
@@ -1275,8 +1328,9 @@ export async function adminSetAccount(id: string, patch: { verified?: boolean; p
   announce('profile');
 }
 
+/** Admins: pending requests, oldest first; the next ones come as these are decided. */
 export async function fetchPlusRequests(kind?: PlusRequest['kind']): Promise<PlusRequest[]> {
-  let q = supabase.from('community_plus_requests').select('*').eq('status', 'pending').order('created_at');
+  let q = supabase.from('community_plus_requests').select('*').eq('status', 'pending').order('created_at').limit(100);
   if (kind) q = q.eq('kind', kind);
   const rows: PlusRequest[] = ok(await q) ?? [];
   if (!rows.length) return [];
@@ -1428,8 +1482,11 @@ export async function leaveGroup(me: string, groupId: string) {
   announce('feed');
 }
 
-export async function fetchGroupMembers(groupId: string, status: 'member' | 'pending' = 'member'): Promise<GroupMember[]> {
-  const rows: Omit<GroupMember, 'profile'>[] = ok(await supabase.from('community_group_members').select('*').eq('group_id', groupId).eq('status', status).order('created_at')) ?? [];
+/** Oldest first, 60 at a time (the owner comes first); `after` is the created_at of the last one shown. */
+export async function fetchGroupMembers(groupId: string, status: 'member' | 'pending' = 'member', after?: string): Promise<GroupMember[]> {
+  let q = supabase.from('community_group_members').select('*').eq('group_id', groupId).eq('status', status).order('created_at').limit(60);
+  if (after) q = q.gt('created_at', after);
+  const rows: Omit<GroupMember, 'profile'>[] = ok(await q) ?? [];
   if (!rows.length) return [];
   const people = await profilesInOrder(rows.map((r) => r.user_id));
   const order = { owner: 0, admin: 1, member: 2 } as const;
@@ -1574,6 +1631,14 @@ export async function endLive(id: string) {
   announce('stories');
 }
 
+/**
+ * Says the broadcast is still going: every 30 seconds while live. A live that stops saying so for
+ * 3 minutes (the phone was switched off, the app closed) stops showing as live.
+ */
+export async function beatLive(id: string) {
+  await supabase.rpc('community_live_beat', { p_live: id });
+}
+
 export async function setLiveViewers(id: string, viewers: number) {
   await supabase.from('community_lives').update({ viewers: Math.max(0, viewers) }).eq('id', id);
 }
@@ -1640,8 +1705,15 @@ export async function logCallInChat(me: string, threadId: string, kind: 'voice' 
 
 /* ---------- transactions, support and the admin console ---------- */
 
-export async function fetchTransactions(limit = 200): Promise<Transaction[]> {
-  return ok(await supabase.from('community_transaction_cards').select('*').order('created_at', { ascending: false }).limit(limit)) ?? [];
+/**
+ * Newest first, 50 at a time; `before` is the created_at of the last one shown. Plus payments carry
+ * Stripe's paid time, to the second, so two can share one: the next page starts at that moment again
+ * (the list drops the ones it already has) rather than just after it, which would skip the other.
+ */
+export async function fetchTransactions(before?: string): Promise<Transaction[]> {
+  let q = supabase.from('community_transaction_cards').select('*').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(50);
+  if (before) q = q.lte('created_at', before);
+  return ok(await q) ?? [];
 }
 
 export async function addTransaction(me: string, t: { user_id?: string | null; kind: Transaction['kind']; amount_pence: number; currency?: string; note?: string }) {
@@ -1724,9 +1796,24 @@ export async function syncSubscription(): Promise<BillingStatus & { plus: boolea
 export const cancelSubscription = () => payments<BillingStatus>('cancel');
 export const resumeSubscription = () => payments<BillingStatus>('resume');
 
-/** My payments, newest first (the database only returns my own). */
-export async function myTransactions(me: string): Promise<Transaction[]> {
-  return ok(await supabase.from('community_transaction_cards').select('*').eq('user_id', me).order('created_at', { ascending: false }).limit(50)) ?? [];
+/**
+ * My payments, newest first. Filtered to me as well as by the database (an admin can read everyone's).
+ * `offset` pages further back; the id breaks ties so a page never repeats or skips a row.
+ */
+export async function myTransactions(me: string, page: { offset?: number; limit?: number } = {}): Promise<Transaction[]> {
+  const from = Math.max(0, page.offset ?? 0);
+  const limit = Math.max(1, page.limit ?? 50);
+  return (
+    ok(
+      await supabase
+        .from('community_transaction_cards')
+        .select('*')
+        .eq('user_id', me)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + limit - 1),
+    ) ?? []
+  );
 }
 
 /* ---------- fundraisers ---------- */
@@ -1886,10 +1973,11 @@ export async function sendSupportMessage(me: string, chatId: string, text: strin
   return (data as { answered_by: 'ai' | 'agent' | 'none' | 'busy' }) ?? { answered_by: 'none' };
 }
 
-/** Admins: support chats, most recent first, with who they're from. */
-export async function fetchSupportChats(status: 'open' | 'all' = 'open'): Promise<SupportChat[]> {
-  let q = supabase.from('community_support_chats').select('*').order('updated_at', { ascending: false }).limit(200);
+/** Admins: support chats, most recent first, with who they're from; 50 at a time, `before` being the updated_at of the last one shown. */
+export async function fetchSupportChats(status: 'open' | 'all' = 'open', before?: string): Promise<SupportChat[]> {
+  let q = supabase.from('community_support_chats').select('*').order('updated_at', { ascending: false }).limit(50);
   if (status === 'open') q = q.eq('status', 'open');
+  if (before) q = q.lt('updated_at', before);
   const rows: SupportChat[] = ok(await q) ?? [];
   const people = await profilesInOrder([...new Set(rows.map((r) => r.user_id))]);
   return rows.map((r) => ({ ...r, profile: people.find((p) => p.id === r.user_id) ?? null }));
@@ -1909,9 +1997,19 @@ export async function sendFeedback(me: string, f: { kind: Feedback['kind']; rati
   ok(await supabase.from('community_feedback').insert({ user_id: me, kind: f.kind, rating: f.rating ?? null, text: (f.text ?? '').trim().slice(0, 2000), app_version: (f.app_version ?? '').slice(0, 40), platform: (f.platform ?? '').slice(0, 20) }));
 }
 
-/** Admins: everything members have sent, newest first. */
-export async function fetchFeedback(): Promise<Feedback[]> {
-  return ok(await supabase.from('community_feedback_cards').select('*').order('created_at', { ascending: false }).limit(300)) ?? [];
+/** Admins: what members have sent (or one kind of it), newest first, 50 at a time; `before` is the created_at of the last one shown. */
+export async function fetchFeedback(before?: string, kind?: Feedback['kind']): Promise<Feedback[]> {
+  let q = supabase.from('community_feedback_cards').select('*').order('created_at', { ascending: false }).limit(50);
+  if (kind) q = q.eq('kind', kind);
+  if (before) q = q.lt('created_at', before);
+  return ok(await q) ?? [];
+}
+
+/** Admins: the average star rating over every review, and how many reviews gave one. */
+export async function fetchRatingSummary(): Promise<{ average: number; count: number }> {
+  const rows: { rating: number | null }[] = ok(await supabase.from('community_feedback_cards').select('rating').eq('kind', 'review').not('rating', 'is', null).limit(5000)) ?? [];
+  const stars = rows.map((r) => r.rating ?? 0).filter((n) => n > 0);
+  return { average: stars.length ? stars.reduce((a, b) => a + b, 0) / stars.length : 0, count: stars.length };
 }
 
 /* ---------- live location ---------- */
@@ -2038,4 +2136,135 @@ export async function setBibleNote(me: string, translation: string, book: string
   }
   ok(await supabase.from(MARKS).delete().eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse).eq('color', ''));
   ok(await supabase.from(MARKS).update({ note: '', updated_at }).eq('user_id', me).eq('book', book).eq('chapter', chapter).eq('verse', verse));
+}
+
+/* ---------- church events (v23) ---------- */
+
+const EVENT_CARDS = 'community_event_cards';
+/**
+ * An event still worth listing, as an `or` filter: not over, as the database decides when answers close.
+ * With an end time, it hasn't ended (an event already ended isn't listed as coming up; a weekend camp
+ * that began yesterday still is); without one, it started under six hours ago.
+ */
+const eventStillOn = () => {
+  const now = Date.now();
+  return `ends_at.gt.${new Date(now).toISOString()},and(ends_at.is.null,starts_at.gt.${new Date(now - 6 * 3600e3).toISOString()})`;
+};
+
+/**
+ * Events, soonest first. `upcoming`: everything not yet over and not called off. `going`: the ones I
+ * answered Going or Interested. `mine`: the ones I posted, newest first, including past and called off.
+ * `churchId` / `groupId` narrow any of them to one church or community.
+ */
+export async function fetchEvents(opts: { scope?: 'upcoming' | 'going' | 'mine'; churchId?: string; groupId?: string; limit?: number } = {}): Promise<EventCard[]> {
+  const scope = opts.scope ?? 'upcoming';
+  let q = supabase.from(EVENT_CARDS).select('*');
+  if (opts.churchId) q = q.eq('church_id', opts.churchId);
+  if (opts.groupId) q = q.eq('group_id', opts.groupId);
+  if (scope === 'mine') {
+    q = q.eq('mine', true).order('starts_at', { ascending: false });
+  } else {
+    q = q.or(eventStillOn()).is('cancelled_at', null);
+    if (scope === 'going') q = q.not('my_rsvp', 'is', null);
+    q = q.order('starts_at', { ascending: true });
+  }
+  return ok(await withTimeout(q.limit(opts.limit ?? 100))) ?? [];
+}
+
+/** Upcoming events with a place on the map, for the map's Events layer. */
+export async function fetchMapEvents(): Promise<EventCard[]> {
+  return ok(await withTimeout(supabase.from(EVENT_CARDS).select('*').or(eventStillOn()).is('cancelled_at', null).not('lat', 'is', null).order('starts_at', { ascending: true }).limit(200))) ?? [];
+}
+
+export async function fetchEvent(id: string): Promise<EventCard | null> {
+  return ok(await withTimeout(supabase.from(EVENT_CARDS).select('*').eq('id', id).maybeSingle()));
+}
+
+/** Posts an event and returns its id. The organiser is always me. */
+export async function createEvent(me: string, input: EventInput): Promise<string> {
+  const row: { id: string } = ok(await supabase.from('community_events').insert({ ...cleanEvent(input), user_id: me }).select('id').single());
+  return row.id;
+}
+
+/** Changes an event. Refused (nothing changes) unless I posted it, manage its community, or am an admin. */
+export async function updateEvent(id: string, patch: Partial<EventInput>) {
+  const rows: { id: string }[] = ok(await supabase.from('community_events').update(cleanEvent(patch)).eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+/** Calls an event off: it stays, marked as called off, so people who planned to go see it. */
+export async function cancelEvent(id: string) {
+  // A refusal changes nothing without an error, so the row coming back is what says it worked.
+  const rows: { id: string }[] = ok(await supabase.from('community_events').update({ cancelled_at: new Date().toISOString() }).eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+export async function deleteEvent(id: string) {
+  const rows: { id: string }[] = ok(await supabase.from('community_events').delete().eq('id', id).select('id'));
+  if (!rows.length) throw new FriendlyError("This event can't be changed.");
+}
+
+/** Answers an event: Going, Interested, or null to take the answer back. */
+export async function setEventRsvp(me: string, eventId: string, status: EventRsvp | null) {
+  if (status) ok(await supabase.from('community_event_rsvps').upsert({ event_id: eventId, user_id: me, status }, { onConflict: 'event_id,user_id' }));
+  else ok(await supabase.from('community_event_rsvps').delete().eq('event_id', eventId).eq('user_id', me));
+}
+
+/** People who answered an event, newest first: all of them, or only Going / Interested. */
+export async function fetchEventPeople(eventId: string, status?: EventRsvp): Promise<EventPerson[]> {
+  let q = supabase.from('community_event_people').select('*').eq('event_id', eventId);
+  if (status) q = q.eq('status', status);
+  return ok(await withTimeout(q.order('created_at', { ascending: false }).limit(300))) ?? [];
+}
+
+/** Trims what the organiser typed; the database checks the rest. */
+function cleanEvent<T extends Partial<EventInput>>(input: T): T {
+  const out: Partial<EventInput> = { ...input };
+  if (out.title !== undefined) out.title = out.title.trim().slice(0, 120);
+  if (out.description !== undefined) out.description = out.description.trim().slice(0, 2000);
+  if (out.place !== undefined) out.place = out.place.trim().slice(0, 200);
+  return out as T;
+}
+
+/* ---------- Bible reading streak (v23) ---------- */
+
+/** Today's date on this phone, as YYYY-MM-DD (the member's own day, not the server's). */
+export function localDay(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Counts a chapter read today towards the streak. */
+export async function markReading(): Promise<void> {
+  ok(await supabase.rpc('community_mark_reading', { p_day: localDay() }));
+}
+
+export async function fetchReadingStreak(): Promise<ReadingStreak> {
+  const rows: ReadingStreak[] = ok(await withTimeout(supabase.rpc('community_reading_streak', { p_today: localDay() }))) ?? [];
+  return rows[0] ?? { current_streak: 0, best_streak: 0, read_today: false, total_days: 0, last_days: [] };
+}
+
+/* ---------- Nearby on the map (v23) ---------- */
+
+/**
+ * Shows me in Nearby at about where I am (the server keeps only a rough place, to about a kilometre).
+ * False when this account can't use Nearby: it's for adults (18 and over) whose birthday is known.
+ */
+export async function nearbyShow(lat: number, lng: number): Promise<boolean> {
+  return !!ok(await supabase.rpc('community_nearby_set', { p_lat: lat, p_lng: lng }));
+}
+
+/** Stops showing me in Nearby. */
+export async function nearbyHide(): Promise<void> {
+  ok(await supabase.rpc('community_nearby_off'));
+}
+
+/** Whether I show in Nearby now (it lapses after a day without an update). */
+export async function nearbyIsOn(): Promise<boolean> {
+  return !!ok(await withTimeout(supabase.rpc('community_nearby_on')));
+}
+
+/** Adults showing in Nearby within `km` of a point, closest first. Empty unless I show in Nearby myself. */
+export async function fetchNearbyPeople(lat: number, lng: number, km = 30): Promise<NearbyPerson[]> {
+  return ok(await withTimeout(supabase.rpc('community_nearby_people', { p_lat: lat, p_lng: lng, p_km: km }))) ?? [];
 }

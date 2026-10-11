@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { appVersion, askForStoreRating, StarPicker, STORE_LABEL } from '../../src/components/FeedbackPrompt';
 import { Icon } from '../../src/components/Icon';
@@ -12,7 +11,7 @@ import { useAppFont } from '../../src/lib/fonts';
 import { tap } from '../../src/lib/haptics';
 import { type Key, useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
-import { agoLong, BUBBLE, C, errText } from '../../src/lib/theme';
+import { agoLong, C, errText } from '../../src/lib/theme';
 import type { Feedback, SupportTicket } from '../../src/lib/types';
 
 const PRICE = '£' + (PLUS_PRICE_PENCE / 100).toFixed(2);
@@ -80,6 +79,8 @@ export default function Help() {
   const [stars, setStars] = useState(0);
   const [words, setWords] = useState('');
   const [busy, setBusy] = useState(false);
+  // Why sending didn't work, shown in the sheet: a message at the foot of the screen would be hidden under it.
+  const [sendErr, setSendErr] = useState('');
   // A happy review has been sent: the sheet now offers the store.
   const [thanked, setThanked] = useState(false);
   const later = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +101,7 @@ export default function Help() {
   function openSheet(kind: Feedback['kind']) {
     setStars(0);
     setWords('');
+    setSendErr('');
     setThanked(false);
     setSheet(kind);
     setSheetOpen(true);
@@ -111,6 +113,7 @@ export default function Help() {
     if (!sheetOpen || busy || !canSend) return;
     const kind = sheet;
     setBusy(true);
+    setSendErr('');
     try {
       await sendFeedback(me, { kind, rating: kind === 'review' ? stars : null, text: words, app_version: appVersion(), platform: Platform.OS });
       tap('success');
@@ -121,7 +124,7 @@ export default function Help() {
         toast(t(SHEETS[kind].thanks));
       }
     } catch (e) {
-      toast(errText(e));
+      setSendErr(errText(e));
     } finally {
       setBusy(false);
     }
@@ -149,16 +152,11 @@ export default function Help() {
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.4, fontFamily: fontBold }}>{t('help.headline')}</Text>
         </View>
 
-        <Pressable onPress={() => router.push('/support-chat' as any)} accessibilityRole="button" accessibilityLabel={t('help.chat')} style={({ pressed }) => ({ marginHorizontal: 16, borderRadius: 24, overflow: 'hidden', transform: [{ scale: pressed ? 0.98 : 1 }] })}>
-          <LinearGradient colors={[BUBBLE[0], BUBBLE[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-              <ThinkingOrb size={36} />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800', fontFamily: fontBold }}>{t('help.chat')}</Text>
-            </View>
-            <Icon name="right" size={20} color="#ffffff" weight={2.2} />
-          </LinearGradient>
+        {/* The assistant's orb and the words, as a row on the page: no coloured card around them. */}
+        <Pressable onPress={() => router.push('/support-chat' as any)} accessibilityRole="button" accessibilityLabel={t('help.chat')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: pressed ? C.press : 'transparent' })}>
+          <ThinkingOrb size={40} />
+          <Text style={{ flex: 1, color: C.fg, fontSize: 19, fontWeight: '800', fontFamily: fontBold }}>{t('help.chat')}</Text>
+          <Icon name="right" size={18} color={C.fg2} weight={2.2} />
         </Pressable>
 
         <SectionLabel>{t('help.commonQuestions')}</SectionLabel>
@@ -231,6 +229,7 @@ export default function Help() {
               style={{ minHeight: 110, maxHeight: 200, color: C.fg, fontSize: 16, padding: 12, borderRadius: 14, backgroundColor: C.field, textAlignVertical: 'top', fontFamily: font }}
             />
             {sheet === 'problem' ? <Text style={{ color: C.fg3, fontSize: 13, lineHeight: 18, marginTop: -6, fontFamily: font }}>{t('help.problemNote')}</Text> : null}
+            {sendErr ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13.5, lineHeight: 18, marginTop: -6, fontFamily: font }}>{sendErr}</Text> : null}
             <Button label={t('common.send')} onPress={send} busy={busy} disabled={!canSend} />
           </View>
         )}

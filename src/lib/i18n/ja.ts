@@ -1192,4 +1192,334 @@ export const ja: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'メモを保存しました',
   'bibleMarks.noteDeleted': 'メモを削除しました',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': '設定を開く',
+  'createFlow.cameraOff': 'カメラへのアクセスがオフになっています',
+  'createFlow.choosePhotos': '写真と動画を選択',
+  'createFlow.recents': '最近の項目',
+  'createFlow.albums': 'アルバム',
+  'goLive.endedAway': '離れている間にライブが終了しました',
+  'live.paused': '一時停止中',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': '設定用リンクの有効期限が切れました。',
+  'payouts.country': '国',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'アカウントが非公開です。この投稿を宣伝するには、公開アカウントに切り替えてください。',
+  'promote.profileOnly': 'この投稿はプロフィールにのみ投稿されているため、宣伝できません。',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'まだ寄付を受け付けていません',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'この募金は削除できませんでした。代わりに終了することができます。',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'このトラックを読み込めませんでした。もう一度お試しください。',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': '該当する書名がありません',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': '投稿中…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': '今日',
+  'notifications.sectionYesterday': '昨日',
+  'notifications.sectionThisWeek': '今週',
+  'notifications.sectionThisMonth': '今月',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '{username}さんのフォローをやめますか？',
+  'profile.unfollow': 'フォローをやめる',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '{name}からログアウト',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'リクエストを送信しました',
+  'verify.pending': '審査中',
+  'verify.sentOn': '{date}に送信',
+  'verify.notSent': 'リクエストを送信できませんでした。もう一度お試しください。',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': '送信中…',
+  'chat.sent': '送信済み',
+  'chat.seen': '既読',
+  'chat.notSent': '未送信 · タップして再送信',
+  'chat.notSentTitle': 'メッセージを送信できませんでした',
+  'chat.copied': 'コピーしました',
+  'chat.deleted': 'チャットを削除しました',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': '最新のメッセージへ',
+  'chat.viewProfile': 'プロフィールを見る',
+  'chat.noSavedReplies': '保存済みの返信はまだありません',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': '一度に選べるのは10人までです',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'メッセージを送信しました',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': '現在地を取得できません。位置情報サービスがオンになっているか確認してください。',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'リングの色',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'アーカイブから追加',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'リクエストを送信しました',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'もう一度参加するには、改めてリクエストする必要があります。',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': '説明を追加',
+  // A community with no church chosen.
+  'groups.none': 'なし',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': '現在地を使用',
+  'churches.openSettings': '設定を開く',
+  'churches.openSettingsLabel': '現在地を使用するには、設定を開いてください',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': '審査待ち',
+  'churches.notApproved': '承認されませんでした',
+  'churches.noMembers': 'まだメンバーがいません',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': '管理者に承認されると、全員に表示されます。',
+  'churches.thanksMakeYours': 'ありがとうございます！所属教会に設定しますか？',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'お支払い',
+  'payments.cards': '保存済みのカード',
+  'payments.addCard': 'カードを追加',
+  // The add-card sheet's title.
+  'payments.addACard': 'カードを追加',
+  'payments.cardSaved': 'カードを保存しました',
+  'payments.cardNotSaved': 'カードを保存できませんでした。もう一度お試しください。',
+  'payments.cardOptions': 'このカードのオプションを開きます',
+  'payments.makeDefault': 'デフォルトに設定',
+  'payments.removeCard': 'カードを削除',
+  'payments.removeQuestion': 'このカードを削除しますか？',
+  'payments.removeBody': '{card}がアカウントから削除されます。',
+  'payments.removeBodyDefault': '{card}がアカウントから削除されます。Plusはこのカードで更新されるため、次回の更新までに別のカードを追加してください。',
+  'payments.remove': '削除',
+  'payments.cardRemoved': 'カードを削除しました',
+  'payments.defaultSet': 'Plusはこのカードで更新されます',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': '未登録',
+  'payments.activeUntil': '{day}まで有効',
+  'payments.paymentFailed': '支払いに失敗しました',
+  'payments.creatorSubs': 'クリエイターのサブスクリプション',
+  'payments.none': 'なし',
+  'payments.noPayments': 'まだ支払いはありません',
+  // A payment's state.
+  'payments.paid': '支払い済み',
+  'payments.failed': '失敗',
+  'payments.refunded': '返金済み',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'クリエイターのサブスクリプション',
+  'payments.kindDonation': '寄付',
+  'payments.kindAd': '広告',
+  'payments.kindRefund': '返金',
+  'payments.kindOther': '支払い',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': '管理者による手続き',
+  // One payment's details.
+  'payments.status': 'ステータス',
+  'payments.date': '日付',
+  'payments.method': '支払い方法',
+  'payments.reference': '参照番号',
+  'payments.copied': '参照番号をコピーしました',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'みことばカード',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'カード',
+  'verseCard.make': 'カードを作る',
+  // The card maker's three tool tabs.
+  'verseCard.background': '背景',
+  'verseCard.font': 'フォント',
+  'verseCard.layout': 'レイアウト',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': '森',
+  'verseCard.bgGreen': '緑',
+  'verseCard.bgNight': '夜',
+  'verseCard.bgDusk': '夕暮れ',
+  'verseCard.bgDawn': '夜明け',
+  'verseCard.bgOcean': '海',
+  'verseCard.bgPaper': '紙',
+  'verseCard.bgWhite': '白',
+  'verseCard.bgBlack': '黒',
+  'verseCard.photo': '写真',
+  'verseCard.choosePhoto': '写真を選ぶ',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': '左揃え',
+  'verseCard.alignCenter': '中央揃え',
+  'verseCard.alignRight': '右揃え',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': '正方形',
+  'verseCard.tall': '縦長',
+  // What to do with the card.
+  'verseCard.toStory': 'ストーリーズ',
+  'verseCard.post': '投稿する',
+  'verseCard.save': '保存',
+  'verseCard.saved': '保存しました',
+  'verseCard.allowPhotos': 'カードを保存するには、設定でCommunityに写真の追加を許可してください。',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': '収まるように短縮しました',
+  'verseCard.notFound': 'その聖句が見つかりませんでした。',
+  'verseCard.failed': 'カードを作成できませんでした。もう一度お試しください。',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '{n}日連続',
+  'bible.streakStart': '連続記録を始めよう',
+  'bible.readToday': '今日は読みました',
+  'bible.readAChapter': '今日1章読みましょう',
+  'bible.bestStreak': '最高{n}日',
+  // After the first chapter read today.
+  'bible.streakDay': '{n}日目 — この調子で',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': '続きを読む',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': '{ref}を開く',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'イベント',
+  'events.title': 'イベント',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': '今後',
+  'events.going': '参加予定',
+  'events.yours': '主催',
+  'events.interested': '興味あり',
+  'events.create': 'イベントを作成',
+  'events.nearYou': 'あなたの近く',
+  'events.useMyLocation': '現在地を使用',
+  'events.openSettings': '設定を開く',
+  'events.emptyUpcoming': '今後のイベントはありません',
+  'events.emptyGoing': 'まだ予定はありません',
+  'events.emptyYours': 'まだイベントはありません',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count}人が参加予定',
+  'events.interestedCount': '{count}人が興味あり',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': '中止',
+  'events.ended': '終了',
+  'events.now': '開催中',
+  // The kinds of event.
+  'events.kind.service': '礼拝',
+  'events.kind.bible_study': '聖書研究',
+  'events.kind.youth': '青年',
+  'events.kind.prayer': '祈り',
+  'events.kind.outreach': '伝道',
+  'events.kind.music': '音楽',
+  'events.kind.social': '親睦',
+  'events.kind.other': 'その他',
+  // The event page.
+  'events.event': 'イベント',
+  'events.gone': 'このイベントはもうありません',
+  'events.openInMaps': 'マップで開く',
+  'events.mapsFailed': 'マップを開けませんでした',
+  'events.organiser': '主催者',
+  'events.options': 'その他のオプション',
+  'events.noOneYet': 'まだ誰もいません',
+  'events.edit': '編集',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': '中止する',
+  'events.callOffQuestion': 'このイベントを中止しますか？',
+  'events.callOffBody': '回答した全員に、中止されたことが表示されます。',
+  'events.keep': '中止しない',
+  'events.deleteQuestion': 'このイベントを削除しますか？',
+  'events.deleteBody': 'この操作は取り消せません。',
+  'events.deleted': 'イベントを削除しました',
+  // Making or changing an event.
+  'events.new': '新しいイベント',
+  'events.editTitle': 'イベントを編集',
+  'events.save': '保存',
+  'events.saved': '保存しました',
+  'events.addCover': 'カバーを追加',
+  'events.changeCover': 'カバーを変更',
+  'events.removeCover': 'カバーを削除',
+  'events.titleLabel': 'タイトル',
+  'events.titlePlaceholder': 'イベント名',
+  'events.needTitle': 'タイトルを追加してください。',
+  'events.kindLabel': '種類',
+  'events.date': '日付',
+  'events.starts': '開始',
+  'events.ends': '終了',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': '追加',
+  'events.removeEnd': '終了時刻を削除',
+  'events.prevMonth': '前の月',
+  'events.nextMonth': '次の月',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'まだ過ぎていない時間を選んでください。',
+  'events.place': '場所',
+  'events.placePlaceholder': '教会ホール、本町1-2-3',
+  'events.pinOnMap': 'マップにピンを立てる',
+  'events.movePin': 'ピンを移動',
+  'events.removePin': 'ピンを削除',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'マップを動かして場所に合わせてください',
+  'events.done': '完了',
+  'events.locationOff': 'Communityの位置情報がオフになっています。設定でオンにしてください。',
+  'events.noFix': '現在地を取得できません。',
+  'events.church': '教会',
+  'events.community': 'コミュニティ',
+  'events.none': 'なし',
+  'events.searchChurches': '教会を検索',
+  'events.details': '詳細',
+  'events.detailsPlaceholder': 'どんなイベントですか？',
+  'events.forMembers14': 'イベントは14歳以上のメンバーが利用できます',
+  // On a church or community page.
+  'events.seeAll': 'すべて見る',
+  'events.addEvent': 'イベントを追加',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': '表示',
+  'auth.hide': '非表示',
+  'auth.showPassword': 'パスワードを表示',
+  'auth.hidePassword': 'パスワードを非表示',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': '友達',
+  'map.nearby': '近くの人',
+  'map.churches': '教会',
+  'map.events': 'イベント',
+  // The round button that moves the map to where you are.
+  'map.myLocation': '現在地に移動',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': '「近くの人」に自分を表示',
+  'map.nearbyPrivacy': '他の人にはおおよその場所だけが表示され、正確な場所は表示されません。',
+  'map.adultsOnly': '「近くの人」は18歳以上のメンバーが利用できます。',
+  'map.locationOff': 'Communityの位置情報へのアクセスがオフになっています。',
+  'map.allowLocation': '「近くの人」を使うには、位置情報へのアクセスを許可してください。',
+  'map.nearbyOnToast': '「近くの人」に表示されています',
+  'map.nearbyOffToast': '「近くの人」をオフにしました',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': '今は近くに誰もいません',
+  'map.onePerson': '近くに1人',
+  'map.personCount': '近くに{n}人',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': '約{n} km',
+  'map.noChurches': 'マップにはまだ教会がありません',
+  'map.oneChurch': '教会1件',
+  'map.churchCount': '教会{n}件',
+  'map.noEvents': 'マップに今後のイベントはありません',
+  'map.oneEvent': '今後のイベント1件',
+  'map.eventCount': '今後のイベント{n}件',
+  'map.nearestFirst': '近い順',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'リストを表示',
+  'map.hideList': 'リストを非表示',
+  'map.going': '{n}人が参加予定',
+  'map.happeningNow': '開催中',
+  'map.today': '今日',
+  'map.tomorrow': '明日',
+  // How far a church or event is: "2.4 km away".
+  'map.away': 'ここから{d}',
+  'map.viewChurch': '教会を見る',
+  'map.viewEvent': 'イベントを見る',
+  // Opens the phone's maps app with the way there.
+  'map.directions': '経路',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': '最初の投稿をシェアしよう',
+  // ======== end of v23 ========
 };

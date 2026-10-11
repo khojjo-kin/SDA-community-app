@@ -9,7 +9,8 @@ import { Button, ErrorNote, Loading, Radio, Screen, ScreenHeader, SectionLabel }
 import { fetchSavedCards, startSubscription, syncSubscription } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
 import { type Key, tSplit, useT } from '../../src/lib/i18n';
-import { applePayAvailable, ensureStripe, money } from '../../src/lib/payments';
+import { useReduceMotion } from '../../src/lib/motion';
+import { applePayAvailable, ensureStripe, money, paymentsAccount, rememberBilling } from '../../src/lib/payments';
 import { useSession } from '../../src/lib/session';
 import { C, errText, monthName } from '../../src/lib/theme';
 import type { PaymentsConfig, SavedCard } from '../../src/lib/types';
@@ -68,9 +69,10 @@ export default function Checkout() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
+  // Read again after a refusal (the free week ended meanwhile, say): the form stays where it is while it loads,
+  // with the card chosen (or being typed) kept, rather than flashing back to a spinner.
   const load = useCallback(async () => {
     setError('');
-    setConfig(null);
     try {
       const c = await ensureStripe(true);
       if (c.ready) {
@@ -80,7 +82,7 @@ export default function Checkout() {
         const usable = saved.filter((s) => !isExpired(s.exp_month, s.exp_year));
         setApplePay(wallet);
         setCards(saved);
-        setMethod((usable.find((s) => s.is_default) ?? usable[0])?.id ?? NEW);
+        setMethod((m) => (m && (m === NEW || usable.some((s) => s.id === m)) ? m : (usable.find((s) => s.is_default) ?? usable[0])?.id ?? NEW));
       }
       if (alive.current) setConfig(c);
     } catch (e) {
@@ -113,7 +115,8 @@ export default function Checkout() {
   const startsOn = addingCard && config?.current_period_end ? new Date(config.current_period_end) : trialEnds;
 
   function choose(id: string) {
-    if (busy) return;
+    if (busy || id === method) return;
+    tap('select');
     // The card field empties when it is hidden, so forget what it held.
     if (id !== NEW) setCard(null);
     setMethod(id);
@@ -172,19 +175,24 @@ export default function Checkout() {
    */
   async function finish(kind: Done['kind']) {
     const settled = (s: Awaited<ReturnType<typeof syncSubscription>> | null) => !!s?.plus && (kind !== 'card' || !s.needs_card);
+    const asked = paymentsAccount();
     let synced = await syncSubscription().catch(() => null);
     for (let i = 0; i < 3 && !settled(synced); i++) {
       await wait(1500);
       if (!alive.current) return;
       synced = await syncSubscription().catch(() => null);
     }
+    // The Plus page opens from this next time, not from before paying.
+    if (synced) rememberBilling(synced, asked);
     await refresh();
     if (alive.current) setDone({ slow: !settled(synced), kind, ends: synced?.current_period_end ?? null });
   }
 
   function showFailure(failure: Failure) {
     // Closing the Apple Pay sheet or the bank's check is not an error worth showing.
-    if (String(failure.code) !== 'Canceled' && alive.current) setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
+    if (String(failure.code) === 'Canceled' || !alive.current) return;
+    tap('warning');
+    setPayError(failure.localizedMessage || failure.message || t('checkout.didNotGoThrough'));
   }
 
   async function pay(via: 'apple' | 'card') {
@@ -194,6 +202,7 @@ export default function Checkout() {
     working.current = true;
     tap();
     setPayError('');
+    setError('');
     setBusy(via);
     try {
       const r = await startSubscription(saved, plan);
@@ -242,6 +251,7 @@ export default function Checkout() {
     working.current = true;
     tap();
     setPayError('');
+    setError('');
     setBusy('card');
     try {
       const r = await startSubscription(null, plan);
@@ -264,8 +274,10 @@ export default function Checkout() {
     }
   }
 
+  // A failed reload keeps the form on screen, with why under it; only with nothing loaded yet is it the whole page.
+  const problem = payError || error;
   let body: React.ReactNode;
-  if (error) body = <ErrorNote message={error} onRetry={load} />;
+  if (error && !config) body = <ErrorNote message={error} onRetry={load} />;
   else if (!config) body = <Loading />;
   else if (!config.ready) body = <PaymentsOff onBack={leave} />;
   else if (done) body = <Welcome done={done} plan={plan} onDone={leave} />;
@@ -282,7 +294,8 @@ export default function Checkout() {
       const switchTo = plan === 'yearly' ? t('plus.switchToYearly') : t('plus.switchToMonthly');
       body = (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 40, gap: 14 }}>
-          <View style={{ padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 10 }}>
+          {/* The new plan and its price, set on the page itself: no card around them. */}
+          <View style={{ paddingTop: 4, paddingBottom: 6, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={34} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{switchTo}</Text>
@@ -292,7 +305,7 @@ export default function Checkout() {
             </Text>
             <Text style={{ color: C.fg2, fontSize: 14.5, lineHeight: 20 }}>{t('checkout.insteadOf', { cost: cost(current, was) })}</Text>
           </View>
-          {payError ? <PayError message={payError} /> : null}
+          {problem ? <PayError message={problem} /> : null}
           <Button label={switchTo} busy={!!busy} onPress={switchPlan} />
           <RenewalTerms kind="plus" pricePence={priceOf(config, plan)} currency={config.currency} cadence={plan === 'yearly' ? 'year' : 'month'} freeUntil={config.status === 'trialing' ? day : ''} />
         </ScrollView>
@@ -320,13 +333,14 @@ export default function Checkout() {
     const terms = <RenewalTerms kind="plus" pricePence={priceOf(config, shownPlan)} currency={config.currency} cadence={shownPlan === 'yearly' ? 'year' : 'month'} trialDays={trial ? trialDays : 0} freeUntil={addingCard ? ends : ''} />;
     body = (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}>
           {config.test_mode ? (
             <Notice color={C.warn} icon="info">{t('checkout.testMode')}</Notice>
           ) : null}
           {config.status === 'past_due' ? <Notice color={C.like} icon="info">{t('checkout.renewalFailed')}</Notice> : null}
 
-          <View style={{ marginHorizontal: 16, padding: 18, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.accent + '59', gap: 12 }}>
+          {/* What is being bought, set on the page itself: no card around it. */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6, gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <PlusBadge size={30} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 18, fontWeight: '800' }}>{t('common.communityPlus')}</Text>
@@ -420,7 +434,7 @@ export default function Checkout() {
           ) : null}
 
           <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
-            {payError ? <PayError message={payError} /> : null}
+            {problem ? <PayError message={problem} /> : null}
             <Pressable
               onPress={canPay ? () => pay('card') : undefined}
               accessibilityRole="button"
@@ -445,7 +459,7 @@ export default function Checkout() {
 
   return (
     <Screen>
-      <ScreenHeader title={t('checkout.title')} />
+      <ScreenHeader title={t('checkout.title')} onBack={busy ? () => undefined : undefined} />
       {body}
     </Screen>
   );
@@ -460,20 +474,26 @@ function PlusBadge({ size }: { size: number }) {
   );
 }
 
+/** Why paying didn't work: red words on the page, no box. */
 function PayError({ message }: { message: string }) {
   return (
-    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, backgroundColor: C.like + '1a' }}>
-      <Icon name="info" size={18} color={C.like} />
-      <Text style={{ flex: 1, color: C.like, fontSize: 14, lineHeight: 19 }}>{message}</Text>
+    <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ paddingTop: 1 }}>
+        <Icon name="info" size={18} color={C.like} />
+      </View>
+      <Text style={{ flex: 1, color: C.like, fontSize: 14.5, lineHeight: 20, fontWeight: '600' }}>{message}</Text>
     </View>
   );
 }
 
+/** A short line in its colour (test mode, a failed renewal) above the plan: words on the page, no box. */
 function Notice({ color, icon, children }: { color: string; icon: 'info'; children: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color, backgroundColor: color + '1f' }}>
-      <Icon name={icon} size={16} color={color} />
-      <Text style={{ flex: 1, color, fontSize: 13, lineHeight: 18 }}>{children}</Text>
+    <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 16, marginBottom: 14 }}>
+      <View style={{ paddingTop: 1 }}>
+        <Icon name={icon} size={16} color={color} />
+      </View>
+      <Text style={{ flex: 1, color, fontSize: 14, lineHeight: 19, fontWeight: '600' }}>{children}</Text>
     </View>
   );
 }
@@ -490,11 +510,21 @@ function DefaultPill() {
 /** Shown in place of the checkout once Plus is paid for, the free week has started, or the plan has changed. */
 function Welcome({ done, plan, onDone }: { done: Done; plan: Plan; onDone: () => void }) {
   const t = useT();
-  const pop = useRef(new Animated.Value(0.6)).current;
+  const reduce = useReduceMotion();
+  const pop = useRef(new Animated.Value(reduce ? 1 : 0.6)).current;
   useEffect(() => {
     tap('success');
-    Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
-  }, [pop]);
+  }, []);
+  useEffect(() => {
+    // The badge pops in, unless the phone asks for less motion.
+    if (reduce) {
+      pop.setValue(1);
+      return;
+    }
+    const spring = Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true });
+    spring.start();
+    return () => spring.stop();
+  }, [pop, reduce]);
   const title = done.kind === 'trial' ? t('checkout.trialStarted') : done.kind === 'switched' ? t(plan === 'yearly' ? 'checkout.onYearly' : 'checkout.onMonthly') : done.kind === 'card' ? t('checkout.cardSaved') : t('checkout.welcome');
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 60, gap: 10 }}>
@@ -502,6 +532,8 @@ function Welcome({ done, plan, onDone }: { done: Done; plan: Plan; onDone: () =>
         <PlusBadge size={128} />
       </Animated.View>
       <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 26, fontWeight: '800', marginTop: 8, textAlign: 'center' }}>{title}</Text>
+      {/* Paid, but Stripe hasn't told the server yet: say so rather than leave Plus looking off. */}
+      {done.slow && done.kind === 'paid' ? <Text accessibilityLiveRegion="polite" style={{ color: C.fg2, fontSize: 15, lineHeight: 21, textAlign: 'center' }}>{t('subscribe.paymentReceived')}</Text> : null}
       <Button label={t('checkout.done')} onPress={onDone} style={{ alignSelf: 'stretch', marginTop: 18 }} />
     </View>
   );

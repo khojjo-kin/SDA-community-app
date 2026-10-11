@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
 import { Screen, ScreenHeader, useToast } from '../../src/components/ui';
+import { tap } from '../../src/lib/haptics';
 import { setPrefs, usePrefs } from '../../src/lib/prefs';
 import { useSession } from '../../src/lib/session';
 import { WALLPAPERS } from '../../src/lib/wallpapers';
@@ -38,15 +39,24 @@ export default function ChatWallpaper() {
   const { width } = useWindowDimensions();
   const plus = !!profile?.plus;
   const tile = Math.floor((width - GUTTER * 2 - GAP) / 2);
+  // One Plus screen per tap, however quickly the tiles are tapped.
+  const lastPush = useRef(0);
+  const openPlus = () => {
+    const now = Date.now();
+    if (now - lastPush.current < 800) return;
+    lastPush.current = now;
+    router.push('/plus');
+  };
 
   const choices: { id: string; name: string; colors: readonly [string, string, string] | null }[] = [{ id: '', name: 'None', colors: null }, ...WALLPAPERS];
 
   function choose(id: string) {
     if (!plus) {
       toast('Chat wallpapers are part of Community Plus');
-      router.push('/plus');
+      openPlus();
       return;
     }
+    if (prefs.chatWallpaper !== id) tap('select');
     setPrefs({ chatWallpaper: id });
   }
 
@@ -55,10 +65,11 @@ export default function ChatWallpaper() {
       <ScreenHeader title="Chat wallpaper" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 60 }}>
         {plus ? null : (
-          <Pressable onPress={() => router.push('/plus')} accessibilityRole="button" accessibilityLabel="Chat wallpapers are part of Community Plus. Find out more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginVertical: 8, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
-            <Icon name="crown" size={24} color={C.accent2} />
-            <Text style={{ flex: 1, color: C.fg, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
-            <Icon name="right" size={18} color={C.fg2} weight={2} />
+          // Green words with a chevron, on the page itself: no card around them.
+          <Pressable onPress={openPlus} hitSlop={6} accessibilityRole="button" accessibilityLabel="Chat wallpapers are part of Community Plus. Find out more" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 8, marginTop: 2, marginBottom: 6, opacity: pressed ? 0.6 : 1 })}>
+            <Icon name="crown" size={20} color={C.accent2} />
+            <Text style={{ color: C.accent2, fontSize: 15.5, fontWeight: '700' }}>A Community Plus perk</Text>
+            <Icon name="right" size={15} color={C.accent2} weight={2.4} />
           </Pressable>
         )}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingTop: 8 }}>

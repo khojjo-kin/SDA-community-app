@@ -23,7 +23,7 @@ function QuarterCard({ q, started, onPress }: { q: Quarterly; started: boolean; 
   const action = started ? 'Continue' : 'Start';
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${q.title}, ${span(q)}${group ? `, ${group}` : ''}. ${action}`} style={({ pressed }) => ({ width: 150, opacity: pressed ? 0.75 : 1 })}>
-      <Image source={{ uri: q.cover }} contentFit="cover" transition={150} style={{ width: 150, height: 206, borderRadius: 16, backgroundColor: q.color_primary || C.surface2 }} accessibilityIgnoresInvertColors />
+      <Image source={{ uri: q.cover }} contentFit="cover" transition={150} cachePolicy="memory-disk" style={{ width: 150, height: 206, borderRadius: 16, backgroundColor: q.color_primary || C.surface2 }} accessibilityIgnoresInvertColors />
       <Text numberOfLines={2} style={{ color: C.fg, fontSize: 14.5, fontWeight: '700', lineHeight: 19, marginTop: 9, fontFamily: font }}>{q.title}</Text>
       <Text numberOfLines={1} style={{ color: C.fg2, fontSize: 12.5, marginTop: 2 }}>{group ? `${span(q)}, ${group}` : span(q)}</Text>
       <View style={{ alignSelf: 'flex-start', marginTop: 9, height: 30, paddingHorizontal: 14, borderRadius: 15, backgroundColor: alpha(C.accent, 0.16), justifyContent: 'center' }}>

@@ -6,9 +6,10 @@ import { type GridSource, isShort, rememberGrid } from '../lib/grid-open';
 import { C, fmt } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { Icon } from './Icon';
+import { useTabListBottom } from '../lib/player';
 
 export function thumbOf(post: Post): string | undefined {
-  const m = post.media[0];
+  const m = post.media?.[0];
   if (!m) return undefined;
   return m.type === 'video' ? m.poster : m.url;
 }
@@ -24,8 +25,13 @@ export function useOpenFromGrid(posts: Post[], source: GridSource = LIST, subtit
   const router = useRouter();
   const latest = useRef({ posts, source, subtitle });
   latest.current = { posts, source, subtitle };
+  // One tap, one feed: a quick second tap (on this cell or another) while it opens is ignored.
+  const lastOpen = useRef(0);
   return useCallback(
     (post: Post) => {
+      const now = Date.now();
+      if (now - lastOpen.current < 600) return;
+      lastOpen.current = now;
       const { posts: all, source: from, subtitle: sub } = latest.current;
       const short = isShort(post);
       const ids = (short ? all.filter(isShort) : all).map((p) => p.id);
@@ -38,11 +44,15 @@ export function useOpenFromGrid(posts: Post[], source: GridSource = LIST, subtit
   );
 }
 
+/** A soft shadow under the white badges, so they still read on a bright photo. */
+const BADGE = { position: 'absolute', right: 6, top: 6, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 2.5, shadowOffset: { width: 0, height: 0 } } as const;
+
 /** Memoised: a grid draws its cells again whenever the screen around it does, and a cell only changes with its post. */
 export const GridCell = React.memo(function GridCell({ post, size, onOpen }: { post: Post; size: number; onOpen?: (post: Post) => void }) {
   const router = useRouter();
   const uri = thumbOf(post);
-  const video = post.media[0]?.type === 'video';
+  const media = post.media ?? [];
+  const video = media[0]?.type === 'video';
   return (
     <Pressable
       onPress={() => (onOpen ? onOpen(post) : router.push(isShort(post) ? `/watch/${post.id}` : `/post/${post.id}`))}
@@ -51,11 +61,11 @@ export const GridCell = React.memo(function GridCell({ post, size, onOpen }: { p
       style={({ pressed }) => ({ width: size, height: Math.round(size * 1.33), backgroundColor: C.bg2, opacity: pressed ? 0.82 : 1 })}>
       {uri ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={120} cachePolicy="memory-disk" recyclingKey={post.id} /> : null}
       {video ? (
-        <View style={{ position: 'absolute', right: 6, top: 6 }}>
+        <View style={BADGE}>
           <Icon name="reels" size={18} color="#fff" />
         </View>
-      ) : post.media.length > 1 ? (
-        <View style={{ position: 'absolute', right: 6, top: 6 }}>
+      ) : media.length > 1 ? (
+        <View style={BADGE}>
           <Icon name="copy" size={18} color="#fff" />
         </View>
       ) : null}
@@ -73,26 +83,34 @@ const GRID_GAP = 2;
 /** The space between rows. A component made once: one made inline is a new kind of component on every draw, so every gap would be thrown away and built again. */
 const GridGap = () => <View style={{ height: GRID_GAP }} />;
 const keyOfPost = (p: Post) => p.id;
+const COLUMNS = { gap: GRID_GAP };
+/** Cells drawn before the first frame: six rows, a screenful, so the grid doesn't fill in a row at a time. */
+const FIRST_CELLS = 18;
 
-export function PostGrid({ posts, header, empty, refreshing, onRefresh, onEnd, source, subtitle }: { posts: Post[]; header?: React.ReactElement | null; empty?: React.ReactElement | null; refreshing?: boolean; onRefresh?: () => void; onEnd?: () => void; source?: GridSource; subtitle?: string }) {
+export function PostGrid({ posts, header, empty, footer, refreshing, onRefresh, onEnd, source, subtitle, listRef }: { posts: Post[]; header?: React.ReactElement | null; empty?: React.ReactElement | null; footer?: React.ReactElement | null; refreshing?: boolean; onRefresh?: () => void; onEnd?: () => void; source?: GridSource; subtitle?: string; listRef?: React.Ref<FlatList<Post>> }) {
+  const listBottom = useTabListBottom();
   const { width } = useWindowDimensions();
-  const gap = GRID_GAP;
-  const size = Math.floor((width - gap * 2) / 3);
+  const size = Math.floor((width - GRID_GAP * 2) / 3);
   const open = useOpenFromGrid(posts, source, subtitle);
   const renderCell = useCallback(({ item }: { item: Post }) => <GridCell post={item} size={size} onOpen={open} />, [size, open]);
   return (
     <FlatList
+      ref={listRef}
       data={posts}
       keyExtractor={keyOfPost}
       numColumns={3}
-      columnWrapperStyle={{ gap }}
+      columnWrapperStyle={COLUMNS}
       ItemSeparatorComponent={GridGap}
       renderItem={renderCell}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
-      contentContainerStyle={{ paddingBottom: 110 }}
+      ListFooterComponent={footer}
+      contentContainerStyle={{ paddingBottom: listBottom }}
       onEndReached={onEnd}
       onEndReachedThreshold={0.6}
+      initialNumToRender={FIRST_CELLS}
+      maxToRenderPerBatch={FIRST_CELLS}
+      windowSize={9}
       showsVerticalScrollIndicator={false}
       refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.fg2} /> : undefined}
     />

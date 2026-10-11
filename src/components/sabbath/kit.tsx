@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { AccessibilityInfo, Animated, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
+import { Animated, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { useAppFont } from '../../lib/fonts';
+import { tap } from '../../lib/haptics';
+import { useReduceMotion } from '../../lib/motion';
 import { chipLabel, dateRange, Day, Lesson, parseDate } from '../../lib/sabbath-school';
 import { C } from '../../lib/theme';
 
@@ -62,28 +64,25 @@ export function alpha(colour: string, a: number): string {
   return v ? `rgba(${v[0]},${v[1]},${v[2]},${Math.max(0, Math.min(1, a))})` : 'transparent';
 }
 
-/** A grey block in the shape of what is loading, gently pulsing unless the phone asks for less motion. */
+/**
+ * A block in the shape of a line that is loading, where its width is a share of the space (on a
+ * picture, `light`). It gently pulses unless the phone asks for less motion. Whole pages use the
+ * app's shared loading shapes (src/components/Skeleton.tsx) instead.
+ */
 export function Skeleton({ style, light }: { style?: ViewStyle; light?: boolean }) {
   const pulse = useRef(new Animated.Value(0.6)).current;
+  const reduce = useReduceMotion();
   useEffect(() => {
-    const run: { loop: Animated.CompositeAnimation | null; live: boolean } = { loop: null, live: true };
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduce) => {
-        if (!run.live || reduce) return;
-        run.loop = Animated.loop(
-          Animated.sequence([
-            Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
-            Animated.timing(pulse, { toValue: 0.6, duration: 750, useNativeDriver: true }),
-          ]),
-        );
-        run.loop.start();
-      })
-      .catch(() => {});
-    return () => {
-      run.live = false;
-      run.loop?.stop();
-    };
-  }, [pulse]);
+    if (reduce !== false) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.6, duration: 750, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, reduce]);
   return <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[{ backgroundColor: light ? 'rgba(255,255,255,0.22)' : C.surface, borderRadius: 12, opacity: pulse }, style]} />;
 }
 
@@ -97,7 +96,11 @@ export function PillTabs<T extends string>({ tabs, value, onChange }: { tabs: { 
         return (
           <Pressable
             key={t.id}
-            onPress={() => onChange(t.id)}
+            onPress={() => {
+              if (on) return;
+              tap('select');
+              onChange(t.id);
+            }}
             accessibilityRole="tab"
             accessibilityLabel={t.label}
             accessibilityState={{ selected: on }}

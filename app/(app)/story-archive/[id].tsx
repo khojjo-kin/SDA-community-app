@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HighlightPicker } from '../../../src/components/HighlightPicker';
 import { markMemoryJustMade } from '../../../src/components/HighlightsRow';
-import { Icon, IconName } from '../../../src/components/Icon';
+import { Icon } from '../../../src/components/Icon';
 import { DarkEmpty, DarkLoading, DarkStatusBar } from '../../../src/components/OnDark';
+import { ActionBar, BarButton } from '../../../src/components/StoryChrome';
 import { PlayerCtx, StoryPlayer } from '../../../src/components/StoryPlayer';
 import { IconButton, useToast } from '../../../src/components/ui';
 import { addStory, addToHighlight, createHighlight, deleteStory, fetchArchive } from '../../../src/lib/api';
@@ -12,20 +14,12 @@ import { useSession } from '../../../src/lib/session';
 import { DARK, dayLabel, errText } from '../../../src/lib/theme';
 import type { ArchivedStory } from '../../../src/lib/types';
 
-function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
-      <Icon name={icon} size={24} color="#fff" />
-      <Text style={{ color: '#fff', fontSize: 12 }}>{label}</Text>
-    </Pressable>
-  );
-}
-
 /** Looks back through your own stories, including ones that have expired. */
 export default function ArchivedStories() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me, profile } = useSession();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const [entries, setEntries] = useState<ArchivedStory[] | null>(null);
   const [start, setStart] = useState(0);
@@ -125,8 +119,8 @@ export default function ArchivedStories() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <DarkStatusBar />
-        <DarkEmpty title="Nothing in your archive" body="Stories you share are kept here." />
-        <View style={{ position: 'absolute', top: 60, right: 8 }}>
+        <DarkEmpty icon="archive" title="Nothing in your archive" />
+        <View style={{ position: 'absolute', top: insets.top + 8, right: 8 }}>
           <IconButton name="close" label="Close" size={28} color="#fff" onPress={close} />
         </View>
       </View>
@@ -152,11 +146,11 @@ export default function ArchivedStories() {
           </View>
         )}
         footer={(ctx) => (
-          <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-            <Action icon="highlight" label="Memory" onPress={() => chooseHighlight(ctx)} />
-            <Action icon="story" label="Share again" onPress={() => again(ctx)} />
-            <Action icon="trash" label="Delete" onPress={() => remove(ctx)} />
-          </View>
+          <ActionBar>
+            <BarButton icon="highlight" label="Memory" onPress={() => chooseHighlight(ctx)} />
+            <BarButton icon="story" label="Share again" onPress={() => again(ctx)} />
+            <BarButton icon="trash" label="Delete" onPress={() => remove(ctx)} />
+          </ActionBar>
         )}
       />
       <HighlightPicker visible={picking} onClose={() => { setPicking(false); live.current?.resume(); }} onPick={keep} />

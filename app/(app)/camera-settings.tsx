@@ -12,12 +12,13 @@ export default function CameraSettings() {
   const router = useRouter();
   const toast = useToast();
   const prefs = usePrefs();
-  const [access, setAccess] = useState<Access>('none');
+  // null until the phone has said, so the switch doesn't show off and then flick on.
+  const [access, setAccess] = useState<Access | null>(null);
 
   const check = useCallback(() => {
     MediaLibrary.getPermissionsAsync()
       .then((p) => setAccess(p.granted ? (p.accessPrivileges === 'limited' ? 'limited' : 'all') : 'none'))
-      .catch(() => {});
+      .catch(() => setAccess((cur) => cur ?? 'none'));
   }, []);
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function CameraSettings() {
         <SectionLabel strong>Camera roll</SectionLabel>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 56, gap: 16 }}>
           <Text style={{ flex: 1, color: C.fg, fontSize: 17.5 }}>Allow access</Text>
-          <Toggle value={access !== 'none'} onChange={toggleAccess} label="Allow access to your photos" />
+          {access === null ? <View style={{ width: 62, height: 28 }} /> : <Toggle value={access !== 'none'} onChange={toggleAccess} label="Allow access to your photos" />}
         </View>
         {access === 'limited' ? (
           <View style={{ paddingTop: 12 }}>

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { Button, Empty, ErrorNote, Field, Loading, RoundButton, Screen, ScreenHeader, Sheet, useToast } from '../../src/components/ui';
-import { deleteSavedReply, fetchSavedReplies, saveReply } from '../../src/lib/api';
+import { deleteSavedReply, fetchSavedReplies, saveReply, withTimeout } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { useT } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { SavedReply } from '../../src/lib/types';
@@ -12,6 +14,7 @@ const LIMIT = 20;
 export default function SavedReplies() {
   const { me } = useSession();
   const toast = useToast();
+  const t = useT();
   const [list, setList] = useState<SavedReply[] | null>(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<{ id?: string; shortcut: string; body: string } | null>(null);
@@ -19,7 +22,7 @@ export default function SavedReplies() {
 
   const load = useCallback(() => {
     setError('');
-    fetchSavedReplies(me)
+    withTimeout(fetchSavedReplies(me))
       .then(setList)
       .catch((e) => {
         setError(errText(e));
@@ -34,6 +37,7 @@ export default function SavedReplies() {
     setBusy(true);
     try {
       await saveReply(me, editing);
+      tap('success');
       setEditing(null);
       load();
     } catch (e) {
@@ -43,11 +47,18 @@ export default function SavedReplies() {
     }
   }
 
+  /** Gone from the list at once; back again if the server says no. */
   function remove() {
     if (!editing?.id) return;
     const id = editing.id;
     setEditing(null);
-    deleteSavedReply(id).then(load).catch((e) => toast(errText(e)));
+    setList((cur) => (cur ? cur.filter((r) => r.id !== id) : cur));
+    deleteSavedReply(id)
+      .then(load)
+      .catch((e) => {
+        toast(errText(e));
+        load();
+      });
   }
 
   const add = () => {
@@ -67,8 +78,7 @@ export default function SavedReplies() {
           data={list}
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ paddingBottom: 40 }}
-          ListHeaderComponent={<Text style={{ color: C.fg2, paddingHorizontal: 16, paddingBottom: 12, lineHeight: 20 }}>Save answers you send often. In any chat, tap + to pick one and it is placed in the message box, ready to send or change.</Text>}
-          ListEmptyComponent={<Empty icon="reply" title="No saved replies yet" action={<Button small label="Add a saved reply" onPress={add} style={{ marginTop: 8 }} />} />}
+          ListEmptyComponent={<Empty icon="reply" title={t('chat.noSavedReplies')} action={<Button small label="Add a saved reply" onPress={add} style={{ marginTop: 8 }} />} />}
           renderItem={({ item: r }) => (
             <Pressable onPress={() => setEditing({ id: r.id, shortcut: r.shortcut, body: r.body })} accessibilityRole="button" accessibilityLabel={`Edit saved reply: ${r.body}`} style={({ pressed }) => ({ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? C.press : 'transparent' })}>
               {r.shortcut ? <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 14 }}>{r.shortcut}</Text> : null}

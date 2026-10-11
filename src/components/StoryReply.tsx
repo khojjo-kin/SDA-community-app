@@ -81,7 +81,7 @@ export function StoryReply({ ownerId, username, allowed, cover, onFocus, onBlur 
         <IconButton name="heart" label={liked ? 'Heart sent' : 'Send a heart'} size={27} color={liked ? DARK.like : '#fff'} fill={liked} onPress={like} />
       </Animated.View>
       {/* With nothing written yet, the paper plane opens the keyboard rather than doing nothing. */}
-      <IconButton name="send" label="Send reply" size={25} color="#fff" onPress={() => (text.trim() ? send(text) : input.current?.focus())} />
+      <IconButton name="send" label="Send reply" size={25} color={sending ? 'rgba(255,255,255,0.45)' : '#fff'} onPress={() => (text.trim() ? send(text) : input.current?.focus())} />
     </View>
   );
 }

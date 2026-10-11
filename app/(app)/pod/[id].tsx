@@ -7,7 +7,9 @@ import { Icon, IconName } from '../../../src/components/Icon';
 import { Cover, durationLabel, kindLabel, podLink, PodMenu, PodRow } from '../../../src/components/NowPlayingBar';
 import { Button, ErrorNote, Loading, RoundButton, Screen, useToast } from '../../../src/components/ui';
 import { fetchPodItem, setPodSaved } from '../../../src/lib/api';
-import { cycleRepeat, jumpTo, next, patchQueued, play, prev, seek, setShuffle, toggle, usePlayer, useProgress } from '../../../src/lib/player';
+import { tap } from '../../../src/lib/haptics';
+import { useReduceMotion } from '../../../src/lib/motion';
+import { cycleRepeat, jumpTo, next, patchQueued, play, prev, seek, setShuffle, toggle, useBuffering, usePlayer, useProgress } from '../../../src/lib/player';
 import { useSession } from '../../../src/lib/session';
 import { C, errText } from '../../../src/lib/theme';
 import type { PodItem } from '../../../src/lib/types';
@@ -87,14 +89,14 @@ function Scrubber({ position, duration, disabled, onSeek }: { position: number; 
 
 function Transport({ playing, buffering, canPrev, canNext, onPrev, onToggle, onNext }: { playing: boolean; buffering: boolean; canPrev: boolean; canNext: boolean; onPrev: () => void; onToggle: () => void; onNext: () => void }) {
   const side = (name: IconName, label: string, on: boolean, press: () => void) => (
-    <Pressable onPress={press} disabled={!on} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !on }} style={({ pressed }) => ({ width: 56, height: 56, alignItems: 'center', justifyContent: 'center', opacity: !on ? 0.35 : pressed ? 0.6 : 1 })}>
+    <Pressable onPress={() => { tap('light'); press(); }} disabled={!on} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !on }} style={({ pressed }) => ({ width: 56, height: 56, alignItems: 'center', justifyContent: 'center', opacity: !on ? 0.35 : pressed ? 0.6 : 1 })}>
       <Icon name={name} size={36} />
     </Pressable>
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
       {side('skipback', 'Previous track', canPrev, onPrev)}
-      <Pressable onPress={onToggle} hitSlop={6} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 76, height: 76, borderRadius: 38, backgroundColor: C.fg, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <Pressable onPress={() => { tap('light'); onToggle(); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'} style={({ pressed }) => ({ width: 76, height: 76, borderRadius: 38, backgroundColor: C.fg, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
         {buffering && playing ? <ActivityIndicator color={C.bg} /> : <Icon name={playing ? 'pause' : 'play'} size={40} color={C.bg} />}
       </Pressable>
       {side('skipnext', 'Next track', canNext, onNext)}
@@ -105,7 +107,7 @@ function Transport({ playing, buffering, canPrev, canNext, onPrev, onToggle, onN
 /** The little round button under the transport: shuffle, repeat, save, share. Green when it is on. */
 function Extra({ name, label, on, onPress, badge, fill }: { name: IconName; label: string; on?: boolean; onPress: () => void; badge?: string; fill?: boolean }) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on }} style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.accentSoft : 'transparent', opacity: pressed ? 0.6 : 1 })}>
+    <Pressable onPress={() => { tap('select'); onPress(); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on }} style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.accentSoft : 'transparent', opacity: pressed ? 0.6 : 1 })}>
       <Icon name={name} size={24} color={on ? C.accent2 : C.fg2} fill={fill} />
       {badge ? (
         <View style={{ position: 'absolute', top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 7, paddingHorizontal: 3, backgroundColor: C.accent2, alignItems: 'center', justifyContent: 'center' }}>
@@ -124,7 +126,8 @@ function LiveScrubber({ disabled }: { disabled?: boolean }) {
 
 function LiveTransport({ canPrev, canNext }: { canPrev: boolean; canNext: boolean }) {
   const { playing } = usePlayer();
-  const { buffering } = useProgress();
+  // Only whether it is loading: the buttons needn't draw again with every tick of the clock.
+  const buffering = useBuffering();
   return <Transport playing={playing} buffering={buffering} canPrev={canPrev} canNext={canNext} onPrev={prev} onToggle={toggle} onNext={() => next()} />;
 }
 
@@ -132,7 +135,8 @@ export default function PodPlayer() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const reduce = useReduceMotion();
   const { me } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { current, playing, queue, upNext, shuffle, repeat } = usePlayer();
@@ -171,8 +175,21 @@ export default function PodPlayer() {
   // The cover breathes: full size while the sound plays, a little smaller when it is paused (as music players do).
   const scale = useRef(new Animated.Value(isCurrent && playing ? 1 : 0.86)).current;
   useEffect(() => {
-    Animated.spring(scale, { toValue: isCurrent && playing ? 1 : 0.86, useNativeDriver: true, damping: 16, stiffness: 160, mass: 0.8 }).start();
-  }, [isCurrent, playing, scale]);
+    const to = isCurrent && playing ? 1 : 0.86;
+    // With Reduce Motion on, it simply takes its new size.
+    if (reduce !== false) {
+      scale.setValue(to);
+      return;
+    }
+    const spring = Animated.spring(scale, { toValue: to, useNativeDriver: true, damping: 16, stiffness: 160, mass: 0.8 });
+    spring.start();
+    return () => spring.stop();
+  }, [isCurrent, playing, scale, reduce]);
+
+  // The rows of Up next play their track; the same function from one draw to the next.
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const jumpToRow = useCallback((u: PodItem) => jumpTo(queueRef.current.findIndex((x) => x.id === u.id)), []);
 
   async function toggleSaved() {
     if (!item || saving) return;
@@ -198,7 +215,9 @@ export default function PodPlayer() {
   }
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/pod' as any));
-  const art = width - 48;
+  // As wide as the screen allows, but small enough on a short phone that the title, the time bar and
+  // every button still fit under it without scrolling (they take about 420 points with the header).
+  const art = Math.round(Math.max(160, Math.min(width - 48, height - insets.top - insets.bottom - 423)));
   const description = item?.description?.trim() ?? '';
   const canPrev = isCurrent;
   const canNext = isCurrent && (upNext.length > 0 || repeat !== 'off' || queue.length > 1);
@@ -234,7 +253,7 @@ export default function PodPlayer() {
               </Text>
             </View>
             {isCurrent ? (
-              <Pressable onPress={toggleSaved} hitSlop={8} accessibilityRole="button" accessibilityLabel={item.saved ? 'Remove from library' : 'Add to library'} accessibilityState={{ selected: item.saved, busy: saving }} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.round, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+              <Pressable onPress={() => { tap('select'); toggleSaved(); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={item.saved ? 'Remove from library' : 'Add to library'} accessibilityState={{ selected: item.saved, busy: saving }} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: C.round, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
                 {saving ? <ActivityIndicator color={C.fg} size="small" /> : <Icon name="bookmark" size={20} color={item.saved ? C.accent2 : C.fg} fill={item.saved} />}
               </Pressable>
             ) : null}
@@ -295,7 +314,7 @@ export default function PodPlayer() {
                 Up next
               </Text>
               {upNext.slice(0, 30).map((u) => (
-                <PodRow key={u.id} item={u} compact onPress={() => jumpTo(queue.findIndex((x) => x.id === u.id))} />
+                <PodRow key={u.id} item={u} compact onPress={jumpToRow} />
               ))}
             </View>
           ) : null}

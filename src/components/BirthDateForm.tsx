@@ -1,4 +1,4 @@
-import React, { useRef, useState, useSyncExternalStore } from 'react';
+import React, { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,8 +7,9 @@ import { blockDeviceForAge, isDeviceAgeBlocked, isUnder13, requestChildClosure }
 import { ageFrom, MINOR_AGE, setBirthDate } from '../lib/api';
 import { useAppFont } from '../lib/fonts';
 import { useSession } from '../lib/session';
-import { C, DARK, errText } from '../lib/theme';
+import { C, errText } from '../lib/theme';
 import type { Profile } from '../lib/types';
+import { AUTH_FIELD_HEIGHT, FieldRevealProvider, useFieldReveal, useKeyboardReveal } from './AuthShell';
 import { Icon, IconName, Mark } from './Icon';
 import { Button } from './ui';
 
@@ -47,17 +48,45 @@ export function checkBirthDate(p: BirthParts, now = new Date()): { iso: string; 
 
 /**
  * Day / Month / Year as three small number boxes (there is no date picker in the app). Typing a
- * full day or month moves on to the next box, so the date can be typed in one go.
+ * full day or month moves on to the next box, so the date can be typed in one go. They look like the
+ * sign-in pages' fields (AuthField): filled, with a green edge on the box being typed in.
+ *
+ * `dark` is kept for the screens that pass it: the sign-in pages follow the theme now, so the boxes
+ * always draw in the theme's colours.
  */
-export function BirthDateInput({ value, onChange, error, editable = true, dark = false, note = BIRTHDAY_NOTE }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; editable?: boolean; dark?: boolean; note?: string }) {
-  // On the sign-up pages (always dark) the boxes use the dark colours whatever the theme.
-  const P = dark ? DARK : C;
+export function BirthDateInput({ value, onChange, error, editable = true, note = BIRTHDAY_NOTE }: { value: BirthParts; onChange: (next: BirthParts) => void; error?: string; editable?: boolean; dark?: boolean; note?: string }) {
   const font = useAppFont();
+  const fontBold = useAppFont('bold');
   const month = useRef<TextInput>(null);
   const year = useRef<TextInput>(null);
+  // The box being typed in, for its green edge (only colours change, so nothing moves).
+  const [focused, setFocused] = useState<'day' | 'month' | 'year' | null>(null);
+  // The page around the boxes keeps them, and the button under them, above the keyboard.
+  const reveal = useFieldReveal();
   const digits = (t: string, max: number) => t.replace(/\D/g, '').slice(0, max);
-  const box = { color: P.fg, fontSize: 17, textAlign: 'center' as const, paddingHorizontal: 10, paddingVertical: 13, borderRadius: 12, backgroundColor: P.surface, fontFamily: font, fontVariant: ['tabular-nums' as const] };
-  const label = { color: P.fg2, fontSize: 12.5, fontFamily: font };
+  const box = (which: 'day' | 'month' | 'year') => ({
+    height: AUTH_FIELD_HEIGHT,
+    color: C.fg,
+    fontSize: 17,
+    textAlign: 'center' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: focused === which ? C.accent : C.line,
+    backgroundColor: focused === which ? C.bg : C.surface,
+    fontFamily: font,
+    fontVariant: ['tabular-nums' as const],
+  });
+  const focus = (which: 'day' | 'month' | 'year') => () => {
+    setFocused(which);
+    reveal?.onFocus();
+  };
+  const blur = (which: 'day' | 'month' | 'year') => () => {
+    setFocused((f) => (f === which ? null : f));
+    reveal?.onBlur();
+  };
+  const label = { color: C.fg2, fontSize: 13, fontWeight: '600' as const, fontFamily: fontBold };
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -71,17 +100,20 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
               if (day.length === 2) month.current?.focus();
             }}
             placeholder="DD"
-            placeholderTextColor={P.fg3}
+            placeholderTextColor={C.fg3}
             keyboardType="number-pad"
             maxLength={2}
             editable={editable}
             textContentType="birthdateDay"
             autoComplete="birthdate-day"
-            keyboardAppearance={P.blurTint}
-            selectionColor={P.accent2}
+            keyboardAppearance={C.blurTint}
+            selectionColor={C.accent2}
+            cursorColor={C.accent}
             returnKeyType="next"
             accessibilityLabel="Birthday, day"
-            style={box}
+            onFocus={focus('day')}
+            onBlur={blur('day')}
+            style={box('day')}
           />
         </View>
         <View style={{ flex: 1, gap: 6 }}>
@@ -95,17 +127,20 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
               if (m.length === 2) year.current?.focus();
             }}
             placeholder="MM"
-            placeholderTextColor={P.fg3}
+            placeholderTextColor={C.fg3}
             keyboardType="number-pad"
             maxLength={2}
             editable={editable}
             textContentType="birthdateMonth"
             autoComplete="birthdate-month"
-            keyboardAppearance={P.blurTint}
-            selectionColor={P.accent2}
+            keyboardAppearance={C.blurTint}
+            selectionColor={C.accent2}
+            cursorColor={C.accent}
             returnKeyType="next"
             accessibilityLabel="Birthday, month as a number"
-            style={box}
+            onFocus={focus('month')}
+            onBlur={blur('month')}
+            style={box('month')}
           />
         </View>
         <View style={{ flex: 1.4, gap: 6 }}>
@@ -115,21 +150,24 @@ export function BirthDateInput({ value, onChange, error, editable = true, dark =
             value={value.year}
             onChangeText={(t) => onChange({ ...value, year: digits(t, 4) })}
             placeholder="YYYY"
-            placeholderTextColor={P.fg3}
+            placeholderTextColor={C.fg3}
             keyboardType="number-pad"
             maxLength={4}
             editable={editable}
             textContentType="birthdateYear"
             autoComplete="birthdate-year"
-            keyboardAppearance={P.blurTint}
-            selectionColor={P.accent2}
+            keyboardAppearance={C.blurTint}
+            selectionColor={C.accent2}
+            cursorColor={C.accent}
             accessibilityLabel="Birthday, year"
-            style={box}
+            onFocus={focus('year')}
+            onBlur={blur('year')}
+            style={box('year')}
           />
         </View>
       </View>
-      {error ? <Text style={{ color: P.like, fontSize: 13, fontFamily: font }} accessibilityLiveRegion="polite">{error}</Text> : null}
-      <Text style={{ color: P.fg3, fontSize: 13, lineHeight: 18, fontFamily: font }}>{note}</Text>
+      {error ? <Text style={{ color: C.like, fontSize: 13.5, lineHeight: 19, fontFamily: font }} accessibilityLiveRegion="polite">{error}</Text> : null}
+      <Text style={{ color: C.fg3, fontSize: 13, lineHeight: 18, fontFamily: font }}>{note}</Text>
     </View>
   );
 }
@@ -204,10 +242,19 @@ export function useBirthDateGate(me: string, profile: Profile | null): boolean {
 
 function Page({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  // The birthday boxes, with Save under them, stay above the number pad on a small phone.
+  const kb = useKeyboardReveal(110);
+  const reveal = useMemo(() => ({ onFocus: kb.onFocus, onBlur: kb.onBlur }), [kb.onFocus, kb.onBlur]);
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }} keyboardShouldPersistTaps="handled">
-        {children}
+      <ScrollView
+        ref={kb.ref}
+        onScroll={kb.onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
+        <FieldRevealProvider value={reveal}>{children}</FieldRevealProvider>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -229,15 +276,18 @@ export function BirthDateGate() {
   const [parts, setParts] = useState<BirthParts>(EMPTY_BIRTH);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // A ref as well: a quick second tap on Save arrives before `busy` has drawn.
+  const busyRef = useRef(false);
 
   async function save() {
-    if (busy) return;
+    if (busy || busyRef.current) return;
     const checked = checkBirthDate(parts);
     if ('error' in checked) {
       setErr(checked.error);
       return;
     }
     setErr('');
+    busyRef.current = true;
     setBusy(true);
     try {
       if (await isDeviceAgeBlocked()) {
@@ -263,6 +313,7 @@ export function BirthDateGate() {
       refresh().catch(() => {});
     } catch (e) {
       setErr(errText(e));
+      busyRef.current = false;
       setBusy(false);
       // The birthday may have reached the database with only the reply lost. Ask again: if it was
       // saved, the profile comes back without needs_birth_date and the gate goes away by itself.
@@ -296,7 +347,7 @@ export function BirthDateGate() {
         <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21, fontFamily: font }}>We ask everyone for their birthday so Community can keep younger members safe.</Text>
       </View>
       <BirthDateInput value={parts} onChange={(p) => { setParts(p); if (err) setErr(''); }} error={err} editable={!busy} />
-      <Button label="Save" onPress={save} busy={busy} style={{ marginTop: 4 }} />
+      <Button label="Save" onPress={save} busy={busy} style={{ marginTop: 4, height: AUTH_FIELD_HEIGHT }} />
       {/* A way out for someone on the wrong account, or who would rather not say: quiet, under Save. */}
       <Pressable onPress={logOut} hitSlop={8} accessibilityRole="button" accessibilityLabel="Log out" style={({ pressed }) => ({ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12, opacity: pressed ? 0.6 : 1 })}>
         <Text style={{ color: C.fg2, fontSize: 15, fontFamily: font }}>Log out</Text>

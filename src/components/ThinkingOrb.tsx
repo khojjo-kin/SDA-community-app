@@ -3,6 +3,7 @@ import { Animated, Easing, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppFont } from '../lib/fonts';
 import { useT } from '../lib/i18n';
+import { useReduceMotion } from '../lib/motion';
 import { C } from '../lib/theme';
 import { TypingDots } from './TypingDots';
 
@@ -18,7 +19,10 @@ const ORB = ['#9be15d', '#1fbf5a', '#0fb5a5', '#f5c84b'] as const;
 export function ThinkingOrb({ size = 28 }: { size?: number }) {
   const spin = useRef(new Animated.Value(0)).current;
   const breathe = useRef(new Animated.Value(0)).current;
+  // With Reduce Motion on, the orb stands still (the words beside it still say what is happening).
+  const moving = useReduceMotion() === false;
   useEffect(() => {
+    if (!moving) return;
     const a = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: true }));
     const b = Animated.loop(
       Animated.sequence([
@@ -32,7 +36,7 @@ export function ThinkingOrb({ size = 28 }: { size?: number }) {
       a.stop();
       b.stop();
     };
-  }, [spin, breathe]);
+  }, [spin, breathe, moving]);
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const counter = spin.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
   const scale = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1.06] });
@@ -57,11 +61,14 @@ export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15,
   const font = useAppFont();
   const x = useRef(new Animated.Value(0)).current;
   const [w, setW] = React.useState(0);
+  // With Reduce Motion on, the words stay plain.
+  const moving = useReduceMotion() === false;
   useEffect(() => {
+    if (!moving) return;
     const a = Animated.loop(Animated.timing(x, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
     a.start();
     return () => a.stop();
-  }, [x]);
+  }, [x, moving]);
   const band = Math.max(36, w * 0.35);
   const left = x.interpolate({ inputRange: [0, 1], outputRange: [-band, w] });
   const inner = x.interpolate({ inputRange: [0, 1], outputRange: [band, -w] });
@@ -69,7 +76,7 @@ export function ShimmerText({ text, color = C.fg2, shine = C.accent2, size = 15,
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       <Text style={[style, { color }]}>{text}</Text>
-      {w ? (
+      {w && moving ? (
         // A narrow window slides across, showing the same words in the shine colour beneath it.
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, width: band, overflow: 'hidden', transform: [{ translateX: left }] }}>
           <Animated.View style={{ width: w, transform: [{ translateX: inner }] }}>

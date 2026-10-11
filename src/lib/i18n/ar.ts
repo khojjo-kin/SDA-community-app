@@ -1128,4 +1128,334 @@ export const ar: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'تم حفظ الملاحظة',
   'bibleMarks.noteDeleted': 'تم حذف الملاحظة',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'فتح الإعدادات',
+  'createFlow.cameraOff': 'الوصول إلى الكاميرا متوقف',
+  'createFlow.choosePhotos': 'اختر الصور والفيديوهات',
+  'createFlow.recents': 'الأحدث',
+  'createFlow.albums': 'الألبومات',
+  'goLive.endedAway': 'انتهى بثك المباشر أثناء غيابك',
+  'live.paused': 'متوقف مؤقتًا',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'انتهت صلاحية رابط الإعداد هذا.',
+  'payouts.country': 'البلد',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'حسابك خاص. اجعله عامًا للترويج لهذا المنشور.',
+  'promote.profileOnly': 'هذا المنشور في ملفك الشخصي فقط، لذا لا يمكن الترويج له.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'لا تستقبل التبرعات بعد',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'تعذّر حذف حملة التبرعات هذه. يمكنك إنهاؤها بدلًا من ذلك.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'تعذّر تحميل هذا المقطع. حاول مرة أخرى.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'لا يوجد سفر مطابق',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'جارٍ النشر…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'اليوم',
+  'notifications.sectionYesterday': 'أمس',
+  'notifications.sectionThisWeek': 'هذا الأسبوع',
+  'notifications.sectionThisMonth': 'هذا الشهر',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'هل تريد إلغاء متابعة {username}؟',
+  'profile.unfollow': 'إلغاء المتابعة',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'تسجيل الخروج من {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'تم إرسال الطلب',
+  'verify.pending': 'قيد المراجعة',
+  'verify.sentOn': 'تم الإرسال في {date}',
+  'verify.notSent': 'لم يتم إرسال طلبك. حاول مرة أخرى.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'جارٍ الإرسال…',
+  'chat.sent': 'تم الإرسال',
+  'chat.seen': 'تمت المشاهدة',
+  'chat.notSent': 'لم يتم الإرسال · اضغط لإعادة المحاولة',
+  'chat.notSentTitle': 'لم يتم إرسال الرسالة',
+  'chat.copied': 'تم النسخ',
+  'chat.deleted': 'تم حذف الدردشة',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'أحدث الرسائل',
+  'chat.viewProfile': 'عرض الملف الشخصي',
+  'chat.noSavedReplies': 'لا توجد ردود محفوظة بعد',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'حتى 10 أشخاص في كل مرة',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'تم إرسال الرسالة',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'موقعك غير متاح الآن. تأكد من تشغيل خدمات الموقع.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'لون الإطار',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'إضافة من الأرشيف',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'تم إرسال الطلب',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'ستحتاج إلى طلب الانضمام مرة أخرى.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'أضف وصفًا',
+  // A community with no church chosen.
+  'groups.none': 'بلا',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'استخدام موقعي',
+  'churches.openSettings': 'فتح الإعدادات',
+  'churches.openSettingsLabel': 'افتح الإعدادات لاستخدام موقعك',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'قيد المراجعة',
+  'churches.notApproved': 'لم تتم الموافقة عليها',
+  'churches.noMembers': 'لا يوجد أعضاء بعد',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'ستظهر للجميع بعد أن يوافق عليها أحد المشرفين.',
+  'churches.thanksMakeYours': 'شكرًا لك! هل تريد جعلها كنيستك؟',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'المدفوعات',
+  'payments.cards': 'البطاقات المحفوظة',
+  'payments.addCard': 'إضافة بطاقة',
+  // The add-card sheet's title.
+  'payments.addACard': 'أضف بطاقة',
+  'payments.cardSaved': 'تم حفظ البطاقة',
+  'payments.cardNotSaved': 'تعذّر حفظ البطاقة. حاول مرة أخرى.',
+  'payments.cardOptions': 'يفتح خيارات هذه البطاقة',
+  'payments.makeDefault': 'تعيين كبطاقة افتراضية',
+  'payments.removeCard': 'إزالة البطاقة',
+  'payments.removeQuestion': 'هل تريد إزالة هذه البطاقة؟',
+  'payments.removeBody': 'ستتم إزالة {card} من حسابك.',
+  'payments.removeBodyDefault': 'ستتم إزالة {card} من حسابك. يتجدد Plus بهذه البطاقة، لذا أضف بطاقة أخرى قبل التجديد القادم.',
+  'payments.remove': 'إزالة',
+  'payments.cardRemoved': 'تمت إزالة البطاقة',
+  'payments.defaultSet': 'سيتجدد Plus بهذه البطاقة',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'غير مشترك',
+  'payments.activeUntil': 'نشط حتى {day}',
+  'payments.paymentFailed': 'فشل الدفع',
+  'payments.creatorSubs': 'الاشتراكات في صنّاع المحتوى',
+  'payments.none': 'لا شيء',
+  'payments.noPayments': 'لا توجد مدفوعات بعد',
+  // A payment's state.
+  'payments.paid': 'مدفوع',
+  'payments.failed': 'فشل',
+  'payments.refunded': 'مُسترد',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'اشتراك في صانع محتوى',
+  'payments.kindDonation': 'تبرّع',
+  'payments.kindAd': 'إعلان',
+  'payments.kindRefund': 'استرداد',
+  'payments.kindOther': 'دفعة',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'بترتيب من أحد المشرفين',
+  // One payment's details.
+  'payments.status': 'الحالة',
+  'payments.date': 'التاريخ',
+  'payments.method': 'الطريقة',
+  'payments.reference': 'المرجع',
+  'payments.copied': 'تم نسخ المرجع',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'بطاقة آية',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'بطاقة',
+  'verseCard.make': 'إنشاء بطاقة',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'الخلفية',
+  'verseCard.font': 'الخط',
+  'verseCard.layout': 'التخطيط',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'غابة',
+  'verseCard.bgGreen': 'أخضر',
+  'verseCard.bgNight': 'ليل',
+  'verseCard.bgDusk': 'غسق',
+  'verseCard.bgDawn': 'فجر',
+  'verseCard.bgOcean': 'محيط',
+  'verseCard.bgPaper': 'ورق',
+  'verseCard.bgWhite': 'أبيض',
+  'verseCard.bgBlack': 'أسود',
+  'verseCard.photo': 'صورة',
+  'verseCard.choosePhoto': 'اختر صورة',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'محاذاة لليسار',
+  'verseCard.alignCenter': 'توسيط',
+  'verseCard.alignRight': 'محاذاة لليمين',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'مربع',
+  'verseCard.tall': 'طولي',
+  // What to do with the card.
+  'verseCard.toStory': 'قصتك',
+  'verseCard.post': 'نشر',
+  'verseCard.save': 'حفظ',
+  'verseCard.saved': 'تم الحفظ',
+  'verseCard.allowPhotos': 'اسمح لـ Community بإضافة الصور من الإعدادات لحفظ البطاقات.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'تم اختصار النص ليناسب البطاقة',
+  'verseCard.notFound': 'تعذّر العثور على هذه الآية.',
+  'verseCard.failed': 'تعذّر إنشاء البطاقة. حاول مرة أخرى.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'أيام متتالية: {n}',
+  'bible.streakStart': 'ابدأ سلسلة قراءة',
+  'bible.readToday': 'تمت القراءة اليوم',
+  'bible.readAChapter': 'اقرأ أصحاحًا اليوم',
+  'bible.bestStreak': 'الأفضل: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'اليوم رقم {n} — واصل القراءة',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'متابعة القراءة',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'فتح {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'الفعاليات',
+  'events.title': 'الفعاليات',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'القادمة',
+  'events.going': 'سأحضر',
+  'events.yours': 'فعالياتك',
+  'events.interested': 'مهتم',
+  'events.create': 'إنشاء فعالية',
+  'events.nearYou': 'بالقرب منك',
+  'events.useMyLocation': 'استخدام موقعي',
+  'events.openSettings': 'فتح الإعدادات',
+  'events.emptyUpcoming': 'لا توجد فعاليات قادمة',
+  'events.emptyGoing': 'لا توجد خطط بعد',
+  'events.emptyYours': 'لا توجد فعاليات بعد',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'سيحضرون: {count}',
+  'events.interestedCount': 'مهتمون: {count}',
+  // How far away an event is.
+  'events.km': '{km} كم',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'أُلغيت',
+  'events.ended': 'انتهت',
+  'events.now': 'تجري الآن',
+  // The kinds of event.
+  'events.kind.service': 'اجتماع عبادة',
+  'events.kind.bible_study': 'دراسة الكتاب المقدس',
+  'events.kind.youth': 'الشباب',
+  'events.kind.prayer': 'صلاة',
+  'events.kind.outreach': 'كرازة وخدمة',
+  'events.kind.music': 'موسيقى',
+  'events.kind.social': 'لقاء اجتماعي',
+  'events.kind.other': 'أخرى',
+  // The event page.
+  'events.event': 'فعالية',
+  'events.gone': 'لم تعد هذه الفعالية موجودة',
+  'events.openInMaps': 'فتح في الخرائط',
+  'events.mapsFailed': 'تعذّر فتح الخرائط',
+  'events.organiser': 'المنظِّم',
+  'events.options': 'المزيد من الخيارات',
+  'events.noOneYet': 'لا أحد بعد',
+  'events.edit': 'تعديل',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'إلغاء',
+  'events.callOffQuestion': 'هل تريد إلغاء هذه الفعالية؟',
+  'events.callOffBody': 'سيرى كل من ردّ عليها أنها أُلغيت.',
+  'events.keep': 'الإبقاء عليها',
+  'events.deleteQuestion': 'هل تريد حذف هذه الفعالية؟',
+  'events.deleteBody': 'لا يمكن التراجع عن ذلك.',
+  'events.deleted': 'تم حذف الفعالية',
+  // Making or changing an event.
+  'events.new': 'فعالية جديدة',
+  'events.editTitle': 'تعديل الفعالية',
+  'events.save': 'حفظ',
+  'events.saved': 'تم الحفظ',
+  'events.addCover': 'إضافة غلاف',
+  'events.changeCover': 'تغيير الغلاف',
+  'events.removeCover': 'إزالة الغلاف',
+  'events.titleLabel': 'العنوان',
+  'events.titlePlaceholder': 'اسم الفعالية',
+  'events.needTitle': 'أضف عنوانًا.',
+  'events.kindLabel': 'النوع',
+  'events.date': 'التاريخ',
+  'events.starts': 'تبدأ',
+  'events.ends': 'تنتهي',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'إضافة',
+  'events.removeEnd': 'إزالة وقت الانتهاء',
+  'events.prevMonth': 'الشهر السابق',
+  'events.nextMonth': 'الشهر التالي',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'اختر وقتًا لم يمضِ بعد.',
+  'events.place': 'المكان',
+  'events.placePlaceholder': 'قاعة الكنيسة، 12 الشارع الرئيسي',
+  'events.pinOnMap': 'تحديد على الخريطة',
+  'events.movePin': 'نقل الدبوس',
+  'events.removePin': 'إزالة الدبوس',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'حرّك الخريطة إلى المكان',
+  'events.done': 'تم',
+  'events.locationOff': 'الموقع متوقف لـ Community. فعّله من الإعدادات.',
+  'events.noFix': 'موقعك غير متاح الآن.',
+  'events.church': 'الكنيسة',
+  'events.community': 'المجتمع',
+  'events.none': 'بلا',
+  'events.searchChurches': 'البحث عن كنائس',
+  'events.details': 'التفاصيل',
+  'events.detailsPlaceholder': 'ماذا سيحدث؟',
+  'events.forMembers14': 'الفعاليات متاحة للأعضاء الذين تبلغ أعمارهم 14 عامًا فأكثر',
+  // On a church or community page.
+  'events.seeAll': 'عرض الكل',
+  'events.addEvent': 'إضافة فعالية',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'إظهار',
+  'auth.hide': 'إخفاء',
+  'auth.showPassword': 'إظهار كلمة المرور',
+  'auth.hidePassword': 'إخفاء كلمة المرور',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'الأصدقاء',
+  'map.nearby': 'بالجوار',
+  'map.churches': 'الكنائس',
+  'map.events': 'الفعاليات',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'الانتقال إلى موقعي',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'أظهرني في «بالجوار»',
+  'map.nearbyPrivacy': 'يرى الآخرون مكانك بشكل تقريبي، وليس بدقة أبدًا.',
+  'map.adultsOnly': 'ميزة «بالجوار» متاحة للأعضاء الذين تبلغ أعمارهم 18 عامًا فأكثر.',
+  'map.locationOff': 'الوصول إلى الموقع متوقف لـ Community.',
+  'map.allowLocation': 'اسمح بالوصول إلى الموقع لاستخدام «بالجوار».',
+  'map.nearbyOnToast': 'أنت ظاهر الآن في «بالجوار»',
+  'map.nearbyOffToast': 'تم إيقاف «بالجوار»',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'لا أحد بالجوار الآن',
+  'map.onePerson': 'شخص واحد بالجوار',
+  'map.personCount': 'الأشخاص بالجوار: {n}',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'على بُعد {n} كم تقريبًا',
+  'map.noChurches': 'لا توجد كنائس على الخريطة بعد',
+  'map.oneChurch': 'كنيسة واحدة',
+  'map.churchCount': 'الكنائس: {n}',
+  'map.noEvents': 'لا توجد فعاليات قادمة على الخريطة',
+  'map.oneEvent': 'فعالية قادمة واحدة',
+  'map.eventCount': 'الفعاليات القادمة: {n}',
+  'map.nearestFirst': 'الأقرب أولًا',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'إظهار القائمة',
+  'map.hideList': 'إخفاء القائمة',
+  'map.going': 'سيحضرون: {n}',
+  'map.happeningNow': 'تجري الآن',
+  'map.today': 'اليوم',
+  'map.tomorrow': 'غدًا',
+  // How far a church or event is: "2.4 km away".
+  'map.away': 'على بُعد {d}',
+  'map.viewChurch': 'عرض الكنيسة',
+  'map.viewEvent': 'عرض الفعالية',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'الاتجاهات',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'شارك منشورك الأول',
+  // ======== end of v23 ========
 };

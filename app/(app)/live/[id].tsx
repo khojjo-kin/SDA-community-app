@@ -19,6 +19,11 @@ import { useSession } from '../../../src/lib/session';
 import { DARK, errText } from '../../../src/lib/theme';
 import type { LiveCard } from '../../../src/lib/types';
 
+/** A dropped picture is joined again by itself this many times in a row before Try again is offered. */
+const REJOINS = 3;
+/** How long a connection may stay "disconnected" (it often mends by itself) before a new one is made. */
+const MEND_MS = 8000;
+
 /**
  * Watching someone's live: say 'join' to the broadcaster, answer the offer they send back, and show
  * what arrives. Both channels are private, so the database's rules decide who may watch: I listen on
@@ -27,7 +32,8 @@ import type { LiveCard } from '../../../src/lib/types';
  *
  * Everyone watching can see viewer ids, so each visit makes a secret token (a nonce) that goes on
  * everything I send. The broadcaster keeps the one from my first 'join' and ignores anything in my
- * name without it, so nobody else can answer, leave or send hearts as me.
+ * name without it, so nobody else can answer, leave or send hearts as me. A picture that drops is
+ * joined again with the same token, which the broadcaster takes as me reconnecting.
  */
 export default function LiveViewer() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,6 +51,12 @@ export default function LiveViewer() {
   const [refused, setRefused] = useState(false);
   const [remote, setRemote] = useState<MediaStream | null>(null);
   const [note, setNote] = useState(() => t('live.joining'));
+  // Joining didn't work out by itself: Try again is offered.
+  const [stuck, setStuck] = useState(false);
+  // The broadcaster is in another app for a moment.
+  const [paused, setPaused] = useState(false);
+  // Bumped by Try again when the channels themselves couldn't be opened: everything starts afresh.
+  const [attempt, setAttempt] = useState(0);
   const comments = useLiveComments(liveId);
   const { listen: listenComments, drop: dropComment } = comments;
   const { hearts, add: addHeart } = useHearts();
@@ -58,6 +70,9 @@ export default function LiveViewer() {
   const peerRef = useRef<PeerSession | null>(null);
   const gotOffer = useRef(false);
   const hadCard = useRef(false);
+  const toldError = useRef(false);
+  // Try again, as the broadcast effect running now understands it.
+  const retryRef = useRef<() => void>(() => {});
 
   /* ----- the card: who it is, how many are watching, whether it is over ----- */
 
@@ -67,19 +82,22 @@ export default function LiveViewer() {
       setCard(c);
       if (c) hadCard.current = true;
       if (!c || c.ended_at) setEnded(true);
-    } catch (e) {
-      // Only the first failure is worth a word; the refresh will try again in ten seconds.
-      if (!hadCard.current) toast(errText(e));
-    } finally {
       setChecked(true);
+    } catch (e) {
+      // A weak connection is not the end of the live: say so once, and the refresh tries again in ten seconds.
+      if (!hadCard.current && !toldError.current) {
+        toldError.current = true;
+        toast(errText(e));
+      }
     }
   }, [liveId, toast]);
 
   useEffect(() => {
+    if (ended) return;
     loadCard();
-    const t = setInterval(loadCard, 10000);
-    return () => clearInterval(t);
-  }, [loadCard]);
+    const timer = setInterval(loadCard, 10000);
+    return () => clearInterval(timer);
+  }, [loadCard, ended]);
 
   /* ----- the broadcast itself ----- */
 
@@ -87,14 +105,78 @@ export default function LiveViewer() {
     if (!me || ended) return;
     let alive = true;
     let joinTimer: ReturnType<typeof setInterval> | null = null;
+    let mendTimer: ReturnType<typeof setTimeout> | null = null;
     let tries = 0;
-    // A new token each time I join, so a reconnect is told apart from someone else using my id.
+    let rejoins = 0;
+    let channel: RealtimeChannel | null = null;
+    // A new token each visit, so a reconnect is told apart from someone else using my id.
     const nonce = newNonce();
     nonceRef.current = nonce;
 
+    const stopJoining = () => {
+      if (joinTimer) clearInterval(joinTimer);
+      joinTimer = null;
+    };
+    const stopMending = () => {
+      if (mendTimer) clearTimeout(mendTimer);
+      mendTimer = null;
+    };
     const closePeer = () => {
       peerRef.current?.close();
       peerRef.current = null;
+    };
+
+    /** Asks to be let in, and again every few seconds in case the broadcaster's phone missed it. */
+    const startJoining = () => {
+      const ch = channel;
+      if (!alive || !ch) return;
+      stopJoining();
+      gotOffer.current = false;
+      tries = 0;
+      const join = () => send(ch, 'join', { viewer: me, nonce });
+      join();
+      joinTimer = setInterval(() => {
+        if (gotOffer.current || tries++ >= 6) {
+          stopJoining();
+          if (!gotOffer.current && alive) {
+            setNote(t('live.notAnswering'));
+            setStuck(true);
+          }
+          return;
+        }
+        join();
+      }, 3000);
+    };
+
+    /** The picture was lost: a new connection, by itself a few times, then Try again. */
+    const reconnect = () => {
+      if (!alive) return;
+      stopMending();
+      closePeer();
+      setRemote(null);
+      if (rejoins >= REJOINS) {
+        setNote(t('live.connectionLost'));
+        setStuck(true);
+        return;
+      }
+      rejoins++;
+      setNote(t('live.reconnecting'));
+      startJoining();
+    };
+
+    retryRef.current = () => {
+      if (!alive) return;
+      setStuck(false);
+      setNote(t('live.joining'));
+      if (!channel) {
+        // The channels never opened: start everything again.
+        setAttempt((a) => a + 1);
+        return;
+      }
+      rejoins = 0;
+      closePeer();
+      setRemote(null);
+      startJoining();
     };
 
     (async () => {
@@ -106,30 +188,49 @@ export default function LiveViewer() {
             offer: async (p) => {
               if (p.to !== me || !p.sdp || !alive) return;
               gotOffer.current = true;
-              if (joinTimer) clearInterval(joinTimer);
-              joinTimer = null;
+              stopJoining();
+              stopMending();
               closePeer();
-              const peer = new PeerSession({
+              setPaused(!!p.paused);
+              const peer: PeerSession = new PeerSession({
                 onIce: (candidate: IceCandidateInit) => send(channelRef.current, 'ice', { from: me, candidate, nonce }),
                 onTrack: (stream) => {
-                  if (alive) {
+                  if (alive && peerRef.current === peer) {
                     setRemote(stream);
                     setNote('');
+                    setStuck(false);
                   }
                 },
                 onState: (state) => {
-                  if (!alive) return;
-                  if (state === 'connected') setNote('');
-                  else if (state === 'disconnected') setNote(t('live.reconnecting'));
-                  else if (state === 'failed') setNote(t('live.connectionLost'));
+                  if (!alive || peerRef.current !== peer) return;
+                  if (state === 'connected') {
+                    stopMending();
+                    rejoins = 0;
+                    setNote('');
+                    setStuck(false);
+                  } else if (state === 'disconnected') {
+                    setNote(t('live.reconnecting'));
+                    // A short drop often mends by itself; if it doesn't, a new connection is made.
+                    if (!mendTimer) {
+                      mendTimer = setTimeout(() => {
+                        mendTimer = null;
+                        if (alive && peerRef.current === peer) reconnect();
+                      }, MEND_MS);
+                    }
+                  } else if (state === 'failed') {
+                    reconnect();
+                  }
                 },
               });
               peerRef.current = peer;
               try {
                 const answer = await peer.acceptOffer(p.sdp as SessionDescription);
-                send(channelRef.current, 'answer', { from: me, sdp: answer, nonce });
+                if (alive && peerRef.current === peer) send(channelRef.current, 'answer', { from: me, sdp: answer, nonce });
               } catch (e) {
-                if (alive) setNote(errText(e));
+                if (alive && peerRef.current === peer) {
+                  setNote(errText(e));
+                  setStuck(true);
+                }
               }
             },
             ice: (p) => {
@@ -137,12 +238,18 @@ export default function LiveViewer() {
             },
             full: (p) => {
               if (p.to !== me || !alive) return;
-              if (joinTimer) clearInterval(joinTimer);
-              joinTimer = null;
+              stopJoining();
               setFull(true);
             },
             bye: () => {
               if (alive) setEnded(true);
+            },
+            // The broadcaster stepped into another app, and came back.
+            pause: () => {
+              if (alive) setPaused(true);
+            },
+            resume: () => {
+              if (alive) setPaused(false);
             },
             // Everyone's hearts, passed on by the broadcaster (mine are already on screen).
             heart: (p) => {
@@ -153,7 +260,7 @@ export default function LiveViewer() {
               dropComment(String(p.id ?? ''));
             },
           },
-          (channel) => listenComments(channel, liveId),
+          (ch) => listenComments(ch, liveId),
           { private: true },
         );
         if (!alive) {
@@ -163,44 +270,39 @@ export default function LiveViewer() {
         hostRef.current = host;
         // What I send goes only to the broadcaster. Only sent on, never listened to: the server lets
         // nobody but the broadcaster listen there.
-        const channel = await openSendChannel(`live:${liveId}`, { private: true });
+        const sendTo = await openSendChannel(`live:${liveId}`, { private: true });
         if (!alive) {
-          leaveChannel(channel);
+          leaveChannel(sendTo);
           return;
         }
-        channelRef.current = channel;
-        // Ask to be let in, and ask again a few times in case the broadcaster's phone missed it.
-        const join = () => send(channel, 'join', { viewer: me, nonce });
-        join();
-        joinTimer = setInterval(() => {
-          if (gotOffer.current || tries++ >= 6) {
-            if (joinTimer) clearInterval(joinTimer);
-            joinTimer = null;
-            if (!gotOffer.current && alive) setNote(t('live.notAnswering'));
-            return;
-          }
-          join();
-        }, 3000);
+        channelRef.current = sendTo;
+        channel = sendTo;
+        startJoining();
       } catch (e) {
         if (!alive) return;
         if (e instanceof ChannelRefusedError) setRefused(true);
-        else setNote(errText(e));
+        else {
+          setNote(errText(e));
+          setStuck(true);
+        }
       }
     })();
 
     return () => {
       alive = false;
-      if (joinTimer) clearInterval(joinTimer);
-      const channel = channelRef.current;
+      retryRef.current = () => {};
+      stopJoining();
+      stopMending();
+      const sendTo = channelRef.current;
       const host = hostRef.current;
       channelRef.current = null;
       hostRef.current = null;
       closePeer();
       setRemote(null);
       leaveChannel(host);
-      if (channel) send(channel, 'leave', { viewer: me, nonce }).finally(() => leaveChannel(channel));
+      if (sendTo) send(sendTo, 'leave', { viewer: me, nonce }).finally(() => leaveChannel(sendTo));
     };
-  }, [liveId, me, ended, addHeart, listenComments, dropComment]);
+  }, [liveId, me, ended, attempt, addHeart, listenComments, dropComment]);
 
   /** True once posted. Otherwise says why (the box then gets the words back). */
   async function sendChat(text: string): Promise<boolean> {
@@ -237,7 +339,17 @@ export default function LiveViewer() {
     else router.replace('/');
   }
 
+  // A second quick tap on Donate doesn't open the fundraiser twice.
+  const donatedAt = useRef(0);
+  function donate() {
+    if (!card?.fundraiser_id || Date.now() - donatedAt.current < 1000) return;
+    donatedAt.current = Date.now();
+    router.push({ pathname: '/fundraiser/[id]', params: { id: card.fundraiser_id, give: '1' } } as any);
+  }
+
   const name = card?.full_name || card?.username || '';
+  // A spinner goes with the words while something is still being tried.
+  const trying = !stuck && (note === t('live.joining') || note === t('live.reconnecting'));
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -272,22 +384,24 @@ export default function LiveViewer() {
             </View>
           </View>
 
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }} pointerEvents="none">
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 }} pointerEvents="box-none">
             {!remote ? (
               <>
                 {card ? <Avatar uri={card.avatar_url} name={name} size={110} /> : null}
                 {note ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {note === t('live.joining') || note === t('live.reconnecting') ? <ActivityIndicator color="#fff" /> : null}
+                  <View pointerEvents="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {trying ? <ActivityIndicator color="#fff" /> : null}
                     <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, textAlign: 'center', maxWidth: 280 }}>{note}</Text>
                   </View>
                 ) : null}
               </>
-            ) : note ? (
-              <View style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                <Text style={{ color: '#fff', fontSize: 14 }}>{note}</Text>
+            ) : note || paused ? (
+              <View pointerEvents="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                {note && trying ? <ActivityIndicator color="#fff" /> : !note ? <Icon name="pause" size={16} color="#fff" /> : null}
+                <Text style={{ color: '#fff', fontSize: 14 }}>{note || t('live.paused')}</Text>
               </View>
             ) : null}
+            {stuck ? <Button small label={t('common.tryAgain')} onPress={() => retryRef.current()} style={{ paddingHorizontal: 20 }} /> : null}
           </View>
 
           <View style={{ paddingBottom: insets.bottom + 12, gap: 14 }}>
@@ -296,7 +410,7 @@ export default function LiveViewer() {
             </View>
             {/* A live with a fundraiser: Donate opens its page, ready to give. */}
             {card?.fundraiser_id ? (
-              <Pressable onPress={() => router.push({ pathname: '/fundraiser/[id]', params: { id: card.fundraiser_id!, give: '1' } } as any)} accessibilityRole="button" accessibilityLabel={t('liveSetup.donate')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: 14, height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: DARK.accent, opacity: pressed ? 0.75 : 1 })}>
+              <Pressable onPress={donate} accessibilityRole="button" accessibilityLabel={t('liveSetup.donate')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: 14, height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: DARK.accent, opacity: pressed ? 0.75 : 1 })}>
                 <Icon name="heartcoin" size={16} color="#fff" weight={2.2} />
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>{t('liveSetup.donate')}</Text>
               </Pressable>

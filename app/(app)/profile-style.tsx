@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/Icon';
 import { Avatar, Button, Screen, ScreenHeader, SectionLabel, useToast } from '../../src/components/ui';
 import { updateProfile } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { useSession } from '../../src/lib/session';
 import { PROFILE_THEMES, profileTheme, ringColors, RING_STYLES, type ProfileTheme } from '../../src/lib/styling';
 import { C, errText } from '../../src/lib/theme';
@@ -89,7 +90,7 @@ function Preview({ name, username, uri, ring, theme }: { name: string; username:
 
 /** Community Plus: the colour of your story and highlight ring, and the look of your profile page. */
 export default function ProfileStyle() {
-  const { me, profile, refresh } = useSession();
+  const { me, profile } = useSession();
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -98,6 +99,8 @@ export default function ProfileStyle() {
   const [ring, setRing] = useState(profile?.ring_color ?? '');
   const [theme, setTheme] = useState(profile?.profile_theme ?? '');
   const [busy, setBusy] = useState(false);
+  // A ref as well: a quick second tap on Save arrives before `busy` has drawn.
+  const busyRef = useRef(false);
 
   const changed = ring !== (profile?.ring_color ?? '') || theme !== (profile?.profile_theme ?? '');
   const column = Math.floor((width - GUTTER * 2) / 5);
@@ -106,23 +109,27 @@ export default function ProfileStyle() {
   function pick(set: () => void) {
     // Visible to everyone so they can see what Plus offers, but only members can choose.
     if (!plus) return toast('Profile style is part of Community Plus');
+    tap('select');
     set();
   }
 
   async function save() {
-    if (!profile || busy || !changed) return;
+    if (!profile || busyRef.current || !changed) return;
     const patch: { ring_color?: string; profile_theme?: string } = {};
     if (ring !== (profile.ring_color ?? '')) patch.ring_color = ring;
     if (theme !== (profile.profile_theme ?? '')) patch.profile_theme = theme;
+    busyRef.current = true;
     setBusy(true);
     try {
-      // The database refuses this for anyone without Plus, whatever the screen shows.
+      // The database refuses this for anyone without Plus, whatever the screen shows. Saving announces
+      // the change, so the profile is loaded again everywhere it shows.
       await updateProfile(me, patch);
-      await refresh();
+      tap('success');
       toast('Profile style saved');
       router.back();
     } catch (e) {
       toast(errText(e));
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -130,13 +137,15 @@ export default function ProfileStyle() {
   return (
     <Screen>
       <ScreenHeader title="Profile style" />
-      <ScrollView contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 }}>
+      {/* Without the Save bar under it (no Plus), the list keeps clear of the home indicator itself. */}
+      <ScrollView contentContainerStyle={{ paddingTop: 6, paddingBottom: (plus ? 0 : insets.bottom) + 28 }}>
         <Preview name={profile?.full_name || profile?.username || 'You'} username={profile?.username ?? ''} uri={profile?.avatar_url} ring={ring} theme={theme} />
 
         {plus ? null : (
-          <View style={{ marginHorizontal: GUTTER, marginTop: 14, padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Icon name="crown" size={26} color={C.accent2} />
+          // A line of words and the button, on the page itself: no card around them.
+          <View style={{ marginHorizontal: GUTTER, marginTop: 18, gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="crown" size={20} color={C.accent2} />
               <Text style={{ flex: 1, color: C.fg, fontSize: 16, fontWeight: '700' }}>Part of Community Plus</Text>
             </View>
             <Button label="Get Community Plus" onPress={() => router.push('/plus')} />

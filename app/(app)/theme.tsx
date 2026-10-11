@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Radio, Screen, ScreenHeader } from '../../src/components/ui';
+import { tap } from '../../src/lib/haptics';
 import { type Key, useT } from '../../src/lib/i18n';
 import { usePrefs } from '../../src/lib/prefs';
 import { C, PALETTES, type ThemeName } from '../../src/lib/theme';
@@ -43,7 +44,11 @@ export default function ThemeScreen() {
           return (
             <Pressable
               key={c.id}
-              onPress={() => (on ? undefined : chooseTheme(c.id, '/theme'))}
+              onPress={() => {
+                if (on) return;
+                tap('select');
+                chooseTheme(c.id, '/theme');
+              }}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
               accessibilityLabel={t('theme.label', { name: label })}

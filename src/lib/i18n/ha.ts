@@ -1192,4 +1192,334 @@ export const ha: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'An ajiye bayani',
   'bibleMarks.noteDeleted': 'An goge bayani',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Buɗe saitunan wayarku',
+  'createFlow.cameraOff': 'An kashe damar amfani da kyamara',
+  'createFlow.choosePhotos': 'Zaɓi hotuna da bidiyoyi',
+  'createFlow.recents': 'Na kwanan nan',
+  'createFlow.albums': 'Kundayen hotuna',
+  'goLive.endedAway': 'Watsawarku kai tsaye ta ƙare lokacin da ba ku nan',
+  'live.paused': 'An dakata',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Wannan mahaɗin saitawa ya ƙare.',
+  'payouts.country': 'Ƙasa',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': "Asusunku na sirri ne. Ku mai da shi na jama'a don tallata wannan rubutu.",
+  'promote.profileOnly': 'Wannan rubutu yana kan bayanan martabarku kaɗai, don haka ba za a iya tallata shi ba.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Ba a karɓar gudummawa tukuna',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Ba a iya goge wannan tara kuɗin ba. Kuna iya ƙare shi maimakon haka.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Wannan waƙar ba ta buɗe ba. Ku sake gwadawa.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Babu littafin da ya dace da wannan',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Ana wallafawa…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Yau',
+  'notifications.sectionYesterday': 'Jiya',
+  'notifications.sectionThisWeek': 'Wannan makon',
+  'notifications.sectionThisMonth': 'Wannan watan',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Daina bin {username}?',
+  'profile.unfollow': 'Daina bi',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Fita daga {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'An aika buƙata',
+  'verify.pending': 'Ana jira',
+  'verify.sentOn': 'An aika ranar {date}',
+  'verify.notSent': 'Ba a aika buƙatarku ba. Ku sake gwadawa.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ana aikawa…',
+  'chat.sent': 'An aika',
+  'chat.seen': 'An gani',
+  'chat.notSent': 'Ba a aika ba · Danna don sake gwadawa',
+  'chat.notSentTitle': 'Ba a aika saƙon ba',
+  'chat.copied': 'An kwafi',
+  'chat.deleted': 'An goge hirar',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Sabbin saƙonni',
+  'chat.viewProfile': 'Duba bayanan martaba',
+  'chat.noSavedReplies': 'Babu amsoshin da aka adana tukuna',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Har mutane 10 a lokaci ɗaya',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'An aika saƙonku',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Ba a sami wurin da kuke a yanzu ba. Ku duba ko Location Services a kunne suke.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Launin zobe',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': "Ƙara daga ma'ajiya",
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'An aika buƙata',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Sai ku sake neman shiga.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Ƙara bayani',
+  // A community with no church chosen.
+  'groups.none': 'Babu',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Yi amfani da wurin da nake',
+  'churches.openSettings': 'Buɗe saitunan wayarku',
+  'churches.openSettingsLabel': 'Buɗe saitunan wayarku don amfani da wurin da kuke',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ana jiran dubawa',
+  'churches.notApproved': 'Ba a amince ba',
+  'churches.noMembers': 'Babu membobi tukuna',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Zai bayyana ga kowa da zarar mai gudanarwa ya amince da shi.',
+  'churches.thanksMakeYours': 'Mun gode! Ku mai da shi cocinku?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Biyan kuɗi',
+  'payments.cards': 'Katunan da aka ajiye',
+  'payments.addCard': 'Ƙara kati',
+  // The add-card sheet's title.
+  'payments.addACard': 'Ƙara kati',
+  'payments.cardSaved': 'An ajiye kati',
+  'payments.cardNotSaved': 'Ba a iya ajiye katin ba. Ku sake gwadawa.',
+  'payments.cardOptions': 'Yana buɗe zaɓuɓɓukan wannan katin',
+  'payments.makeDefault': 'Mai da shi na asali',
+  'payments.removeCard': 'Cire kati',
+  'payments.removeQuestion': 'A cire wannan katin?',
+  'payments.removeBody': 'Za a cire {card} daga asusunku.',
+  'payments.removeBodyDefault': 'Za a cire {card} daga asusunku. Da wannan katin ake sabunta Plus, don haka ku ƙara wani kafin sabuntawa ta gaba.',
+  'payments.remove': 'Cire',
+  'payments.cardRemoved': 'An cire kati',
+  'payments.defaultSet': 'Da wannan katin za a sabunta Plus',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Ba ku yi rajista ba',
+  'payments.activeUntil': 'Yana aiki har zuwa {day}',
+  'payments.paymentFailed': 'Biya ya gaza',
+  'payments.creatorSubs': 'Rajistar masu ƙirƙira',
+  'payments.none': 'Babu',
+  'payments.noPayments': 'Babu biya tukuna',
+  // A payment's state.
+  'payments.paid': 'An biya',
+  'payments.failed': 'Ya gaza',
+  'payments.refunded': 'An maido kuɗi',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Rajistar mai ƙirƙira',
+  'payments.kindDonation': 'Gudummawa',
+  'payments.kindAd': 'Talla',
+  'payments.kindRefund': 'Maido da kuɗi',
+  'payments.kindOther': 'Biya',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Mai gudanarwa ne ya shirya',
+  // One payment's details.
+  'payments.status': 'Matsayi',
+  'payments.date': 'Kwanan wata',
+  'payments.method': 'Hanya',
+  'payments.reference': 'Lambar nuni',
+  'payments.copied': 'An kwafi lambar nuni',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Katin aya',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Kati',
+  'verseCard.make': 'Yi kati',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Bango',
+  'verseCard.font': "Nau'in rubutu",
+  'verseCard.layout': 'Tsari',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Daji',
+  'verseCard.bgGreen': 'Kore',
+  'verseCard.bgNight': 'Dare',
+  'verseCard.bgDusk': 'Faɗuwar rana',
+  'verseCard.bgDawn': 'Alfijir',
+  'verseCard.bgOcean': 'Teku',
+  'verseCard.bgPaper': 'Takarda',
+  'verseCard.bgWhite': 'Fari',
+  'verseCard.bgBlack': 'Baƙi',
+  'verseCard.photo': 'Hoto',
+  'verseCard.choosePhoto': 'Zaɓi hoto',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Jera hagu',
+  'verseCard.alignCenter': 'Jera tsakiya',
+  'verseCard.alignRight': 'Jera dama',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': "Murabba'i",
+  'verseCard.tall': 'Dogo',
+  // What to do with the card.
+  'verseCard.toStory': 'Labarinku',
+  'verseCard.post': 'Wallafa',
+  'verseCard.save': 'Ajiye',
+  'verseCard.saved': 'An ajiye',
+  'verseCard.allowPhotos': 'Ku ba Community izinin ƙara hotuna a saitunan wayarku don ajiye katuna.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'An gajarta don ya dace',
+  'verseCard.notFound': 'Ba a sami wannan ayar ba.',
+  'verseCard.failed': 'Ba a iya yin katin ba. Ku sake gwadawa.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Kwanaki {n} a jere',
+  'bible.streakStart': 'Fara karatu kullum',
+  'bible.readToday': 'Kun karanta yau',
+  'bible.readAChapter': 'Karanta babi ɗaya yau',
+  'bible.bestStreak': 'Mafi tsawo {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Rana ta {n} — ci gaba',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Ci gaba da karatu',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Buɗe {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Taruka',
+  'events.title': 'Taruka',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Masu zuwa',
+  'events.going': 'Zan je',
+  'events.yours': 'Naku',
+  'events.interested': "Ina sha'awa",
+  'events.create': 'Ƙirƙiri taro',
+  'events.nearYou': 'Kusa da ku',
+  'events.useMyLocation': 'Yi amfani da wurin da nake',
+  'events.openSettings': 'Buɗe saitunan wayarku',
+  'events.emptyUpcoming': 'Babu taro mai zuwa',
+  'events.emptyGoing': 'Babu shiri tukuna',
+  'events.emptyYours': 'Babu taro tukuna',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} za su je',
+  'events.interestedCount': "{count} suna sha'awa",
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'An soke',
+  'events.ended': 'Ya ƙare',
+  'events.now': 'Yana gudana yanzu',
+  // The kinds of event.
+  'events.kind.service': 'Ibada',
+  'events.kind.bible_study': 'Nazarin Littafi Mai Tsarki',
+  'events.kind.youth': 'Matasa',
+  'events.kind.prayer': "Addu'a",
+  'events.kind.outreach': 'Yaɗa bishara',
+  'events.kind.music': 'Waƙa',
+  'events.kind.social': 'Zumunci',
+  'events.kind.other': 'Wani',
+  // The event page.
+  'events.event': 'Taro',
+  'events.gone': 'Wannan taron ba ya nan kuma',
+  'events.openInMaps': 'Buɗe a Maps',
+  'events.mapsFailed': 'Maps bai buɗe ba',
+  'events.organiser': 'Mai shirya',
+  'events.options': 'Ƙarin zaɓuɓɓuka',
+  'events.noOneYet': 'Babu kowa tukuna',
+  'events.edit': 'Gyara',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Soke',
+  'events.callOffQuestion': 'A soke wannan taron?',
+  'events.callOffBody': 'Duk wanda ya amsa zai ga an soke shi.',
+  'events.keep': 'Bar shi',
+  'events.deleteQuestion': 'A goge wannan taron?',
+  'events.deleteBody': 'Ba za a iya dawo da shi ba.',
+  'events.deleted': 'An goge taron',
+  // Making or changing an event.
+  'events.new': 'Sabon taro',
+  'events.editTitle': 'Gyara taro',
+  'events.save': 'Ajiye',
+  'events.saved': 'An ajiye',
+  'events.addCover': 'Ƙara hoton bango',
+  'events.changeCover': 'Canja hoton bango',
+  'events.removeCover': 'Cire hoton bango',
+  'events.titleLabel': 'Take',
+  'events.titlePlaceholder': 'Sunan taro',
+  'events.needTitle': 'Ƙara take.',
+  'events.kindLabel': "Nau'i",
+  'events.date': 'Kwanan wata',
+  'events.starts': 'Farawa',
+  'events.ends': 'Ƙarewa',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Ƙara',
+  'events.removeEnd': 'Cire lokacin ƙarewa',
+  'events.prevMonth': 'Watan da ya gabata',
+  'events.nextMonth': 'Wata mai zuwa',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Zaɓi lokaci bayan yanzu.',
+  'events.place': 'Wuri',
+  'events.placePlaceholder': 'Zauren coci, 12 High St',
+  'events.pinOnMap': 'Saka alama a taswira',
+  'events.movePin': 'Matsar da alama',
+  'events.removePin': 'Cire alama',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Matsar da taswirar zuwa wurin',
+  'events.done': 'An gama',
+  'events.locationOff': 'An kashe damar ganin wuri ga Community. Ku kunna shi a saitunan wayarku.',
+  'events.noFix': 'Ba a sami wurin da kuke a yanzu ba.',
+  'events.church': 'Coci',
+  'events.community': 'Ƙungiya',
+  'events.none': 'Babu',
+  'events.searchChurches': 'Nemi coci-coci',
+  'events.details': 'Bayanai',
+  'events.detailsPlaceholder': 'Me ke faruwa?',
+  'events.forMembers14': 'Taruka na membobi masu shekaru 14 zuwa sama ne',
+  // On a church or community page.
+  'events.seeAll': 'Duba duka',
+  'events.addEvent': 'Ƙara taro',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Nuna',
+  'auth.hide': 'Ɓoye',
+  'auth.showPassword': 'Nuna kalmar sirri',
+  'auth.hidePassword': 'Ɓoye kalmar sirri',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Abokai',
+  'map.nearby': 'Kusa',
+  'map.churches': 'Coci-coci',
+  'map.events': 'Taruka',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Je wurin da nake',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Nuna ni a Kusa',
+  'map.nearbyPrivacy': 'Wasu suna ganin kusan inda kuke ne kawai, ba daidai inda kuke ba.',
+  'map.adultsOnly': 'Kusa na membobi masu shekaru 18 zuwa sama ne.',
+  'map.locationOff': 'An kashe damar ganin wuri ga Community.',
+  'map.allowLocation': 'Ku ba da damar ganin wuri don amfani da Kusa.',
+  'map.nearbyOnToast': 'Kuna cikin Kusa',
+  'map.nearbyOffToast': 'An kashe Kusa',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Babu kowa a kusa yanzu',
+  'map.onePerson': 'Mutum 1 a kusa',
+  'map.personCount': 'Mutane {n} a kusa',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Kimanin {n} km daga nan',
+  'map.noChurches': 'Babu coci a taswira tukuna',
+  'map.oneChurch': 'Coci 1',
+  'map.churchCount': 'Coci {n}',
+  'map.noEvents': 'Babu taro mai zuwa a taswira',
+  'map.oneEvent': 'Taro 1 mai zuwa',
+  'map.eventCount': 'Taruka {n} masu zuwa',
+  'map.nearestFirst': 'Mafi kusa da farko',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Nuna jeri',
+  'map.hideList': 'Ɓoye jeri',
+  'map.going': '{n} za su je',
+  'map.happeningNow': 'Yana gudana yanzu',
+  'map.today': 'Yau',
+  'map.tomorrow': 'Gobe',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} daga nan',
+  'map.viewChurch': 'Duba coci',
+  'map.viewEvent': 'Duba taro',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Kwatance',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Wallafa rubutunku na farko',
+  // ======== end of v23 ========
 };

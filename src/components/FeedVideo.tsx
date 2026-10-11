@@ -75,6 +75,13 @@ function useForeground(): boolean {
   return fg;
 }
 
+/**
+ * Where each feed video had got to when its player was let go (scrolled away, or a screen opened over
+ * it), so coming back carries on from there instead of starting again. Only for this run of the app.
+ */
+const resumeAt = new Map<string, number>();
+const RESUME_KEPT = 200;
+
 /** Mounted only while the video is in view; unmounting it releases the player. */
 function ActiveVideo({ media, width, height, onTap, onOpen }: { media: Media; width: number; height: number; onTap?: (x: number, y: number) => boolean; onOpen: () => void }) {
   const muted = useFeedMuted();
@@ -83,13 +90,18 @@ function ActiveVideo({ media, width, height, onTap, onOpen }: { media: Media; wi
   const focused = useScreenFocused();
   const foreground = useForeground();
   const shouldPlay = focused && foreground;
-  const player = useVideoPlayer(media.url, (p) => {
+  // Kept on the phone once fetched, so a loop or a scroll back to this post never downloads it again.
+  const player = useVideoPlayer({ uri: media.url, useCaching: true }, (p) => {
     p.loop = true;
     p.muted = muted;
     p.timeUpdateEventInterval = 0.25;
+    const at = resumeAt.get(media.url);
+    if (at) p.currentTime = at;
     if (shouldPlay) p.play();
   });
-  // Hidden until the first frame is drawn, so the poster shows instead of an empty frame.
+  // Hidden until the first frame is drawn, so the poster shows instead of an empty frame. Where it
+  // starts from: only time moving on from there shows a frame has been drawn.
+  const startAt = useRef(resumeAt.get(media.url) ?? 0).current;
   const [shown, setShown] = useState(false);
   const shownRef = useRef(false);
   const reveal = () => {
@@ -128,7 +140,13 @@ function ActiveVideo({ media, width, height, onTap, onOpen }: { media: Media; wi
       // the player was released
     }
     progress.setValue(d > 0 ? Math.min(1, currentTime / d) : 0);
-    if (currentTime > 0) reveal();
+    if (currentTime > startAt + 0.05 || currentTime < startAt - 0.5) reveal();
+    // Noted as it plays: by the time this unmounts, the player may already be gone.
+    if (!resumeAt.has(media.url) && resumeAt.size >= RESUME_KEPT) {
+      const oldest = resumeAt.keys().next().value;
+      if (oldest !== undefined) resumeAt.delete(oldest);
+    }
+    resumeAt.set(media.url, currentTime);
   });
 
   useEffect(() => () => { if (tapTimer.current) clearTimeout(tapTimer.current); }, []);
@@ -163,6 +181,8 @@ function ActiveVideo({ media, width, height, onTap, onOpen }: { media: Media; wi
         nativeControls={false}
         fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
+        // No Live Text scanning of frames while a feed scrolls past.
+        allowsVideoFrameAnalysis={false}
         // A TextureView is clipped by the card's rounded corners and scrolls cleanly with the list; a SurfaceView is not.
         surfaceType="textureView"
         onFirstFrameRender={reveal}

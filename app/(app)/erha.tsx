@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ErrorNote, Loading, Screen, ScreenHeader } from '../../src/components/ui';
-import { ERHA_ID, openThread } from '../../src/lib/api';
+import { ERHA_ID, openThread, withTimeout } from '../../src/lib/api';
 import { errText } from '../../src/lib/theme';
 
 /**
@@ -16,7 +16,7 @@ export default function Erha() {
   useEffect(() => {
     let live = true;
     setError('');
-    openThread(ERHA_ID)
+    withTimeout(openThread(ERHA_ID))
       .then((id) => { if (live) router.replace(`/chat/${id}`); })
       .catch((e) => { if (live) setError(errText(e)); });
     return () => {

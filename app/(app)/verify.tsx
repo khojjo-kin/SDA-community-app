@@ -3,10 +3,12 @@ import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressab
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardReveal } from '../../src/components/AuthShell';
 import { Icon, IconName, VerifiedTick } from '../../src/components/Icon';
 import { Button, ErrorNote, Field, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { myPlusRequests, requestVerification, uploadVerificationPhoto, VERIFICATION_BUCKET } from '../../src/lib/api';
 import { tap } from '../../src/lib/haptics';
+import { useT } from '../../src/lib/i18n';
 import { pickFromLibrary, takePhoto, type Picked } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
 import { supabase } from '../../src/lib/supabase';
@@ -180,7 +182,11 @@ export default function Verify() {
   const { me, profile, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const insets = useSafeAreaInsets();
+  // The field being typed in stays above the keyboard (the links and the note sit low on their pages).
+  const kb = useKeyboardReveal(40);
+  const field = { onFocus: kb.onFocus, onBlur: kb.onBlur };
   const [requests, setRequests] = useState<PlusRequest[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [step, setStep] = useState<Step>('how');
@@ -197,7 +203,8 @@ export default function Verify() {
   const [note, setNote] = useState('');
   const [sending, setSending] = useState<Sending>('');
   const [formError, setFormError] = useState('');
-  const [sent, setSent] = useState<Path | null>(null);
+  // When the request just sent went off: the screen then shows it waiting, as it will when opened again.
+  const [sent, setSent] = useState<Date | null>(null);
   // A ref as well as state: two quick taps arrive before the state has changed.
   const busy = useRef(false);
   const alive = useRef(true);
@@ -365,12 +372,32 @@ export default function Verify() {
       });
       if (!alive.current) return;
       tap('success');
-      setSent(path);
+      toast(t('verify.sent'));
+      setSent(new Date());
       load();
     } catch (e) {
-      // Nothing reached our team, so do not leave identity photos behind: they are only kept while a request waits.
-      if (uploaded.length) supabase.storage.from(VERIFICATION_BUCKET).remove(uploaded).catch(() => null);
-      if (alive.current) setFormError(errText(e));
+      // Identity photos are only kept while a request waits, so ones no request points at are removed.
+      // But an answer lost on the way can hide a request that did arrive: its photos stay for the team.
+      if (uploaded.length) {
+        myPlusRequests(me)
+          .then((mine) => mine.some((r) => uploaded.includes(r.selfie_path) || uploaded.includes(r.document_path)))
+          // Can't tell (no connection): then the request almost certainly didn't arrive either.
+          .catch(() => false)
+          .then((landed) => {
+            if (!landed) supabase.storage.from(VERIFICATION_BUCKET).remove(uploaded).catch(() => null);
+          });
+      }
+      const text = errText(e);
+      // Said plainly in a message, with the reason over the buttons, where it stays. Our own server's
+      // refusals are written for members ("Your request is already being reviewed."), so they are the message.
+      tap('warning');
+      toast((e as any)?.code === 'P0001' ? text : t('verify.notSent'));
+      if (alive.current) {
+        setFormError(text);
+        // One may be waiting already (sent from another phone, or its answer lost on the way): what the
+        // team has decides the page, which then shows it waiting rather than the form.
+        load();
+      }
     } finally {
       busy.current = false;
       if (alive.current) setSending('');
@@ -412,12 +439,19 @@ export default function Verify() {
     );
   }
 
-  if (sent) {
+  // Sent and waiting for the team: the same page straight after sending and whenever it is opened again.
+  if (sent || (requests !== null && pending)) {
+    const when = pending ? new Date(pending.created_at) : sent ?? new Date();
     return (
       <Screen>
         {header}
-        <Notice icon="check" title="Request sent">
-          <Button label="Done" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
+        <Notice icon="check" title={t('verify.sent')}>
+          <View accessible accessibilityLabel={t('verify.pending')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: C.warn + '24' }}>
+            <Icon name="clock" size={14} color={C.warn} weight={2.2} />
+            <Text style={{ color: C.warn, fontSize: 13.5, fontWeight: '700' }}>{t('verify.pending')}</Text>
+          </View>
+          <Text style={{ color: C.fg2, textAlign: 'center' }}>{t('verify.sentOn', { date: dayLabel(Number.isNaN(when.getTime()) ? new Date() : when) })}</Text>
+          <Button label="Done" kind="ghost" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
         </Notice>
       </Screen>
     );
@@ -428,17 +462,6 @@ export default function Verify() {
       <Screen>
         {header}
         {loadError ? <ErrorNote message={loadError} onRetry={load} /> : <Loading />}
-      </Screen>
-    );
-  }
-
-  if (pending) {
-    return (
-      <Screen>
-        {header}
-        <Notice icon="clock" title="Your request is being reviewed" body={`Sent on ${dayLabel(new Date(pending.created_at))}`}>
-          <Button label="Done" kind="ghost" onPress={leave} style={{ alignSelf: 'stretch', marginTop: 10 }} />
-        </Notice>
       </Screen>
     );
   }
@@ -456,14 +479,8 @@ export default function Verify() {
             <VerifiedTick size={50} />
           </View>
           <Text style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>Get the blue tick</Text>
+          {declined ? <Text style={{ color: C.like, fontSize: 15, fontWeight: '600', textAlign: 'center' }}>Your last request wasn't approved.</Text> : null}
         </View>
-
-        {declined ? (
-          <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: C.like + '1f' }}>
-            <Icon name="info" size={20} color={C.like} />
-            <Text style={{ flex: 1, color: C.fg, lineHeight: 19 }}>Your last request was not approved. Try again with clear, well-lit photos, and the name exactly as it is on your document.</Text>
-          </View>
-        ) : null}
 
         <PathCard
           icon="star"
@@ -489,7 +506,7 @@ export default function Verify() {
     body = (
       <>
         <Card title="Your name and document" done={legalName.trim().length >= 2 && !!docType}>
-          <Field label="Full legal name" value={legalName} onChangeText={(t) => { setLegalName(t); setFormError(''); }} placeholder="As it is written on your document" autoCapitalize="words" autoCorrect={false} autoComplete="name" textContentType="name" maxLength={120} editable={!locked} />
+          <Field label="Full legal name" value={legalName} onChangeText={(t) => { setLegalName(t); setFormError(''); }} placeholder="As it is written on your document" autoCapitalize="words" autoCorrect={false} autoComplete="name" textContentType="name" maxLength={120} editable={!locked} {...field} />
           <Text style={{ color: C.fg2, fontSize: 12.5 }}>Document type</Text>
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {DOCUMENTS.map((d) => (
@@ -539,16 +556,16 @@ export default function Verify() {
         </Card>
 
         <Card title="Country or region" done={country.trim().length >= 2}>
-          <Field value={country} onChangeText={(t) => { setCountry(t); setFormError(''); }} placeholder="For example, Ghana" autoCapitalize="words" autoComplete="country" textContentType="countryName" maxLength={60} accessibilityLabel="Country or region" />
+          <Field value={country} onChangeText={(t) => { setCountry(t); setFormError(''); }} placeholder="For example, Ghana" autoCapitalize="words" autoComplete="country" textContentType="countryName" maxLength={60} accessibilityLabel="Country or region" {...field} />
         </Card>
 
         <Card title="Audience" sub="Who follows you and why?" done={audience.trim().length >= MIN_AUDIENCE}>
-          <Field value={audience} onChangeText={(t) => { setAudience(t); setFormError(''); }} placeholder="For example: churches across West Africa follow our choir for new recordings and concert dates." multiline maxLength={500} accessibilityLabel="Who follows you and why?" style={{ minHeight: 110, textAlignVertical: 'top' }} />
+          <Field value={audience} onChangeText={(t) => { setAudience(t); setFormError(''); }} placeholder="For example: churches across West Africa follow our choir for new recordings and concert dates." multiline maxLength={500} accessibilityLabel="Who follows you and why?" style={{ minHeight: 110, textAlignVertical: 'top' }} {...field} />
           <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'right' }}>{audience.trim().length}/500</Text>
         </Card>
 
         <Card title="Also known as (optional)">
-          <Field value={knownAs} onChangeText={setKnownAs} placeholder="Other names, in any language" maxLength={200} accessibilityLabel="Also known as" />
+          <Field value={knownAs} onChangeText={setKnownAs} placeholder="Other names, in any language" maxLength={200} accessibilityLabel="Also known as" {...field} />
         </Card>
 
         <Card title="Links (optional)">
@@ -564,6 +581,7 @@ export default function Verify() {
               textContentType="URL"
               maxLength={300}
               accessibilityLabel={`Link ${i + 1}`}
+              {...field}
             />
           ))}
         </Card>
@@ -603,7 +621,7 @@ export default function Verify() {
         ) : null}
 
         <Card title="Anything else? (optional)">
-          <Field value={note} onChangeText={setNote} placeholder="For example, if your name has changed" multiline maxLength={500} editable={!locked} accessibilityLabel="Anything our team should know" style={{ minHeight: 80, textAlignVertical: 'top' }} />
+          <Field value={note} onChangeText={setNote} placeholder="For example, if your name has changed" multiline maxLength={500} editable={!locked} accessibilityLabel="Anything our team should know" style={{ minHeight: 80, textAlignVertical: 'top' }} {...field} />
         </Card>
 
         <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, paddingHorizontal: 20, paddingTop: 12 }}>By sending, you agree that our team may look at these photos to check who you are. They are deleted as soon as your request is decided.</Text>
@@ -617,7 +635,7 @@ export default function Verify() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Progress index={index} total={steps.length} title={STEP_TITLE[step]} />
         {/* A new scroll view for each page, so every page starts at the top. */}
-        <ScrollView key={step} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+        <ScrollView key={step} ref={kb.ref} onScroll={kb.onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {body}
         </ScrollView>
         {step !== 'how' ? (

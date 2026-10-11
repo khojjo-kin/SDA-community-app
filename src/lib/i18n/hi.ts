@@ -1128,4 +1128,334 @@ export const hi: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'नोट सेव हो गया',
   'bibleMarks.noteDeleted': 'नोट हटा दिया गया',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'सेटिंग्स खोलें',
+  'createFlow.cameraOff': 'कैमरा ऐक्सेस बंद है',
+  'createFlow.choosePhotos': 'फ़ोटो और वीडियो चुनें',
+  'createFlow.recents': 'हालिया',
+  'createFlow.albums': 'एल्बम',
+  'goLive.endedAway': 'जब आप दूर थे, तब आपका लाइव ख़त्म हो गया',
+  'live.paused': 'रुका हुआ',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'यह सेटअप लिंक एक्सपायर हो गया है।',
+  'payouts.country': 'देश',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'आपका अकाउंट प्राइवेट है। इस पोस्ट को प्रमोट करने के लिए इसे पब्लिक करें।',
+  'promote.profileOnly': 'यह पोस्ट सिर्फ़ आपकी प्रोफ़ाइल पर है, इसलिए इसे प्रमोट नहीं किया जा सकता।',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'अभी दान स्वीकार नहीं किए जा रहे',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'यह फ़ंडरेज़र डिलीट नहीं हो सका। इसके बजाय आप इसे ख़त्म कर सकते हैं।',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'यह ट्रैक लोड नहीं हुआ। फिर से कोशिश करें।',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'कोई मेल खाती पुस्तक नहीं मिली',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'पोस्ट हो रहा है…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'आज',
+  'notifications.sectionYesterday': 'कल',
+  'notifications.sectionThisWeek': 'इस हफ़्ते',
+  'notifications.sectionThisMonth': 'इस महीने',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '{username} को अनफ़ॉलो करें?',
+  'profile.unfollow': 'अनफ़ॉलो करें',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '{name} से लॉग आउट करें',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'अनुरोध भेजा गया',
+  'verify.pending': 'पेंडिंग',
+  'verify.sentOn': '{date} को भेजा गया',
+  'verify.notSent': 'आपका अनुरोध नहीं भेजा जा सका। फिर से कोशिश करें।',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'भेजा जा रहा है…',
+  'chat.sent': 'भेजा गया',
+  'chat.seen': 'देखा गया',
+  'chat.notSent': 'नहीं भेजा गया · दोबारा भेजने के लिए टैप करें',
+  'chat.notSentTitle': 'मैसेज नहीं भेजा गया',
+  'chat.copied': 'कॉपी हो गया',
+  'chat.deleted': 'चैट डिलीट हो गई',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'सबसे नए मैसेज',
+  'chat.viewProfile': 'प्रोफ़ाइल देखें',
+  'chat.noSavedReplies': 'अभी कोई सेव किया गया जवाब नहीं',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'एक बार में ज़्यादा से ज़्यादा 10 लोग',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'मैसेज भेज दिया गया',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'आपकी लोकेशन अभी उपलब्ध नहीं है। जाँच लें कि लोकेशन सर्विसेज़ चालू हैं।',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'रिंग का रंग',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'आर्काइव से जोड़ें',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'रिक्वेस्ट भेजी गई',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'आपको फिर से जुड़ने की रिक्वेस्ट भेजनी होगी।',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'विवरण जोड़ें',
+  // A community with no church chosen.
+  'groups.none': 'कोई नहीं',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'मेरी लोकेशन इस्तेमाल करें',
+  'churches.openSettings': 'सेटिंग्स खोलें',
+  'churches.openSettingsLabel': 'अपनी लोकेशन इस्तेमाल करने के लिए सेटिंग्स खोलें',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'समीक्षा बाकी है',
+  'churches.notApproved': 'मंज़ूरी नहीं मिली',
+  'churches.noMembers': 'अभी कोई सदस्य नहीं',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'किसी एडमिन की मंज़ूरी के बाद यह सभी को दिखेगा।',
+  'churches.thanksMakeYours': 'धन्यवाद! इसे अपना चर्च बनाएँ?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'भुगतान',
+  'payments.cards': 'सेव किए गए कार्ड',
+  'payments.addCard': 'कार्ड जोड़ें',
+  // The add-card sheet's title.
+  'payments.addACard': 'कार्ड जोड़ें',
+  'payments.cardSaved': 'कार्ड सेव हो गया',
+  'payments.cardNotSaved': 'कार्ड सेव नहीं हो सका। फिर से कोशिश करें।',
+  'payments.cardOptions': 'इस कार्ड के विकल्प खोलता है',
+  'payments.makeDefault': 'डिफ़ॉल्ट बनाएँ',
+  'payments.removeCard': 'कार्ड हटाएँ',
+  'payments.removeQuestion': 'यह कार्ड हटाएँ?',
+  'payments.removeBody': '{card} आपके अकाउंट से हटा दिया जाएगा।',
+  'payments.removeBodyDefault': '{card} आपके अकाउंट से हटा दिया जाएगा। Plus इसी कार्ड से रिन्यू होता है, इसलिए अगले रिन्यूअल से पहले दूसरा कार्ड जोड़ें।',
+  'payments.remove': 'हटाएँ',
+  'payments.cardRemoved': 'कार्ड हटा दिया गया',
+  'payments.defaultSet': 'Plus इस कार्ड से रिन्यू होगा',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'सब्सक्राइब नहीं किया है',
+  'payments.activeUntil': '{day} तक सक्रिय',
+  'payments.paymentFailed': 'भुगतान असफल रहा',
+  'payments.creatorSubs': 'क्रिएटर सब्सक्रिप्शन',
+  'payments.none': 'कोई नहीं',
+  'payments.noPayments': 'अभी कोई भुगतान नहीं',
+  // A payment's state.
+  'payments.paid': 'भुगतान हो गया',
+  'payments.failed': 'असफल',
+  'payments.refunded': 'रिफ़ंड हो गया',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'क्रिएटर सब्सक्रिप्शन',
+  'payments.kindDonation': 'दान',
+  'payments.kindAd': 'विज्ञापन',
+  'payments.kindRefund': 'रिफ़ंड',
+  'payments.kindOther': 'भुगतान',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'एक एडमिन ने व्यवस्था की',
+  // One payment's details.
+  'payments.status': 'स्थिति',
+  'payments.date': 'तारीख़',
+  'payments.method': 'तरीका',
+  'payments.reference': 'रेफ़रेंस',
+  'payments.copied': 'रेफ़रेंस कॉपी हो गया',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'वचन कार्ड',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'कार्ड',
+  'verseCard.make': 'कार्ड बनाएँ',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'बैकग्राउंड',
+  'verseCard.font': 'फ़ॉन्ट',
+  'verseCard.layout': 'लेआउट',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'जंगल',
+  'verseCard.bgGreen': 'हरा',
+  'verseCard.bgNight': 'रात',
+  'verseCard.bgDusk': 'साँझ',
+  'verseCard.bgDawn': 'भोर',
+  'verseCard.bgOcean': 'समुद्र',
+  'verseCard.bgPaper': 'कागज़',
+  'verseCard.bgWhite': 'सफ़ेद',
+  'verseCard.bgBlack': 'काला',
+  'verseCard.photo': 'फ़ोटो',
+  'verseCard.choosePhoto': 'फ़ोटो चुनें',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'बाईं ओर अलाइन करें',
+  'verseCard.alignCenter': 'बीच में',
+  'verseCard.alignRight': 'दाईं ओर अलाइन करें',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'चौकोर',
+  'verseCard.tall': 'लंबा',
+  // What to do with the card.
+  'verseCard.toStory': 'आपकी स्टोरी',
+  'verseCard.post': 'पोस्ट करें',
+  'verseCard.save': 'सेव करें',
+  'verseCard.saved': 'सेव हो गया',
+  'verseCard.allowPhotos': 'कार्ड सेव करने के लिए सेटिंग्स में Community को फ़ोटो जोड़ने की अनुमति दें।',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'फ़िट करने के लिए छोटा किया गया',
+  'verseCard.notFound': 'वह वचन नहीं मिला।',
+  'verseCard.failed': 'कार्ड नहीं बन सका। फिर से कोशिश करें।',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '{n} दिन की स्ट्रीक',
+  'bible.streakStart': 'स्ट्रीक शुरू करें',
+  'bible.readToday': 'आज पढ़ लिया',
+  'bible.readAChapter': 'आज एक अध्याय पढ़ें',
+  'bible.bestStreak': 'सबसे लंबी: {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'दिन {n} — पढ़ते रहें',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'पढ़ना जारी रखें',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': '{ref} खोलें',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'इवेंट',
+  'events.title': 'इवेंट',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'आने वाले',
+  'events.going': 'जा रहे हैं',
+  'events.yours': 'आपके',
+  'events.interested': 'रुचि है',
+  'events.create': 'इवेंट बनाएँ',
+  'events.nearYou': 'आपके आस-पास',
+  'events.useMyLocation': 'मेरी लोकेशन इस्तेमाल करें',
+  'events.openSettings': 'सेटिंग्स खोलें',
+  'events.emptyUpcoming': 'कोई आने वाला इवेंट नहीं',
+  'events.emptyGoing': 'अभी कोई प्लान नहीं',
+  'events.emptyYours': 'अभी कोई इवेंट नहीं',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} जा रहे हैं',
+  'events.interestedCount': '{count} की रुचि है',
+  // How far away an event is.
+  'events.km': '{km} किमी',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'रद्द हुआ',
+  'events.ended': 'ख़त्म हुआ',
+  'events.now': 'अभी चल रहा है',
+  // The kinds of event.
+  'events.kind.service': 'आराधना सभा',
+  'events.kind.bible_study': 'बाइबल अध्ययन',
+  'events.kind.youth': 'युवा',
+  'events.kind.prayer': 'प्रार्थना',
+  'events.kind.outreach': 'आउटरीच',
+  'events.kind.music': 'संगीत',
+  'events.kind.social': 'मेल-मिलाप',
+  'events.kind.other': 'अन्य',
+  // The event page.
+  'events.event': 'इवेंट',
+  'events.gone': 'यह इवेंट अब यहाँ नहीं है',
+  'events.openInMaps': 'मैप्स में खोलें',
+  'events.mapsFailed': 'मैप्स नहीं खुला',
+  'events.organiser': 'आयोजक',
+  'events.options': 'और विकल्प',
+  'events.noOneYet': 'अभी कोई नहीं',
+  'events.edit': 'एडिट करें',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'रद्द करें',
+  'events.callOffQuestion': 'यह इवेंट रद्द करें?',
+  'events.callOffBody': 'जवाब देने वाले सभी लोग देखेंगे कि यह रद्द हो गया है।',
+  'events.keep': 'रहने दें',
+  'events.deleteQuestion': 'यह इवेंट डिलीट करें?',
+  'events.deleteBody': 'इसे वापस नहीं लाया जा सकता।',
+  'events.deleted': 'इवेंट डिलीट हो गया',
+  // Making or changing an event.
+  'events.new': 'नया इवेंट',
+  'events.editTitle': 'इवेंट एडिट करें',
+  'events.save': 'सेव करें',
+  'events.saved': 'सेव हो गया',
+  'events.addCover': 'कवर जोड़ें',
+  'events.changeCover': 'कवर बदलें',
+  'events.removeCover': 'कवर हटाएँ',
+  'events.titleLabel': 'टाइटल',
+  'events.titlePlaceholder': 'इवेंट का नाम',
+  'events.needTitle': 'टाइटल जोड़ें।',
+  'events.kindLabel': 'प्रकार',
+  'events.date': 'तारीख़',
+  'events.starts': 'शुरू',
+  'events.ends': 'ख़त्म',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'जोड़ें',
+  'events.removeEnd': 'ख़त्म होने का समय हटाएँ',
+  'events.prevMonth': 'पिछला महीना',
+  'events.nextMonth': 'अगला महीना',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'ऐसा समय चुनें जो अभी बीता न हो।',
+  'events.place': 'जगह',
+  'events.placePlaceholder': 'चर्च हॉल, 12 मेन रोड',
+  'events.pinOnMap': 'मैप पर पिन करें',
+  'events.movePin': 'पिन खिसकाएँ',
+  'events.removePin': 'पिन हटाएँ',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'मैप को उस जगह पर ले जाएँ',
+  'events.done': 'हो गया',
+  'events.locationOff': 'Community के लिए लोकेशन बंद है। इसे सेटिंग्स में चालू करें।',
+  'events.noFix': 'आपकी लोकेशन अभी उपलब्ध नहीं है।',
+  'events.church': 'चर्च',
+  'events.community': 'समुदाय',
+  'events.none': 'कोई नहीं',
+  'events.searchChurches': 'चर्च खोजें',
+  'events.details': 'विवरण',
+  'events.detailsPlaceholder': 'क्या हो रहा है?',
+  'events.forMembers14': 'इवेंट 14 साल और उससे ज़्यादा उम्र के सदस्यों के लिए हैं',
+  // On a church or community page.
+  'events.seeAll': 'सभी देखें',
+  'events.addEvent': 'इवेंट जोड़ें',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'दिखाएँ',
+  'auth.hide': 'छिपाएँ',
+  'auth.showPassword': 'पासवर्ड दिखाएँ',
+  'auth.hidePassword': 'पासवर्ड छिपाएँ',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'दोस्त',
+  'map.nearby': 'आस-पास',
+  'map.churches': 'चर्च',
+  'map.events': 'इवेंट',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'मेरी लोकेशन पर जाएँ',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'मुझे "आस-पास" में दिखाएँ',
+  'map.nearbyPrivacy': 'दूसरों को सिर्फ़ आपकी अंदाज़न जगह दिखती है, सटीक जगह कभी नहीं।',
+  'map.adultsOnly': '"आस-पास" 18 साल और उससे ज़्यादा उम्र के सदस्यों के लिए है।',
+  'map.locationOff': 'Community के लिए लोकेशन ऐक्सेस बंद है।',
+  'map.allowLocation': '"आस-पास" इस्तेमाल करने के लिए लोकेशन ऐक्सेस की अनुमति दें।',
+  'map.nearbyOnToast': 'आप "आस-पास" में दिख रहे हैं',
+  'map.nearbyOffToast': '"आस-पास" बंद है',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'अभी आस-पास कोई नहीं है',
+  'map.onePerson': 'आस-पास 1 व्यक्ति',
+  'map.personCount': 'आस-पास {n} लोग',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'लगभग {n} किमी दूर',
+  'map.noChurches': 'मैप पर अभी कोई चर्च नहीं',
+  'map.oneChurch': '1 चर्च',
+  'map.churchCount': '{n} चर्च',
+  'map.noEvents': 'मैप पर कोई आने वाला इवेंट नहीं',
+  'map.oneEvent': '1 आने वाला इवेंट',
+  'map.eventCount': '{n} आने वाले इवेंट',
+  'map.nearestFirst': 'सबसे पास वाले पहले',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'लिस्ट दिखाएँ',
+  'map.hideList': 'लिस्ट छिपाएँ',
+  'map.going': '{n} जा रहे हैं',
+  'map.happeningNow': 'अभी चल रहा है',
+  'map.today': 'आज',
+  'map.tomorrow': 'कल',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} दूर',
+  'map.viewChurch': 'चर्च देखें',
+  'map.viewEvent': 'इवेंट देखें',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'रास्ता देखें',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'अपनी पहली पोस्ट शेयर करें',
+  // ======== end of v23 ========
 };

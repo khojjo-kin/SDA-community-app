@@ -4,10 +4,11 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
 import { QuarterRow } from '../../src/components/sabbath/discover';
-import { lessonLine, PillTabs, Skeleton, tileColour, WEEKDAY } from '../../src/components/sabbath/kit';
+import { lessonLine, PillTabs, tileColour, WEEKDAY } from '../../src/components/sabbath/kit';
 import { ItemRow, LessonTile, QuarterHero } from '../../src/components/sabbath/plans';
-import { PublishersSection } from '../../src/components/sabbath/publishers';
+import { loadLatestSabbathPosts, openOnce, PublishersSection } from '../../src/components/sabbath/publishers';
 import { Greeting, MemoryHero, TodayCard } from '../../src/components/sabbath/today';
+import { Skeleton, SkeletonFrame } from '../../src/components/Skeleton';
 import { Empty, ErrorNote, IconButton, RoundButton, Screen, SectionLabel, Sheet, useToast } from '../../src/components/ui';
 import { useAppFont } from '../../src/lib/fonts';
 import { dayState, daysRead, isSaved, lessonComplete, lessonKey, LessonProgress, parseKey, quarterStarted, slotDayId, toggleSaved, useLessonProgress } from '../../src/lib/lesson-progress';
@@ -44,28 +45,30 @@ function slotName(l: Lesson, slot: number): string {
   return WEEKDAY[new Date(s.getFullYear(), s.getMonth(), s.getDate() + slot).getDay()];
 }
 
-/** Grey shapes where the page will be, so it does not jump about when the lessons land. */
-function PageSkeleton({ browse, tile }: { browse: boolean; tile: number }) {
+/** Shapes where the page will be, so it does not jump about when the lessons land. */
+function PageSkeleton({ browse, tile, cols }: { browse: boolean; tile: number; cols: number }) {
+  const { width } = useWindowDimensions();
+  const card = width - 32;
   return (
-    <View accessible accessibilityLabel="Loading the lessons">
+    <SkeletonFrame>
       {browse ? null : (
         <>
-          <Skeleton style={{ marginHorizontal: 16, height: 340, borderRadius: 20 }} />
-          <Skeleton style={{ marginHorizontal: 16, marginTop: 14, height: 236, borderRadius: 20 }} />
+          <Skeleton width={card} height={340} radius={20} x={16} style={{ marginHorizontal: 16 }} />
+          <Skeleton width={card} height={236} radius={20} x={16} style={{ marginHorizontal: 16, marginTop: 14 }} />
         </>
       )}
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 26, paddingBottom: 16 }}>
-        {[118, 80, 110].map((w) => (
-          <Skeleton key={w} style={{ width: w, height: 38, borderRadius: 19 }} />
+        {[118, 80, 110].map((w, i) => (
+          <Skeleton key={w} width={w} height={38} radius={19} x={16 + [0, 126, 214][i]} />
         ))}
       </View>
-      <Skeleton style={{ marginHorizontal: 16, height: 156, borderRadius: 20 }} />
+      <Skeleton width={card} height={156} radius={20} x={16} style={{ marginHorizontal: 16 }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, paddingTop: 16 }}>
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} style={{ width: tile, height: tile, borderRadius: 18 }} />
+          <Skeleton key={i} width={tile} height={tile} radius={18} x={16 + (i % cols) * (tile + 12)} />
         ))}
       </View>
-    </View>
+    </SkeletonFrame>
   );
 }
 
@@ -99,6 +102,11 @@ export default function SabbathSchool() {
   useEffect(() => {
     loadSsSettings().then(setSettings);
   }, []);
+
+  // The publishers' newest posts are fetched beside the lessons, so their row is ready when the page is.
+  useEffect(() => {
+    if (!browse) loadLatestSabbathPosts().catch(() => {});
+  }, [browse]);
 
   const load = useCallback(
     async (fresh = false) => {
@@ -134,7 +142,7 @@ export default function SabbathSchool() {
           if (!q) throw new Error('No lessons are available right now. Try again later.');
           id = q.id;
         }
-        const d = await fetchQuarterly(id);
+        const d = await fetchQuarterly(id, fresh);
         if (ticket.current !== mine) return;
         setData(d);
         setError('');
@@ -182,8 +190,8 @@ export default function SabbathSchool() {
     };
   }, [quarterId, thisLesson]);
 
-  const openLesson = (q: string, id: string, day?: string) => router.push({ pathname: '/lesson/[id]', params: day ? { id, q, day } : { id, q } } as any);
-  const openQuarter = (q: Quarterly) => router.push({ pathname: '/sabbath-school', params: { q: q.id } } as any);
+  const openLesson = (q: string, id: string, day?: string) => openOnce(() => router.push({ pathname: '/lesson/[id]', params: day ? { id, q, day } : { id, q } } as any));
+  const openQuarter = (q: Quarterly) => openOnce(() => router.push({ pathname: '/sabbath-school', params: { q: q.id } } as any));
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   function choose(id: string) {
@@ -228,7 +236,7 @@ export default function SabbathSchool() {
     const mine = week?.key === lessonKey(quarterId, l.id) ? week : null;
     const days = mine?.days ?? null;
     const memory = mine?.memory;
-    const dayTitle = days === null ? '' : days.find((d) => d.id === slotDayId(slot))?.title || l.title;
+    const dayTitle = days === null ? null : days.find((d) => d.id === slotDayId(slot))?.title || l.title;
     const state = states[slot];
     const key = lessonKey(quarterId, l.id);
     const saved = isSaved(key, progress);
@@ -339,7 +347,7 @@ export default function SabbathSchool() {
     <Screen>
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
         <RoundButton name="back" label="Back" onPress={back} />
-        {browse ? null : <RoundButton name="calendar" label="Choose a quarter" onPress={() => setSheet(true)} />}
+        {browse || !choosable.length ? null : <RoundButton name="calendar" label="Choose a quarter" onPress={() => setSheet(true)} />}
       </View>
 
       <ScrollView
@@ -363,7 +371,7 @@ export default function SabbathSchool() {
         {error ? (
           <ErrorNote message={error} onRetry={() => load()} />
         ) : !quarterly ? (
-          <PageSkeleton browse={!!browse} tile={tile} />
+          <PageSkeleton browse={!!browse} tile={tile} cols={cols} />
         ) : (
           <>
             {renderToday()}
@@ -390,9 +398,7 @@ export default function SabbathSchool() {
               </>
             ) : null}
 
-            <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center', paddingTop: 28, paddingHorizontal: 24, lineHeight: 17 }}>
-              Lessons from the free Sabbath School service by Adventech. They stay on your phone once you have opened them, and your progress stays on this phone.
-            </Text>
+            <Text style={{ color: C.fg3, fontSize: 12.5, textAlign: 'center', paddingTop: 28, paddingHorizontal: 24, lineHeight: 17 }}>Lessons from the Sabbath School service by Adventech.</Text>
           </>
         )}
       </ScrollView>
@@ -412,9 +418,6 @@ export default function SabbathSchool() {
               </Pressable>
             );
           })}
-          <Text style={{ color: C.fg2, textAlign: 'center', padding: 24, lineHeight: 20 }}>
-            {choosable.length ? 'Earlier quarters are under Other quarters on the Sabbath School page.' : 'The list of quarters has not loaded yet.'}
-          </Text>
         </ScrollView>
       </Sheet>
     </Screen>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutChangeEvent, Pressable, Text, View, ViewStyle } from 'react-native';
+import { tap } from '../lib/haptics';
 import { C } from '../lib/theme';
 
 export type FeedOption<T extends string> = { key: T; label: string };
@@ -30,7 +31,18 @@ export function FeedSwitch<T extends string>({ value, onChange, options, style, 
         {options.map((o) => {
           const on = o.key === value;
           return (
-            <Pressable key={o.key} onPress={() => { if (!on) onChange(o.key); }} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={o.label} hitSlop={8}>
+            <Pressable
+              key={o.key}
+              onPress={() => {
+                if (on) return;
+                tap('select');
+                onChange(o.key);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={o.label}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed && !on ? 0.6 : 1 })}>
               <Text numberOfLines={1} style={{ color: on ? C.fg : C.fg3, fontSize: 16, fontWeight: on ? '800' : '600' }}>{o.label}</Text>
             </Pressable>
           );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, BackHandler, Easing, Keyboard, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
@@ -7,6 +7,8 @@ import { useCalls } from '../lib/calls';
 import { useAppFont } from '../lib/fonts';
 import { tap } from '../lib/haptics';
 import { type Key, useT } from '../lib/i18n';
+import { useReduceMotion } from '../lib/motion';
+import { PLAYER_BAR_SPACE, useHasTrack } from '../lib/player';
 import { setPrefs, usePrefs } from '../lib/prefs';
 import { C } from '../lib/theme';
 import { Icon, IconName } from './Icon';
@@ -16,10 +18,13 @@ import { ThinkingOrb } from './ThinkingOrb';
  * The floating church-apps button. A small frosted square that sits over every screen, like a phone's
  * own floating shortcut button but in our colours: drag it anywhere and it settles against the nearer
  * side; tap it and, like the iPhone's AssistiveTouch, a rounded dark see-through square grows out of it
- * into the middle of the screen with the church apps (Bible, Hymnal, Pod…) in a three-by-three grid.
+ * into the middle of the screen with the church apps (Bible, Hymnal, Pod…) in a grid three across, Home
+ * on its own in the middle of the last row.
  * Tapping outside the square closes it. This is the only way into the church apps, so it can't be
- * turned off. It keeps out of the way: it fades when left alone, and it isn't there over photos and
- * video (the Clips tab too), calls, the camera, or while the keyboard is up.
+ * turned off. It keeps out of the way: it fades when left alone; it rests between a screen's header
+ * and the tab bar (and the player bar over it), never on them; and it isn't there over photos and video
+ * (the Clips tab and Pod's player too), calls, the camera, screens that slide up for one task (comments,
+ * sharing, a note), while the keyboard is up, or while a screen asks it to step aside.
  */
 
 const SIZE = 56;
@@ -31,17 +36,59 @@ const IDLE_MS = 3000;
 const IDLE_OPACITY = 0.55;
 /** A finger that moves less than this has tapped, not dragged. */
 const SLOP = 6;
+/** Room kept clear at the top under the safe area: every screen's header row (back buttons, titles) is 52 to 56 tall. */
+const TOP_CLEAR = 60;
+/**
+ * Room kept clear at the bottom over the safe area: the tab bar is 64 tall and sits max(inset - 8, 10)
+ * above the bottom (app/(app)/(tabs)/_layout.tsx), with a gap above it. Chat boxes and the buttons at the
+ * foot of other screens sit in the same band.
+ */
+const TAB_BAR = 64;
+const BOTTOM_GAP = 8;
 
 /* ---------- where it isn't shown (also used by the feedback prompt) ---------- */
 
-// Full-screen photo and video, calls, the camera and editors. Paths are as usePathname gives them (no groups).
-const MEDIA_PREFIXES = ['/story/', '/story-archive/', '/highlight/', '/watch/', '/call/', '/live/'];
+// Full-screen photo and video, calls, the camera and editors, and Pod's player. Paths are as usePathname gives them (no groups).
+const MEDIA_PREFIXES = ['/story/', '/story-archive/', '/highlight/', '/watch/', '/call/', '/live/', '/pod/'];
 // The Clips tab ('/reels') is full-screen video too, and the button would sit over its like and share buttons.
 const MEDIA_SCREENS = ['/reels', '/shorts', '/go-live', '/story-editor', '/create', '/add-story', '/camera-settings', '/sign-in', '/sign-up', '/forgot', '/onboarding', '/birth-date'];
+// Screens that slide up for one task, with their box or button along the bottom.
+const SHEET_PREFIXES = ['/comments/', '/share/'];
+const SHEET_SCREENS = ['/send-to', '/note', '/new-highlight', '/group-new', '/church-new', '/event-edit'];
+
+const matches = (path: string, prefixes: string[], screens: string[]) => prefixes.some((p) => path.startsWith(p)) || screens.some((p) => path === p || path.startsWith(p + '/'));
 
 /** True on screens where nothing should float over the content or pop up over it. */
 export function isMediaRoute(path: string): boolean {
-  return MEDIA_PREFIXES.some((p) => path.startsWith(p)) || MEDIA_SCREENS.some((p) => path === p || path.startsWith(p + '/'));
+  return matches(path, MEDIA_PREFIXES, MEDIA_SCREENS) || matches(path, SHEET_PREFIXES, SHEET_SCREENS);
+}
+
+/* ---------- screens that ask it to step aside ---------- */
+
+let askers = 0;
+const askListeners = new Set<() => void>();
+const subscribeAsk = (l: () => void) => {
+  askListeners.add(l);
+  return () => {
+    askListeners.delete(l);
+  };
+};
+const asked = () => askers > 0;
+
+/**
+ * While `hide` is true the floating button steps aside: for a bar of actions along the bottom of a
+ * screen (the Bible's verse bar), which it would otherwise sit on.
+ */
+export function useHideAssistiveButton(hide: boolean) {
+  useEffect(() => {
+    if (!hide) return;
+    askers++;
+    askListeners.forEach((l) => l());
+    return () => {
+      askers = Math.max(0, askers - 1);
+      askListeners.forEach((l) => l());
+    };
+  }, [hide]);
 }
 
 /** True while the on-screen keyboard is up. iOS says so as it starts to move; Android only once it has. */
@@ -75,6 +122,7 @@ export const CHURCH_APPS: ChurchApp[] = [
   { key: 'lesson', label: 'churchApps.sabbathSchool', icon: 'lesson', href: '/sabbath-school', words: 'sabbath school lesson quarterly study' },
   { key: 'churches', label: 'churchApps.churches', icon: 'church', href: '/churches', words: 'churches church congregation find near' },
   { key: 'groups', label: 'churchApps.communities', icon: 'users', href: '/groups', words: 'communities groups pages ministries' },
+  { key: 'events', label: 'churchApps.events', icon: 'calendar', href: '/events', words: 'events calendar programme program services meetings rsvp going' },
 ];
 
 const APPS: App[] = [
@@ -99,12 +147,17 @@ export function AssistiveButton() {
   const { inCall } = useCalls();
   const font = useAppFont();
   const t = useT();
+  const reduce = useReduceMotion();
+  const hasTrack = useHasTrack();
+  const stepAside = useSyncExternalStore(subscribeAsk, asked, asked);
   // The church apps live only here, so the button can't be turned off.
-  const hidden = keyboard || inCall || isMediaRoute(path);
+  const hidden = keyboard || inCall || stepAside || isMediaRoute(path);
 
-  // Where it may rest: inside the safe area, clear of the notch and the home indicator.
-  const minY = insets.top + 8;
-  const maxY = Math.max(minY, H - insets.bottom - SIZE - 8);
+  // Where it may rest: under the header row, and above the tab bar and, while a track is loaded, the
+  // player bar over it. It never covers a back button, a tab, the player's buttons or a chat box.
+  const minY = insets.top + TOP_CLEAR;
+  const bottomBand = Math.max(insets.bottom - 8, 10) + TAB_BAR + BOTTOM_GAP + (hasTrack ? PLAYER_BAR_SPACE : 0);
+  const maxY = Math.max(minY, H - bottomBand - SIZE);
 
   // The pan responder is made once, so it reads the screen's size and limits from here.
   const geo = useRef({ W, H, minY, maxY });
@@ -156,16 +209,19 @@ export function AssistiveButton() {
     return () => pos.removeListener(id);
   }, [pos]);
 
-  // The screen turned, or the saved spot changed elsewhere: move to it. Not after a drag of our own,
-  // which has already set `at` to the spot it is springing to, so the spring isn't cut short.
+  // The screen turned, the room it may use changed (the player bar came or went), or the saved spot
+  // changed elsewhere: glide to the new spot. Not after a drag of our own, which has already set `at`
+  // to the spot it is springing to, so the spring isn't cut short.
   const { assistiveSide, assistiveY } = prefs;
   useEffect(() => {
     if (dragging.current) return;
     const target = { x: restX(assistiveSide, W), y: clamp(assistiveY * H, minY, maxY) };
     if (Math.abs(target.x - at.current.x) < 0.5 && Math.abs(target.y - at.current.y) < 0.5) return;
     at.current = target;
-    pos.setValue(target);
-  }, [W, H, minY, maxY, assistiveSide, assistiveY, pos]);
+    pos.stopAnimation();
+    if (reduce !== false) pos.setValue(target);
+    else Animated.spring(pos, { toValue: target, friction: 9, tension: 70, useNativeDriver: false }).start();
+  }, [W, H, minY, maxY, assistiveSide, assistiveY, pos, reduce]);
 
   const openPanel = useCallback(() => {
     tap('light');
@@ -173,8 +229,9 @@ export function AssistiveButton() {
     setOrigin({ x: at.current.x + SIZE / 2, y: at.current.y + SIZE / 2 });
     setOpen(true);
     opening.stopAnimation();
-    Animated.spring(opening, { toValue: 1, damping: 20, stiffness: 240, mass: 0.8, useNativeDriver: true }).start();
-  }, [opening, wake]);
+    if (reduce !== false) Animated.timing(opening, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+    else Animated.spring(opening, { toValue: 1, damping: 20, stiffness: 240, mass: 0.8, useNativeDriver: true }).start();
+  }, [opening, wake, reduce]);
 
   const closePanel = useCallback(
     (quiet?: boolean) => {
@@ -292,16 +349,22 @@ export function AssistiveButton() {
   if (hidden) return null;
 
   const cell = (PANEL - 24) / 3;
+  // As tall as its rows of three need.
+  const panelH = Math.ceil(APPS.length / 3) * cell + 24;
   const panelLeft = (W - PANEL) / 2;
-  const panelTop = (H - PANEL) / 2;
-  const grow = {
-    opacity: opening.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' }),
-    transform: [
-      { translateX: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.x - W / 2, 0] }) },
-      { translateY: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.y - H / 2, 0] }) },
-      { scale: opening.interpolate({ inputRange: [0, 1], outputRange: [SIZE / PANEL, 1], extrapolateLeft: 'clamp' }) },
-    ],
-  };
+  const panelTop = (H - panelH) / 2;
+  // It grows out of the button; with Reduce Motion on it simply fades in where it ends up.
+  const grow =
+    reduce !== false
+      ? { opacity: opening.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }
+      : {
+          opacity: opening.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' }),
+          transform: [
+            { translateX: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.x - W / 2, 0] }) },
+            { translateY: opening.interpolate({ inputRange: [0, 1], outputRange: [origin.y - H / 2, 0] }) },
+            { scale: opening.interpolate({ inputRange: [0, 1], outputRange: [SIZE / PANEL, 1], extrapolateLeft: 'clamp' }) },
+          ],
+        };
   // The button gives way to the panel as it opens.
   const buttonOpacity = Animated.multiply(bright, opening.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0], extrapolate: 'clamp' }));
 
@@ -313,10 +376,10 @@ export function AssistiveButton() {
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)', opacity: opening.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => closePanel()} accessibilityRole="button" accessibilityLabel={t('churchApps.close')} />
           </Animated.View>
-          <Animated.View accessibilityViewIsModal onAccessibilityEscape={() => closePanel()} style={[{ position: 'absolute', left: panelLeft, top: panelTop, width: PANEL, height: PANEL }, grow]}>
+          <Animated.View accessibilityViewIsModal onAccessibilityEscape={() => closePanel()} style={[{ position: 'absolute', left: panelLeft, top: panelTop, width: PANEL, height: panelH }, grow]}>
             {/* Always dark and see-through, whatever the theme, like the phone's own panel. */}
             <BlurView intensity={50} tint="dark" style={{ flex: 1, borderRadius: 36, overflow: 'hidden' }}>
-              <View style={{ flex: 1, padding: 12, backgroundColor: 'rgba(28,28,30,0.72)', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center' }}>
+              <View style={{ flex: 1, padding: 12, backgroundColor: 'rgba(28,28,30,0.72)', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center' }}>
                 {APPS.map((app) => (
                   <Pressable
                     key={app.key}

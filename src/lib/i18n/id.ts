@@ -1128,4 +1128,334 @@ export const id: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Catatan disimpan',
   'bibleMarks.noteDeleted': 'Catatan dihapus',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Buka Pengaturan',
+  'createFlow.cameraOff': 'Akses kamera nonaktif',
+  'createFlow.choosePhotos': 'Pilih foto dan video',
+  'createFlow.recents': 'Terbaru',
+  'createFlow.albums': 'Album',
+  'goLive.endedAway': 'Siaran Live Anda berakhir selagi Anda pergi',
+  'live.paused': 'Dijeda',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Tautan penyiapan itu sudah kedaluwarsa.',
+  'payouts.country': 'Negara',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Akun Anda privat. Jadikan publik untuk mempromosikan postingan ini.',
+  'promote.profileOnly': 'Postingan ini hanya ada di profil Anda, jadi tidak bisa dipromosikan.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Belum menerima donasi',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Penggalangan dana ini tidak dapat dihapus. Sebagai gantinya, Anda bisa mengakhirinya.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Trek ini gagal dimuat. Coba lagi.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Tidak ada kitab yang cocok',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Memposting…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Hari ini',
+  'notifications.sectionYesterday': 'Kemarin',
+  'notifications.sectionThisWeek': 'Minggu ini',
+  'notifications.sectionThisMonth': 'Bulan ini',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Berhenti mengikuti {username}?',
+  'profile.unfollow': 'Berhenti mengikuti',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Keluar dari {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Permintaan terkirim',
+  'verify.pending': 'Menunggu ditinjau',
+  'verify.sentOn': 'Dikirim pada {date}',
+  'verify.notSent': 'Permintaan Anda tidak terkirim. Coba lagi.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Mengirim…',
+  'chat.sent': 'Terkirim',
+  'chat.seen': 'Dilihat',
+  'chat.notSent': 'Tidak terkirim · Ketuk untuk mencoba lagi',
+  'chat.notSentTitle': 'Pesan tidak terkirim',
+  'chat.copied': 'Disalin',
+  'chat.deleted': 'Chat dihapus',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Pesan terbaru',
+  'chat.viewProfile': 'Lihat profil',
+  'chat.noSavedReplies': 'Belum ada balasan tersimpan',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Maksimal 10 orang sekaligus',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Pesan terkirim',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Lokasi Anda tidak tersedia saat ini. Pastikan Layanan Lokasi aktif.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Warna cincin',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Tambahkan dari arsip',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Permintaan terkirim',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Anda harus meminta untuk bergabung lagi.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Tambahkan deskripsi',
+  // A community with no church chosen.
+  'groups.none': 'Tidak ada',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Gunakan lokasi saya',
+  'churches.openSettings': 'Buka Pengaturan',
+  'churches.openSettingsLabel': 'Buka Pengaturan untuk menggunakan lokasi Anda',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Menunggu peninjauan',
+  'churches.notApproved': 'Tidak disetujui',
+  'churches.noMembers': 'Belum ada anggota',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Gereja ini akan tampil untuk semua orang setelah disetujui admin.',
+  'churches.thanksMakeYours': 'Terima kasih! Jadikan ini gereja Anda?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Pembayaran',
+  'payments.cards': 'Kartu tersimpan',
+  'payments.addCard': 'Tambah kartu',
+  // The add-card sheet's title.
+  'payments.addACard': 'Tambahkan kartu',
+  'payments.cardSaved': 'Kartu disimpan',
+  'payments.cardNotSaved': 'Kartu tidak dapat disimpan. Coba lagi.',
+  'payments.cardOptions': 'Membuka opsi untuk kartu ini',
+  'payments.makeDefault': 'Jadikan utama',
+  'payments.removeCard': 'Hapus kartu',
+  'payments.removeQuestion': 'Hapus kartu ini?',
+  'payments.removeBody': '{card} akan dihapus dari akun Anda.',
+  'payments.removeBodyDefault': '{card} akan dihapus dari akun Anda. Plus diperpanjang dengan kartu ini, jadi tambahkan kartu lain sebelum perpanjangan berikutnya.',
+  'payments.remove': 'Hapus',
+  'payments.cardRemoved': 'Kartu dihapus',
+  'payments.defaultSet': 'Plus akan diperpanjang dengan kartu ini',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Tidak berlangganan',
+  'payments.activeUntil': 'Aktif hingga {day}',
+  'payments.paymentFailed': 'Pembayaran gagal',
+  'payments.creatorSubs': 'Langganan kreator',
+  'payments.none': 'Tidak ada',
+  'payments.noPayments': 'Belum ada pembayaran',
+  // A payment's state.
+  'payments.paid': 'Dibayar',
+  'payments.failed': 'Gagal',
+  'payments.refunded': 'Dikembalikan',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Langganan kreator',
+  'payments.kindDonation': 'Donasi',
+  'payments.kindAd': 'Iklan',
+  'payments.kindRefund': 'Pengembalian dana',
+  'payments.kindOther': 'Pembayaran',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Diatur oleh admin',
+  // One payment's details.
+  'payments.status': 'Status',
+  'payments.date': 'Tanggal',
+  'payments.method': 'Metode',
+  'payments.reference': 'Referensi',
+  'payments.copied': 'Referensi disalin',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Kartu ayat',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Kartu',
+  'verseCard.make': 'Buat kartu',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Latar',
+  'verseCard.font': 'Font',
+  'verseCard.layout': 'Tata letak',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Hutan',
+  'verseCard.bgGreen': 'Hijau',
+  'verseCard.bgNight': 'Malam',
+  'verseCard.bgDusk': 'Senja',
+  'verseCard.bgDawn': 'Fajar',
+  'verseCard.bgOcean': 'Laut',
+  'verseCard.bgPaper': 'Kertas',
+  'verseCard.bgWhite': 'Putih',
+  'verseCard.bgBlack': 'Hitam',
+  'verseCard.photo': 'Foto',
+  'verseCard.choosePhoto': 'Pilih foto',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Rata kiri',
+  'verseCard.alignCenter': 'Rata tengah',
+  'verseCard.alignRight': 'Rata kanan',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Persegi',
+  'verseCard.tall': 'Vertikal',
+  // What to do with the card.
+  'verseCard.toStory': 'Cerita Anda',
+  'verseCard.post': 'Posting',
+  'verseCard.save': 'Simpan',
+  'verseCard.saved': 'Disimpan',
+  'verseCard.allowPhotos': 'Izinkan Community menambahkan foto di Pengaturan untuk menyimpan kartu.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Dipersingkat agar muat',
+  'verseCard.notFound': 'Ayat itu tidak ditemukan.',
+  'verseCard.failed': 'Kartu tidak dapat dibuat. Coba lagi.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Streak {n} hari',
+  'bible.streakStart': 'Mulai streak',
+  'bible.readToday': 'Sudah membaca hari ini',
+  'bible.readAChapter': 'Baca satu pasal hari ini',
+  'bible.bestStreak': 'Terbaik {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Hari ke-{n} — terus lanjutkan',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Lanjutkan membaca',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Buka {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Acara',
+  'events.title': 'Acara',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Mendatang',
+  'events.going': 'Hadir',
+  'events.yours': 'Milik Anda',
+  'events.interested': 'Tertarik',
+  'events.create': 'Buat acara',
+  'events.nearYou': 'Di dekat Anda',
+  'events.useMyLocation': 'Gunakan lokasi saya',
+  'events.openSettings': 'Buka Pengaturan',
+  'events.emptyUpcoming': 'Tidak ada acara mendatang',
+  'events.emptyGoing': 'Belum ada rencana',
+  'events.emptyYours': 'Belum ada acara',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} hadir',
+  'events.interestedCount': '{count} tertarik',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Dibatalkan',
+  'events.ended': 'Selesai',
+  'events.now': 'Sedang berlangsung',
+  // The kinds of event.
+  'events.kind.service': 'Kebaktian',
+  'events.kind.bible_study': 'Pendalaman Alkitab',
+  'events.kind.youth': 'Pemuda',
+  'events.kind.prayer': 'Doa',
+  'events.kind.outreach': 'Penjangkauan',
+  'events.kind.music': 'Musik',
+  'events.kind.social': 'Persekutuan',
+  'events.kind.other': 'Lainnya',
+  // The event page.
+  'events.event': 'Acara',
+  'events.gone': 'Acara ini sudah tidak ada',
+  'events.openInMaps': 'Buka di Peta',
+  'events.mapsFailed': 'Peta tidak dapat dibuka',
+  'events.organiser': 'Penyelenggara',
+  'events.options': 'Opsi lainnya',
+  'events.noOneYet': 'Belum ada',
+  'events.edit': 'Edit',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Batalkan',
+  'events.callOffQuestion': 'Batalkan acara ini?',
+  'events.callOffBody': 'Semua yang sudah menjawab akan melihat bahwa acara ini dibatalkan.',
+  'events.keep': 'Pertahankan',
+  'events.deleteQuestion': 'Hapus acara ini?',
+  'events.deleteBody': 'Tindakan ini tidak dapat dibatalkan.',
+  'events.deleted': 'Acara dihapus',
+  // Making or changing an event.
+  'events.new': 'Acara baru',
+  'events.editTitle': 'Edit acara',
+  'events.save': 'Simpan',
+  'events.saved': 'Disimpan',
+  'events.addCover': 'Tambahkan sampul',
+  'events.changeCover': 'Ganti sampul',
+  'events.removeCover': 'Hapus sampul',
+  'events.titleLabel': 'Judul',
+  'events.titlePlaceholder': 'Nama acara',
+  'events.needTitle': 'Tambahkan judul.',
+  'events.kindLabel': 'Jenis',
+  'events.date': 'Tanggal',
+  'events.starts': 'Mulai',
+  'events.ends': 'Selesai',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Tambah',
+  'events.removeEnd': 'Hapus waktu selesai',
+  'events.prevMonth': 'Bulan sebelumnya',
+  'events.nextMonth': 'Bulan berikutnya',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Pilih waktu yang belum lewat.',
+  'events.place': 'Tempat',
+  'events.placePlaceholder': 'Aula gereja, Jl. Merdeka 12',
+  'events.pinOnMap': 'Sematkan di peta',
+  'events.movePin': 'Pindahkan pin',
+  'events.removePin': 'Hapus pin',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Geser peta ke tempatnya',
+  'events.done': 'Selesai',
+  'events.locationOff': 'Lokasi untuk Community nonaktif. Aktifkan di Pengaturan.',
+  'events.noFix': 'Lokasi Anda tidak tersedia saat ini.',
+  'events.church': 'Gereja',
+  'events.community': 'Komunitas',
+  'events.none': 'Tidak ada',
+  'events.searchChurches': 'Cari gereja',
+  'events.details': 'Detail',
+  'events.detailsPlaceholder': 'Ada acara apa?',
+  'events.forMembers14': 'Acara hanya untuk anggota berusia 14 tahun ke atas',
+  // On a church or community page.
+  'events.seeAll': 'Lihat semua',
+  'events.addEvent': 'Tambahkan acara',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Tampilkan',
+  'auth.hide': 'Sembunyikan',
+  'auth.showPassword': 'Tampilkan kata sandi',
+  'auth.hidePassword': 'Sembunyikan kata sandi',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Teman',
+  'map.nearby': 'Sekitar',
+  'map.churches': 'Gereja',
+  'map.events': 'Acara',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Ke lokasi saya',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Tampilkan saya di Sekitar',
+  'map.nearbyPrivacy': 'Orang lain hanya melihat perkiraan lokasi Anda, tidak pernah lokasi persisnya.',
+  'map.adultsOnly': 'Fitur Sekitar hanya untuk anggota berusia 18 tahun ke atas.',
+  'map.locationOff': 'Akses lokasi untuk Community nonaktif.',
+  'map.allowLocation': 'Izinkan akses lokasi untuk menggunakan Sekitar.',
+  'map.nearbyOnToast': 'Anda tampil di Sekitar',
+  'map.nearbyOffToast': 'Sekitar dinonaktifkan',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Tidak ada orang di sekitar saat ini',
+  'map.onePerson': '1 orang di sekitar',
+  'map.personCount': '{n} orang di sekitar',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Sekitar {n} km dari sini',
+  'map.noChurches': 'Belum ada gereja di peta',
+  'map.oneChurch': '1 gereja',
+  'map.churchCount': '{n} gereja',
+  'map.noEvents': 'Tidak ada acara mendatang di peta',
+  'map.oneEvent': '1 acara mendatang',
+  'map.eventCount': '{n} acara mendatang',
+  'map.nearestFirst': 'Terdekat dulu',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Tampilkan daftar',
+  'map.hideList': 'Sembunyikan daftar',
+  'map.going': '{n} hadir',
+  'map.happeningNow': 'Sedang berlangsung',
+  'map.today': 'Hari ini',
+  'map.tomorrow': 'Besok',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} dari sini',
+  'map.viewChurch': 'Lihat gereja',
+  'map.viewEvent': 'Lihat acara',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Petunjuk arah',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Bagikan postingan pertama Anda',
+  // ======== end of v23 ========
 };

@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
-import { amSharingLocation, moveSharedLocation } from './api';
+import { amSharingLocation, moveSharedLocation, nearbyHide, nearbyIsOn, nearbyShow } from './api';
 
 /** How often your place is sent while you share and the app is open. */
 const SHARE_EVERY_MS = 2 * 60e3;
+/** How often your rough place is sent while you show in Nearby and the app is open. */
+const NEARBY_EVERY_MS = 5 * 60e3;
 
 /*
  * Kept outside the hook so the map screen can tell it about changes: when the last place went (the
@@ -23,6 +25,162 @@ export function liveLocationChanged(sentNow = false) {
   listeners.forEach((l) => l());
 }
 
+/* ---------- Nearby ---------- */
+
+/*
+ * Nearby keeps only a rough place (the server rounds it to about a kilometre), and showing there is
+ * "add or move", so the order of what is sent matters: every change goes through one queue, and a
+ * place on its way when Nearby is turned off (or on) is dropped rather than sent after it.
+ */
+let nearbyLast = 0;
+let nearbyGen = 0;
+let nearbyFor = '';
+let nearbyChain: Promise<unknown> = Promise.resolve();
+const nearbyListeners = new Set<() => void>();
+
+function nearbyQueue<T>(op: () => Promise<T>): Promise<T> {
+  const run = nearbyChain.then(op, op);
+  nearbyChain = run.catch(() => {});
+  return run;
+}
+
+function nearbyChanged() {
+  nearbyListeners.forEach((l) => l());
+}
+
+/**
+ * Shows me in Nearby at about this place. False when the account can't (Nearby is for members 18
+ * and over). The app-wide updater then keeps the place fresh while the app is open.
+ */
+export function nearbyTurnOn(lat: number, lng: number): Promise<boolean> {
+  nearbyGen++;
+  return nearbyQueue(async () => {
+    const shown = await nearbyShow(lat, lng);
+    if (shown) nearbyLast = Date.now();
+    nearbyChanged();
+    return shown;
+  });
+}
+
+/** Stops showing me in Nearby, after anything already on its way, and stops the updates. */
+export function nearbyTurnOff(): Promise<void> {
+  nearbyGen++;
+  return nearbyQueue(async () => {
+    try {
+      await nearbyHide();
+    } finally {
+      nearbyLast = 0;
+      nearbyChanged();
+    }
+  });
+}
+
+/**
+ * A fresh rough place, only while I still show in Nearby (it isn't turned back on after being turned
+ * off on another phone, or after it lapsed) and only if Nearby wasn't turned on or off since `gen`.
+ */
+function nearbyMove(lat: number, lng: number, gen: number): Promise<boolean> {
+  return nearbyQueue(async () => {
+    if (gen !== nearbyGen) return false;
+    if (!(await nearbyIsOn())) return false;
+    if (gen !== nearbyGen) return false;
+    const shown = await nearbyShow(lat, lng);
+    if (shown) nearbyLast = Date.now();
+    return shown;
+  });
+}
+
+/** The map opened on Nearby: sends where I am now, unless a place went in the last minute. */
+export function nearbyRefresh(lat: number, lng: number): Promise<boolean> {
+  if (Date.now() - nearbyLast < 60e3) return Promise.resolve(true);
+  return nearbyMove(lat, lng, nearbyGen);
+}
+
+/**
+ * Keeps a member's rough place in Nearby fresh while they show there: every few minutes while the
+ * app is open in front of them. Like live location it never asks for access, never runs in the
+ * background, and stops when Nearby is turned off (here, on another phone, or by lapsing).
+ */
+function useNearbyUpdates(me: string, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled || !me) return;
+    // Another account on this phone: its last place says nothing about this one's.
+    if (nearbyFor !== me) {
+      nearbyFor = me;
+      nearbyLast = 0;
+    }
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let ended = false;
+    let sending = false;
+    let foreground = AppState.currentState === 'active' || AppState.currentState === 'unknown';
+    let gen = 0;
+
+    const stopTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+
+    const send = async () => {
+      if (ended || !foreground || sending) return;
+      sending = true;
+      const at = nearbyGen;
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted) return;
+        // A rough place is all Nearby keeps, so a recent or low-power fix is plenty.
+        const spot = (await Location.getLastKnownPositionAsync({ maxAge: 2 * 60e3 })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }));
+        if (ended || !foreground) return;
+        const shown = await nearbyMove(spot.coords.latitude, spot.coords.longitude, at);
+        // Not showing any more (and not because it was just turned on or off here): no more updates until it is.
+        if (!shown && at === nearbyGen) stopTimer();
+      } catch {
+        // No signal or no fix: the next update comes in a few minutes.
+      } finally {
+        sending = false;
+      }
+    };
+
+    const start = async () => {
+      const mine = ++gen;
+      stopTimer();
+      if (ended || !foreground) return;
+      let on = false;
+      try {
+        on = await nearbyIsOn();
+      } catch {
+        return;
+      }
+      if (mine !== gen || ended || !foreground || !on) return;
+      if (Date.now() - nearbyLast > NEARBY_EVERY_MS - 30e3) send();
+      timer = setInterval(send, NEARBY_EVERY_MS);
+    };
+
+    if (foreground) start();
+    const sub = AppState.addEventListener('change', (s) => {
+      const next = s === 'active';
+      if (next === foreground) return;
+      foreground = next;
+      if (next) start();
+      else {
+        gen++;
+        stopTimer();
+      }
+    });
+    const changed = () => { start(); };
+    nearbyListeners.add(changed);
+    return () => {
+      ended = true;
+      gen++;
+      // Signed out, or moving to another account: a place still waiting in the queue is dropped, so
+      // it can't go out as whoever is signed in next.
+      nearbyGen++;
+      stopTimer();
+      sub.remove();
+      nearbyListeners.delete(changed);
+    };
+  }, [me, enabled]);
+}
+
 /** The server refuses to store a place for this account (members under 14 can't share). */
 function refusal(e: unknown): boolean {
   const err = e as { code?: string; message?: string } | null;
@@ -35,8 +193,10 @@ function refusal(e: unknown): boolean {
  * already given (it never asks, and never asks for background location), stops when the app goes to
  * the background, and stops when sharing is turned off. An update only ever moves a place that is
  * already there, so one that lands after sharing was turned off can't switch it back on.
+ * It also keeps a member's rough place in Nearby fresh while they show there (useNearbyUpdates).
  */
 export function useLiveLocation(me: string, enabled: boolean) {
+  useNearbyUpdates(me, enabled);
   useEffect(() => {
     if (!enabled || !me) return;
     let timer: ReturnType<typeof setInterval> | null = null;

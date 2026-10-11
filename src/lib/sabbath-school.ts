@@ -41,35 +41,67 @@ export type Day = { id: string; title: string; date: string; index: string; path
 /** A day's reading: `content` is HTML with `<a class="verse" verse="2Pet313">` links; `bible` holds the verse texts per translation. */
 export type Reading = { id: string; title: string; date: string; index: string; content: string; bible?: { name: string; verses: Record<string, string> }[] };
 
-/**
- * Fetches a JSON document, keeping a copy on the phone. If the network fails (a chapel with no
- * signal on Sabbath morning), the copy is used so anything opened before still reads.
- */
-async function getJson<T>(path: string): Promise<T> {
-  const key = `community.ss.${path}`;
+/** The phone's copy of a document, if it reads; a garbled one counts as none. */
+async function kept<T>(key: string): Promise<T | null> {
   try {
-    // One time limit over the request and reading the body: a connection that stalls half-way
-    // through a reading would otherwise leave the page loading for ever, with no copy shown.
-    const data = await withTimeout(
-      fetch(`${BASE}/${path}`).then((res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? 'That lesson could not be found.' : 'The lesson could not be loaded. Check your connection and try again.');
-        return res.json() as Promise<T>;
-      }),
-      20000,
-    );
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function download<T>(path: string, ms: number): Promise<T> {
+  // One time limit over the request and reading the body: a connection that stalls half-way
+  // through a reading would otherwise leave the page loading for ever, with no copy shown.
+  return withTimeout(
+    fetch(`${BASE}/${path}`).then((res) => {
+      if (!res.ok) throw new Error(res.status === 404 ? 'That lesson could not be found.' : 'The lesson could not be loaded. Check your connection and try again.');
+      return res.json() as Promise<T>;
+    }),
+    ms,
+  );
+}
+
+/** Documents already brought up to date in the background this session. */
+const refreshed = new Set<string>();
+
+/**
+ * Fetches a JSON document, keeping a copy on the phone, so anything opened before still reads with
+ * no signal (a chapel on Sabbath morning).
+ *
+ * `cache` first: a lesson or a day's reading doesn't change once published, so the phone's copy shows
+ * at once and a fresh one is fetched quietly for next time. `network` first: the list of quarters gains
+ * new ones, so it is asked for each time, giving up sooner when there is a copy to fall back on.
+ */
+async function getJson<T>(path: string, prefer: 'cache' | 'network' = 'network'): Promise<T> {
+  const key = `community.ss.${path}`;
+  const copy = await kept<T>(key);
+  if (copy && prefer === 'cache') {
+    if (!refreshed.has(path)) {
+      refreshed.add(path);
+      download<T>(path, 30000)
+        .then((data) => AsyncStorage.setItem(key, JSON.stringify(data)))
+        .catch(() => refreshed.delete(path));
+    }
+    return copy;
+  }
+  try {
+    const data = await download<T>(path, copy ? 8000 : 20000);
     AsyncStorage.setItem(key, JSON.stringify(data)).catch(() => {});
+    refreshed.add(path);
     return data;
   } catch (e) {
-    const cached = await AsyncStorage.getItem(key).catch(() => null);
-    if (cached) return JSON.parse(cached) as T;
+    if (copy) return copy;
     throw e;
   }
 }
 
 export const fetchQuarterlies = () => getJson<Quarterly[]>('quarterlies/index.json');
-export const fetchQuarterly = (id: string) => getJson<{ quarterly: Quarterly; lessons: Lesson[] }>(`quarterlies/${id}/index.json`);
-export const fetchLesson = (quarterlyId: string, lessonId: string) => getJson<{ lesson: Lesson; days: Day[] }>(`quarterlies/${quarterlyId}/lessons/${lessonId}/index.json`);
-export const fetchDay = (quarterlyId: string, lessonId: string, dayId: string) => getJson<Reading>(`quarterlies/${quarterlyId}/lessons/${lessonId}/days/${dayId}/read/index.json`);
+/** `fresh` (pull to refresh) asks the server first rather than showing the phone's copy. */
+export const fetchQuarterly = (id: string, fresh = false) => getJson<{ quarterly: Quarterly; lessons: Lesson[] }>(`quarterlies/${id}/index.json`, fresh ? 'network' : 'cache');
+export const fetchLesson = (quarterlyId: string, lessonId: string) => getJson<{ lesson: Lesson; days: Day[] }>(`quarterlies/${quarterlyId}/lessons/${lessonId}/index.json`, 'cache');
+export const fetchDay = (quarterlyId: string, lessonId: string, dayId: string) => getJson<Reading>(`quarterlies/${quarterlyId}/lessons/${lessonId}/days/${dayId}/read/index.json`, 'cache');
 
 /* ---------- dates ---------- */
 

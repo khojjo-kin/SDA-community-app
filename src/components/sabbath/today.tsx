@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppFont } from '../../lib/fonts';
+import { tap } from '../../lib/haptics';
 import { C, monthName } from '../../lib/theme';
 import { Icon, IconName } from '../Icon';
 import { alpha, HERO_GRADIENT, Skeleton, WEEKDAY, WeekDots } from './kit';
@@ -27,7 +28,7 @@ export function Greeting({ name }: { name: string }) {
 /** A round see-through button on a picture or a coloured card. */
 export function GlassButton({ icon, label, onPress, fill, colour = '#ffffff', size = 44 }: { icon: IconName; label: string; onPress: () => void; fill?: boolean; colour?: string; size?: number }) {
   return (
-    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.18)' })}>
+    <Pressable onPress={() => { tap('light'); onPress(); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.18)' })}>
       <Icon name={icon} size={Math.round(size * 0.5)} color={colour} fill={fill} weight={2} />
     </Pressable>
   );
@@ -66,7 +67,7 @@ export function MemoryHero({
       <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       {image ? (
         <>
-          <Image source={{ uri: image }} contentFit="cover" transition={200} style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
+          <Image source={{ uri: image }} contentFit="cover" transition={200} cachePolicy="memory-disk" style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
           {/* Dark at the bottom where the words sit, so white text reads on any picture. */}
           <LinearGradient colors={['rgba(3,14,11,0.30)', 'rgba(3,14,11,0.55)', 'rgba(3,14,11,0.90)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
         </>
@@ -94,7 +95,7 @@ export function MemoryHero({
           <GlassButton icon="heart" fill={saved} colour={saved ? '#ff6b7a' : '#ffffff'} label={saved ? "Remove this week's lesson from Saved" : "Save this week's lesson"} onPress={onSave} />
           <GlassButton icon="share" label="Share the memory text" onPress={onShare} />
           <View style={{ flex: 1 }} />
-          <Pressable onPress={onRead} accessibilityRole="button" accessibilityLabel="Read today's study" style={({ pressed }) => ({ height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
+          <Pressable onPress={() => { tap('light'); onRead(); }} accessibilityRole="button" accessibilityLabel="Read today's study" style={({ pressed }) => ({ height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
             <Icon name="book" size={18} color={HERO_GRADIENT[0]} weight={2.1} />
             <Text style={{ color: HERO_GRADIENT[0], fontSize: 15.5, fontWeight: '700' }}>Read</Text>
           </Pressable>
@@ -106,7 +107,8 @@ export function MemoryHero({
 
 /**
  * Today's day of study: its name and title, the week so far as seven dots, and one big button.
- * `heading` is "Today's study" in the lesson's own week, or "Up next" outside it.
+ * `heading` is "Today's study" in the lesson's own week, or "Up next" outside it. `title` is null
+ * while the day's title is on its way.
  */
 export function TodayCard({
   heading,
@@ -119,7 +121,7 @@ export function TodayCard({
 }: {
   heading: string;
   dayName: string;
-  title: string;
+  title: string | null;
   states: ('done' | 'opened' | null)[];
   today?: number;
   action: string;
@@ -139,9 +141,9 @@ export function TodayCard({
         </View>
         <Text style={{ color: C.fg3, fontSize: 13.5, fontWeight: '600' }}>{`${read} of 7`}</Text>
       </View>
-      {title ? <Text numberOfLines={3} style={{ color: C.fg, fontSize: 17, fontWeight: '600', lineHeight: 23 }}>{title}</Text> : <Skeleton style={{ height: 18, width: '70%' }} />}
+      {title === null ? <Skeleton style={{ height: 18, width: '70%' }} /> : title ? <Text numberOfLines={3} style={{ color: C.fg, fontSize: 17, fontWeight: '600', lineHeight: 23 }}>{title}</Text> : null}
       <WeekDots states={states} today={today} />
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${action}: ${dayName}${title ? `, ${title}` : ''}`} style={({ pressed }) => ({ height: 52, borderRadius: 26, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
+      <Pressable onPress={() => { tap('light'); onPress(); }} accessibilityRole="button" accessibilityLabel={`${action}: ${dayName}${title ? `, ${title}` : ''}`} style={({ pressed }) => ({ height: 52, borderRadius: 26, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
         <Icon name="play" size={16} color={C.onAccent} />
         <Text style={{ color: C.onAccent, fontSize: 16.5, fontWeight: '700', fontFamily: font }}>{action}</Text>
       </Pressable>

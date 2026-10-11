@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -7,6 +7,27 @@ import { isNormal } from '../lib/filters';
 import type { Overlay, StoryItem, Stroke } from '../lib/types';
 import { FilteredImage } from './FilterStrip';
 import { Icon } from './Icon';
+import { Skeleton, SkeletonFrame } from './Skeleton';
+
+/** The three-column grid of 9:16 stories (the archive, New memory) while it loads, cell for cell. */
+export function StoryGridSkeleton({ rows = 3, gap = 2 }: { rows?: number; gap?: number }) {
+  const { width } = useWindowDimensions();
+  const cw = Math.floor((width - gap * 2) / 3);
+  const ch = Math.round((cw * 16) / 9);
+  return (
+    <SkeletonFrame>
+      <View style={{ gap }}>
+        {Array.from({ length: rows }, (_, r) => (
+          <View key={r} style={{ flexDirection: 'row', gap }}>
+            {[0, 1, 2].map((c) => (
+              <Skeleton key={c} width={cw} height={ch} radius={0} x={c * (cw + gap)} />
+            ))}
+          </View>
+        ))}
+      </View>
+    </SkeletonFrame>
+  );
+}
 
 /** Backgrounds for text stories. */
 export const STORY_BACKGROUNDS: readonly (readonly [string, string])[] = [
@@ -90,11 +111,12 @@ export function Strokes({ strokes, width, height }: { strokes: Stroke[]; width: 
   );
 }
 
-function Collage({ urls, w, h }: { urls: string[]; w: number; h: number }) {
+function Collage({ urls, w, h, onLoadEnd }: { urls: string[]; w: number; h: number; onLoadEnd?: () => void }) {
   const gap = 3;
   const list = urls.slice(0, 4);
   const half = (h - gap) / 2;
-  const cell = (uri: string, cw: number, ch: number, key: number) => <Image key={key} source={{ uri }} style={{ width: cw, height: ch, backgroundColor: '#1b222a' }} contentFit="cover" transition={120} />;
+  // The first photo stands for the collage being ready to watch.
+  const cell = (uri: string, cw: number, ch: number, key: number) => <Image key={key} source={{ uri }} style={{ width: cw, height: ch, backgroundColor: '#1b222a' }} contentFit="cover" transition={120} cachePolicy="memory-disk" onLoadEnd={key === 0 ? onLoadEnd : undefined} />;
   if (list.length <= 2) {
     return <View style={{ gap }}>{list.map((u, i) => cell(u, w, list.length === 1 ? h : half, i))}</View>;
   }
@@ -123,6 +145,7 @@ export function StoryCanvas({
   hideOverlays,
   hideCaption,
   filter,
+  onReady,
 }: {
   item: StoryItem;
   width: number;
@@ -140,11 +163,32 @@ export function StoryCanvas({
    * filter into the uploaded file, so saved stories never carry one and the player leaves this out.
    */
   filter?: string;
+  /**
+   * Called once when the story's picture has loaded (or failed to), or straight away when there is no
+   * picture to wait for (a text story, a live video). The player starts a photo's clock from here.
+   */
+  onReady?: () => void;
 }) {
   const bg = STORY_BACKGROUNDS[(item.bg ?? 0) % STORY_BACKGROUNDS.length];
   const full = { position: 'absolute' as const, left: 0, top: 0, width, height };
   const still = item.type === 'video' ? item.poster : item.url;
   const look = filter && !isNormal(filter) ? filter : null;
+  const collage = item.type === 'collage' ? item.urls ?? [] : [];
+  // Whether a picture is drawn below that onReady waits for.
+  const waits = item.type === 'collage' ? collage.length > 0 : item.type !== 'text' && !(item.type === 'video' && video) && !look && !!still;
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
+  const fired = useRef(false);
+  const ready = () => {
+    if (fired.current) return;
+    fired.current = true;
+    readyRef.current?.();
+  };
+  useEffect(() => {
+    if (!waits) ready();
+    // Once, for what this canvas was drawn with; the player draws a fresh canvas for each story.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   let media: React.ReactNode = null;
   if (item.type === 'text') {
@@ -152,7 +196,7 @@ export function StoryCanvas({
   } else if (item.type === 'collage') {
     media = (
       <View style={full}>
-        <Collage urls={item.urls ?? []} w={width} h={height} />
+        <Collage urls={collage} w={width} h={height} onLoadEnd={onReady ? ready : undefined} />
       </View>
     );
   } else if (item.type === 'video' && video) {
@@ -173,12 +217,12 @@ export function StoryCanvas({
     media =
       item.fit === 'contain' ? (
         <>
-          <Image source={{ uri: still }} style={full} contentFit="cover" blurRadius={36} />
+          <Image source={{ uri: still }} style={full} contentFit="cover" blurRadius={36} cachePolicy="memory-disk" />
           <View style={[full, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
-          <Image source={{ uri: still }} style={full} contentFit="contain" transition={120} />
+          <Image source={{ uri: still }} style={full} contentFit="contain" transition={120} cachePolicy="memory-disk" onLoadEnd={onReady ? ready : undefined} />
         </>
       ) : (
-        <Image source={{ uri: still }} style={full} contentFit="cover" transition={120} />
+        <Image source={{ uri: still }} style={full} contentFit="cover" transition={120} cachePolicy="memory-disk" onLoadEnd={onReady ? ready : undefined} />
       );
   } else if (item.type === 'video') {
     media = (

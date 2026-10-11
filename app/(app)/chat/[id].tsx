@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextStyle, useWindowDimensions, View } from 'react-native';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder } from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
+import * as Crypto from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErhaAvatar } from '../../../src/components/ErhaAvatar';
 import { thumbOf } from '../../../src/components/Grid';
@@ -16,35 +18,155 @@ import { Icon, IconName, VerifiedTick } from '../../../src/components/Icon';
 import { OnceToggle, SnapBubble, SnapViewer } from '../../../src/components/SnapBubble';
 import { AssistantThinking } from '../../../src/components/ThinkingOrb';
 import { TypingDots } from '../../../src/components/TypingDots';
-import { Avatar, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useChoices, useToast } from '../../../src/components/ui';
-import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage } from '../../../src/lib/api';
+import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useChoices, useToast } from '../../../src/components/ui';
+import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage, withTimeout } from '../../../src/lib/api';
 import { useCalls } from '../../../src/lib/calls';
 import { tap } from '../../../src/lib/haptics';
+import { type Key, type Vars, useT } from '../../../src/lib/i18n';
 import { pickFromLibrary, takePhoto, type Picked } from '../../../src/lib/pick';
 import { useAppFont } from '../../../src/lib/fonts';
 import { usePrefs } from '../../../src/lib/prefs';
 import { useSession } from '../../../src/lib/session';
 import { usePost } from '../../../src/lib/store';
 import { supabase } from '../../../src/lib/supabase';
-import { keepSame } from '../../../src/lib/cache';
+import { cacheKey, keepSame, peekCache } from '../../../src/lib/cache';
 import { BUBBLE, C, chatStamp, clock, DARK, errText } from '../../../src/lib/theme';
 import type { Faq, Message, Post, SavedReply, Thread } from '../../../src/lib/types';
 import { wallpaperById } from '../../../src/lib/wallpapers';
+import { markRecording } from '../../../src/lib/player';
 
-/** `seen` marks the last thing you sent once the other person has read it. */
+/** Under your newest message: "Sent", then "Seen" once the other person has read it. */
+type Status = 'sent' | 'seen';
+
+/**
+ * A text message of yours on its way. It shows in the chat the moment you press Send, and the
+ * server's copy, which has the same id, takes its place when it lands, so it is never shown twice.
+ */
+type Outgoing = { id: string; text: string; created_at: string; state: 'sending' | 'sent' | 'failed' };
+
 type Row =
   | { key: string; kind: 'stamp'; label: string }
-  | { key: string; kind: 'text'; mine: boolean; m: Message; big: boolean; seen?: boolean }
-  | { key: string; kind: 'post'; mine: boolean; m: Message; seen?: boolean }
-  | { key: string; kind: 'photos'; mine: boolean; urls: string[]; at: number; seen?: boolean }
-  | { key: string; kind: 'voice'; mine: boolean; m: Message; seen?: boolean }
-  | { key: string; kind: 'call'; mine: boolean; m: Message; seen?: boolean }
+  | { key: string; kind: 'text'; mine: boolean; m: Message; big: boolean; status?: Status }
+  | { key: string; kind: 'post'; mine: boolean; m: Message; status?: Status }
+  | { key: string; kind: 'photos'; mine: boolean; urls: string[]; at: number; status?: Status }
+  | { key: string; kind: 'voice'; mine: boolean; m: Message; status?: Status }
+  | { key: string; kind: 'call'; mine: boolean; m: Message; status?: Status }
   // A view-once photo: never drawn as a photo, only as a small bubble (src/components/SnapBubble.tsx).
-  | { key: string; kind: 'snap'; mine: boolean; m: Message; seen?: boolean }
+  | { key: string; kind: 'snap'; mine: boolean; m: Message; status?: Status }
   // A line from the app in the middle of the chat, such as "took a screenshot". Never marked "Seen".
-  | { key: string; kind: 'notice'; mine: boolean; m: Message; seen?: boolean };
+  | { key: string; kind: 'notice'; mine: boolean; m: Message; status?: Status }
+  // Yours, still on its way or not sent. `last` is the newest of them, which says how it is getting on.
+  | { key: string; kind: 'out'; mine: true; o: Outgoing; big: boolean; last: boolean; status?: Status };
 
 type Channel = ReturnType<typeof supabase.channel>;
+
+/** How many messages are fetched at a time: the newest on opening and on every refresh, and as many again on scrolling back. */
+const PAGE = 40;
+
+/*
+ * Messages on their way, per chat. Kept outside the screen so leaving and opening the chat again
+ * (or the same chat open twice) still shows them, and one that didn't send can be tried again.
+ */
+const NO_OUTGOING: Outgoing[] = [];
+const outboxes = new Map<string, Outgoing[]>();
+const outboxWatchers = new Set<() => void>();
+
+function changeOutbox(key: string, fn: (list: Outgoing[]) => Outgoing[]) {
+  const next = fn(outboxes.get(key) ?? NO_OUTGOING);
+  if (next === (outboxes.get(key) ?? NO_OUTGOING)) return;
+  if (next.length) outboxes.set(key, next);
+  else outboxes.delete(key);
+  outboxWatchers.forEach((w) => w());
+}
+
+/** Moves one message on its way to a new state; nothing changes if it has already landed. */
+function markOutgoing(key: string, id: string, state: Outgoing['state']) {
+  changeOutbox(key, (list) => (list.some((x) => x.id === id && x.state !== state) ? list.map((x) => (x.id === id ? { ...x, state } : x)) : list));
+}
+
+function watchOutbox(fn: () => void) {
+  outboxWatchers.add(fn);
+  return () => {
+    outboxWatchers.delete(fn);
+  };
+}
+
+function useOutbox(key: string): Outgoing[] {
+  return useSyncExternalStore(watchOutbox, () => outboxes.get(key) ?? NO_OUTGOING);
+}
+
+/** Messages leave one after another, so they reach the other person in the order they were written. */
+const sendLines = new Map<string, Promise<unknown>>();
+function inLine<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const next = (sendLines.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
+  sendLines.set(key, next);
+  next
+    .finally(() => {
+      if (sendLines.get(key) === next) sendLines.delete(key);
+    })
+    .catch(() => {});
+  return next;
+}
+
+/*
+ * The last messages of chats opened in this session, so opening one again shows it at once while it
+ * refreshes. Only in memory, never written to the phone, and kept with the moment the chat was last
+ * cleared, so a chat deleted since then never shows its old messages.
+ */
+const recentChats = new Map<string, { hidden: string | null; list: Message[] }>();
+function rememberChat(key: string, hidden: string | null, list: Message[]) {
+  recentChats.delete(key);
+  recentChats.set(key, { hidden, list: list.slice(-PAGE) });
+  if (recentChats.size > 24) {
+    const oldest = recentChats.keys().next().value;
+    if (oldest !== undefined) recentChats.delete(oldest);
+  }
+}
+
+/** Web addresses in a message, made tappable. */
+const LINK = /\b(?:https?:\/\/|www\.)[^\s<>"]+/gi;
+
+/** A message's words in pieces, with each web address its own piece (a full stop after one belongs to the sentence). */
+function splitLinks(text: string): { text: string; link: boolean }[] {
+  const out: { text: string; link: boolean }[] = [];
+  let last = 0;
+  for (const match of text.matchAll(LINK)) {
+    const start = match.index ?? 0;
+    const url = match[0].replace(/[.,!?;:'")\]}]+$/, '');
+    if (!url || start < last) continue;
+    if (start > last) out.push({ text: text.slice(last, start), link: false });
+    out.push({ text: url, link: true });
+    last = start + url.length;
+  }
+  if (!out.length) return [{ text, link: false }];
+  if (last < text.length) out.push({ text: text.slice(last), link: false });
+  return out;
+}
+
+/** Opens a link from a message in the in-app browser, or whatever the phone opens it with. */
+function openLink(raw: string) {
+  const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
+}
+
+/** The words of a message, with any web addresses underlined and tappable. Holding a link copies the message, as holding the bubble does. */
+function Words({ text, style, onLongPress }: { text: string; style: TextStyle; onLongPress?: () => void }) {
+  const parts = useMemo(() => splitLinks(text), [text]);
+  if (parts.length === 1 && !parts[0].link) return <Text style={style}>{text}</Text>;
+  return (
+    <Text style={style}>
+      {parts.map((p, i) =>
+        p.link ? (
+          <Text key={i} style={{ textDecorationLine: 'underline' }} onPress={() => openLink(p.text)} onLongPress={onLongPress} accessibilityRole="link">
+            {p.text}
+          </Text>
+        ) : (
+          p.text
+        ),
+      )}
+    </Text>
+  );
+}
 
 const QUICK = ['❤️', '😂', '😮', '😢', '😡', '👍', '🔥', '🙏', '🎉', '👏'];
 /** Ways to start a chat with Erha, offered while it is still empty. */
@@ -100,6 +222,48 @@ async function explained<T>(sending: Promise<T>, mutual: boolean | null, suspend
 /** True when the moment `a` is at or after `b` (both ISO times from the database). */
 function atOrAfter(a: string, b: string): boolean {
   return new Date(a).getTime() >= new Date(b).getTime();
+}
+
+/** A view-once photo opened on this phone stays opened, with its address dropped, even before the server has caught up. */
+function keepOpened(m: Message, openedHere: Map<string, string>): Message {
+  const at = openedHere.get(m.id);
+  return at ? { ...m, media_url: '', opened_at: m.opened_at ?? at } : m;
+}
+
+/**
+ * The newest page of a chat (oldest first) put together with what is on screen. Older messages loaded
+ * by scrolling back stay as long as they join up with the page (otherwise there could be a gap, so the
+ * list starts again from the page), and so does anything newer than the page that arrived over Realtime
+ * while it was on its way. `whole`: the page is the entire chat. Nothing from before `hiddenBefore`
+ * (when you last cleared the chat) is kept. `unconfirmed`: messages drawn straight from Realtime that no
+ * page has brought yet. One of them arriving after a stretch the phone missed (asleep, offline) doesn't
+ * show that the page joins up with the older messages, so only a message an earlier page brought counts.
+ */
+function mergeNewest(cur: Message[], page: Message[], whole: boolean, hiddenBefore: string | null, unconfirmed: ReadonlySet<string>): Message[] {
+  const cut = hiddenBefore ? new Date(hiddenBefore).getTime() : -Infinity;
+  if (!page.length) {
+    // Nothing on the server as this page saw it (a new chat, or one just cleared): only what Realtime has
+    // brought since stays, so a first message doesn't vanish because an older, empty answer came last.
+    const fresh = cur.filter((m) => unconfirmed.has(m.id) && new Date(m.created_at).getTime() > cut);
+    return fresh.length ? fresh : page;
+  }
+  if (!cur.length) return page;
+  const ids = new Set(page.map((m) => m.id));
+  const first = new Date(page[0].created_at).getTime();
+  const last = new Date(page[page.length - 1].created_at).getTime();
+  const joined = whole || cur.some((m) => ids.has(m.id) && !unconfirmed.has(m.id));
+  const before = whole || !joined ? [] : cur.filter((m) => !ids.has(m.id) && new Date(m.created_at).getTime() <= first && new Date(m.created_at).getTime() > cut);
+  const after = cur.filter((m) => !ids.has(m.id) && new Date(m.created_at).getTime() > last);
+  return before.length || after.length ? [...before, ...page, ...after] : page;
+}
+
+/** A message that has just arrived, put in its place by time (once only). */
+function withMessage(list: Message[], m: Message): Message[] {
+  if (list.some((x) => x.id === m.id)) return list;
+  const at = new Date(m.created_at).getTime();
+  let i = list.length;
+  while (i > 0 && new Date(list[i - 1].created_at).getTime() > at) i--;
+  return [...list.slice(0, i), m, ...list.slice(i)];
 }
 
 /** "08:24" */
@@ -158,10 +322,11 @@ function emojiOnly(text: string): boolean {
 }
 
 /**
- * Turns messages (oldest first) into what the list draws: time stamps, bubbles, and photos gathered into stacks.
- * `theirRead` is when the other person last read the chat: "Seen" goes under the last message you sent, once it is covered.
+ * Turns messages (oldest first) into what the list draws: time stamps, bubbles, and photos gathered into stacks,
+ * then your messages still on their way. `theirRead` is when the other person last read the chat. When the newest
+ * message is yours, "Sent" goes under it, and "Seen" once they have read it (`labels` off: neither, as with Erha).
  */
-function buildRows(messages: Message[], me: string, theirRead: string | null): Row[] {
+function buildRows(messages: Message[], outbox: Outgoing[], me: string, theirRead: string | null, labels: boolean): Row[] {
   const rows: Row[] = [];
   let prevAt = 0;
   for (const m of messages) {
@@ -199,16 +364,32 @@ function buildRows(messages: Message[], me: string, theirRead: string | null): R
     }
     if (plain) rows.push({ key: m.id, kind: 'text', mine, m, big: emojiOnly(words) });
   }
-  // "Seen" only ever sits under the last message you sent: the last row of yours is that message's last piece.
-  if (theirRead) {
-    const last = [...messages].reverse().find((m) => m.sender_id === me && m.system !== 'screenshot');
-    if (last && atOrAfter(theirRead, last.created_at)) {
+  // Yours on their way come after everything the server has, in the order written. Once the server's copy is in
+  // `messages` (same id) the stand-in is left out, so a message is never drawn twice.
+  let waiting = outbox;
+  if (outbox.length) {
+    const have = new Set(messages.map((m) => m.id));
+    waiting = outbox.filter((o) => !have.has(o.id));
+  }
+  waiting.forEach((o, i) => {
+    const at = new Date(o.created_at).getTime();
+    if (!prevAt || at - prevAt > 3600e3) rows.push({ key: 's' + o.id, kind: 'stamp', label: chatStamp(o.created_at) });
+    prevAt = Math.max(prevAt, at);
+    rows.push({ key: o.id, kind: 'out', mine: true, o, big: emojiOnly(o.text), last: i === waiting.length - 1 });
+  });
+  // "Sent" or "Seen" sits under the newest message only when it is yours: a reply after it says more than either.
+  // A view-once photo says Delivered or Opened itself, a call note isn't a message to read, and the app's own
+  // notices don't count.
+  if (labels && !waiting.length) {
+    let newest: Message | undefined;
+    for (let i = messages.length - 1; i >= 0 && !newest; i--) if (messages[i].system !== 'screenshot') newest = messages[i];
+    if (newest && newest.sender_id === me && !newest.view_once && !newest.call_url) {
+      const status: Status = theirRead && atOrAfter(theirRead, newest.created_at) ? 'seen' : 'sent';
       for (let i = rows.length - 1; i >= 0; i--) {
         const r = rows[i];
-        if (r.kind !== 'stamp' && r.kind !== 'notice' && r.mine) {
-          r.seen = true;
-          break;
-        }
+        if (r.kind === 'stamp' || r.kind === 'notice') continue;
+        if (r.mine) r.status = status;
+        break;
       }
     }
   }
@@ -225,9 +406,13 @@ function Bubble({ mine, children }: { mine: boolean; children: React.ReactNode }
   );
 }
 
-/** The small note under the last message you sent, once the other person has read it. `color` is light over a wallpaper. */
-function SeenLabel({ color }: { color: string }) {
-  return <Text style={{ color, fontSize: 12, alignSelf: 'flex-end', paddingTop: 3, paddingRight: 6 }}>Seen</Text>;
+/** The small note under your newest message: "Sending…", "Sent", "Seen", or that it didn't send. `color` is light over a wallpaper. */
+function StatusLabel({ words, color }: { words: string; color: string }) {
+  return (
+    <Text numberOfLines={1} accessibilityLiveRegion="polite" style={{ color, fontSize: 12, alignSelf: 'flex-end', paddingTop: 3, paddingRight: 6 }}>
+      {words}
+    </Text>
+  );
 }
 
 /** "Grace took a screenshot of the chat": a quiet line across the middle, not a bubble. Colours follow the wallpaper. */
@@ -281,7 +466,7 @@ function PhotoStack({ urls, mine, onOpen, onForward }: { urls: string[]; mine: b
   const one = urls.length === 1;
   const w = one ? 210 : 168;
   const h = one ? 276 : 222;
-  const photo = (uri: string, style: object, key: string) => <Image key={key} source={{ uri }} style={[{ position: 'absolute', width: w, height: h, borderRadius: 18, backgroundColor: C.bg2 }, style]} contentFit="cover" transition={120} />;
+  const photo = (uri: string, style: object, key: string) => <Image key={key} source={{ uri }} recyclingKey={uri} style={[{ position: 'absolute', width: w, height: h, borderRadius: 18, backgroundColor: C.bg2 }, style]} contentFit="cover" transition={120} cachePolicy="memory-disk" />;
   const stack = (
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={one ? 'Photo. Open' : `${urls.length} photos. Open`} style={{ width: one ? w : 232, height: one ? h : 322 }}>
       {one ? (
@@ -351,7 +536,7 @@ function VoicePlaying({ url, seconds, mine, locked }: { url: string; seconds: nu
 
   useEffect(() => {
     // Voice messages should be heard even when the phone's ring switch is off.
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false })
+    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false, shouldPlayInBackground: true })
       .catch(() => {})
       .finally(() => {
         try {
@@ -410,6 +595,8 @@ type RowActions = {
   openPost: (post: Post) => void;
   send: (text: string) => void;
   ask: (f: Faq) => void;
+  /** A message of yours that didn't send: try again, or take it away. */
+  unsent: (o: Outgoing) => void;
 };
 
 /**
@@ -421,9 +608,11 @@ function sameRow(a: Row, b: Row): boolean {
   if (a.key !== b.key || a.kind !== b.kind) return false;
   if (a.kind === 'stamp') return b.kind === 'stamp' && a.label === b.label;
   if (b.kind === 'stamp') return false;
-  if (a.mine !== b.mine || !!a.seen !== !!b.seen) return false;
+  if (a.mine !== b.mine || a.status !== b.status) return false;
   if (a.kind === 'photos') return b.kind === 'photos' && a.urls.length === b.urls.length && a.urls.every((u, i) => u === b.urls[i]);
   if (b.kind === 'photos') return false;
+  if (a.kind === 'out') return b.kind === 'out' && a.o === b.o && a.last === b.last;
+  if (b.kind === 'out') return false;
   if (a.m !== b.m) return false;
   return a.kind !== 'text' || (b.kind === 'text' && a.big === b.big);
 }
@@ -444,13 +633,22 @@ function SharedPost({ id, onOpen }: { id: string; onOpen: (post: Post) => void }
         <Avatar uri={post.avatar_url} name={post.full_name} size={24} />
         <Text numberOfLines={1} style={{ color: C.fg, fontWeight: '600', fontSize: 13, flex: 1 }}>{post.username}</Text>
       </View>
-      <Image source={{ uri: thumbOf(post) }} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" />
+      <Image source={{ uri: thumbOf(post) }} recyclingKey={post.id} style={{ width: 210, height: 262, backgroundColor: C.bg2 }} contentFit="cover" transition={120} cachePolicy="memory-disk" />
       {post.caption ? <Text numberOfLines={2} style={{ color: C.fg2, fontSize: 13, padding: 9 }}>{post.caption}</Text> : null}
     </Pressable>
   );
 }
 
-type ChatRowProps = { r: Row; fg2: string; fg3: string; name: string; locked: boolean; isErha: boolean; actions: RowActions };
+type ChatRowProps = { r: Row; fg2: string; fg3: string; name: string; locked: boolean; isErha: boolean; actions: RowActions; t: (key: Key, vars?: Vars) => string };
+
+/** The red mark beside a message that didn't send. */
+function NotSentMark() {
+  return (
+    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: C.like, alignItems: 'center', justifyContent: 'center' }}>
+      <Text allowFontScaling={false} style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>!</Text>
+    </View>
+  );
+}
 
 /**
  * One row of the chat. Memoised: the screen draws again on every key typed, every quarter second while
@@ -458,11 +656,41 @@ type ChatRowProps = { r: Row; fg2: string; fg3: string; name: string; locked: bo
  * `fg2`/`fg3` are the colours for words drawn straight on the background (light over a wallpaper).
  */
 const ChatRow = React.memo(
-  function ChatRow({ r, fg2, fg3, name, locked, isErha, actions }: ChatRowProps) {
+  function ChatRow({ r, fg2, fg3, name, locked, isErha, actions, t }: ChatRowProps) {
     if (r.kind === 'stamp') return <Text style={{ color: fg2, fontSize: 12.5, letterSpacing: 0.2, textAlign: 'center', paddingTop: 18, paddingBottom: 10 }}>{r.label}</Text>;
     if (r.kind === 'notice') return <ScreenshotLine mine={r.mine} name={name} fg2={fg2} fg3={fg3} />;
     const align = { alignSelf: r.mine ? ('flex-end' as const) : ('flex-start' as const), maxWidth: '82%' as const };
-    const seen = r.seen ? <SeenLabel color={fg3} /> : null;
+    const seen = r.status ? <StatusLabel words={t(r.status === 'seen' ? 'chat.seen' : 'chat.sent')} color={fg3} /> : null;
+    if (r.kind === 'out') {
+      // Yours, before the server has it: drawn as it will be, with "Sending…" under the newest, or a red mark to try again.
+      const o = r.o;
+      const failed = o.state === 'failed';
+      // With Erha nothing is ever labelled "Sent" (see buildRows), so hers would flash it for a moment and go.
+      const note = failed ? t('chat.notSent') : !r.last ? '' : o.state === 'sending' ? t('chat.sending') : isErha ? '' : t('chat.sent');
+      return (
+        <>
+          <Pressable
+            onPress={failed ? () => actions.unsent(o) : undefined}
+            onLongPress={() => actions.copy(o.text)}
+            delayLongPress={350}
+            accessibilityRole={failed ? 'button' : undefined}
+            accessibilityLabel={failed ? `${o.text}. ${t('chat.notSent')}` : undefined}
+            style={[align, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+            {failed ? <NotSentMark /> : null}
+            <View style={{ flexShrink: 1 }}>
+              {r.big ? (
+                <Text style={{ fontSize: 44, lineHeight: 54 }}>{o.text}</Text>
+              ) : (
+                <Bubble mine>
+                  <Words text={o.text} style={{ color: '#fff', fontSize: 17, lineHeight: 23 }} onLongPress={() => actions.copy(o.text)} />
+                </Bubble>
+              )}
+            </View>
+          </Pressable>
+          {note ? <StatusLabel words={note} color={failed ? C.like : fg3} /> : null}
+        </>
+      );
+    }
     if (r.kind === 'snap') {
       // The sender's own bubble says Delivered or Opened, so "Seen" would only repeat it.
       const opened = !!r.m.opened_at || actions.isOpened(r.m.id);
@@ -521,25 +749,30 @@ const ChatRow = React.memo(
       <>
         <Pressable style={align} onLongPress={() => actions.copy(r.m.text)} delayLongPress={350} accessibilityHint="Touch and hold to copy">
           <Bubble mine={r.mine}>
-            <Text style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }}>{r.m.text}</Text>
+            <Words text={r.m.text} style={{ color: r.mine ? '#fff' : C.fg, fontSize: 17, lineHeight: 23 }} onLongPress={() => actions.copy(r.m.text)} />
           </Bubble>
         </Pressable>
         {seen}
       </>
     );
   },
-  (a, b) => sameRow(a.r, b.r) && a.fg2 === b.fg2 && a.fg3 === b.fg3 && a.name === b.name && a.locked === b.locked && a.isErha === b.isErha && a.actions === b.actions,
+  (a, b) => sameRow(a.r, b.r) && a.fg2 === b.fg2 && a.fg3 === b.fg3 && a.name === b.name && a.locked === b.locked && a.isErha === b.isErha && a.actions === b.actions && a.t === b.t,
 );
 
 const keyOfRow = (r: Row) => r.key;
 const LIST_STYLE = { flex: 1 };
 const LIST_CONTENT = { paddingHorizontal: 12, paddingVertical: 12, gap: 4 };
 
+/** How far back from the newest message (in points) the button to jump back down appears. */
+const AWAY_PX = 360;
+
 export default function Chat() {
   // `draft` starts the message box with some words, e.g. a quoted note when replying to one (src/components/NotesRow.tsx).
   const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const threadId = String(id);
   const { me, profile } = useSession();
+  // What this phone keeps for the chat (messages on their way, the last ones shown) belongs to this account only.
+  const outKey = `${me}:${threadId}`;
   const prefs = usePrefs();
   const calls = useCalls();
   const router = useRouter();
@@ -549,11 +782,35 @@ export default function Chat() {
   const insets = useSafeAreaInsets();
   const font = useAppFont();
   const fontBold = useAppFont('bold');
+  const t = useT();
   const { width, height } = useWindowDimensions();
-  const [thread, setThread] = useState<Thread | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>('loading');
+  // A chat listed in Messages has its card already, and one opened before in this session its last
+  // messages too: it shows at once and refreshes behind. Old messages only while the chat hasn't been
+  // cleared since they were kept.
+  const [seed] = useState(() => {
+    const listed = peekCache<Thread[]>(cacheKey(me, 'threads'))?.find((x) => x.id === threadId) ?? null;
+    const kept = recentChats.get(outKey);
+    return { thread: listed, list: listed && kept && kept.hidden === listed.hidden_before ? kept.list : null };
+  });
+  const [thread, setThread] = useState<Thread | null>(seed.thread);
+  const [messages, setMessages] = useState<Message[]>(() => seed.list ?? []);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'missing'>(() => (seed.list ? 'ready' : 'loading'));
   const [error, setError] = useState('');
+  // Yours on their way (shared with any other copy of this chat that is open).
+  const outbox = useOutbox(outKey);
+  // Scrolling back: 'more' while there may be older messages, 'loading' while they come, 'done' at the start of the chat.
+  const [olderState, setOlderState] = useState<'more' | 'loading' | 'done'>('more');
+  const olderBusy = useRef(false);
+  const olderDone = useRef(false);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  // Messages drawn straight from Realtime that no fetched page has brought yet (see mergeNewest).
+  const unconfirmed = useRef(new Set<string>());
+  // Scrolled back from the newest message: the button down shows, with a dot if they wrote meanwhile.
+  const listRef = useRef<FlatList<Row>>(null);
+  const [away, setAway] = useState(false);
+  const awayRef = useRef(false);
+  const [missed, setMissed] = useState(false);
   const [text, setText] = useState(() => (typeof draft === 'string' ? draft : ''));
   const [sending, setSending] = useState(false);
   // Photos chosen and waiting for Send, with the view-once choice. Nothing is uploaded until Send.
@@ -579,12 +836,29 @@ export default function Chat() {
   const ready = useRef(false);
   const stopping = useRef(false);
   const micOn = useRef(false);
+  // Pod leaves the sound's setup alone while this screen records (src/lib/player.tsx markRecording).
+  const podHeld = useRef(false);
+  const holdPodAudio = useCallback((on: boolean) => {
+    if (podHeld.current === on) return;
+    podHeld.current = on;
+    markRecording(on);
+  }, []);
+  useEffect(
+    () => () => {
+      if (podHeld.current) {
+        podHeld.current = false;
+        markRecording(false);
+      }
+    },
+    [],
+  );
   // The other person: when they last read the chat, and whether they are typing right now.
   const them = useRef('');
   const [theirRead, setTheirRead] = useState<string | null>(null);
   const [theirTyping, setTheirTyping] = useState(false);
-  // Erha is answering: her typing bubble shows until the reply lands in the chat.
-  const [erhaThinking, setErhaThinking] = useState(false);
+  // Erha is answering (as many answers as are on their way): her orb shows until the reply lands in the chat.
+  const [erhaWaiting, setErhaWaiting] = useState(0);
+  const erhaThinking = erhaWaiting > 0;
   const typingRoom = useRef<Channel | null>(null);
   const typingHide = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSentAt = useRef(0);
@@ -651,31 +925,45 @@ export default function Chat() {
     typingRoom.current?.send({ type: 'broadcast', event: 'stopped', payload: { user: me } }).catch(() => {});
   }
 
-  function changeText(t: string) {
-    setText(t);
-    if (t.trim()) tellTyping();
+  function changeText(next: string) {
+    setText(next);
+    if (next.trim()) tellTyping();
     else tellStopped();
   }
 
+  /**
+   * Fetches the newest messages and puts them together with what is on screen: older ones loaded by
+   * scrolling back stay, and so do any newer ones that arrived over Realtime while this was on its way.
+   */
   const load = useCallback(async () => {
     if (!ready.current) return;
     const mine = ++asked.current;
     try {
-      // A view-once photo opened here stays opened, and its address is dropped, even if the server hasn't caught up yet.
-      const list = (await fetchMessages(threadId, hidden.current)).map((m) => {
-        const at = openedHere.current.get(m.id);
-        return at ? { ...m, media_url: '', opened_at: m.opened_at ?? at } : m;
-      });
+      const page = (await fetchMessages(threadId, hidden.current, { limit: PAGE })).map((m) => keepOpened(m, openedHere.current));
       // A slow, older answer must not replace a newer one (a message you just sent would vanish for a moment).
       if (mine < shown.current) return;
       shown.current = mine;
+      const whole = page.length < PAGE;
+      const cut = hidden.current;
+      // Judged by what was unconfirmed before this page; from now on the page vouches for its own messages.
+      const pending = new Set(unconfirmed.current);
+      for (const m of page) unconfirmed.current.delete(m.id);
       // Messages that haven't changed keep the objects already on screen (and an unchanged chat keeps
-      // its list), so the refresh every six seconds only draws what is new.
-      setMessages((cur) => keepSame(cur, list));
+      // its list), so the refresh every few seconds only draws what is new.
+      setMessages((cur) => keepSame(cur, mergeNewest(cur, page, whole, cut, pending)));
+      // Fewer than a page: that is the whole chat. A page that doesn't join up with what was here starts it again.
+      if (whole) olderDone.current = true;
+      else {
+        const ids = new Set(page.map((p) => p.id));
+        if (!messagesRef.current.some((m) => ids.has(m.id) && !pending.has(m.id))) olderDone.current = false;
+      }
+      if (!olderBusy.current) setOlderState(olderDone.current ? 'done' : 'more');
       setStatus((s) => (s === 'missing' ? s : 'ready'));
-      const theirs = [...list].reverse().find((m) => m.sender_id !== me);
+      const theirs = [...page].reverse().find((m) => m.sender_id !== me);
       // Their message has arrived, so the typing bubble has done its job.
       if (theirs && theirs.id !== lastTheirs.current) {
+        // Scrolled back while it came: a dot on the button down.
+        if (lastTheirs.current && awayRef.current) setMissed(true);
         lastTheirs.current = theirs.id;
         hideTheirTyping();
       }
@@ -691,26 +979,81 @@ export default function Chat() {
     }
   }, [threadId, me, hideTheirTyping]);
 
+  // A burst of live changes (a message, then its read marker) brings one refresh, not several.
+  const soon = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadSoon = useCallback(() => {
+    if (soon.current) return;
+    soon.current = setTimeout(() => {
+      soon.current = null;
+      load();
+    }, 300);
+  }, [load]);
+  useEffect(
+    () => () => {
+      if (soon.current) clearTimeout(soon.current);
+      soon.current = null;
+    },
+    [],
+  );
+
+  /** Scrolling back to the start of the chat: the messages before the oldest one shown. */
+  const loadOlder = useCallback(async () => {
+    if (!ready.current || olderBusy.current || olderDone.current) return;
+    const oldest = messagesRef.current[0];
+    if (!oldest) return;
+    olderBusy.current = true;
+    setOlderState('loading');
+    try {
+      const page = (await fetchMessages(threadId, hidden.current, { before: oldest.created_at, limit: PAGE })).map((m) => keepOpened(m, openedHere.current));
+      if (page.length < PAGE) olderDone.current = true;
+      // Only onto the same oldest message: a refresh may have started the list again from the newest meanwhile.
+      setMessages((cur) => {
+        if (cur[0]?.id !== oldest.id) return cur;
+        const have = new Set(cur.map((m) => m.id));
+        const add = page.filter((m) => !have.has(m.id));
+        return add.length ? [...add, ...cur] : cur;
+      });
+    } catch {
+      // Tried again on the next scroll back.
+    } finally {
+      olderBusy.current = false;
+      setOlderState(olderDone.current ? 'done' : 'more');
+    }
+  }, [threadId]);
+
   useEffect(() => {
     let live = true;
     ready.current = false;
+    // Listed in Messages: the chat's card is already here, so its messages can load straight away.
+    const listed = seed.thread && seed.thread.id === threadId ? seed.thread : null;
+    if (listed) {
+      hidden.current = listed.hidden_before;
+      them.current = listed.other_id;
+      ready.current = true;
+      load();
+    }
     (async () => {
       try {
-        const t = await fetchThread(threadId);
+        // With a deadline: nothing else asks for the chat's card again, so a request that never answers
+        // would otherwise leave the chat loading for good. Running out offers Try again.
+        const card = await withTimeout(fetchThread(threadId));
         if (!live) return;
-        if (!t) {
+        if (!card) {
           setStatus('missing');
           return;
         }
-        setThread(t);
-        hidden.current = t.hidden_before;
-        them.current = t.other_id;
+        setThread(card);
+        // Cleared on another phone since the list was saved: what is shown is fetched again from then.
+        const cleared = ready.current && hidden.current !== card.hidden_before;
+        const first = !ready.current;
+        hidden.current = card.hidden_before;
+        them.current = card.other_id;
         ready.current = true;
-        load();
+        if (first || cleared) load();
         if (!quietRef.current) markThreadRead(me, threadId);
         refreshTheirRead();
         // Creators can offer ready-made questions at the top of the chat.
-        getProfile(t.other_id)
+        getProfile(card.other_id)
           .then((p) => {
             mutual.current = p ? p.is_following && p.follows_me : null;
             return p && p.faq_enabled ? fetchFaqs(p.id) : [];
@@ -720,7 +1063,8 @@ export default function Chat() {
       } catch (e) {
         if (live) {
           setError(errText(e));
-          setStatus('error');
+          // Already showing the chat (from the Messages list): keep it there and keep refreshing.
+          setStatus((s) => (s === 'ready' ? s : 'error'));
         }
       }
     })();
@@ -735,9 +1079,18 @@ export default function Chat() {
         if (!live) return;
         channel = supabase
           .channel(`thread-${threadId}-${Date.now().toString(36)}`)
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { load(); })
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, (payload) => {
+            // Drawn at once, without waiting for a refresh; a shared post waits for its card, which the refresh brings.
+            const m = payload.new as Message | undefined;
+            if (live && m?.id && m.thread_id === threadId && !m.post_id) {
+              // Not yet vouched for by a page: the refresh below confirms it (see mergeNewest).
+              if (!messagesRef.current.some((x) => x.id === m.id)) unconfirmed.current.add(m.id);
+              setMessages((cur) => withMessage(cur, m));
+            }
+            loadSoon();
+          })
           // Changes to a message, above all a view-once photo being opened: the sender's "Delivered" turns to "Opened".
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { load(); })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${threadId}` }, () => { loadSoon(); })
           // The other person's read marker, for "Seen". Both markers for the chat arrive here; only theirs matters.
           .on('postgres_changes', { event: '*', schema: 'public', table: 'community_thread_reads', filter: `thread_id=eq.${threadId}` }, (payload) => {
             const row = payload.new as { user_id?: string; last_read_at?: string };
@@ -750,7 +1103,17 @@ export default function Chat() {
       clearInterval(timer);
       if (channel) supabase.removeChannel(channel);
     };
-  }, [threadId, me, load, attempt, refreshTheirRead, noteTheirRead]);
+  }, [threadId, me, load, loadSoon, attempt, refreshTheirRead, noteTheirRead, seed]);
+
+  // What is on screen is kept for opening the chat again; a server copy of yours takes its stand-in's place.
+  useEffect(() => {
+    if (status === 'ready' && ready.current) rememberChat(outKey, hidden.current, messages);
+  }, [messages, status, outKey]);
+  useEffect(() => {
+    if (!outbox.length || !messages.length) return;
+    const have = new Set(messages.map((m) => m.id));
+    if (outbox.some((o) => have.has(o.id))) changeOutbox(outKey, (list) => list.filter((o) => !have.has(o.id)));
+  }, [messages, outbox, outKey]);
 
   // Typing, both ways, over a broadcast channel the two phones share for this chat.
   useEffect(() => {
@@ -791,10 +1154,13 @@ export default function Chat() {
   }, [threadId, me, showTheirTyping, hideTheirTyping]);
 
   // Coming back to the chat refreshes it; while another screen covers it, nothing is marked as read.
+  const focusedBefore = useRef(false);
   useFocusEffect(
     useCallback(() => {
       front.current = true;
-      load();
+      // The first time, the chat is already loading.
+      if (focusedBefore.current) load();
+      focusedBefore.current = true;
       // A read marker that changed while another screen was in front (or the connection was down) is picked up here.
       refreshTheirRead();
       return () => {
@@ -809,8 +1175,8 @@ export default function Chat() {
     let live = true;
     const timer = setInterval(() => {
       fetchThread(threadId)
-        .then((t) => {
-          if (live && t) setThread((cur) => (cur ? { ...cur, active_at: t.active_at, other_plus: t.other_plus, streak: t.streak } : cur));
+        .then((card) => {
+          if (live && card) setThread((cur) => (cur ? { ...cur, active_at: card.active_at, other_plus: card.other_plus, streak: card.streak } : cur));
         })
         .catch(() => {});
     }, ACTIVE_EVERY_MS);
@@ -827,8 +1193,8 @@ export default function Chat() {
       let sub: { remove(): void } | null = null;
       try {
         sub = ScreenCapture.addScreenshotListener(() => {
-          const t = threadRef.current;
-          if (!t || !t.other_plus || t.other_id === ERHA_ID || t.other_id === me) return;
+          const card = threadRef.current;
+          if (!card || !card.other_plus || card.other_id === ERHA_ID || card.other_id === me) return;
           const now = Date.now();
           if (now - (lastShotAt.get(threadId) ?? 0) < SHOT_GAP_MS) return;
           lastShotAt.set(threadId, now);
@@ -848,19 +1214,36 @@ export default function Chat() {
     }, [me, threadId, load]),
   );
 
+  // The message box sits just above the keyboard, and above the home indicator without it. Android only says once it has moved.
   useEffect(() => {
-    const up = Keyboard.addListener('keyboardWillShow', () => setKeyboardUp(true));
-    const down = Keyboard.addListener('keyboardWillHide', () => setKeyboardUp(false));
+    const up = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardUp(true));
+    const down = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false));
     return () => {
       up.remove();
       down.remove();
     };
   }, []);
 
+  /* ----- scrolling ----- */
+
+  /** Back down to the newest message. */
+  const jumpToNewest = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  // The list is upside down: how far it has been scrolled is how far back from the newest message you are.
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const far = e.nativeEvent.contentOffset.y > AWAY_PX;
+    if (far === awayRef.current) return;
+    awayRef.current = far;
+    setAway(far);
+    if (!far) setMissed(false);
+  }, []);
+
   // Leave the microphone off when the screen closes.
   useEffect(
     () => () => {
-      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
     },
     [],
   );
@@ -870,37 +1253,81 @@ export default function Chat() {
 
   /**
    * Erha answers inside this chat: the function puts her reply in the thread as a normal message, so
-   * Realtime (or the next refresh) shows it. The typing bubble stays up until it has landed.
+   * Realtime (or the next refresh) shows it. Her orb stays up until it has landed.
    */
-  async function askErha(text: string) {
-    setErhaThinking(true);
+  async function askErha(words: string) {
+    setErhaWaiting((n) => n + 1);
     try {
-      await askErhaInThread(threadId, text);
+      await askErhaInThread(threadId, words);
     } catch (e) {
       toast(errText(e));
     } finally {
-      setErhaThinking(false);
+      setErhaWaiting((n) => Math.max(0, n - 1));
       load();
     }
   }
 
-  async function send(msg: { text?: string; media_url?: string }) {
-    if (sending) return;
-    setSending(true);
+  /** Sends a text message that is already showing in the chat. Marked sent, or not sent with the reason in a toast. */
+  function deliver(item: Outgoing) {
+    const toErha = isErha;
+    inLine(outKey, async () => {
+      try {
+        // A deadline, so one send that never answers can't hold the ones after it. If it lands late after all,
+        // the server's copy (same id) simply takes the place of the one marked not sent.
+        await withTimeout(sendMessage(me, threadId, { id: item.id, text: item.text }), 20000);
+      } catch (e) {
+        // Already there: an earlier try reached the server, and only its answer was lost on the way back.
+        if ((e as { code?: string } | null)?.code !== '23505') throw new Error(sendFailure(e, mutual.current, suspended.current));
+      }
+    })
+      .then(() => {
+        markOutgoing(outKey, item.id, 'sent');
+        load();
+        // Your message is in the chat; now Erha reads it and answers.
+        if (toErha) askErha(item.text);
+      })
+      .catch((e) => {
+        markOutgoing(outKey, item.id, 'failed');
+        toast(errText(e));
+      });
+  }
+
+  /** A text message: in the chat the moment you press Send, and on its way behind. */
+  function sendText(words: string) {
+    const body = words.trim().slice(0, 5000);
+    if (!body) return;
     tap();
-    if (msg.text !== undefined) tellStopped();
-    try {
-      await explained(sendMessage(me, threadId, msg), mutual.current, suspended.current);
-      // Clear the box only if it still holds what was sent: you may have typed more in the meantime.
-      if (msg.text !== undefined) setText((cur) => (cur === msg.text ? '' : cur));
-      await load();
-      // Your message is on screen; now Erha reads it and answers.
-      if (isErha && msg.text?.trim()) await askErha(msg.text.trim());
-    } catch (e) {
-      toast(errText(e));
-    } finally {
-      setSending(false);
-    }
+    tellStopped();
+    const item: Outgoing = { id: Crypto.randomUUID(), text: body, created_at: new Date().toISOString(), state: 'sending' };
+    changeOutbox(outKey, (list) => [...list, item]);
+    if (awayRef.current) jumpToNewest();
+    deliver(item);
+  }
+
+  /*
+   * Send gives way to the bar's icons as soon as the box is empty, so the second tap of a quick double tap
+   * on Send would land on one of them (the More sheet, the microphone). For a moment after sending they
+   * don't answer.
+   */
+  const sentAt = useRef(0);
+  const notJustSent = (fn: () => void) => () => {
+    if (Date.now() - sentAt.current < 450) return;
+    fn();
+  };
+
+  /** A message that didn't send: try it again (same message, so it can't arrive twice), or take it away. */
+  function unsent(o: Outgoing) {
+    Alert.alert(t('chat.notSentTitle'), undefined, [
+      {
+        text: t('common.tryAgain'),
+        onPress: () => {
+          markOutgoing(outKey, o.id, 'sending');
+          deliver(o);
+        },
+      },
+      { text: t('common.delete'), style: 'destructive', onPress: () => changeOutbox(outKey, (list) => list.filter((x) => x.id !== o.id)) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
   }
 
   /* ----- calls ----- */
@@ -909,7 +1336,9 @@ export default function Chat() {
   function call(kind: 'voice' | 'video') {
     if (!thread || calls.inCall || recording) return;
     pauseVoice();
-    calls.startCall(thread.other_id, kind, threadId).catch((e) => toast(errText(e)));
+    // Their name and face are already here, so the call screen shows them from the first moment.
+    const known = { id: thread.other_id, username: thread.username, full_name: thread.full_name, avatar_url: thread.avatar_url, verified: thread.verified };
+    calls.startCall(thread.other_id, kind, threadId, known).catch((e) => toast(errText(e)));
   }
 
   /**
@@ -934,6 +1363,7 @@ export default function Chat() {
     const { assets, once } = pending;
     setSending(true);
     tap();
+    if (awayRef.current) jumpToNewest();
     let sent = 0;
     try {
       for (const a of assets) {
@@ -1002,7 +1432,8 @@ export default function Chat() {
         return;
       }
       pauseVoice();
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      holdPodAudio(true);
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       micOn.current = true;
@@ -1012,7 +1443,8 @@ export default function Chat() {
       setRecording(true);
     } catch (e) {
       // Do not leave the phone in recording mode when the recording never started.
-      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
+      holdPodAudio(false);
       toast(errText(e));
     }
   }
@@ -1031,7 +1463,8 @@ export default function Chat() {
       setRecording(false);
       try {
         await recorder.stop();
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
+        holdPodAudio(false);
         const uri = recorder.uri;
         if (!keep) return;
         if (!uri || ms < 800) {
@@ -1039,16 +1472,19 @@ export default function Chat() {
           return;
         }
         setSending(true);
+        tap();
+        if (awayRef.current) jumpToNewest();
         const url = await uploadAudio(me, uri);
         await explained(sendMessage(me, threadId, { audio_url: url, audio_seconds: Math.max(1, Math.round(ms / 1000)) }), mutual.current, suspended.current);
         await load();
       } catch (e) {
+        holdPodAudio(false);
         if (keep) toast(errText(e));
       } finally {
         setSending(false);
       }
     },
-    [recorder, me, threadId, load, toast],
+    [recorder, me, threadId, load, toast, jumpToNewest],
   );
 
   // A recording never carries on behind another screen: opening a profile or a post, or leaving, discards it.
@@ -1064,7 +1500,7 @@ export default function Chat() {
   // Show the running time, and stop by itself at the limit.
   useEffect(() => {
     if (!recording) return;
-    const t = setInterval(() => {
+    const tick = setInterval(() => {
       try {
         const ms = recorder.getStatus().durationMillis;
         setRecordedMs(ms);
@@ -1073,7 +1509,7 @@ export default function Chat() {
         // the recorder was released
       }
     }, 250);
-    return () => clearInterval(t);
+    return () => clearInterval(tick);
   }, [recording, recorder, stopRecording]);
 
   /* ----- sheets ----- */
@@ -1089,10 +1525,27 @@ export default function Chat() {
     setTimeout(fn, 380);
   };
 
+  /** Off this screen: back where you came from, or to Messages when there is nothing behind it. */
+  const leave = () => (router.canGoBack() ? router.back() : router.replace('/inbox'));
+
   function removeChat() {
-    Alert.alert('Delete this chat?', 'The messages are removed for you only. The other person keeps their copy, and a new message starts the chat again.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => { hideThread(threadId).then(() => { toast('Chat deleted'); router.back(); }).catch((e) => toast(errText(e))); } },
+    Alert.alert(t('inbox.deleteQuestion'), t('inbox.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          hideThread(threadId)
+            .then(() => {
+              // Nothing of the old chat may show if it is opened again, not even a message still on its way.
+              recentChats.delete(outKey);
+              changeOutbox(outKey, () => NO_OUTGOING);
+              toast(t('chat.deleted'));
+              leave();
+            })
+            .catch((e) => toast(errText(e)));
+        },
+      },
     ]);
   }
 
@@ -1100,7 +1553,7 @@ export default function Chat() {
     if (!thread) return;
     Alert.alert(`Block ${thread.username}?`, 'You will stop seeing their posts, stories and comments. They are not told.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Block', style: 'destructive', onPress: () => { setBlock(me, thread.other_id, true).then(() => { toast(`Blocked ${thread.username}`); router.back(); }).catch((e) => toast(errText(e))); } },
+      { text: 'Block', style: 'destructive', onPress: () => { setBlock(me, thread.other_id, true).then(() => { toast(`Blocked ${thread.username}`); leave(); }).catch((e) => toast(errText(e))); } },
     ]);
   }
 
@@ -1155,10 +1608,11 @@ export default function Chat() {
     viewPhotos: (urls) => setViewer({ urls, at: 0, note: '' }),
     forward,
     call,
-    copy: (words) => { Clipboard.setStringAsync(words).then(() => toast('Copied')); },
+    copy: (words) => { Clipboard.setStringAsync(words).then(() => { tap(); toast(t('chat.copied')); }).catch(() => {}); },
     openPost: (post) => router.push(post.kind === 'reel' ? `/watch/${post.id}` : `/post/${post.id}`),
-    send: (words) => send({ text: words }),
+    send: sendText,
     ask,
+    unsent,
   };
   const actions = useMemo<RowActions>(
     () => ({
@@ -1171,12 +1625,13 @@ export default function Chat() {
       openPost: (post) => latest.current.openPost(post),
       send: (words) => latest.current.send(words),
       ask: (f) => latest.current.ask(f),
+      unsent: (o) => latest.current.unsent(o),
     }),
     [],
   );
 
-  // Erha never reads a chat, so nothing of yours is ever marked "Seen" there.
-  const rows = useMemo(() => buildRows(messages, me, isErha ? null : theirRead).reverse(), [messages, me, theirRead, isErha]);
+  // Erha never reads a chat, so nothing of yours is ever marked "Sent" or "Seen" there.
+  const rows = useMemo(() => buildRows(messages, outbox, me, theirRead, !isErha).reverse(), [messages, outbox, me, theirRead, isErha]);
   const typing = text.trim().length > 0;
   const showFaqs = faqs.length > 0 && !!thread && thread.other_id !== me;
   const showTyping = theirTyping || (isErha && erhaThinking);
@@ -1194,10 +1649,13 @@ export default function Chat() {
   const wallFg3 = onWall.fg3;
   const theirName = thread?.full_name || thread?.username || 'They';
   const renderRow = useCallback(
-    ({ item }: { item: Row }) => <ChatRow r={item} fg2={wallFg2} fg3={wallFg3} name={theirName} locked={item.kind === 'voice' && recording} isErha={isErha} actions={actions} />,
-    [wallFg2, wallFg3, theirName, recording, isErha, actions],
+    ({ item }: { item: Row }) => <ChatRow r={item} fg2={wallFg2} fg3={wallFg3} name={theirName} locked={item.kind === 'voice' && recording} isErha={isErha} actions={actions} t={t} />,
+    [wallFg2, wallFg3, theirName, recording, isErha, actions, t],
   );
-  const typingName = thread?.full_name ?? 'They';
+  const openProfile = useCallback(() => {
+    if (thread) router.push(`/user/${thread.other_id}`);
+  }, [thread, router]);
+  const typingName = theirName;
   // The list is upside down, so its header sits at the bottom: their typing bubble goes under the newest message.
   const listHeader = useMemo(
     () =>
@@ -1216,9 +1674,15 @@ export default function Chat() {
       ) : null,
     [isErha, erhaThinking, showTyping, wallpaper, typingName],
   );
+  // The list is upside down, so its footer sits at the top: older messages on their way, then (at the very
+  // start of the chat) the questions a creator offers.
   const listFooter = useMemo(
     () =>
-      showFaqs ? (
+      olderState === 'loading' ? (
+        <View style={{ paddingVertical: 16 }}>
+          <ActivityIndicator color={onWall.fg2} />
+        </View>
+      ) : showFaqs && olderState === 'done' ? (
         <View style={{ alignItems: 'center', paddingVertical: 14, gap: 8 }}>
           <Text style={{ color: onWall.fg2, fontSize: 13.5 }}>Frequently asked questions</Text>
           {faqs.map((f) => (
@@ -1228,7 +1692,7 @@ export default function Chat() {
           ))}
         </View>
       ) : null,
-    [showFaqs, faqs, onWall, sending, actions],
+    [olderState, showFaqs, faqs, onWall, sending, actions],
   );
   const listEmpty = useMemo(
     () => (
@@ -1237,43 +1701,46 @@ export default function Chat() {
         {isErha ? (
           <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingVertical: 28, gap: 12 }}>
             {thread?.avatar_url ? <Avatar uri={thread.avatar_url} name="Erha" size={72} /> : <ErhaAvatar size={72} />}
-            <Text style={{ color: onWall.fg, fontSize: 21, fontWeight: '800' }}>Hi, I'm Erha</Text>
-            <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 21 }}>I help with church life: the Bible, Sabbath School, hymns, prayer and planning activities. Ask me anything about it.</Text>
+            <Text style={{ color: onWall.fg, fontSize: 21, fontWeight: '800', fontFamily: fontBold }}>Hi, I'm Erha</Text>
             <View style={{ gap: 8, alignSelf: 'stretch', marginTop: 6 }}>
               {ERHA_OPENERS.map((o) => (
-                <Pressable key={o} onPress={() => actions.send(o)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Ask: ${o}`} style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface, opacity: sending ? 0.5 : 1 })}>
-                  <Text style={{ color: C.fg, fontSize: 15.5 }}>{o}</Text>
+                <Pressable key={o} onPress={() => actions.send(o)} accessibilityRole="button" accessibilityLabel={`Ask: ${o}`} style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: pressed ? C.surface2 : C.surface })}>
+                  <Text style={{ color: C.fg, fontSize: 15.5, fontFamily: font }}>{o}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
-        ) : wallpaper ? (
-          // Empty, drawn in light words that read on the dark wallpaper.
-          <View style={{ padding: 36, alignItems: 'center', gap: 8 }}>
-            <Text style={{ color: onWall.fg, fontSize: 17, fontWeight: '700', textAlign: 'center', fontFamily: fontBold }}>{thread ? thread.full_name : 'New chat'}</Text>
-            <Text style={{ color: onWall.fg2, textAlign: 'center', lineHeight: 20, fontFamily: font }}>Say hello to start the chat.</Text>
+        ) : thread ? (
+          // A new chat starts with who it is with, as on Instagram: their face, name and a way to their profile.
+          // Over a wallpaper the words are light, to read on the dark picture.
+          <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 32 }}>
+            <Avatar uri={thread.avatar_url} name={thread.full_name || thread.username} size={88} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 12, maxWidth: '100%' }}>
+              <Text numberOfLines={1} style={{ color: onWall.fg, fontSize: 19, fontWeight: '700', flexShrink: 1, fontFamily: fontBold }}>{thread.full_name || thread.username}</Text>
+              {thread.verified ? <VerifiedTick size={16} /> : null}
+            </View>
+            <Text numberOfLines={1} style={{ color: onWall.fg2, fontSize: 14, marginTop: 2, fontFamily: font }}>{thread.username}</Text>
+            <Button small kind="ghost" label={t('chat.viewProfile')} onPress={openProfile} style={{ marginTop: 14 }} />
           </View>
-        ) : (
-          <Empty title={thread ? thread.full_name : 'New chat'} body="Say hello to start the chat." />
-        )}
+        ) : null}
       </View>
     ),
-    [isErha, thread, onWall, sending, wallpaper, font, fontBold, actions],
+    [isErha, thread, onWall, font, fontBold, actions, openProfile, t],
   );
 
   return (
     <Screen>
       <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8 }}>
-        <RoundButton name="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/inbox'))} />
+        <RoundButton name="back" label="Back" onPress={leave} />
         {thread ? (
-          <Pressable onPress={() => router.push(`/user/${thread.other_id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${thread.full_name}'s profile`}>
-            {isErha && !thread.avatar_url ? <ErhaAvatar size={40} /> : <Avatar uri={thread.avatar_url} name={thread.full_name} size={40} online={!isErha && isOnline(thread.active_at)} />}
+          <Pressable onPress={openProfile} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, opacity: pressed ? 0.7 : 1 })} accessibilityRole="button" accessibilityLabel={`Open ${thread.full_name || thread.username}'s profile`}>
+            {isErha && !thread.avatar_url ? <ErhaAvatar size={40} /> : <Avatar uri={thread.avatar_url} name={thread.full_name || thread.username} size={40} online={!isErha && isOnline(thread.active_at)} />}
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{thread.full_name}</Text>
+                <Text numberOfLines={1} style={{ color: C.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{thread.full_name || thread.username}</Text>
                 {thread.verified ? <VerifiedTick size={16} /> : null}
                 {(thread.streak ?? 0) >= STREAK_FROM ? (
-                  <Pressable onPress={() => toast(`${thread.streak}-day streak: you've both written every day`)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${thread.streak}-day streak`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 2, opacity: pressed ? 0.6 : 1 })}>
+                  <Pressable onPress={() => toast(t('inbox.streakToast', { days: thread.streak }))} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('inbox.streak', { days: thread.streak })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 2, opacity: pressed ? 0.6 : 1 })}>
                     <Icon name="flame" size={16} color={FLAME} />
                     <Text style={{ color: C.fg2, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] }}>{thread.streak}</Text>
                   </Pressable>
@@ -1303,10 +1770,11 @@ export default function Chat() {
         {thread ? <RoundButton name="info" label="Chat options" onPress={() => setSheet('options')} /> : null}
       </View>
       {quiet && thread && !isErha ? (
-        <Pressable onPress={() => toast("They won't see “Seen” while you read. Change it in Settings.")} accessibilityRole="button" accessibilityLabel="Reading quietly. They won't see Seen while you read" style={({ pressed }) => ({ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4, borderRadius: 11, backgroundColor: C.surface, opacity: pressed ? 0.7 : 1 })}>
+        // A state, not a button: Read quietly is on (Settings), so nothing here marks the chat read.
+        <View accessible accessibilityLabel="Reading quietly" style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4, borderRadius: 11, backgroundColor: C.surface }}>
           <Icon name="eye" size={13} color={C.fg2} weight={2} />
           <Text style={{ color: C.fg2, fontSize: 12, fontWeight: '600' }}>Reading quietly</Text>
-        </Pressable>
+        </View>
       ) : null}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -1320,17 +1788,38 @@ export default function Chat() {
           <View style={{ flex: 1 }}>
             {wallpaper ? <LinearGradient pointerEvents="none" colors={wallpaper.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
             <FlatList
+              ref={listRef}
               data={rows}
               inverted
               keyExtractor={keyOfRow}
               style={LIST_STYLE}
               contentContainerStyle={LIST_CONTENT}
+              // A tap on the messages (not on a bubble) puts the keyboard away, and so does dragging them.
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               renderItem={renderRow}
               ListHeaderComponent={listHeader}
               ListFooterComponent={listFooter}
               ListEmptyComponent={listEmpty}
+              onEndReached={loadOlder}
+              onEndReachedThreshold={0.5}
+              onScroll={onScroll}
+              scrollEventThrottle={64}
+              initialNumToRender={18}
+              maxToRenderPerBatch={12}
+              windowSize={15}
             />
+            {away ? (
+              <Pressable
+                onPress={() => { tap('select'); jumpToNewest(); }}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.toNewest')}
+                style={({ pressed }) => ({ position: 'absolute', right: 14, bottom: 10, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sheet, borderWidth: StyleSheet.hairlineWidth, borderColor: C.hairline, opacity: pressed ? 0.7 : 1, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3 })}>
+                <Icon name="down" size={22} weight={2.2} />
+                {missed ? <View style={{ position: 'absolute', top: 1, right: 1, width: 11, height: 11, borderRadius: 6, backgroundColor: C.accent, borderWidth: 2, borderColor: C.sheet }} /> : null}
+              </Pressable>
+            ) : null}
           </View>
         )}
 
@@ -1339,7 +1828,7 @@ export default function Chat() {
             {tray ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={{ gap: 6, paddingHorizontal: 6, paddingBottom: 8 }}>
                 {QUICK.map((e) => (
-                  <Pressable key={e} onPress={() => send({ text: e })} disabled={sending} accessibilityRole="button" accessibilityLabel={`Send ${e}`} style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: C.inputBar, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                  <Pressable key={e} onPress={() => sendText(e)} accessibilityRole="button" accessibilityLabel={`Send ${e}`} style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: C.inputBar, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
                     <Text style={{ fontSize: 26 }}>{e}</Text>
                   </Pressable>
                 ))}
@@ -1384,15 +1873,25 @@ export default function Chat() {
                 )}
                 <TextInput value={text} onChangeText={changeText} onFocus={() => setTray(false)} onBlur={tellStopped} placeholder={isErha ? 'Ask Erha…' : 'Message…'} placeholderTextColor={C.fg2} autoFocus={!!draft} multiline maxLength={5000} keyboardAppearance={C.blurTint} style={{ flex: 1, color: C.fg, fontSize: 17, minHeight: 52, maxHeight: 130, paddingHorizontal: 12, paddingTop: 15, paddingBottom: 15 }} accessibilityLabel={isErha ? 'Message to Erha' : 'Message'} />
                 {typing ? (
-                  <Pressable onPress={() => send({ text })} disabled={sending} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: sending }} style={{ paddingHorizontal: 10, height: 52, justifyContent: 'center' }}>
-                    {isErha && sending ? <ActivityIndicator color={C.accent2} size="small" /> : <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5, opacity: sending ? 0.4 : 1 }}>Send</Text>}
+                  // The message shows in the chat at once and goes behind, so the box is free for the next one straight away.
+                  <Pressable
+                    onPress={() => {
+                      sentAt.current = Date.now();
+                      sendText(text);
+                      setText('');
+                    }}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.send')}
+                    style={({ pressed }) => ({ paddingHorizontal: 10, height: 52, justifyContent: 'center', opacity: pressed ? 0.5 : 1 })}>
+                    <Text style={{ color: C.accent2, fontWeight: '700', fontSize: 16.5 }}>{t('common.send')}</Text>
                   </Pressable>
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', height: 52 }}>
-                    {isErha ? null : <BarIcon name="mic" label="Record a voice message" onPress={startRecording} disabled={sending} />}
-                    {isErha ? null : <BarIcon name="image" label="Send photos" onPress={() => pickPhotos(false)} disabled={sending} />}
-                    <BarIcon name="chatdots" label={tray ? 'Hide quick reactions' : 'Quick reactions'} onPress={() => setTray(!tray)} />
-                    <BarIcon name="pluscircle" label="More" onPress={openMore} />
+                    {isErha ? null : <BarIcon name="mic" label="Record a voice message" onPress={notJustSent(startRecording)} disabled={sending} />}
+                    {isErha ? null : <BarIcon name="image" label="Send photos" onPress={notJustSent(() => pickPhotos(false))} disabled={sending} />}
+                    <BarIcon name="chatdots" label={tray ? 'Hide quick reactions' : 'Quick reactions'} onPress={notJustSent(() => setTray(!tray))} />
+                    <BarIcon name="pluscircle" label="More" onPress={notJustSent(openMore)} />
                   </View>
                 )}
               </View>
@@ -1406,7 +1905,7 @@ export default function Chat() {
         {replies === null ? (
           <Loading />
         ) : replies.length === 0 ? (
-          <Text style={{ color: C.fg2, textAlign: 'center', paddingHorizontal: 28, paddingBottom: 14, lineHeight: 20 }}>Save messages you send often, then drop them into any chat from here.</Text>
+          <Text style={{ color: C.fg2, textAlign: 'center', paddingHorizontal: 28, paddingBottom: 14 }}>{t('chat.noSavedReplies')}</Text>
         ) : (
           <ScrollView style={{ maxHeight: 280 }}>
             {replies.map((r) => (
@@ -1422,23 +1921,25 @@ export default function Chat() {
 
       {/* chat options */}
       <Sheet visible={sheet === 'options'} onClose={() => setSheet(null)}>
-        <SheetRow first icon="user" label="View profile" onPress={after(() => { if (thread) router.push(`/user/${thread.other_id}`); })} />
+        <SheetRow first icon="user" label="View profile" onPress={after(openProfile)} />
         <SheetRow
           icon={thread?.muted ? 'sound' : 'mute'}
-          label={thread?.muted ? 'Unmute messages' : 'Mute messages'}
-          sub={thread?.muted ? undefined : 'No unread dot on the Messages tab for this chat'}
+          label={thread?.muted ? t('inbox.unmute') : t('inbox.mute')}
           onPress={after(() => {
             if (!thread) return;
             const next = !thread.muted;
+            // Shown at once; put back if the server says no.
+            setThread((cur) => (cur ? { ...cur, muted: next } : cur));
             setThreadMuted(me, threadId, next)
-              .then(() => {
-                setThread({ ...thread, muted: next });
-                toast(next ? 'Messages muted' : 'Messages unmuted');
-              })
-              .catch((e) => toast(errText(e)));
+              .then(() => toast(next ? 'Messages muted' : 'Messages unmuted'))
+              .catch((e) => {
+                setThread((cur) => (cur ? { ...cur, muted: !next } : cur));
+                toast(errText(e));
+              });
           })}
         />
-        <SheetRow icon="wallpaper" label="Chat wallpaper" sub={profile?.plus ? 'The look behind every chat' : 'A Community Plus perk'} onPress={after(() => router.push('/chat-wallpaper'))} right={<Icon name="right" size={18} color={C.fg2} weight={2} />} />
+        {/* Chat wallpapers are a Plus perk: the crown says so without words. */}
+        <SheetRow icon="wallpaper" label="Chat wallpaper" onPress={after(() => router.push('/chat-wallpaper'))} right={profile?.plus ? <Icon name="right" size={18} color={C.fg2} weight={2} /> : <Icon name="crown" size={18} color={C.accent2} />} />
         <SheetRow icon="trash" label="Delete chat" danger onPress={after(removeChat)} />
         <SheetRow icon="block" label={`Block ${thread?.username ?? ''}`} danger onPress={after(block)} />
         <SheetRow icon="flag" label="Report" danger onPress={after(reportThem)} />

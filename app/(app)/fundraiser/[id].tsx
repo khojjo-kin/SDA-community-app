@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,8 @@ import { hasEnded, penceFrom, ProgressBar, progressOf } from '../../../src/compo
 import { Icon, VerifiedTick } from '../../../src/components/Icon';
 import { PayPanel } from '../../../src/components/PaySheet';
 import { Avatar, Button, Empty, ErrorNote, Field, Loading, RoundButton, Screen, ScreenHeader, SectionLabel, Sheet, Toggle, useToast } from '../../../src/components/ui';
-import { closeFundraiser, deleteFundraiser, fetchFundraiser, fetchSupporters, refreshFundraiserReady, startDonation } from '../../../src/lib/api';
+import { closeFundraiser, deleteFundraiser, fetchFundraiser, fetchSupporters, refreshFundraiserReady, startDonation, withTimeout } from '../../../src/lib/api';
+import { tap } from '../../../src/lib/haptics';
 import { t } from '../../../src/lib/i18n';
 import { money } from '../../../src/lib/payments';
 import { useSession } from '../../../src/lib/session';
@@ -21,6 +22,16 @@ const MAX_GIFT = 1_000_000;
 
 /** Shown when the owner tries to delete a fundraiser someone is part-way through giving to. */
 const GIVING_NOW = "Someone is giving right now, so it can't be deleted. You can end it instead.";
+
+/**
+ * Why a delete didn't happen, for the owner. The database's own reason when it wrote one for members
+ * (and a lost connection as such); any other refusal by its rules plainly, rather than as a puzzle.
+ */
+function deleteFailure(e: unknown): string {
+  const code = typeof (e as { code?: unknown })?.code === 'string' ? String((e as { code: string }).code) : '';
+  if (code && code !== 'P0001') return t('fundraiser.notDeleted');
+  return errText(e);
+}
 
 /** "12 Oct", with the year when it is not this year. */
 function day(iso: string): string {
@@ -44,9 +55,17 @@ export default function FundraiserScreen() {
   const [missing, setMissing] = useState(false);
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [error, setError] = useState('');
-  const [working, setWorking] = useState(false);
+  // What the owner is doing to it: ending it or deleting it. Only one at a time.
+  const [working, setWorking] = useState<'end' | 'delete' | null>(null);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+  // One screen per tap, however quickly a button is tapped twice.
+  const lastPush = useRef(0);
+  const open = (href: string) => {
+    if (Date.now() - lastPush.current < 800) return;
+    lastPush.current = Date.now();
+    router.push(href);
+  };
   // Stripe is asked at most once a visit whether the owner can take gifts yet.
   const readyAsked = useRef(false);
 
@@ -109,11 +128,16 @@ export default function FundraiserScreen() {
   function paid(_paymentIntentId: string, slow: boolean) {
     setPaying(false);
     setGiving(false);
-    setMessage('');
-    setCustom('');
-    setPreset(1000);
-    setAnonymous(false);
+    tap('success');
     toast(slow ? 'Payment received — it may take a minute to show' : 'Thank you for your gift');
+    // Cleared once the sheet has slid away, so its last words don't change as it goes.
+    setTimeout(() => {
+      if (!alive.current) return;
+      setMessage('');
+      setCustom('');
+      setPreset(1000);
+      setAnonymous(false);
+    }, 450);
     load();
   }
 
@@ -129,20 +153,22 @@ export default function FundraiserScreen() {
   function end() {
     if (!f || working) return;
     Alert.alert('End this fundraiser?', 'It will stop taking gifts and come off your profile. Gifts already made are not affected. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
         text: 'End fundraiser',
         style: 'destructive',
         onPress: async () => {
-          setWorking(true);
+          setWorking('end');
           try {
-            await closeFundraiser(f.id);
+            // A stalled connection gives up with a message rather than leaving the button spinning.
+            await withTimeout(closeFundraiser(f.id));
+            tap('success');
             toast('Fundraiser ended');
             await load();
           } catch (e) {
             toast(errText(e));
           } finally {
-            if (alive.current) setWorking(false);
+            if (alive.current) setWorking(null);
           }
         },
       },
@@ -153,29 +179,32 @@ export default function FundraiserScreen() {
     // Only offered while nobody has given; once someone has, it can be ended instead.
     if (!f || working || f.raised_pence > 0 || f.donor_count > 0) return;
     Alert.alert('Delete this fundraiser?', 'Nobody has given yet, so it can be removed completely.', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
-          setWorking(true);
+          setWorking('delete');
           let failure: unknown = null;
           try {
-            await deleteFundraiser(f.id);
+            await withTimeout(deleteFundraiser(f.id));
           } catch (e) {
             failure = e;
           }
           // The database keeps a fundraiser someone is paying a gift to (it is not in the totals until
           // the payment goes through), and may do so without an error, so look whether it has gone.
-          const still = await fetchFundraiser(f.id).catch(() => undefined);
+          const still = await withTimeout(fetchFundraiser(f.id)).catch(() => undefined);
           if (!alive.current) return;
           if (still || (still === undefined && failure)) {
-            toast(still ? GIVING_NOW : errText(failure));
-            setWorking(false);
+            // The database's own reason when it refused. When it quietly kept it: people have given by now
+            // (its rules keep a fundraiser with gifts), or someone is part-way through giving.
+            toast(failure ? deleteFailure(failure) : still && (still.raised_pence > 0 || still.donor_count > 0) ? t('fundraiser.notDeleted') : GIVING_NOW);
+            setWorking(null);
             // The gift may have gone through by now: show the latest total.
             if (still) load();
             return;
           }
+          tap('success');
           toast('Fundraiser deleted');
           if (router.canGoBack()) router.back();
           else router.replace('/payouts');
@@ -187,7 +216,7 @@ export default function FundraiserScreen() {
   let body: React.ReactNode;
   let footer: React.ReactNode = null;
   if (error && !f) body = <ErrorNote message={error} onRetry={load} />;
-  else if (missing) body = <Empty icon="gift" title="This fundraiser isn't available" body="It may have been deleted." />;
+  else if (missing) body = <Empty icon="gift" title="This fundraiser isn't available" />;
   else if (!f) body = <Loading />;
   else {
     const mine = f.user_id === me;
@@ -198,7 +227,7 @@ export default function FundraiserScreen() {
     body = (
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         {f.cover_url ? (
-          <Image source={{ uri: f.cover_url }} style={{ marginHorizontal: 16, height: 200, borderRadius: 18, backgroundColor: C.surface2 }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors />
+          <Image source={{ uri: f.cover_url }} style={{ marginHorizontal: 16, height: 200, borderRadius: 18, backgroundColor: C.surface2 }} contentFit="cover" transition={150} cachePolicy="memory-disk" accessibilityIgnoresInvertColors />
         ) : (
           <View style={{ marginHorizontal: 16, height: 120, borderRadius: 18, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="gift" size={48} color={C.accent2} />
@@ -208,7 +237,7 @@ export default function FundraiserScreen() {
         <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 14 }}>
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 23, fontWeight: '800', lineHeight: 29 }}>{f.title}</Text>
 
-          <Pressable onPress={() => router.push(`/user/${f.user_id}`)} accessibilityRole="button" accessibilityLabel={`Organised by ${f.full_name || f.username}. Open profile`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
+          <Pressable onPress={() => open(`/user/${f.user_id}`)} accessibilityRole="button" accessibilityLabel={`Organised by ${f.full_name || f.username}. Open profile`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
             <Avatar uri={f.avatar_url} name={f.full_name || f.username} size={38} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -220,7 +249,8 @@ export default function FundraiserScreen() {
             <Icon name="right" size={18} color={C.fg2} weight={2} />
           </Pressable>
 
-          <View style={{ padding: 16, borderRadius: 16, backgroundColor: C.surface, gap: 10 }}>
+          {/* How far it has got, on the page itself: no card around it. */}
+          <View style={{ paddingTop: 2, gap: 10 }}>
             <Text style={{ color: C.fg2, fontSize: 15, fontVariant: ['tabular-nums'] }}>
               <Text style={{ color: C.fg, fontSize: 24, fontWeight: '800' }}>{raised}</Text> raised of {goal}
             </Text>
@@ -242,19 +272,26 @@ export default function FundraiserScreen() {
           {mine ? (
             <View style={{ gap: 10 }}>
               {!ended && !f.accepting ? (
-                <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: C.warn + '1f' }}>
-                  <Icon name="info" size={18} color={C.warn} />
-                  <Text style={{ flex: 1, color: C.fg, fontSize: 14, lineHeight: 19 }}>Not taking donations yet. Set up payouts.</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ paddingTop: 1 }}>
+                    <Icon name="info" size={18} color={C.warn} />
+                  </View>
+                  <Text style={{ flex: 1, color: C.fg, fontSize: 14.5, lineHeight: 20 }}>{t('fundraiser.notTaking')}</Text>
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Button label="Edit" kind="ghost" onPress={() => router.push(`/fundraiser-new?id=${f.id}`)} style={{ flex: 1 }} />
-                <Button label="Payouts" kind={!ended && !f.accepting ? 'primary' : 'ghost'} onPress={() => router.push('/payouts')} style={{ flex: 1 }} />
+                <Button label="Edit" kind="ghost" disabled={!!working} onPress={() => open(`/fundraiser-new?id=${f.id}`)} style={{ flex: 1 }} />
+                <Button label="Payouts" kind={!ended && !f.accepting ? 'primary' : 'ghost'} onPress={() => open('/payouts')} style={{ flex: 1 }} />
               </View>
-              {!ended ? <Button label="End fundraiser" kind="ghost" busy={working} onPress={end} /> : null}
+              {!ended ? <Button label="End fundraiser" kind="ghost" busy={working === 'end'} disabled={working === 'delete'} onPress={end} /> : null}
               {f.raised_pence === 0 && f.donor_count === 0 ? (
-                <Pressable onPress={remove} disabled={working} accessibilityRole="button" accessibilityLabel="Delete fundraiser" style={{ alignSelf: 'center', paddingVertical: 6 }}>
-                  <Text style={{ color: C.like, fontSize: 14.5, fontWeight: '600' }}>Delete fundraiser</Text>
+                <Pressable
+                  onPress={working ? undefined : remove}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete fundraiser"
+                  accessibilityState={{ disabled: !!working, busy: working === 'delete' }}
+                  style={({ pressed }) => ({ alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, opacity: working === 'end' ? 0.45 : pressed ? 0.6 : 1 })}>
+                  {working === 'delete' ? <ActivityIndicator color={C.like} /> : <Text style={{ color: C.like, fontSize: 14.5, fontWeight: '600' }}>Delete fundraiser</Text>}
                 </Pressable>
               ) : null}
             </View>
@@ -292,10 +329,10 @@ export default function FundraiserScreen() {
 
     // The owner does not give to their own fundraiser.
     if (!mine) {
-      const open = !ended && f.accepting;
+      const canGive = !ended && f.accepting;
       footer = (
-        <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: insets.bottom + 10, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Button label={ended ? 'This fundraiser has ended' : open ? 'Donate' : 'Not taking donations yet'} disabled={!open} onPress={openGiving} />
+        <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: insets.bottom + 10, backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line }}>
+          <Button label={ended ? 'This fundraiser has ended' : canGive ? 'Donate' : t('fundraiser.notTaking')} disabled={!canGive} onPress={openGiving} />
         </View>
       );
     }
@@ -310,7 +347,7 @@ export default function FundraiserScreen() {
 
       <Sheet visible={giving} onClose={closeGiving} title={step === 'amount' ? 'Give' : 'Payment'} tall>
         {f && step === 'amount' ? (
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 14 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 14 }}>
             <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 8 }}>
               {PRESETS.map((p) => {
                 const on = preset === p;
@@ -318,6 +355,8 @@ export default function FundraiserScreen() {
                   <Pressable
                     key={p}
                     onPress={() => {
+                      if (on) return;
+                      tap('select');
                       setPreset(p);
                       setCustom('');
                     }}

@@ -136,6 +136,8 @@ export function FeedbackPrompt() {
   const [stars, setStars] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  // Why sending didn't work, shown in the sheet: a message at the foot of the screen would be hidden under it.
+  const [err, setErr] = useState('');
   const later = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // One more app open (once per launch; prefs are always loaded before the app's screens draw).
@@ -183,6 +185,7 @@ export function FeedbackPrompt() {
   async function send() {
     if (!stars || busy) return;
     setBusy(true);
+    setErr('');
     try {
       await sendFeedback(me, { kind: 'review', rating: stars, text, app_version: appVersion(), platform: Platform.OS });
       setOpen(false);
@@ -191,7 +194,7 @@ export function FeedbackPrompt() {
       // The phone's own rating card, once our sheet has slid away (two cards at once won't show).
       if (stars >= 4) later.current = setTimeout(() => { askForStoreRating(false); }, 700);
     } catch (e) {
-      toast(errText(e));
+      setErr(errText(e));
     } finally {
       setBusy(false);
     }
@@ -212,6 +215,7 @@ export function FeedbackPrompt() {
           accessibilityLabel={t('feedback.placeholder')}
           style={{ minHeight: 84, maxHeight: 160, color: C.fg, fontSize: 16, padding: 12, borderRadius: 14, backgroundColor: C.field, textAlignVertical: 'top', fontFamily: font }}
         />
+        {err ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13.5, lineHeight: 18, marginTop: -6, fontFamily: font }}>{err}</Text> : null}
         <View style={{ flexDirection: 'row', gap: 10, paddingBottom: 6 }}>
           <Button label={t('plus.notNow')} kind="ghost" onPress={() => setOpen(false)} style={{ flex: 1 }} />
           <Button label={t('common.send')} onPress={send} busy={busy} disabled={!stars} style={{ flex: 1 }} />

@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/Icon';
-import { NOTE_COLORS, NOTE_MAX, noteInk, takeNoteSeed } from '../../src/components/NotesRow';
+import { NOTE_COLORS, NOTE_MAX, noteChanged, noteInk, takeNoteSeed } from '../../src/components/NotesRow';
 import { Avatar, Empty, IconButton, Loading, Radio, SearchField, Sheet, useToast } from '../../src/components/ui';
 import { deleteNote, fetchNotes, fetchPod, saveNote } from '../../src/lib/api';
 import { useAppFont } from '../../src/lib/fonts';
@@ -42,9 +42,18 @@ export default function NoteComposer() {
   const [audience, setAudience] = useState<Note['audience']>(seed?.audience ?? 'mutuals');
   const [sheet, setSheet] = useState<'audience' | 'music' | 'place' | null>(null);
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
+  // Set the moment Share or Delete is tapped, so a second tap can't send it twice.
+  const working = useRef(false);
   const touched = useRef(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  /** A sheet over the composer. The keyboard goes first, so typing can't land in the note behind it. */
+  const openSheet = (s: 'audience' | 'music' | 'place') => {
+    Keyboard.dismiss();
+    setSheet(s);
+  };
 
   // Opened without the row (a link, say): find your note, unless you've already started.
   useEffect(() => {
@@ -80,34 +89,63 @@ export default function NoteComposer() {
   }
 
   async function share() {
-    if (!canShare) return;
+    if (!canShare || working.current) return;
+    working.current = true;
     setBusy('save');
     try {
       await saveNote(me, text, audience, { song_id: song?.id ?? null, place, color });
       tap('success');
+      // The row above Messages shows it at once, as the server now has it.
+      const now = Date.now();
+      noteChanged(me, {
+        user_id: me,
+        text: text.replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX),
+        audience,
+        created_at: new Date(now).toISOString(),
+        expires_at: new Date(now + 24 * 3600e3).toISOString(),
+        username: profile?.username ?? '',
+        full_name: profile?.full_name ?? '',
+        avatar_url: profile?.avatar_url ?? '',
+        verified: !!profile?.verified,
+        mine: true,
+        song_id: song?.id ?? null,
+        song_title: song?.title ?? null,
+        song_artist: song?.artist ?? null,
+        song_url: null,
+        song_cover: null,
+        place: place.replace(/\s+/g, ' ').trim().slice(0, PLACE_MAX),
+        color,
+      });
       toast(t('noteNew.shared'));
-      router.back();
+      close();
     } catch (e) {
+      tap('warning');
       toast(errText(e));
+      working.current = false;
       if (alive.current) setBusy(null);
     }
   }
 
   function remove() {
-    if (busy) return;
+    if (busy || working.current) return;
+    Keyboard.dismiss();
     Alert.alert(t('noteNew.deleteQuestion'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
+          if (working.current) return;
+          working.current = true;
           setBusy('delete');
           try {
             await deleteNote(me);
+            noteChanged(me, null);
             toast(t('noteNew.deleted'));
-            router.back();
+            close();
           } catch (e) {
             toast(errText(e));
+            working.current = false;
             if (alive.current) setBusy(null);
           }
         },
@@ -118,7 +156,7 @@ export default function NoteComposer() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: insets.top + 4, paddingHorizontal: 8 }}>
-        <IconButton name="close" size={28} label={t('common.close')} onPress={() => router.back()} />
+        <IconButton name="close" size={28} label={t('common.close')} onPress={busy ? undefined : close} />
         {existing ? <IconButton name="trash" size={24} label={t('noteNew.delete')} onPress={remove} /> : null}
       </View>
 
@@ -127,7 +165,7 @@ export default function NoteComposer() {
         <View style={{ alignItems: 'center', zIndex: 2, marginBottom: -10 }}>
           <View style={{ minWidth: 170, maxWidth: 290, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 24, backgroundColor: bubble, alignItems: 'center', gap: 6 }}>
             {song ? (
-              <Pressable onPress={() => setSheet('music')} accessibilityRole="button" accessibilityLabel={t('noteNew.songBy', { title: song.title, artist: song.artist })} hitSlop={4}>
+              <Pressable onPress={() => openSheet('music')} accessibilityRole="button" accessibilityLabel={t('noteNew.songBy', { title: song.title, artist: song.artist })} hitSlop={4}>
                 <Text numberOfLines={1} style={{ color: ink, opacity: 0.85, fontSize: 13.5, fontWeight: '600', fontFamily: fontBold }}>
                   ♪ {song.title}{song.artist ? ` · ${song.artist}` : ''}
                 </Text>
@@ -152,7 +190,7 @@ export default function NoteComposer() {
               style={{ color: ink, fontSize: 18, lineHeight: 23, textAlign: 'center', minWidth: 140, maxWidth: 254, padding: 0, fontFamily: font }}
             />
             {place ? (
-              <Pressable onPress={() => setSheet('place')} accessibilityRole="button" accessibilityLabel={place} hitSlop={4} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 254 }}>
+              <Pressable onPress={() => openSheet('place')} accessibilityRole="button" accessibilityLabel={place} hitSlop={4} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 254 }}>
                 <Icon name="location" size={13} color={ink} />
                 <Text numberOfLines={1} style={{ color: ink, opacity: 0.85, fontSize: 13, flexShrink: 1, fontFamily: font }}>{place}</Text>
               </Pressable>
@@ -176,14 +214,14 @@ export default function NoteComposer() {
 
         {/* Music and place. */}
         <View style={{ flexDirection: 'row', gap: 18, marginTop: 22 }}>
-          <OutlinedButton icon="music" label={t('noteNew.music')} on={!!song} onPress={() => setSheet('music')} />
-          <OutlinedButton icon="location" label={t('noteNew.location')} on={!!place} onPress={() => setSheet('place')} />
+          <OutlinedButton icon="music" label={t('noteNew.music')} on={!!song} onPress={() => openSheet('music')} />
+          <OutlinedButton icon="location" label={t('noteNew.location')} on={!!place} onPress={() => openSheet('place')} />
         </View>
       </ScrollView>
 
       {/* Who sees it, and Share. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 10) }}>
-        <Pressable onPress={() => setSheet('audience')} accessibilityRole="button" hitSlop={6} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, opacity: pressed ? 0.6 : 1 })}>
+        <Pressable onPress={() => openSheet('audience')} accessibilityRole="button" hitSlop={6} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, opacity: pressed ? 0.6 : 1 })}>
           {audience === 'close_friends' ? (
             <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: C.close, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="star" size={11} color="#fff" fill />
@@ -198,9 +236,10 @@ export default function NoteComposer() {
           onPress={share}
           disabled={!canShare}
           accessibilityRole="button"
+          accessibilityLabel={t('common.share')}
           accessibilityState={{ disabled: !canShare, busy: busy === 'save' }}
-          style={({ pressed }) => ({ height: 40, paddingHorizontal: 22, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: !canShare ? 0.4 : pressed ? 0.75 : 1 })}>
-          <Text style={{ color: C.onAccent, fontSize: 15.5, fontWeight: '700', fontFamily: fontBold }}>{t('common.share')}</Text>
+          style={({ pressed }) => ({ height: 40, minWidth: 92, paddingHorizontal: 22, borderRadius: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: busy === 'save' ? 1 : !canShare ? 0.4 : pressed ? 0.75 : 1 })}>
+          {busy === 'save' ? <ActivityIndicator color={C.onAccent} /> : <Text style={{ color: C.onAccent, fontSize: 15.5, fontWeight: '700', fontFamily: fontBold }}>{t('common.share')}</Text>}
         </Pressable>
       </View>
 
@@ -379,6 +418,7 @@ function PlaceSheet({ visible, value, onDone, onClose }: { visible: boolean; val
             <Icon name="location" size={20} />
           </View>
           <Text style={{ flex: 1, color: C.fg, fontSize: 16.5, fontFamily: font }}>{t('noteNew.useLocation')}</Text>
+          {finding ? <ActivityIndicator color={C.fg2} /> : null}
         </Pressable>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {value ? (

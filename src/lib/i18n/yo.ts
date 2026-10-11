@@ -1192,4 +1192,334 @@ export const yo: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'A ti fi àkọsílẹ̀ pamọ́',
   'bibleMarks.noteDeleted': 'A ti pa àkọsílẹ̀ rẹ́',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Ṣí ètò fóònù rẹ',
+  'createFlow.cameraOff': 'Community kò ní àyè sí kámẹ́rà',
+  'createFlow.choosePhotos': 'Yan fọ́tò àti fídíò',
+  'createFlow.recents': 'Láìpẹ́ yìí',
+  'createFlow.albums': 'Àkójọ fọ́tò',
+  'goLive.endedAway': 'Ìgbéjáde tààràtà rẹ parí nígbà tí o kò sí níbẹ̀',
+  'live.paused': 'Ó dúró díẹ̀',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Àkókò ìjápọ̀ ìṣètò yẹn ti kọjá.',
+  'payouts.country': 'Orílẹ̀-èdè',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Àkáǹtì rẹ wà ní ìkọ̀kọ̀. Sọ ọ́ di gbangba láti polongo àtẹ̀jáde yìí.',
+  'promote.profileOnly': 'Àtẹ̀jáde yìí wà lórí profaili rẹ nìkan, nítorí náà a kò lè polongo rẹ̀.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Kò tíì bẹ̀rẹ̀ sí í gba ọrẹ',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'A kò lè pa ìkówójọ yìí rẹ́. O lè parí rẹ̀ dípò bẹ́ẹ̀.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Orin yìí kò ṣí. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Kò sí ìwé tí ó bá ìyẹn mu',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'À ń fi síta…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Òní',
+  'notifications.sectionYesterday': 'Àná',
+  'notifications.sectionThisWeek': 'Ọ̀sẹ̀ yìí',
+  'notifications.sectionThisMonth': 'Oṣù yìí',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Dẹ́kun títẹ̀lé {username}?',
+  'profile.unfollow': 'Dẹ́kun títẹ̀lé',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Jáde kúrò ní {name}',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'A ti fi ìbéèrè ránṣẹ́',
+  'verify.pending': 'Ó ń dúró',
+  'verify.sentOn': 'A fi ránṣẹ́ ní {date}',
+  'verify.notSent': 'A kò lè fi ìbéèrè rẹ ránṣẹ́. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'À ń fi ránṣẹ́…',
+  'chat.sent': 'A ti fi ránṣẹ́',
+  'chat.seen': 'Wọ́n ti rí i',
+  'chat.notSent': 'Kò lọ · Tẹ̀ ẹ́ láti tún gbìyànjú',
+  'chat.notSentTitle': 'Ìfiránṣẹ́ kò lọ',
+  'chat.copied': 'A ti dà á kọ',
+  'chat.deleted': 'A ti pa ìjíròrò náà rẹ́',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Àwọn ìfiránṣẹ́ tuntun jù lọ',
+  'chat.viewProfile': 'Wo profaili',
+  'chat.noSavedReplies': 'Kò sí èsì tí a fi pamọ́ síbẹ̀',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Títí dé ènìyàn 10 lẹ́ẹ̀kan náà',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'A ti fi ìfiránṣẹ́ rẹ ránṣẹ́',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'A kò rí ibi tí o wà báyìí. Ṣàyẹ̀wò pé Location Services wà ní títàn.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Àwọ̀ òrùka',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Fi kún un láti Ibi ìpamọ́',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'A ti fi ìbéèrè ránṣẹ́',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'O máa ní láti tún béèrè kí o tó lè darapọ̀.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Fi àpèjúwe kún un',
+  // A community with no church chosen.
+  'groups.none': 'Kò sí',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Lo ibi tí mo wà',
+  'churches.openSettings': 'Ṣí ètò fóònù rẹ',
+  'churches.openSettingsLabel': 'Ṣí ètò fóònù rẹ láti lo ibi tí o wà',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ó ń dúró de àyẹ̀wò',
+  'churches.notApproved': 'A kò fọwọ́ sí i',
+  'churches.noMembers': 'Kò sí ọmọ ìjọ kankan síbẹ̀',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Yóò hàn fún gbogbo ènìyàn nígbà tí alábòójútó kan bá fọwọ́ sí i.',
+  'churches.thanksMakeYours': 'A dúpẹ́! Ṣé o fẹ́ kí ó jẹ́ ìjọ rẹ?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Ìsanwó',
+  'payments.cards': 'Àwọn káàdì tí o fi pamọ́',
+  'payments.addCard': 'Fi káàdì kún un',
+  // The add-card sheet's title.
+  'payments.addACard': 'Fi káàdì kan kún un',
+  'payments.cardSaved': 'A ti fi káàdì pamọ́',
+  'payments.cardNotSaved': 'A kò lè fi káàdì náà pamọ́. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  'payments.cardOptions': 'Ó ń ṣí àwọn àṣàyàn fún káàdì yìí',
+  'payments.makeDefault': 'Sọ ọ́ di àkọ́kọ́',
+  'payments.removeCard': 'Yọ káàdì kúrò',
+  'payments.removeQuestion': 'Yọ káàdì yìí kúrò?',
+  'payments.removeBody': 'A ó yọ {card} kúrò nínú àkáǹtì rẹ.',
+  'payments.removeBodyDefault': 'A ó yọ {card} kúrò nínú àkáǹtì rẹ. Káàdì yìí ni Plus fi ń sọdọ̀tun, nítorí náà fi òmíràn kún un ṣáájú ìsọdọ̀tun rẹ tó kàn.',
+  'payments.remove': 'Yọ kúrò',
+  'payments.cardRemoved': 'A ti yọ káàdì kúrò',
+  'payments.defaultSet': 'Plus yóò máa sọdọ̀tun pẹ̀lú káàdì yìí',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'O kò ṣe àsansílẹ̀',
+  'payments.activeUntil': 'Ó ń ṣiṣẹ́ títí di {day}',
+  'payments.paymentFailed': 'Ìsanwó kùnà',
+  'payments.creatorSubs': 'Àsansílẹ̀ olùṣẹ̀dá',
+  'payments.none': 'Kò sí',
+  'payments.noPayments': 'Kò sí ìsanwó kankan síbẹ̀',
+  // A payment's state.
+  'payments.paid': 'A ti san án',
+  'payments.failed': 'Ó kùnà',
+  'payments.refunded': 'A ti dá a padà',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Àsansílẹ̀ olùṣẹ̀dá',
+  'payments.kindDonation': 'Ọrẹ',
+  'payments.kindAd': 'Ìpolówó',
+  'payments.kindRefund': 'Owó tí a dá padà',
+  'payments.kindOther': 'Ìsanwó',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Alábòójútó kan ló ṣètò rẹ̀',
+  // One payment's details.
+  'payments.status': 'Ipò',
+  'payments.date': 'Ọjọ́',
+  'payments.method': 'Ọ̀nà',
+  'payments.reference': 'Nọ́mbà ìtọ́kasí',
+  'payments.copied': 'A ti da nọ́mbà ìtọ́kasí kọ',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Káàdì ẹsẹ',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Káàdì',
+  'verseCard.make': 'Ṣe káàdì',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Ẹ̀yìn',
+  'verseCard.font': 'Fọ́ǹtì',
+  'verseCard.layout': 'Ìtòlẹ́sẹẹsẹ',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Igbó',
+  'verseCard.bgGreen': 'Àwọ̀ ewé',
+  'verseCard.bgNight': 'Òru',
+  'verseCard.bgDusk': 'Ìrọ̀lẹ́',
+  'verseCard.bgDawn': 'Àfẹ̀mọ́jú',
+  'verseCard.bgOcean': 'Òkun',
+  'verseCard.bgPaper': 'Bébà',
+  'verseCard.bgWhite': 'Funfun',
+  'verseCard.bgBlack': 'Dúdú',
+  'verseCard.photo': 'Fọ́tò',
+  'verseCard.choosePhoto': 'Yan fọ́tò',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Tò sí òsì',
+  'verseCard.alignCenter': 'Tò sí àárín',
+  'verseCard.alignRight': 'Tò sí ọ̀tún',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Onígun mẹ́rin',
+  'verseCard.tall': 'Gíga',
+  // What to do with the card.
+  'verseCard.toStory': 'Ìtàn rẹ',
+  'verseCard.post': 'Fi síta',
+  'verseCard.save': 'Fi pamọ́',
+  'verseCard.saved': 'A ti fi pamọ́',
+  'verseCard.allowPhotos': 'Fún Community láàyè láti fi fọ́tò kún un nínú ètò fóònù rẹ kí o lè fi àwọn káàdì pamọ́.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'A gé e kúrú kí ó lè bá a mu',
+  'verseCard.notFound': 'A kò rí ẹsẹ yẹn.',
+  'verseCard.failed': 'A kò lè ṣe káàdì náà. Gbìyànjú lẹ́ẹ̀kan sí i.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Ọjọ́ {n} léraléra',
+  'bible.streakStart': 'Bẹ̀rẹ̀ kíkà ojoojúmọ́',
+  'bible.readToday': 'O ti kà lónìí',
+  'bible.readAChapter': 'Ka orí kan lónìí',
+  'bible.bestStreak': 'Tó gùn jù {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Ọjọ́ {n} — máa bá a lọ',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Máa kà á lọ',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Ṣí {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Àwọn ìṣẹ̀lẹ̀',
+  'events.title': 'Àwọn ìṣẹ̀lẹ̀',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Tó ń bọ̀',
+  'events.going': 'Mò ń lọ',
+  'events.yours': 'Tìrẹ',
+  'events.interested': 'Ó wù mí',
+  'events.create': 'Ṣẹ̀dá ìṣẹ̀lẹ̀',
+  'events.nearYou': 'Nítòsí rẹ',
+  'events.useMyLocation': 'Lo ibi tí mo wà',
+  'events.openSettings': 'Ṣí ètò fóònù rẹ',
+  'events.emptyUpcoming': 'Kò sí ìṣẹ̀lẹ̀ tó ń bọ̀',
+  'events.emptyGoing': 'Kò sí ètò kankan síbẹ̀',
+  'events.emptyYours': 'Kò sí ìṣẹ̀lẹ̀ kankan síbẹ̀',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count} ń lọ',
+  'events.interestedCount': '{count} nífẹ̀ẹ́ sí i',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'A ti fagilé e',
+  'events.ended': 'Ó ti parí',
+  'events.now': 'Ó ń ṣẹlẹ̀ báyìí',
+  // The kinds of event.
+  'events.kind.service': 'Ìsìn',
+  'events.kind.bible_study': 'Ẹ̀kọ́ Bíbélì',
+  'events.kind.youth': 'Àwọn ọ̀dọ́',
+  'events.kind.prayer': 'Àdúrà',
+  'events.kind.outreach': 'Ìjíhìnrere',
+  'events.kind.music': 'Orin',
+  'events.kind.social': 'Ìpéjọpọ̀',
+  'events.kind.other': 'Òmíràn',
+  // The event page.
+  'events.event': 'Ìṣẹ̀lẹ̀',
+  'events.gone': 'Ìṣẹ̀lẹ̀ yìí kò sí mọ́',
+  'events.openInMaps': 'Ṣí i nínú Maps',
+  'events.mapsFailed': 'Maps kò ṣí',
+  'events.organiser': 'Olùṣètò',
+  'events.options': 'Àwọn àṣàyàn mìíràn',
+  'events.noOneYet': 'Kò sí ẹnikẹ́ni síbẹ̀',
+  'events.edit': 'Ṣàtúnṣe',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Fagilé',
+  'events.callOffQuestion': 'Fagilé ìṣẹ̀lẹ̀ yìí?',
+  'events.callOffBody': 'Gbogbo àwọn tó dáhùn yóò rí i pé a ti fagilé e.',
+  'events.keep': 'Jẹ́ kí ó wà',
+  'events.deleteQuestion': 'Pa ìṣẹ̀lẹ̀ yìí rẹ́?',
+  'events.deleteBody': 'A kò ní lè dá èyí padà.',
+  'events.deleted': 'A ti pa ìṣẹ̀lẹ̀ náà rẹ́',
+  // Making or changing an event.
+  'events.new': 'Ìṣẹ̀lẹ̀ tuntun',
+  'events.editTitle': 'Ṣàtúnṣe ìṣẹ̀lẹ̀',
+  'events.save': 'Fi pamọ́',
+  'events.saved': 'A ti fi pamọ́',
+  'events.addCover': 'Fi àwòrán iwájú kún un',
+  'events.changeCover': 'Yí àwòrán iwájú padà',
+  'events.removeCover': 'Yọ àwòrán iwájú kúrò',
+  'events.titleLabel': 'Àkọlé',
+  'events.titlePlaceholder': 'Orúkọ ìṣẹ̀lẹ̀',
+  'events.needTitle': 'Fi àkọlé kún un.',
+  'events.kindLabel': 'Irú',
+  'events.date': 'Ọjọ́',
+  'events.starts': 'Ìbẹ̀rẹ̀',
+  'events.ends': 'Ìparí',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Fi kún un',
+  'events.removeEnd': 'Yọ àkókò ìparí kúrò',
+  'events.prevMonth': 'Oṣù tó kọjá',
+  'events.nextMonth': 'Oṣù tó ń bọ̀',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Yan àkókò tó ń bọ̀, kì í ṣe èyí tó ti kọjá.',
+  'events.place': 'Ibi',
+  'events.placePlaceholder': 'Gbọ̀ngàn ìjọ, 12 High St',
+  'events.pinOnMap': 'Sàmì sí i lórí máàpù',
+  'events.movePin': 'Gbé àmì náà',
+  'events.removePin': 'Yọ àmì náà kúrò',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Gbé máàpù lọ sí ibi náà',
+  'events.done': 'Ó ti parí',
+  'events.locationOff': 'Community kò ní àyè sí ibi tí o wà. Tàn án nínú ètò fóònù rẹ.',
+  'events.noFix': 'A kò rí ibi tí o wà báyìí.',
+  'events.church': 'Ìjọ',
+  'events.community': 'Ẹgbẹ́',
+  'events.none': 'Kò sí',
+  'events.searchChurches': 'Wá àwọn ìjọ',
+  'events.details': 'Àlàyé',
+  'events.detailsPlaceholder': 'Kí ló ń ṣẹlẹ̀?',
+  'events.forMembers14': 'Àwọn ìṣẹ̀lẹ̀ wà fún àwọn ọmọ ẹgbẹ́ tí ọjọ́ orí wọn jẹ́ ọdún 14 sókè',
+  // On a church or community page.
+  'events.seeAll': 'Wo gbogbo rẹ̀',
+  'events.addEvent': 'Fi ìṣẹ̀lẹ̀ kún un',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Fi hàn',
+  'auth.hide': 'Fi pamọ́',
+  'auth.showPassword': 'Fi ọ̀rọ̀ aṣínà hàn',
+  'auth.hidePassword': 'Fi ọ̀rọ̀ aṣínà pamọ́',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Àwọn ọ̀rẹ́',
+  'map.nearby': 'Nítòsí',
+  'map.churches': 'Àwọn ìjọ',
+  'map.events': 'Àwọn ìṣẹ̀lẹ̀',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Lọ sí ibi tí mo wà',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Fi mí hàn nínú Nítòsí',
+  'map.nearbyPrivacy': 'Àwọn míì ń rí agbègbè tí o wà nìkan, kì í ṣe ibi gan-an.',
+  'map.adultsOnly': 'Nítòsí wà fún àwọn ọmọ ẹgbẹ́ tí ọjọ́ orí wọn jẹ́ ọdún 18 sókè.',
+  'map.locationOff': 'Community kò ní àyè sí ibi tí o wà.',
+  'map.allowLocation': 'Fún Community ní àyè sí ibi tí o wà láti lo Nítòsí.',
+  'map.nearbyOnToast': 'O wà nínú Nítòsí',
+  'map.nearbyOffToast': 'A ti pa Nítòsí',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Kò sí ẹnikẹ́ni nítòsí báyìí',
+  'map.onePerson': 'Ènìyàn 1 wà nítòsí',
+  'map.personCount': 'Ènìyàn {n} wà nítòsí',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Nǹkan bí {n} km sí ibí',
+  'map.noChurches': 'Kò sí ìjọ kankan lórí máàpù síbẹ̀',
+  'map.oneChurch': 'Ìjọ 1',
+  'map.churchCount': 'Ìjọ {n}',
+  'map.noEvents': 'Kò sí ìṣẹ̀lẹ̀ tó ń bọ̀ lórí máàpù',
+  'map.oneEvent': 'Ìṣẹ̀lẹ̀ 1 tó ń bọ̀',
+  'map.eventCount': 'Ìṣẹ̀lẹ̀ {n} tó ń bọ̀',
+  'map.nearestFirst': 'Èyí tó súnmọ́ jù lọ kọ́kọ́',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Fi àkójọ hàn',
+  'map.hideList': 'Fi àkójọ pamọ́',
+  'map.going': '{n} ń lọ',
+  'map.happeningNow': 'Ó ń ṣẹlẹ̀ báyìí',
+  'map.today': 'Òní',
+  'map.tomorrow': 'Ọ̀la',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} sí ibí',
+  'map.viewChurch': 'Wo ìjọ',
+  'map.viewEvent': 'Wo ìṣẹ̀lẹ̀',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Ìtọ́sọ́nà',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Pín àtẹ̀jáde rẹ àkọ́kọ́',
+  // ======== end of v23 ========
 };

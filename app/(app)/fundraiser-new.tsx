@@ -6,6 +6,8 @@ import { penceFrom } from '../../src/components/FundraiserCard';
 import { Icon } from '../../src/components/Icon';
 import { Button, Empty, ErrorNote, Field, Loading, Screen, ScreenHeader, useToast } from '../../src/components/ui';
 import { createFundraiser, fetchFundraiser, fetchPayouts, updateFundraiser, uploadImage, type FundraiserInput } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
+import { t } from '../../src/lib/i18n';
 import { pickFromLibrary } from '../../src/lib/pick';
 import { useSession } from '../../src/lib/session';
 import { C, dayLabel, errText } from '../../src/lib/theme';
@@ -96,14 +98,17 @@ export default function FundraiserNew() {
 
   async function save() {
     if (working.current) return;
-    const t = title.trim();
+    const name = title.trim();
     const pence = penceFrom(goal);
     const errs: Errors = {};
-    if (t.length < 3 || t.length > 80) errs.title = 'Give it a title of 3 to 80 characters.';
+    if (name.length < 3 || name.length > 80) errs.title = 'Give it a title of 3 to 80 characters.';
     if (pence === null) errs.goal = 'Type the goal in pounds, like 1000 or 1,000.';
     else if (pence < MIN_GOAL || pence > MAX_GOAL) errs.goal = 'Set a goal between £1 and £1,000,000.';
     setErrors(errs);
-    if (errs.title || errs.goal || pence === null) return;
+    if (errs.title || errs.goal || pence === null) {
+      tap('warning');
+      return;
+    }
 
     working.current = true;
     setBusy(true);
@@ -111,12 +116,13 @@ export default function FundraiserNew() {
       // The photo is uploaded only now, so backing out of the form leaves nothing behind in storage.
       const cover_url = cover ? (await uploadImage(me, cover.uri, cover.width, 1200)).url : coverUrl;
       const ends_at = ends === 'keep' ? undefined : ends === 'none' ? null : new Date(Date.now() + ends * 86400e3).toISOString();
-      const input: FundraiserInput = { title: t, description: description.trim(), goal_pence: pence, cover_url };
+      const input: FundraiserInput = { title: name, description: description.trim(), goal_pence: pence, cover_url };
       if (ends_at !== undefined) input.ends_at = ends_at;
 
       if (existing) {
         await updateFundraiser(existing.id, input);
         if (!alive.current) return;
+        tap('success');
         toast('Fundraiser saved');
         router.back();
         return;
@@ -126,6 +132,7 @@ export default function FundraiserNew() {
       // Donations need a payout account. If it cannot be checked, say so anyway: the payouts screen shows the truth.
       const payouts = await fetchPayouts().catch(() => null);
       if (!alive.current) return;
+      tap('success');
       if (payouts?.charges_enabled) {
         toast('Your fundraiser is live');
         router.replace(`/fundraiser/${id}`);
@@ -133,7 +140,10 @@ export default function FundraiserNew() {
         setStarted(id);
       }
     } catch (e) {
-      if (alive.current) setErrors({ form: errText(e) });
+      if (alive.current) {
+        tap('warning');
+        setErrors({ form: errText(e) });
+      }
     } finally {
       working.current = false;
       if (alive.current) setBusy(false);
@@ -152,10 +162,7 @@ export default function FundraiserNew() {
             <Icon name="gift" size={48} color={C.accent2} />
           </View>
           <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>Your fundraiser is live</Text>
-          <Text style={{ color: C.fg, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>Set up payouts to start receiving donations</Text>
-          <Text style={{ color: C.fg2, textAlign: 'center', lineHeight: 21 }}>
-            Gifts go straight to your own Stripe account and on to your bank. Until payouts are set up, people can see your fundraiser but can't give yet.
-          </Text>
+          <Text style={{ color: C.fg2, fontSize: 16, textAlign: 'center' }}>{t('fundraiser.notTaking')}</Text>
           <Button label="Set up payouts" onPress={() => router.replace('/payouts')} style={{ alignSelf: 'stretch', marginTop: 16 }} />
           <Button label="View fundraiser" kind="ghost" onPress={() => router.replace(`/fundraiser/${started}`)} style={{ alignSelf: 'stretch' }} />
         </View>
@@ -182,30 +189,46 @@ export default function FundraiserNew() {
     const choices = existing?.ends_at ? [{ value: 'keep' as Ends, label: `Ends ${dayLabel(new Date(existing.ends_at))}` }, ...END_CHOICES] : END_CHOICES;
     body = (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 14 }} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel={shown ? 'Change cover photo' : 'Add a cover photo'} style={{ height: 170, borderRadius: 16, overflow: 'hidden', backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {shown ? <Image source={{ uri: shown }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" accessibilityIgnoresInvertColors /> : null}
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 48, gap: 14 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Pressable onPress={chooseCover} accessibilityRole="button" accessibilityLabel={shown ? 'Change cover photo' : 'Add a cover photo'} style={({ pressed }) => ({ height: 170, borderRadius: 16, overflow: 'hidden', backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed && !busy ? 0.8 : 1 })}>
+            {shown ? <Image source={{ uri: shown }} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors /> : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 10, backgroundColor: shown ? 'rgba(10,12,14,0.7)' : 'transparent' }}>
               <Icon name="image" size={20} color={shown ? '#fff' : C.accent2} />
               <Text style={{ color: shown ? '#fff' : C.accent2, fontWeight: '600', fontSize: 14 }}>{shown ? 'Change cover' : 'Add a cover photo'}</Text>
             </View>
-            {shown ? null : <Text style={{ color: C.fg2, fontSize: 12.5 }}>Optional</Text>}
           </Pressable>
           {shown ? (
-            <Pressable onPress={busy ? undefined : removeCover} accessibilityRole="button" accessibilityLabel="Remove cover photo" style={{ alignSelf: 'flex-start', marginTop: -6 }}>
+            <Pressable onPress={busy ? undefined : removeCover} hitSlop={8} accessibilityRole="button" accessibilityLabel="Remove cover photo" style={({ pressed }) => ({ alignSelf: 'flex-start', marginTop: -6, opacity: pressed ? 0.6 : 1 })}>
               <Text style={{ color: C.fg2, fontSize: 13.5, fontWeight: '600' }}>Remove photo</Text>
             </Pressable>
           ) : null}
 
-          <Field label="Title" value={title} onChangeText={setTitle} placeholder="e.g. New roof for Ebenezer SDA Church" maxLength={80} error={errors.title} autoFocus={!editId} />
+          <Field
+            label="Title"
+            value={title}
+            onChangeText={(v) => {
+              setTitle(v);
+              // Put right as it is typed: the message goes once the field is changed.
+              if (errors.title) setErrors((e) => ({ ...e, title: undefined }));
+            }}
+            placeholder="e.g. New roof for Ebenezer SDA Church"
+            maxLength={80}
+            error={errors.title}
+            autoFocus={!editId}
+            editable={!busy}
+          />
 
           <View style={{ gap: 6 }}>
             <Text style={{ color: C.fg2, fontSize: 12.5 }}>Goal</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: C.surface, paddingLeft: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: C.surface, paddingLeft: 14, borderWidth: 1, borderColor: errors.goal ? C.like : 'transparent' }}>
               <Text style={{ color: C.fg2, fontSize: 16 }}>£</Text>
               <TextInput
                 value={goal}
-                onChangeText={(v) => setGoal(v.replace(/[^0-9.,]/g, ''))}
+                editable={!busy}
+                onChangeText={(v) => {
+                  setGoal(v.replace(/[^0-9.,]/g, ''));
+                  if (errors.goal) setErrors((e) => ({ ...e, goal: undefined }));
+                }}
                 placeholder="1,000"
                 placeholderTextColor={C.fg3}
                 selectionColor={C.accent2}
@@ -216,10 +239,10 @@ export default function FundraiserNew() {
                 style={{ flex: 1, color: C.fg, fontSize: 16, paddingLeft: 4, paddingRight: 14, paddingVertical: 13, fontVariant: ['tabular-nums'] }}
               />
             </View>
-            <Text style={{ color: errors.goal ? C.like : C.fg3, fontSize: errors.goal ? 13 : 12.5 }}>{errors.goal ?? 'Between £1 and £1,000,000. Gifts can go past it.'}</Text>
+            {errors.goal ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, fontSize: 13 }}>{errors.goal}</Text> : null}
           </View>
 
-          <Field label="Story" value={description} onChangeText={setDescription} placeholder="What is it for, who will it help, and how will the money be used?" maxLength={2000} multiline style={{ minHeight: 120, textAlignVertical: 'top' }} />
+          <Field label="Story" value={description} onChangeText={setDescription} placeholder="What is it for, who will it help, and how will the money be used?" maxLength={2000} multiline editable={!busy} style={{ minHeight: 120, textAlignVertical: 'top' }} />
 
           <View style={{ gap: 8 }}>
             <Text style={{ color: C.fg2, fontSize: 12.5 }}>End date</Text>
@@ -229,7 +252,11 @@ export default function FundraiserNew() {
                 return (
                   <Pressable
                     key={String(c.value)}
-                    onPress={() => setEnds(c.value)}
+                    onPress={() => {
+                      if (on || busy) return;
+                      tap('select');
+                      setEnds(c.value);
+                    }}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: on }}
                     accessibilityLabel={c.label}
@@ -239,14 +266,13 @@ export default function FundraiserNew() {
                 );
               })}
             </View>
-            {typeof ends === 'number' ? <Text style={{ color: C.fg3, fontSize: 12.5 }}>Ends on {dayLabel(new Date(Date.now() + ends * 86400e3))}. You can end it sooner yourself.</Text> : null}
+            {typeof ends === 'number' ? <Text style={{ color: C.fg3, fontSize: 12.5 }}>Ends on {dayLabel(new Date(Date.now() + ends * 86400e3))}</Text> : null}
           </View>
 
-          {errors.form ? <Text style={{ color: C.like, lineHeight: 19 }}>{errors.form}</Text> : null}
+          {errors.form ? <Text accessibilityLiveRegion="polite" style={{ color: C.like, lineHeight: 19 }}>{errors.form}</Text> : null}
           <Button label={existing ? 'Save changes' : 'Start fundraiser'} busy={busy} onPress={save} style={{ marginTop: 6 }} />
-          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center' }}>
-            The whole of every gift goes to you through Stripe; the app takes no fee. Your fundraiser shows on your profile while it runs.
-          </Text>
+          {/* What happens to the money: the terms the organiser starts it on. */}
+          <Text style={{ color: C.fg3, fontSize: 12.5, lineHeight: 17, textAlign: 'center' }}>The whole of every gift goes to you through Stripe; the app takes no fee.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     );

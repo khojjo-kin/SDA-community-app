@@ -1,4 +1,5 @@
-export type Media = { url: string; type: 'image' | 'video'; w?: number; h?: number; poster?: string };
+/** `alt`: words describing the photo or video for people who can't see it, written in the post editor. */
+export type Media = { url: string; type: 'image' | 'video'; w?: number; h?: number; poster?: string; alt?: string };
 
 /** Text, an emoji or an @mention placed on a story. x and y are the centre, as fractions of the frame. */
 export type Overlay = {
@@ -759,3 +760,80 @@ export type BibleMarkColor = '' | 'yellow' | 'green' | 'blue' | 'pink' | 'purple
 
 /** My highlight (a colour) and/or note on one verse. Private to me. */
 export type BibleMark = { user_id: string; translation: string; book: string; chapter: number; verse: number; color: BibleMarkColor; note: string; updated_at: string };
+
+/* ---------- church events (v23) ---------- */
+
+export type EventKind = 'service' | 'bible_study' | 'youth' | 'prayer' | 'outreach' | 'music' | 'social' | 'other';
+export type EventRsvp = 'going' | 'interested';
+
+/** An event as members see it (community_event_cards): who posted it, where it belongs, who's going. */
+export type EventCard = {
+  id: string;
+  user_id: string;
+  church_id: string | null;
+  group_id: string | null;
+  kind: EventKind;
+  title: string;
+  description: string;
+  starts_at: string;
+  /** Null when no end time was given (the event is then taken to last up to six hours). */
+  ends_at: string | null;
+  /** The venue as written ("Church hall, 12 High St"), or ''. */
+  place: string;
+  /** Where it is on the map; both null when no place was pinned. */
+  lat: number | null;
+  lng: number | null;
+  /** '' or an https:// picture. */
+  cover_url: string;
+  /** Set when the organiser called it off. */
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  verified: boolean;
+  church_name: string | null;
+  group_name: string | null;
+  going_count: number;
+  interested_count: number;
+  my_rsvp: EventRsvp | null;
+  /** Up to five faces of people going, newest first. */
+  going_avatars: string[];
+  mine: boolean;
+};
+
+/** What the organiser fills in. */
+export type EventInput = {
+  kind: EventKind;
+  title: string;
+  description: string;
+  starts_at: string;
+  ends_at: string | null;
+  place: string;
+  lat: number | null;
+  lng: number | null;
+  cover_url: string;
+  church_id: string | null;
+  group_id: string | null;
+};
+
+/** Someone who answered an event (community_event_people). */
+export type EventPerson = { event_id: string; user_id: string; status: EventRsvp; created_at: string; username: string; full_name: string; avatar_url: string; verified: boolean };
+
+/* ---------- Bible reading streak (v23) ---------- */
+
+export type ReadingStreak = {
+  /** Days in a row up to today (or yesterday, while today is still to be read). */
+  current_streak: number;
+  best_streak: number;
+  read_today: boolean;
+  total_days: number;
+  /** Which of the last seven days (YYYY-MM-DD, the phone's own dates) had a chapter read. */
+  last_days: string[];
+};
+
+/* ---------- Nearby on the map (v23) ---------- */
+
+/** An adult showing in Nearby, at a rough place (rounded to about a kilometre). */
+export type NearbyPerson = { user_id: string; username: string; full_name: string; avatar_url: string; verified: boolean; lat: number; lng: number; km: number; updated_at: string };

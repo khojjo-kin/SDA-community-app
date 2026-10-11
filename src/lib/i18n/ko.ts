@@ -1192,4 +1192,334 @@ export const ko: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': '노트를 저장했어요',
   'bibleMarks.noteDeleted': '노트를 삭제했어요',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': '설정 열기',
+  'createFlow.cameraOff': '카메라 접근 권한이 꺼져 있어요',
+  'createFlow.choosePhotos': '사진 및 동영상 선택',
+  'createFlow.recents': '최근 항목',
+  'createFlow.albums': '앨범',
+  'goLive.endedAway': '자리를 비운 사이에 라이브가 끝났어요',
+  'live.paused': '일시정지됨',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': '설정 링크가 만료되었어요.',
+  'payouts.country': '국가',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': '비공개 계정이에요. 이 게시물을 홍보하려면 계정을 공개로 전환하세요.',
+  'promote.profileOnly': '이 게시물은 프로필에만 게시되어 있어서 홍보할 수 없어요.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': '아직 기부를 받지 않아요',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': '이 모금 활동을 삭제하지 못했어요. 대신 종료할 수 있어요.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': '이 트랙을 불러오지 못했어요. 다시 시도해 주세요.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': '일치하는 책이 없어요',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': '게시 중…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': '오늘',
+  'notifications.sectionYesterday': '어제',
+  'notifications.sectionThisWeek': '이번 주',
+  'notifications.sectionThisMonth': '이번 달',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': '{username}님 팔로우를 취소할까요?',
+  'profile.unfollow': '팔로우 취소',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': '{name} 계정에서 로그아웃',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': '요청을 보냈어요',
+  'verify.pending': '검토 중',
+  'verify.sentOn': '{date}에 보냄',
+  'verify.notSent': '요청을 보내지 못했어요. 다시 시도해 주세요.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': '전송 중…',
+  'chat.sent': '전송됨',
+  'chat.seen': '읽음',
+  'chat.notSent': '전송 실패 · 눌러서 다시 시도',
+  'chat.notSentTitle': '메시지를 보내지 못했어요',
+  'chat.copied': '복사했어요',
+  'chat.deleted': '채팅을 삭제했어요',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': '최신 메시지',
+  'chat.viewProfile': '프로필 보기',
+  'chat.noSavedReplies': '아직 저장된 답장이 없어요',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': '한 번에 최대 10명까지 선택할 수 있어요',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': '메시지를 보냈어요',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': '지금은 위치를 확인할 수 없어요. 위치 서비스가 켜져 있는지 확인해 주세요.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': '링 색상',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': '보관함에서 추가',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': '요청을 보냈어요',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': '다시 가입을 요청해야 해요.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': '설명 추가',
+  // A community with no church chosen.
+  'groups.none': '없음',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': '내 위치 사용',
+  'churches.openSettings': '설정 열기',
+  'churches.openSettingsLabel': '위치를 사용하려면 설정을 여세요',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': '검토 대기 중',
+  'churches.notApproved': '승인되지 않음',
+  'churches.noMembers': '아직 교인이 없어요',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': '관리자가 승인하면 모든 사람에게 표시돼요.',
+  'churches.thanksMakeYours': '감사해요! 내 교회로 설정할까요?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': '결제',
+  'payments.cards': '저장된 카드',
+  'payments.addCard': '카드 추가',
+  // The add-card sheet's title.
+  'payments.addACard': '카드 추가',
+  'payments.cardSaved': '카드를 저장했어요',
+  'payments.cardNotSaved': '카드를 저장하지 못했어요. 다시 시도해 주세요.',
+  'payments.cardOptions': '이 카드의 옵션을 열어요',
+  'payments.makeDefault': '기본 카드로 설정',
+  'payments.removeCard': '카드 삭제',
+  'payments.removeQuestion': '이 카드를 삭제할까요?',
+  'payments.removeBody': '{card} 카드가 계정에서 삭제돼요.',
+  'payments.removeBodyDefault': '{card} 카드가 계정에서 삭제돼요. Plus가 이 카드로 갱신되니 다음 갱신 전에 다른 카드를 추가하세요.',
+  'payments.remove': '삭제',
+  'payments.cardRemoved': '카드를 삭제했어요',
+  'payments.defaultSet': '이제 Plus가 이 카드로 갱신돼요',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': '구독하지 않음',
+  'payments.activeUntil': '{day}까지 이용 가능',
+  'payments.paymentFailed': '결제 실패',
+  'payments.creatorSubs': '크리에이터 구독',
+  'payments.none': '없음',
+  'payments.noPayments': '아직 결제 내역이 없어요',
+  // A payment's state.
+  'payments.paid': '결제 완료',
+  'payments.failed': '실패',
+  'payments.refunded': '환불됨',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': '크리에이터 구독',
+  'payments.kindDonation': '기부',
+  'payments.kindAd': '광고',
+  'payments.kindRefund': '환불',
+  'payments.kindOther': '결제',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': '관리자가 처리함',
+  // One payment's details.
+  'payments.status': '상태',
+  'payments.date': '날짜',
+  'payments.method': '결제 수단',
+  'payments.reference': '참조 번호',
+  'payments.copied': '참조 번호를 복사했어요',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': '말씀 카드',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': '카드',
+  'verseCard.make': '카드 만들기',
+  // The card maker's three tool tabs.
+  'verseCard.background': '배경',
+  'verseCard.font': '글꼴',
+  'verseCard.layout': '레이아웃',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': '숲',
+  'verseCard.bgGreen': '초록',
+  'verseCard.bgNight': '밤',
+  'verseCard.bgDusk': '해 질 녘',
+  'verseCard.bgDawn': '새벽',
+  'verseCard.bgOcean': '바다',
+  'verseCard.bgPaper': '종이',
+  'verseCard.bgWhite': '흰색',
+  'verseCard.bgBlack': '검은색',
+  'verseCard.photo': '사진',
+  'verseCard.choosePhoto': '사진 선택',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': '왼쪽 정렬',
+  'verseCard.alignCenter': '가운데 정렬',
+  'verseCard.alignRight': '오른쪽 정렬',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': '정사각형',
+  'verseCard.tall': '세로형',
+  // What to do with the card.
+  'verseCard.toStory': '내 스토리',
+  'verseCard.post': '게시',
+  'verseCard.save': '저장',
+  'verseCard.saved': '저장했어요',
+  'verseCard.allowPhotos': '카드를 저장하려면 설정에서 Community의 사진 추가를 허용해 주세요.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': '카드에 맞게 줄였어요',
+  'verseCard.notFound': '해당 구절을 찾을 수 없어요.',
+  'verseCard.failed': '카드를 만들지 못했어요. 다시 시도해 주세요.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': '{n}일 연속',
+  'bible.streakStart': '연속 읽기 시작하기',
+  'bible.readToday': '오늘 읽음',
+  'bible.readAChapter': '오늘 한 장 읽기',
+  'bible.bestStreak': '최고 {n}일',
+  // After the first chapter read today.
+  'bible.streakDay': '{n}일째 — 계속 읽어 보세요',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': '이어서 읽기',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': '{ref} 열기',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': '행사',
+  'events.title': '행사',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': '예정',
+  'events.going': '참석',
+  'events.yours': '내 행사',
+  'events.interested': '관심 있음',
+  'events.create': '행사 만들기',
+  'events.nearYou': '내 주변',
+  'events.useMyLocation': '내 위치 사용',
+  'events.openSettings': '설정 열기',
+  'events.emptyUpcoming': '예정된 행사가 없어요',
+  'events.emptyGoing': '아직 참석할 행사가 없어요',
+  'events.emptyYours': '아직 행사가 없어요',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': '{count}명 참석',
+  'events.interestedCount': '{count}명 관심',
+  // How far away an event is.
+  'events.km': '{km}km',
+  // An event's state, shown as plain text.
+  'events.calledOff': '취소됨',
+  'events.ended': '종료됨',
+  'events.now': '진행 중',
+  // The kinds of event.
+  'events.kind.service': '예배',
+  'events.kind.bible_study': '성경 공부',
+  'events.kind.youth': '청년',
+  'events.kind.prayer': '기도',
+  'events.kind.outreach': '전도',
+  'events.kind.music': '음악',
+  'events.kind.social': '친교',
+  'events.kind.other': '기타',
+  // The event page.
+  'events.event': '행사',
+  'events.gone': '이 행사는 더 이상 없어요',
+  'events.openInMaps': '지도에서 열기',
+  'events.mapsFailed': '지도를 열지 못했어요',
+  'events.organiser': '주최자',
+  'events.options': '옵션 더 보기',
+  'events.noOneYet': '아직 아무도 없어요',
+  'events.edit': '수정',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': '행사 취소',
+  'events.callOffQuestion': '이 행사를 취소할까요?',
+  'events.callOffBody': '응답한 모든 사람에게 취소되었다고 표시돼요.',
+  'events.keep': '유지하기',
+  'events.deleteQuestion': '이 행사를 삭제할까요?',
+  'events.deleteBody': '이 작업은 되돌릴 수 없어요.',
+  'events.deleted': '행사를 삭제했어요',
+  // Making or changing an event.
+  'events.new': '새 행사',
+  'events.editTitle': '행사 수정',
+  'events.save': '저장',
+  'events.saved': '저장했어요',
+  'events.addCover': '커버 추가',
+  'events.changeCover': '커버 변경',
+  'events.removeCover': '커버 삭제',
+  'events.titleLabel': '제목',
+  'events.titlePlaceholder': '행사 이름',
+  'events.needTitle': '제목을 추가하세요.',
+  'events.kindLabel': '유형',
+  'events.date': '날짜',
+  'events.starts': '시작',
+  'events.ends': '종료',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': '추가',
+  'events.removeEnd': '종료 시간 삭제',
+  'events.prevMonth': '이전 달',
+  'events.nextMonth': '다음 달',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': '지나지 않은 시간을 선택하세요.',
+  'events.place': '장소',
+  'events.placePlaceholder': '교회 강당, 중앙로 12',
+  'events.pinOnMap': '지도에 표시',
+  'events.movePin': '핀 이동',
+  'events.removePin': '핀 삭제',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': '지도를 장소로 옮기세요',
+  'events.done': '완료',
+  'events.locationOff': 'Community의 위치 권한이 꺼져 있어요. 설정에서 켜 주세요.',
+  'events.noFix': '지금은 위치를 확인할 수 없어요.',
+  'events.church': '교회',
+  'events.community': '커뮤니티',
+  'events.none': '없음',
+  'events.searchChurches': '교회 검색',
+  'events.details': '세부 정보',
+  'events.detailsPlaceholder': '어떤 행사인가요?',
+  'events.forMembers14': '행사는 만 14세 이상 회원만 이용할 수 있어요',
+  // On a church or community page.
+  'events.seeAll': '모두 보기',
+  'events.addEvent': '행사 추가',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': '표시',
+  'auth.hide': '숨기기',
+  'auth.showPassword': '비밀번호 표시',
+  'auth.hidePassword': '비밀번호 숨기기',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': '친구',
+  'map.nearby': '주변',
+  'map.churches': '교회',
+  'map.events': '행사',
+  // The round button that moves the map to where you are.
+  'map.myLocation': '내 위치로 이동',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': '주변에 나 표시하기',
+  'map.nearbyPrivacy': '다른 사람에게는 대략적인 위치만 보이고, 정확한 위치는 절대 보이지 않아요.',
+  'map.adultsOnly': '주변 기능은 만 18세 이상 회원만 이용할 수 있어요.',
+  'map.locationOff': 'Community의 위치 접근 권한이 꺼져 있어요.',
+  'map.allowLocation': '주변 기능을 사용하려면 위치 접근을 허용해 주세요.',
+  'map.nearbyOnToast': '이제 주변에 내가 표시돼요',
+  'map.nearbyOffToast': '주변 기능이 꺼졌어요',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': '지금 주변에 아무도 없어요',
+  'map.onePerson': '주변에 1명',
+  'map.personCount': '주변에 {n}명',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': '약 {n}km 거리',
+  'map.noChurches': '아직 지도에 교회가 없어요',
+  'map.oneChurch': '교회 1곳',
+  'map.churchCount': '교회 {n}곳',
+  'map.noEvents': '지도에 예정된 행사가 없어요',
+  'map.oneEvent': '예정된 행사 1개',
+  'map.eventCount': '예정된 행사 {n}개',
+  'map.nearestFirst': '가까운 순',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': '목록 보기',
+  'map.hideList': '목록 숨기기',
+  'map.going': '{n}명 참석',
+  'map.happeningNow': '진행 중',
+  'map.today': '오늘',
+  'map.tomorrow': '내일',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} 거리',
+  'map.viewChurch': '교회 보기',
+  'map.viewEvent': '행사 보기',
+  // Opens the phone's maps app with the way there.
+  'map.directions': '길찾기',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': '첫 게시물을 공유해 보세요',
+  // ======== end of v23 ========
 };

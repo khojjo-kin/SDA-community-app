@@ -1,22 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Linking, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Icon } from '../../src/components/Icon';
-import { Button, Empty, ErrorNote, Loading, RoundButton, Row, Screen, ScreenHeader, SearchField, SectionLabel } from '../../src/components/ui';
+import { RowsSkeleton } from '../../src/components/Skeleton';
+import { Button, Empty, ErrorNote, RoundButton, Row, Screen, ScreenHeader, SearchField, SectionLabel, useToast } from '../../src/components/ui';
 import { distanceKm, fetchChurches } from '../../src/lib/api';
+import { t } from '../../src/lib/i18n';
 import { useSession } from '../../src/lib/session';
 import { C, errText } from '../../src/lib/theme';
 import type { Church } from '../../src/lib/types';
 
 type Point = { lat: number; lng: number };
 type Entry = { church: Church; km: number | null };
-
-const NOTE = {
-  ask: 'Sorted A to Z. Allow location to see the nearest churches first.',
-  settings: 'Location is off for Community. Turn it on in Settings to see the nearest churches first.',
-  nofix: "Couldn't find where you are, so this is sorted A to Z.",
-};
+/** Why there is no position: 'ask' if the prompt can be shown again, 'settings' if only the Settings app can turn it on, 'nofix' if allowed but no fix came. */
+type NoFix = 'ask' | 'settings' | 'nofix';
 
 /** Churches not yet approved carry a pill. Members only see their own unapproved ones; admins see every pending one. */
 const STATUS_LABEL: Partial<Record<Church['status'], string>> = { pending: 'Pending review', rejected: 'Not approved' };
@@ -33,11 +31,11 @@ function StatusPill({ status }: { status: Church['status'] }) {
 }
 
 /** One church in the list: name, where it is, and how far away when we know. */
-function ChurchRow({ entry: { church, km }, mine, onPress }: { entry: Entry; mine?: boolean; onPress: () => void }) {
-  const place = [church.city, church.country].map((s) => s.trim()).filter(Boolean).join(', ');
-  const dist = km === null ? '' : `${km.toFixed(1)} km`;
+const ChurchRow = React.memo(function ChurchRow({ entry: { church, km }, mine, onOpen }: { entry: Entry; mine?: boolean; onOpen: (c: Church) => void }) {
+  const place = [church.city, church.country].map((s) => (s ?? '').trim()).filter(Boolean).join(', ');
+  const dist = km === null ? '' : `${km < 10 ? km.toFixed(1) : Math.round(km).toLocaleString('en-GB')} km`;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={[church.name, STATUS_LABEL[church.status], place, dist && `${dist} away`, mine && 'your church'].filter(Boolean).join(', ')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 64, backgroundColor: pressed ? C.press : 'transparent' })}>
+    <Pressable onPress={() => onOpen(church)} accessibilityRole="button" accessibilityLabel={[church.name, STATUS_LABEL[church.status], place, dist && `${dist} away`, mine && 'your church'].filter(Boolean).join(', ')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 64, backgroundColor: pressed ? C.press : 'transparent' })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="church" size={24} color={mine ? C.accent2 : C.fg2} />
       </View>
@@ -52,10 +50,11 @@ function ChurchRow({ entry: { church, km }, mine, onPress }: { entry: Entry; min
       <Icon name="right" size={18} color={C.fg2} weight={2} />
     </Pressable>
   );
-}
+});
 
 export default function Churches() {
   const router = useRouter();
+  const toast = useToast();
   const { me, profile } = useSession();
   const params = useLocalSearchParams<{ pick?: string }>();
   // Opened from Edit profile to choose a church: a tap hands the choice back (see edit-profile's `church` param) instead of opening the church.
@@ -63,38 +62,58 @@ export default function Churches() {
   const [q, setQ] = useState('');
   const [list, setList] = useState<Church[] | null>(null);
   const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [here, setHere] = useState<Point | null>(null);
-  // Why there is no position: 'ask' if the prompt can be shown again, 'settings' if only the Settings app can turn it on, 'nofix' if allowed but no fix came.
-  const [denied, setDenied] = useState<keyof typeof NOTE | null>(null);
+  const [noFix, setNoFix] = useState<NoFix | null>(null);
+  const [locating, setLocating] = useState(false);
+  const shown = useRef<Church[] | null>(null);
+  shown.current = list;
 
-  const load = useCallback(async () => {
-    setError('');
-    try {
-      setList(await fetchChurches());
-    } catch (e) {
-      setError(errText(e));
-      setList([]);
-    }
-  }, []);
+  const load = useCallback(
+    async (pull = false) => {
+      if (pull) setRefreshing(true);
+      try {
+        setList(await fetchChurches());
+        setError('');
+      } catch (e) {
+        // A refresh that fails keeps the list on screen.
+        if (shown.current === null) setError(errText(e));
+        else if (pull) toast(errText(e));
+      } finally {
+        if (pull) setRefreshing(false);
+      }
+    },
+    [toast],
+  );
   // Reload on every focus so a church added or edited on another screen shows up.
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const locate = useCallback(async () => {
+    setLocating(true);
     try {
       const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setDenied(canAskAgain ? 'ask' : 'settings');
+        setNoFix(canAskAgain ? 'ask' : 'settings');
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      // A recent position is good enough to sort by, and comes at once; otherwise wait for a fix.
+      const pos = (await Location.getLastKnownPositionAsync({ maxAge: 10 * 60e3 })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
       setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      setDenied(null);
+      setNoFix(null);
     } catch {
       // Airplane mode, or a simulator with no location set: the list stays alphabetical.
-      setDenied('nofix');
+      setNoFix('nofix');
+    } finally {
+      setLocating(false);
     }
   }, []);
-  useEffect(() => { locate(); }, [locate]);
+  useEffect(() => {
+    locate();
+  }, [locate]);
 
   const needle = q.trim().toLowerCase();
   const mineId = profile?.church_id ?? null;
@@ -104,7 +123,7 @@ export default function Churches() {
       // what happened) and to anyone who already has it as their church; admins have already decided
       // on it. It is never offered when choosing a church.
       .filter((c) => c.status !== 'rejected' || (c.created_by === me && !picking) || c.id === mineId)
-      .filter((c) => !needle || [c.name, c.city, c.country].some((s) => s.toLowerCase().includes(needle)))
+      .filter((c) => !needle || [c.name, c.city, c.country].some((s) => (s ?? '').toLowerCase().includes(needle)))
       .map((c) => ({ church: c, km: here && c.lat !== null && c.lng !== null ? distanceKm(here, { lat: c.lat, lng: c.lng }) : null }));
     entries.sort((a, b) => {
       // Nearest first when we know where you are; churches without a pin go last. NaN (both unpinned) and 0 fall through to the name.
@@ -114,27 +133,35 @@ export default function Churches() {
     return { mine: entries.find((e) => e.church.id === mineId) ?? null, rest: entries.filter((e) => e.church.id !== mineId) };
   }, [list, needle, here, mineId, me, picking]);
 
-  const choose = (id: string) => router.dismissTo({ pathname: '/edit-profile', params: { church: id } } as any);
-  const open = (c: Church) => (picking ? choose(c.id) : router.push({ pathname: '/church/[id]', params: { id: c.id } } as any));
+  const choose = useCallback((id: string) => router.dismissTo({ pathname: '/edit-profile', params: { church: id } } as any), [router]);
+  const open = useCallback((c: Church) => (picking ? choose(c.id) : router.push({ pathname: '/church/[id]', params: { id: c.id } } as any)), [picking, choose, router]);
   const add = () => router.push((picking ? { pathname: '/church-new', params: { pick: '1' } } : '/church-new') as any);
-  const retry = denied === 'settings' ? () => { Linking.openSettings().catch(() => {}); } : locate;
+  const renderItem = useCallback(({ item }: { item: Entry }) => <ChurchRow entry={item} onOpen={open} />, [open]);
+
+  // Sorting by distance is one tap away when the phone hasn't said where it is.
+  const nearMe = noFix ? (
+    <Pressable
+      disabled={locating}
+      onPress={noFix === 'settings' ? () => { Linking.openSettings().catch(() => {}); } : locate}
+      accessibilityRole="button"
+      accessibilityLabel={noFix === 'settings' ? t('churches.openSettingsLabel') : t('churches.useMyLocation')}
+      hitSlop={8}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 5, opacity: pressed || locating ? 0.55 : 1 })}>
+      <Icon name="location" size={16} color={C.accent2} weight={2.2} />
+      <Text style={{ color: C.accent2, fontSize: 14.5, fontWeight: '600' }}>{noFix === 'settings' ? t('churches.openSettings') : t('churches.useMyLocation')}</Text>
+    </Pressable>
+  ) : undefined;
 
   const header = (
     <>
-      {denied ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: C.surface }}>
-          <Text style={{ flex: 1, color: C.fg2, fontSize: 13.5, lineHeight: 18 }}>{NOTE[denied]}</Text>
-          <Button small kind="ghost" label={denied === 'settings' ? 'Open Settings' : 'Use my location'} onPress={retry} />
-        </View>
-      ) : null}
-      {picking ? <Row icon="close" title="No church" sub="Leave it off your profile" onPress={() => choose('none')} /> : null}
+      {picking ? <Row icon="close" title="No church" onPress={() => choose('none')} chevron={false} /> : null}
       {mine ? (
         <>
           <SectionLabel>My church</SectionLabel>
-          <ChurchRow entry={mine} mine onPress={() => open(mine.church)} />
+          <ChurchRow entry={mine} mine onOpen={open} />
         </>
       ) : null}
-      {rest.length ? <SectionLabel>{here ? 'Nearest first' : 'All churches'}</SectionLabel> : null}
+      {rest.length ? <SectionLabel right={nearMe}>{here ? 'Nearest first' : 'All churches'}</SectionLabel> : null}
     </>
   );
 
@@ -144,23 +171,25 @@ export default function Churches() {
       <View style={{ paddingBottom: 6 }}>
         <SearchField value={q} onChangeText={setQ} placeholder="Name, city or country" label="Search churches" />
       </View>
-      {error ? (
-        <ErrorNote message={error} onRetry={load} />
+      {error && list === null ? (
+        <ErrorNote message={error} onRetry={() => { setError(''); load(); }} />
       ) : (
         <FlatList
           data={rest}
           keyExtractor={(e) => e.church.id}
-          renderItem={({ item }) => <ChurchRow entry={item} onPress={() => open(item.church)} />}
+          renderItem={renderItem}
           ListHeaderComponent={header}
           ListEmptyComponent={
             list === null ? (
-              <Loading />
+              <RowsSkeleton count={8} avatar={44} gap={14} padY={10} />
             ) : mine ? null : needle ? (
-              <Empty icon="search" title="No churches match" body="Try another name, city or country." />
+              <Empty icon="search" title="No churches match" />
             ) : (
               <Empty icon="church" title="No churches listed yet" action={<Button small label="Add a church" onPress={add} style={{ marginTop: 8 }} />} />
             )
           }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.fg2} />}
+          initialNumToRender={14}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: 40 }}

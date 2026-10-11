@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal } from 'react-native';
+import { AppState, Modal, Vibration } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { setAudioModeAsync } from 'expo-audio';
 import type { MediaStream } from 'react-native-webrtc';
 import { CallActions, CallScreen, CallView, Person } from '../components/CallScreen';
 import { useToast } from '../components/ui';
 import { fetchCall, fetchRingingCall, getProfile, logCallInChat, placeCall, setCallStatus } from './api';
-import { PeerSession, SessionDescription, IceCandidateInit, attachStream, enableSpeaker, getLocalStream, joinChannel, leaveChannel, send, setCameraEnabled, setMicEnabled, stopStream, switchCamera } from './rtc';
+import { PeerSession, SessionDescription, IceCandidateInit, attachStream, getLocalStream, joinChannel, leaveChannel, send, setCameraEnabled, setMicEnabled, stopStream, switchCamera } from './rtc';
 import { useSession } from './session';
 import { supabase } from './supabase';
 import { errText } from './theme';
@@ -21,8 +22,11 @@ import type { Call } from './types';
  * kept up to date so a chat can log the call and a closed app can still pick up a ring on reopening.
  */
 export type CallsApi = {
-  /** Rings someone and opens the call screen. `threadId` lets the call be noted in that chat afterwards. */
-  startCall: (calleeId: string, kind: 'voice' | 'video', threadId?: string | null) => Promise<void>;
+  /**
+   * Rings someone and opens the call screen. `threadId` lets the call be noted in that chat afterwards;
+   * `known` is the person as the screen calling already has them, so their name and face show at once.
+   */
+  startCall: (calleeId: string, kind: 'voice' | 'video', threadId?: string | null, known?: Person | null) => Promise<void>;
   /** True while a call screen is open, so chats can grey out their call buttons. */
   inCall: boolean;
 };
@@ -78,7 +82,6 @@ class CallSession {
       remoteStream: null,
       muted: false,
       cameraOff: false,
-      speaker: false,
       front: true,
       connectedAt: null,
     };
@@ -91,6 +94,14 @@ class CallSession {
 
   setOther(other: Person | null) {
     if (other) this.set({ other });
+  }
+
+  /** The camera and microphone are open: Mute or camera off pressed while they were opening still counts. */
+  private takeStream(stream: MediaStream) {
+    setMicEnabled(stream, !this.view.muted);
+    setCameraEnabled(stream, !this.view.cameraOff);
+    this.local = stream;
+    this.set({ localStream: stream });
   }
 
   /* ----- the two ways in ----- */
@@ -108,8 +119,7 @@ class CallSession {
         stopStream(stream);
         return;
       }
-      this.local = stream;
-      this.set({ localStream: stream });
+      this.takeStream(stream);
       if (this.readyPending) this.onReady();
       // The callee may have answered or declined while all that was happening.
       const row = await fetchCall(this.call.id);
@@ -147,12 +157,12 @@ class CallSession {
     this.set({ phase: 'connecting', note: 'Connecting…' });
     try {
       await setCallStatus(this.call.id, 'accepted');
-      this.local = await getLocalStream(this.view.kind === 'video', this.view.front);
+      const stream = await getLocalStream(this.view.kind === 'video', this.view.front);
       if (this.done) {
-        stopStream(this.local);
+        stopStream(stream);
         return;
       }
-      this.set({ localStream: this.local });
+      this.takeStream(stream);
       this.makePeer();
       // Tell the caller we are here, and keep saying so until their offer lands.
       const ready = () => send(this.channel, 'ready', { from: this.me });
@@ -199,14 +209,10 @@ class CallSession {
   }
 
   flip() {
+    // No camera open yet (the permission question is still up): nothing to turn, and the picture's mirroring must match the lens.
+    if (!this.local) return;
     switchCamera(this.local);
     this.set({ front: !this.view.front });
-  }
-
-  toggleSpeaker() {
-    const speaker = !this.view.speaker;
-    enableSpeaker(speaker);
-    this.set({ speaker });
   }
 
   /* ----- signalling ----- */
@@ -438,6 +444,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const session = useRef<CallSession | null>(null);
   /** Set from the tap on a call button until the row exists, so a double tap places one call. */
   const starting = useRef(false);
+  /** The red button was pressed before the call had been placed: once it has, it is called off at once. */
+  const cancelled = useRef(false);
 
   const emit = useCallback<Emit>((s, v) => {
     // A late tick from an old call must not touch the current one.
@@ -525,7 +533,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [me]);
 
   const startCall = useCallback<CallsApi['startCall']>(
-    async (calleeId, kind, threadId) => {
+    async (calleeId, kind, threadId, known) => {
       if (!me) return;
       if (calleeId === me) {
         toast("You can't call yourself.");
@@ -536,19 +544,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       starting.current = true;
-      // The screen comes up at once; the row and the other person's details follow.
-      setView({ kind, role: 'caller', phase: 'calling', note: 'Calling…', other: null, localStream: null, remoteStream: null, muted: false, cameraOff: false, speaker: false, front: true, connectedAt: null });
+      cancelled.current = false;
+      // The screen comes up at once (with their name and face, if the screen calling knew them); the row follows.
+      setView({ kind, role: 'caller', phase: 'calling', note: 'Calling…', other: known ?? null, localStream: null, remoteStream: null, muted: false, cameraOff: false, front: true, connectedAt: null });
       // Asked for before the call is placed, so it is there to explain a refusal as well as for the screen.
       const asking = getProfile(calleeId).catch(() => null);
       try {
         const call = await placeCall(me, calleeId, kind, threadId);
-        const other = await asking;
+        // Their card may still be on its way; the red button can be pressed while it comes, too.
+        const other = cancelled.current ? null : (await asking) ?? known ?? null;
+        if (cancelled.current) {
+          // Called off while it was being placed: their phone stops ringing at once.
+          setCallStatus(call.id, 'missed').catch(() => {});
+          return;
+        }
         const s = new CallSession({ me, call, role: 'caller', other, emit });
         session.current = s;
         setView(s.view);
         s.ring();
       } catch (e) {
         setView(null);
+        if (cancelled.current) return;
         // The database refuses a call (42501) when the callee is under 14 and doesn't follow the caller, or
         // the caller is under 14 and doesn't follow the callee. It also refuses a suspended caller and calls
         // across a block, so the under-14 reason is only given when it can be the one: the caller isn't
@@ -572,17 +588,55 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       decline: () => session.current?.decline(),
       hangUp: () => {
         if (session.current) session.current.hangUp();
-        else setView(null);
+        else {
+          // Still being placed: it is called off as soon as it exists.
+          if (starting.current) cancelled.current = true;
+          setView(null);
+        }
       },
       toggleMute: () => session.current?.toggleMute(),
       toggleCamera: () => session.current?.toggleCamera(),
       flip: () => session.current?.flip(),
-      toggleSpeaker: () => session.current?.toggleSpeaker(),
     }),
     [],
   );
 
-  const api = useMemo<CallsApi>(() => ({ startCall, inCall: !!view }), [startCall, view]);
+  // A call coming in buzzes until it is answered, declined or gone.
+  const ringing = view?.phase === 'incoming';
+  useEffect(() => {
+    if (!ringing) return;
+    try {
+      Vibration.vibrate([0, 700, 1300], true);
+    } catch {
+      // No vibration on this phone.
+    }
+    return () => {
+      try {
+        Vibration.cancel();
+      } catch {
+        // Nothing was buzzing.
+      }
+    };
+  }, [ringing]);
+
+  // Once a call that opened the microphone is over, the phone's sound goes back to how the rest of the app
+  // plays it. The call leaves it set up for talking (through the earpiece, quietly), and music or a voice
+  // message would otherwise follow. A ring that was only declined touched nothing, so nothing is reset
+  // (a voice message being recorded under it carries on).
+  const inCall = !!view;
+  const hasStream = !!view?.localStream;
+  const usedAudio = useRef(false);
+  useEffect(() => {
+    if (hasStream) usedAudio.current = true;
+  }, [hasStream]);
+  useEffect(() => {
+    if (inCall || !usedAudio.current) return;
+    usedAudio.current = false;
+    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false, shouldPlayInBackground: true }).catch(() => {});
+  }, [inCall]);
+
+  // Only whether a call is on matters to the screens that ask, so a mute or a new status line doesn't draw them again.
+  const api = useMemo<CallsApi>(() => ({ startCall, inCall }), [startCall, inCall]);
 
   return (
     <Ctx.Provider value={api}>

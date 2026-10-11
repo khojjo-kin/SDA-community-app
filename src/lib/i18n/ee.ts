@@ -1192,4 +1192,334 @@ export const ee: Partial<Record<Key, string>> = {
   'bibleMarks.noteSaved': 'Wodzra nuŋɔŋlɔa ɖo',
   'bibleMarks.noteDeleted': 'Wotutu nuŋɔŋlɔa',
   // ======== end of v21 ========
+  // ======== Polish pass (v22): each area adds its own block just above the end line ========
+  // ---------- v22: create, camera and editors, live, notes ----------
+  'createFlow.openSettings': 'Ʋu fon ƒe ɖoɖowo',
+  'createFlow.cameraOff': 'Wotsi kamera ŋuti mɔɖeɖe nu',
+  'createFlow.choosePhotos': 'Tia fotowo kple videowo',
+  'createFlow.recents': 'Yeyetɔwo',
+  'createFlow.albums': 'Albumwo',
+  'goLive.endedAway': 'Wò Live wu nu esime mèle afi sia o',
+  'live.paused': 'Etɔ te vie',
+  // ---------- v22: Plus, payments, creator subscriptions, ads, insights, fundraisers ----------
+  // Payouts: when Stripe's setup link has run out, and the label over the country chosen for it.
+  'payouts.linkExpired': 'Ɖoɖo link ma ƒe ɣeyiɣi wu nu.',
+  'payouts.country': 'Dukɔ',
+  // Promoting a post: in place of the Pay button when it can't be promoted.
+  'promote.private': 'Wò akɔnta nye ɣaɣla. Na wòaʋu ɖi na ame sia ame be nàte ŋu aɖe gbeƒã post sia.',
+  'promote.profileOnly': 'Post sia le wò profile dzi ko, eya ta womate ŋu aɖe gbeƒãe o.',
+  // A fundraiser whose organiser hasn't finished setting up payouts: on its page and on the Donate button.
+  'fundraiser.notTaking': 'Mele nunanawo xɔm haɖe o',
+  // When deleting a fundraiser is refused; ending it is the other choice on the same page.
+  'fundraiser.notDeleted': 'Womete ŋu tutu gaƒoƒo sia o. Àte ŋu awu enu boŋ.',
+  // ---------- v22: Sabbath School, Bible, Hymnal, Pod, church apps button ----------
+  // Pod: a track that never started playing (a broken link, or no connection).
+  'pod.cantPlay': 'Ha sia meva o. Gbugbɔ te kpɔ.',
+  // Bible: nothing in the search box matched a book or a reference.
+  'bible.noMatch': 'Agbalẽ aɖeke mesɔ kple ema o',
+  // ---------- v22: Home feed, posts, comments, notifications, Explore and people ----------
+  // Under a comment just sent, until the server has it.
+  'comments.posting': 'Ele eɖom ɖa…',
+  // Notifications are grouped by when they came: New (not seen before), then these, then Earlier.
+  'notifications.sectionToday': 'Egbe',
+  'notifications.sectionYesterday': 'Etsɔ',
+  'notifications.sectionThisWeek': 'Kwasiɖa sia',
+  'notifications.sectionThisMonth': 'Ɣleti sia',
+  // ---------- v22: profile, settings and account, sign-in and onboarding, verification, legal ----------
+  // Asked before unfollowing a private account (its posts are hidden again until a new request is accepted).
+  'profile.unfollowQuestion': 'Àdzudzɔ {username} yomedzedze?',
+  'profile.unfollow': 'Dzudzɔ yomedzedze',
+  // Accounts: the button on each account signed in on this phone that logs it out of the phone.
+  'accounts.logOutOf': 'Do le {name} me',
+  // Request verification: once sent, and while it waits for the team.
+  'verify.sent': 'Woɖo biabia la ɖa',
+  'verify.pending': 'Ele lalam',
+  'verify.sentOn': 'Woɖoe ɖa le {date}',
+  'verify.notSent': 'Womete ŋu ɖo wò biabia ɖa o. Gbugbɔ te kpɔ.',
+  // ---------- v22: messages, calls, map, support and Erha ----------
+  // Under your newest message in a chat.
+  'chat.sending': 'Ele eɖom ɖa…',
+  'chat.sent': 'Woɖoe ɖa',
+  'chat.seen': 'Wokpɔe',
+  'chat.notSent': 'Meyi o · Zi edzi nàgbugbɔ ate kpɔ',
+  'chat.notSentTitle': 'Gbedasia meyi o',
+  'chat.copied': 'Wokɔpi',
+  'chat.deleted': 'Wotutu dzeɖoɖoa',
+  // The round button that scrolls a chat back down to the newest message.
+  'chat.toNewest': 'Gbedasi yeyetɔwo',
+  'chat.viewProfile': 'Kpɔ profile',
+  'chat.noSavedReplies': 'Mèdzra ŋuɖoɖo aɖeke ɖo haɖe o',
+  // Forwarding photos from a chat: the most people that can be picked at once.
+  'chat.forwardLimit': 'Ame va se ɖe 10 le ɣeyiɣi ɖeka me',
+  // After a message to support (a ticket) has gone.
+  'support.ticketSent': 'Woɖo gbedasia ɖa',
+  // The friends map: turning on sharing when the phone can't say where it is.
+  'map.noFix': 'Womete ŋu kpɔ afi si nèle fifia o. Kpɔe ɖa be Location Services le edzi.',
+  // ---------- v22: Shorts, stories and highlights ----------
+  // Edit memory: a row that opens Profile style, with the ring's colour as its value.
+  'memories.ringColour': 'Asigɛ ƒe amadede',
+  // Edit memory: a row that opens the story archive, where stories are added to a memory.
+  'memories.addFromArchive': 'Tsɔ kpee tso Nudzraɖoƒe',
+  // ---------- v22: groups and churches ----------
+  // After asking to join a private community.
+  'groups.requestSent': 'Woɖo biabia la ɖa',
+  // Leaving a private community: the line under "Leave …?".
+  'groups.askAgain': 'Ele be nàgabia hafi nàte ŋu age ɖe eme.',
+  // The description box when making or editing a community or page.
+  'groups.addDescription': 'Tsɔ numeɖeɖe kpee',
+  // A community with no church chosen.
+  'groups.none': 'Naneke',
+  // Churches: sorting the list by distance when the phone hasn't said where it is.
+  'churches.useMyLocation': 'Zã afi si mele',
+  'churches.openSettings': 'Ʋu fon ƒe ɖoɖowo',
+  'churches.openSettingsLabel': 'Ʋu fon ƒe ɖoɖowo be nàzã afi si nèle',
+  // A church waiting for an admin, or turned down by one.
+  'churches.pending': 'Ele lalam be woadzro eme',
+  'churches.notApproved': 'Womelɔ̃ ɖe edzi o',
+  'churches.noMembers': 'Hamevi aɖeke meli haɖe o',
+  // After suggesting a church, which waits for an admin.
+  'churches.pendingNote': 'Ne admin aɖe lɔ̃ ɖe edzi la, adze na ame sia ame.',
+  'churches.thanksMakeYours': 'Akpe! Àtiae abe wò hame ene?',
+  // ======== end of v22 ========
+  // ======== Events, verse cards, reading streaks, Nearby, payments, sign-in (v23): each area adds its own block just above the end line ========
+  // ---------- v23: payments ----------
+  // Settings row and the page's title: saved cards, subscriptions and every payment in one place.
+  'payments.title': 'Fexexewo',
+  'payments.cards': 'Card siwo nèdzra ɖo',
+  'payments.addCard': 'Tsɔ card kpee',
+  // The add-card sheet's title.
+  'payments.addACard': 'Tsɔ card aɖe kpee',
+  'payments.cardSaved': 'Wodzra card la ɖo',
+  'payments.cardNotSaved': 'Míete ŋu dzra card la ɖo o. Gbugbɔ te kpɔ.',
+  'payments.cardOptions': 'Eʋua card sia ƒe tiatiawo',
+  'payments.makeDefault': 'Wɔe gbãtɔ',
+  'payments.removeCard': 'Ɖe card la ɖa',
+  'payments.removeQuestion': 'Àɖe card sia ɖa?',
+  'payments.removeBody': 'Woaɖe {card} ɖa le wò akɔnta me.',
+  'payments.removeBodyDefault': 'Woaɖe {card} ɖa le wò akɔnta me. Plus yia edzi kple card sia, eya ta tsɔ bubu kpee hafi wò yiyi edzi si kplɔe ɖo nava.',
+  'payments.remove': 'Ɖe ɖa',
+  'payments.cardRemoved': 'Woɖe card la ɖa',
+  'payments.defaultSet': 'Plus ayi edzi kple card sia',
+  // Community Plus's line on the Payments page.
+  'payments.notSubscribed': 'Mèsubscribe o',
+  'payments.activeUntil': 'Ele dɔ wɔm va se ɖe {day}',
+  'payments.paymentFailed': 'Fexexe la meyi edzi o',
+  'payments.creatorSubs': 'Creator subscriptionwo',
+  'payments.none': 'Naneke',
+  'payments.noPayments': 'Fexexe aɖeke meli haɖe o',
+  // A payment's state.
+  'payments.paid': 'Woxe fe',
+  'payments.failed': 'Meyi edzi o',
+  'payments.refunded': 'Wotrɔ ga la',
+  // What a payment was for, when there is nothing more particular to say.
+  'payments.kindSubscription': 'Creator subscription',
+  'payments.kindDonation': 'Nunana',
+  'payments.kindAd': 'Ad',
+  'payments.kindRefund': 'Ga si wotrɔ na wò',
+  'payments.kindOther': 'Fexexe',
+  // A payment an admin recorded (no card involved).
+  'payments.byAdmin': 'Admin aɖe ɖoe ɖi',
+  // One payment's details.
+  'payments.status': 'Nɔnɔme',
+  'payments.date': 'Ŋkeke',
+  'payments.method': 'Mɔnu',
+  'payments.reference': 'Reference',
+  'payments.copied': 'Wokɔpi reference la',
+  // ---------- v23: verse cards and the reading streak ----------
+  // A Bible verse made into a designed picture to post or add to a story.
+  'verseCard.title': 'Kpukpui ƒe card',
+  // The reader's verse bar, and the verse of the day: open the card maker with those verses.
+  'verseCard.card': 'Card',
+  'verseCard.make': 'Wɔ card',
+  // The card maker's three tool tabs.
+  'verseCard.background': 'Megbe',
+  'verseCard.font': 'Nuŋɔŋlɔ',
+  'verseCard.layout': 'Ɖoɖo',
+  // Backgrounds (read out by screen readers), and a photo from the library.
+  'verseCard.bgForest': 'Ave',
+  'verseCard.bgGreen': 'Gbemumu',
+  'verseCard.bgNight': 'Zã',
+  'verseCard.bgDusk': 'Fiẽ',
+  'verseCard.bgDawn': 'Ŋdi kanya',
+  'verseCard.bgOcean': 'Atsiaƒu',
+  'verseCard.bgPaper': 'Agbalẽ',
+  'verseCard.bgWhite': 'Ɣi',
+  'verseCard.bgBlack': 'Yibɔ',
+  'verseCard.photo': 'Foto',
+  'verseCard.choosePhoto': 'Tia foto',
+  // Text alignment, read out by screen readers.
+  'verseCard.alignLeft': 'Ɖoe ɖe miame',
+  'verseCard.alignCenter': 'Ɖoe ɖe titina',
+  'verseCard.alignRight': 'Ɖoe ɖe ɖusime',
+  // The card's shape: square for posts, tall (9:16) for stories.
+  'verseCard.square': 'Dzogoenene',
+  'verseCard.tall': 'Kɔkɔ',
+  // What to do with the card.
+  'verseCard.toStory': 'Wò story',
+  'verseCard.post': 'Post',
+  'verseCard.save': 'Dzra ɖo',
+  'verseCard.saved': 'Wodzrae ɖo',
+  'verseCard.allowPhotos': 'Na mɔ Community le fon ƒe ɖoɖowo me be wòatsɔ fotowo akpe ɖe eŋu, ne nàte ŋu adzra cardwo ɖo.',
+  // Under the preview when a long passage was cut to fit on the card.
+  'verseCard.shortened': 'Wokpɔtɔe be wòasɔ',
+  'verseCard.notFound': 'Míekpɔ kpukpui ma o.',
+  'verseCard.failed': 'Míete ŋu wɔ card la o. Gbugbɔ te kpɔ.',
+  // The reading streak on the Bible page: days in a row with a chapter read.
+  'bible.streakDays': 'Ŋkeke {n} ɖe wo nɔewo yome',
+  'bible.streakStart': 'Dze xexlẽ gbesiagbe gɔme',
+  'bible.readToday': 'Èxlẽ nu egbe',
+  'bible.readAChapter': 'Xlẽ ta ɖeka egbe',
+  'bible.bestStreak': 'Didiƒetɔ {n}',
+  // After the first chapter read today.
+  'bible.streakDay': 'Ŋkeke {n} — yi edzi',
+  // Opens the chapter last read (or today's verse's chapter when nothing has been read yet).
+  'bible.continueReading': 'Yi xexlẽ dzi',
+  // A reference the search understood, e.g. "Open John 3".
+  'bible.openRef': 'Ʋu {ref}',
+  // ---------- v23: church events ----------
+  // The church apps panel, and the title of the events list.
+  'churchApps.events': 'Kpekpewo',
+  'events.title': 'Kpekpewo',
+  // The three lists: events coming up, the ones I answered, the ones I made.
+  'events.upcoming': 'Siwo gbɔna',
+  'events.going': 'Mele yiyim',
+  'events.yours': 'Wò tɔwo',
+  'events.interested': 'Edze ŋunye',
+  'events.create': 'Wɔ kpekpe',
+  'events.nearYou': 'Te ɖe ŋuwò',
+  'events.useMyLocation': 'Zã afi si mele',
+  'events.openSettings': 'Ʋu fon ƒe ɖoɖowo',
+  'events.emptyUpcoming': 'Kpekpe aɖeke megbɔna o',
+  'events.emptyGoing': 'Ɖoɖo aɖeke meli haɖe o',
+  'events.emptyYours': 'Kpekpe aɖeke meli haɖe o',
+  // Under an event: how many said Going, how many said Interested.
+  'events.goingCount': 'Ame {count} le yiyim',
+  'events.interestedCount': 'Edze ame {count} ŋu',
+  // How far away an event is.
+  'events.km': '{km} km',
+  // An event's state, shown as plain text.
+  'events.calledOff': 'Woɖe asi le eŋu',
+  'events.ended': 'Ewu nu',
+  'events.now': 'Ele edzi yim fifia',
+  // The kinds of event.
+  'events.kind.service': 'Subɔsubɔ',
+  'events.kind.bible_study': 'Biblia sɔsrɔ̃',
+  'events.kind.youth': 'Ɖekakpuiwo',
+  'events.kind.prayer': 'Gbedodoɖa',
+  'events.kind.outreach': 'Nyanyuigbɔgblɔ',
+  'events.kind.music': 'Ha',
+  'events.kind.social': 'Ƒoƒoƒu',
+  'events.kind.other': 'Bubu',
+  // The event page.
+  'events.event': 'Kpekpe',
+  'events.gone': 'Kpekpe sia megali o',
+  'events.openInMaps': 'Ʋui le Maps me',
+  'events.mapsFailed': 'Maps meʋu o',
+  'events.organiser': 'Ɖoɖowɔla',
+  'events.options': 'Mɔnu bubuwo',
+  'events.noOneYet': 'Ame aɖeke meli haɖe o',
+  'events.edit': 'Trɔ asi le eŋu',
+  // The organiser calls the event off: it stays, marked as called off.
+  'events.callOff': 'Ɖe asi le eŋu',
+  'events.callOffQuestion': 'Àɖe asi le kpekpe sia ŋu?',
+  'events.callOffBody': 'Ame sia ame si ɖo eŋu la akpɔ be woɖe asi le eŋu.',
+  'events.keep': 'Na wòanɔ anyi',
+  'events.deleteQuestion': 'Àtutu kpekpe sia?',
+  'events.deleteBody': 'Womate ŋu agbugbɔe vɛ o.',
+  'events.deleted': 'Wotutu kpekpe la',
+  // Making or changing an event.
+  'events.new': 'Kpekpe yeye',
+  'events.editTitle': 'Trɔ asi le kpekpe ŋu',
+  'events.save': 'Dzra ɖo',
+  'events.saved': 'Wodzrae ɖo',
+  'events.addCover': 'Tsɔ ŋgɔgbe foto kpee',
+  'events.changeCover': 'Trɔ ŋgɔgbe foto',
+  'events.removeCover': 'Ɖe ŋgɔgbe foto ɖa',
+  'events.titleLabel': 'Tanya',
+  'events.titlePlaceholder': 'Kpekpe ƒe ŋkɔ',
+  'events.needTitle': 'Tsɔ tanya kpee.',
+  'events.kindLabel': 'Ƒomevi',
+  'events.date': 'Ŋkeke',
+  'events.starts': 'Gɔmedzeɣi',
+  'events.ends': 'Nuwuɣi',
+  // No end time chosen yet: tap to add one.
+  'events.addEnd': 'Tsɔ kpee',
+  'events.removeEnd': 'Ɖe nuwuɣi ɖa',
+  'events.prevMonth': 'Ɣleti si va yi',
+  'events.nextMonth': 'Ɣleti si gbɔna',
+  // An end time on the day after the start.
+  'events.nextDay': '+1',
+  'events.timePassed': 'Tia ɣeyiɣi si gbɔna, menye esi va yi o.',
+  'events.place': 'Teƒe',
+  'events.placePlaceholder': 'Hame ƒe xɔ, 12 High St',
+  'events.pinOnMap': 'Tsɔ dzesi ɖo anyigbatata dzi',
+  'events.movePin': 'Tsɔ dzesi la yi afi bubu',
+  'events.removePin': 'Ɖe dzesi la ɖa',
+  // The map where the organiser moves the pin to the place.
+  'events.pinTitle': 'Hee anyigbatata la yi teƒe la',
+  'events.done': 'Wu enu',
+  'events.locationOff': 'Wotsi teƒe ŋuti mɔɖeɖe nu na Community. Ʋu eŋu le wò fon ƒe ɖoɖowo me.',
+  'events.noFix': 'Womete ŋu kpɔ afi si nèle fifia o.',
+  'events.church': 'Hame',
+  'events.community': 'Habɔbɔ',
+  'events.none': 'Naneke',
+  'events.searchChurches': 'Di hamewo',
+  'events.details': 'Nyatakakawo',
+  'events.detailsPlaceholder': 'Nu kae le dzɔdzɔm?',
+  'events.forMembers14': 'Kpekpewo nye hamevi siwo xɔ ƒe 14 kple esi lolo wu tɔ',
+  // On a church or community page.
+  'events.seeAll': 'Kpɔ wo katã',
+  'events.addEvent': 'Tsɔ kpekpe kpee',
+  // ---------- v23: sign-in pages ----------
+  // At the end of a password box, once something is typed: shows the password, or hides it again.
+  'auth.show': 'Ɖe fia',
+  'auth.hide': 'Ɣlae',
+  'auth.showPassword': 'Ɖe password fia',
+  'auth.hidePassword': 'Ɣla password',
+  // ---------- v23: map layers (Nearby, churches, events) ----------
+  // The words along the top of the map that choose what it shows.
+  'map.friends': 'Xɔlɔ̃wo',
+  'map.nearby': 'Nutome',
+  'map.churches': 'Hamewo',
+  'map.events': 'Kpekpewo',
+  // The round button that moves the map to where you are.
+  'map.myLocation': 'Yi afi si mele',
+  // Nearby: the switch, and the one line under it.
+  'map.showMe': 'Ɖe nye fia le Nutome',
+  'map.nearbyPrivacy': 'Ame bubuwo kpɔa nutome si nèle ko, menye teƒe tututu si nèle o.',
+  'map.adultsOnly': 'Nutome nye hamevi siwo xɔ ƒe 18 kple esi lolo wu tɔ.',
+  'map.locationOff': 'Wotsi teƒe ŋuti mɔɖeɖe nu na Community.',
+  'map.allowLocation': 'Ʋu teƒe ŋuti mɔɖeɖe be nàzã Nutome.',
+  'map.nearbyOnToast': 'Èle Nutome',
+  'map.nearbyOffToast': 'Wotsi Nutome',
+  // Over the list of people in Nearby.
+  'map.nobodyNearby': 'Ame aɖeke mete ɖe ŋuwò fifia o',
+  'map.onePerson': 'Ame 1 te ɖe ŋuwò',
+  'map.personCount': 'Ame {n} te ɖe ŋuwò',
+  // Someone in Nearby, whose place is only known roughly.
+  'map.aboutKm': 'Abe {n} km ene tso afii',
+  'map.noChurches': 'Hame aɖeke mele anyigbatata dzi haɖe o',
+  'map.oneChurch': 'Hame 1',
+  'map.churchCount': 'Hame {n}',
+  'map.noEvents': 'Kpekpe aɖeke si gbɔna mele anyigbatata dzi o',
+  'map.oneEvent': 'Kpekpe 1 si gbɔna',
+  'map.eventCount': 'Kpekpe {n} siwo gbɔna',
+  'map.nearestFirst': 'Esi te ɖe ŋuwò wu gbã',
+  // Opening or closing the list under the map (read out by VoiceOver).
+  'map.showList': 'Ɖe list la fia',
+  'map.hideList': 'Ɣla list la',
+  'map.going': 'Ame {n} le yiyim',
+  'map.happeningNow': 'Ele edzi yim fifia',
+  'map.today': 'Egbe',
+  'map.tomorrow': 'Etsɔ',
+  // How far a church or event is: "2.4 km away".
+  'map.away': '{d} tso afii',
+  'map.viewChurch': 'Kpɔ hame la',
+  'map.viewEvent': 'Kpɔ kpekpe la',
+  // Opens the phone's maps app with the way there.
+  'map.directions': 'Mɔfiame',
+  // ---------- v23: profile ----------
+  // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
+  'profile.shareFirstPost': 'Ma wò post gbãtɔ',
+  // ======== end of v23 ========
 };

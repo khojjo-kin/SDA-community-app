@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,9 +14,10 @@ import { ScheduleSheet } from '../../src/components/LiveSchedule';
 import { ModeSwitcher, useModeNav } from '../../src/components/ModeSwitcher';
 import { DarkStatusBar } from '../../src/components/OnDark';
 import { Button, Radio, RoundButton, Sheet, useToast } from '../../src/components/ui';
-import { addLiveComment, deleteLiveComment, endLive, fetchLives, fetchUserFundraisers, liveCommentExists, setLiveViewers, startLive } from '../../src/lib/api';
+import { addLiveComment, beatLive, deleteLiveComment, endLive, fetchLives, fetchUserFundraisers, liveCommentExists, setLiveViewers, startLive } from '../../src/lib/api';
+import { tap } from '../../src/lib/haptics';
 import { t } from '../../src/lib/i18n';
-import { ChannelRefusedError, NONCE, PeerSession, IceCandidateInit, SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, stopStream, switchCamera } from '../../src/lib/rtc';
+import { ChannelRefusedError, NONCE, PeerSession, IceCandidateInit, SessionDescription, attachStream, getLocalStream, joinChannel, leaveChannel, send, setMicEnabled, stopStream, switchCamera } from '../../src/lib/rtc';
 import { useSession } from '../../src/lib/session';
 import { C, DARK, errText } from '../../src/lib/theme';
 import type { Fundraiser, LiveAudience } from '../../src/lib/types';
@@ -49,6 +50,24 @@ const HEART_RELAY_MS = 150;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Away from the app this long while live, and the live ends. The camera stops while the app is in
+ * the background, so until then viewers see the live paused (and the microphone is off).
+ */
+const AWAY_MS = 60000;
+
+/** Marks a broadcast over, trying again a few times on a weak connection, so it doesn't stay "live". */
+async function endLiveSurely(id: string) {
+  for (let i = 0; i < 4; i++) {
+    try {
+      await endLive(id);
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (i + 1)));
+    }
+  }
+}
+
 /** Who can watch, in the order the sheet offers them. Practice is a dry run nobody else sees. */
 const AUDIENCES: { id: LiveAudience; icon: IconName; label: 'liveSetup.followers' | 'liveSetup.closeFriends' | 'liveSetup.practice' }[] = [
   { id: 'followers', icon: 'people', label: 'liveSetup.followers' },
@@ -80,7 +99,7 @@ function NotForUnder14() {
       <Icon name="live" size={44} color={DARK.fg2} />
       <Text style={{ color: DARK.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{t('goLive.notAvailable')}</Text>
       <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 21 }}>{t('goLive.notAvailableBody')}</Text>
-      <Button label={t('goLive.goBack')} onPress={() => router.back()} style={{ alignSelf: 'stretch', marginTop: 6 }} />
+      <Button label={t('goLive.goBack')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ alignSelf: 'stretch', marginTop: 6 }} />
     </View>
   );
 }
@@ -92,8 +111,11 @@ function Broadcast() {
   const insets = useSafeAreaInsets();
 
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [cameraError, setCameraError] = useState('');
+  // Why the camera didn't open. `denied`: camera or microphone access is off, so Settings is the way back.
+  const [cameraError, setCameraError] = useState<{ denied: boolean; text: string } | null>(null);
   const [front, setFront] = useState(true);
+  const frontRef = useRef(front);
+  frontRef.current = front;
   const [title, setTitle] = useState('');
   // Set before going live: who can watch, and a fundraiser of mine to put a Donate chip on it.
   const [audience, setAudience] = useState<LiveAudience>('followers');
@@ -122,14 +144,25 @@ function Broadcast() {
   const viewersTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullToldAt = useRef(0);
   const ending = useRef(false);
+  // Set the moment Go live is tapped, so a second tap can't start a second broadcast.
+  const starting = useRef(false);
+  // Each opening of the camera gets a number; one that arrives after a newer one (or after leaving) is let go.
+  const cameraTry = useRef(0);
+  const mounted = useRef(true);
+  // While live in another app: since when, the timer that ends the live, and whether it did.
+  const awayAt = useRef(0);
+  const awayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endedAway = useRef(false);
+  const left = useRef(false);
 
   /* ----- camera ----- */
 
-  useEffect(() => {
-    let alive = true;
-    getLocalStream(true, true)
+  const openCamera = useCallback(() => {
+    const mine = ++cameraTry.current;
+    setCameraError(null);
+    getLocalStream(true, frontRef.current)
       .then((s) => {
-        if (!alive) {
+        if (!mounted.current || mine !== cameraTry.current || ending.current) {
           stopStream(s);
           return;
         }
@@ -137,13 +170,40 @@ function Broadcast() {
         setStream(s);
       })
       .catch((e) => {
+        if (!mounted.current || mine !== cameraTry.current) return;
         // The camera's refusal is read from the error itself, since errText keeps its technical words off screen.
         const raw = `${(e as any)?.name ?? ''} ${(e as any)?.message ?? ''}`;
-        if (alive) setCameraError(/permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw) ? t('goLive.needsCamera') : errText(e));
+        const denied = /permission|denied|not allowed|NotAllowed|SecurityError/i.test(raw);
+        setCameraError({ denied, text: denied ? t('goLive.needsCamera') : errText(e) });
       });
-    // A broadcast left open by a crash would show as live forever; close any of mine before starting another.
+  }, []);
+
+  /** Lets the camera and microphone go: before going live, nothing is kept open while the app is in the background. */
+  const releaseCamera = useCallback(() => {
+    cameraTry.current++;
+    stopStream(streamRef.current);
+    streamRef.current = null;
+    setStream(null);
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    openCamera();
+    return () => {
+      mounted.current = false;
+    };
+  }, [openCamera]);
+
+  useEffect(() => {
+    let alive = true;
+    // A broadcast left open by a crash would show as live for hours; close any of mine before starting another.
     fetchLives()
-      .then((cards) => cards.filter((c) => c.user_id === me && !c.ended_at && c.id !== liveIdRef.current).forEach((c) => endLive(c.id).catch(() => {})))
+      .then((cards) => {
+        // Going live has begun meanwhile (a slow connection): the list may already hold the new live, which
+        // must not be ended. The old one, if any, is closed next time.
+        if (starting.current || liveIdRef.current) return;
+        cards.filter((c) => c.user_id === me && !c.ended_at).forEach((c) => endLive(c.id).catch(() => {}));
+      })
       .catch(() => {});
     // My running fundraisers, any of which can go with the live.
     fetchUserFundraisers(me)
@@ -153,6 +213,26 @@ function Broadcast() {
       alive = false;
     };
   }, [me]);
+
+  /* ----- still here ----- */
+
+  // While live, the phone says so every 30 seconds (and as soon as it is back from another app), so a
+  // live whose phone has stopped stops showing as live within a few minutes instead of for hours.
+  useEffect(() => {
+    if (!liveId) return;
+    const beat = () => {
+      if (!ending.current) beatLive(liveId).catch(() => {});
+    };
+    beat();
+    const timer = setInterval(beat, 30000);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') beat();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [liveId]);
 
   /* ----- viewers ----- */
 
@@ -219,7 +299,8 @@ function Broadcast() {
       bumpViewers();
       try {
         const offer = await peer.makeOffer();
-        send(hostRef.current, 'offer', { to: viewer, sdp: offer });
+        // Someone joining while I'm in another app is told the live is paused, as everyone else was.
+        send(hostRef.current, 'offer', { to: viewer, sdp: offer, paused: awayAt.current > 0 });
       } catch {
         dropPeer(viewer, peer);
       }
@@ -274,14 +355,15 @@ function Broadcast() {
   );
 
   async function start() {
-    if (!streamRef.current || busy || liveIdRef.current) return;
+    if (!streamRef.current || starting.current || liveIdRef.current || ending.current) return;
+    starting.current = true;
     setBusy(true);
     let id: string | null = null;
     try {
       id = await startLive(me, title, { audience, fundraiserId });
       // Closed while the live was being made: it ends at once.
       if (ending.current) {
-        endLive(id).catch(() => {});
+        endLiveSurely(id);
         return;
       }
       liveIdRef.current = id;
@@ -335,17 +417,22 @@ function Broadcast() {
       }
       inboxRef.current = inbox;
       setLiveId(id);
+      tap('success');
+      // Went to another app while it was starting: paused from the first moment, as if it had been live then.
+      if (AppState.currentState === 'background') goneAway();
     } catch (e) {
       leaveChannel(hostRef.current);
       hostRef.current = null;
+      tap('warning');
       // My own live turned away by its channel's rules is not something to explain; trying again usually works.
       toast(e instanceof ChannelRefusedError ? t('goLive.couldNotStart') : errText(e));
       if (id && !ending.current) {
         liveIdRef.current = null;
-        endLive(id).catch(() => {});
+        endLiveSurely(id);
       }
     } finally {
-      setBusy(false);
+      starting.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
 
@@ -361,20 +448,24 @@ function Broadcast() {
     liveIdRef.current = null;
     if (viewersTimer.current) clearTimeout(viewersTimer.current);
     viewersTimer.current = null;
+    if (awayTimer.current) clearTimeout(awayTimer.current);
+    awayTimer.current = null;
     dropTimers.current.forEach(clearTimeout);
     dropTimers.current.clear();
     nonces.current.clear();
     const goodbye = host ? send(host, 'bye', {}) : Promise.resolve();
     peers.current.forEach((p) => p.close());
     peers.current.clear();
+    cameraTry.current++;
     stopStream(streamRef.current);
     streamRef.current = null;
     // The screen goes at once; the database and the channels are tidied behind it.
-    if (goBack) {
+    if (goBack && !left.current) {
+      left.current = true;
       if (router.canGoBack()) router.back();
       else router.replace('/');
     }
-    await Promise.all([id ? endLive(id).catch(() => {}) : Promise.resolve(), goodbye]);
+    await Promise.all([id ? endLiveSurely(id) : Promise.resolve(), goodbye]);
     leaveChannel(host);
     leaveChannel(inbox);
   }, [router]);
@@ -389,6 +480,61 @@ function Broadcast() {
     },
     [],
   );
+
+  /* ----- leaving the app ----- */
+
+  /** Out of the app while live: the microphone goes off and viewers see the live paused; after a while it ends. */
+  function goneAway() {
+    if (awayAt.current || !liveIdRef.current) return;
+    awayAt.current = Date.now();
+    setMicEnabled(streamRef.current, false);
+    send(hostRef.current, 'pause', {});
+    if (awayTimer.current) clearTimeout(awayTimer.current);
+    awayTimer.current = setTimeout(() => {
+      awayTimer.current = null;
+      endedAway.current = true;
+      endRef.current(false);
+    }, AWAY_MS);
+  }
+
+  /** Back in the app: carry on, or (away too long) say the live ended and leave. */
+  function cameBack() {
+    if (awayTimer.current) clearTimeout(awayTimer.current);
+    awayTimer.current = null;
+    const away = awayAt.current ? Date.now() - awayAt.current : 0;
+    awayAt.current = 0;
+    // The phone may have held the app still for longer than the timer, so the time away is checked too.
+    if (endedAway.current || away >= AWAY_MS) {
+      endedAway.current = true;
+      if (!ending.current) endRef.current(false);
+      if (!left.current) {
+        left.current = true;
+        toast(t('goLive.endedAway'));
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+      }
+      return;
+    }
+    if (!liveIdRef.current) return;
+    setMicEnabled(streamRef.current, true);
+    send(hostRef.current, 'resume', {});
+  }
+
+  const away = useRef({ goneAway, cameBack });
+  away.current = { goneAway, cameBack };
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'background') {
+        if (liveIdRef.current) away.current.goneAway();
+        // Not live yet: the camera and microphone aren't kept open behind another app.
+        else if (!starting.current && !ending.current) releaseCamera();
+      } else if (s === 'active') {
+        if (liveIdRef.current || endedAway.current) away.current.cameBack();
+        else if (!streamRef.current && !starting.current && !ending.current) openCamera();
+      }
+    });
+    return () => sub.remove();
+  }, [openCamera, releaseCamera]);
 
   function confirmEnd() {
     if (!liveIdRef.current) {
@@ -450,14 +596,8 @@ function Broadcast() {
         {stream ? <RTCView streamURL={stream.toURL()} objectFit="cover" mirror={front} style={StyleSheet.absoluteFill} /> : null}
         <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)']} locations={[0, 0.25, 0.6, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-        {cameraError ? (
-          <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 }}>
-            <Icon name="videooff" size={44} color={DARK.fg2} />
-            <Text style={{ color: DARK.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{t('goLive.cameraUnavailable')}</Text>
-            <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{cameraError}</Text>
-          </View>
-        ) : !stream ? (
-          <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
+        {!stream && !cameraError ? (
+          <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator color={DARK.fg2} />
           </View>
         ) : null}
@@ -502,7 +642,17 @@ function Broadcast() {
             </View>
           ) : null}
 
-          <View style={{ flex: 1 }} />
+          {/* The middle: empty over the camera, or why the camera didn't open (here, so its button can be tapped). */}
+          {cameraError && !live ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 12 }}>
+              <Icon name="videooff" size={44} color={DARK.fg2} />
+              <Text style={{ color: DARK.fg, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{t('goLive.cameraUnavailable')}</Text>
+              <Text style={{ color: DARK.fg2, textAlign: 'center', lineHeight: 20 }}>{cameraError.text}</Text>
+              <Button small label={cameraError.denied ? t('createFlow.openSettings') : t('common.tryAgain')} onPress={() => (cameraError.denied ? Linking.openSettings().catch(() => {}) : openCamera())} style={{ marginTop: 6, paddingHorizontal: 20 }} />
+            </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
 
           {/* Bottom. */}
           <View style={{ paddingBottom: live ? insets.bottom + 12 : 18, gap: 14 }}>

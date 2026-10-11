@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { fetchLive, fetchLiveComments, profilesInOrder } from '../lib/api';
+import { tap } from '../lib/haptics';
 // Plain t(): every screen is drawn again from the root when the language changes.
 import { t } from '../lib/i18n';
+import { useReduceMotion } from '../lib/motion';
 import { DARK, errText, fmt } from '../lib/theme';
 import type { LiveComment } from '../lib/types';
 import { Icon, VerifiedTick } from './Icon';
@@ -20,12 +22,13 @@ import { Avatar } from './ui';
 export type ChatLine = { id: string; userId: string; username: string; text: string; at: string };
 
 /**
- * The last few comments on a live. They are rows in the database (community_live_comments), so the
- * database decides who wrote each one: the latest are loaded when the screen opens, new ones arrive
- * as database changes on the live's channel (`listen`, before it subscribes), and each name is looked
- * up from the commenter's profile, never taken from a message.
+ * The latest comments on a live (up to `max`, scrolled through on screen). They are rows in the
+ * database (community_live_comments), so the database decides who wrote each one: the latest are
+ * loaded when the screen opens, new ones arrive as database changes on the live's channel (`listen`,
+ * before it subscribes), and each name is looked up from the commenter's profile, never taken from a
+ * message.
  */
-export function useLiveComments(liveId: string | null, max = 6) {
+export function useLiveComments(liveId: string | null, max = 50) {
   const [lines, setLines] = useState<ChatLine[]>([]);
   // Usernames already looked up; '' for an account I can't see, so it isn't asked for again.
   const names = useRef(new Map<string, string>());
@@ -102,30 +105,54 @@ export function useLiveComments(liveId: string | null, max = 6) {
 }
 
 /**
- * The last comments, bottom-left, the oldest fading out. A comment `canRemove` allows can be long
- * pressed (or, with a screen reader, given its Remove action) to take it down.
+ * The comments, bottom-left, newest at the bottom. The list follows each new comment unless it has
+ * been scrolled up to read older ones; scrolling back to the bottom follows again. A comment
+ * `canRemove` allows can be long pressed (or, with a screen reader, given its Remove action) to take
+ * it down.
  */
 export function ChatLines({ lines, canRemove, onRemove }: { lines: ChatLine[]; canRemove?: (line: ChatLine) => boolean; onRemove?: (line: ChatLine) => void }) {
+  const { height } = useWindowDimensions();
+  const ref = useRef<ScrollView>(null);
+  // At the newest comment (or not yet scrolled at all).
+  const following = useRef(true);
+  // The first jump to the bottom happens without animating, so the list opens where it belongs.
+  const placed = useRef(false);
   function ask(line: ChatLine) {
     Alert.alert(t('live.removeQuestion'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('live.remove'), style: 'destructive', onPress: () => onRemove?.(line) },
     ]);
   }
+  if (!lines.length) return null;
   return (
-    <View pointerEvents="box-none" style={{ gap: 6, paddingRight: 70 }} accessibilityLabel={t('live.comments')}>
-      {lines.map((l, i) => {
+    <ScrollView
+      ref={ref}
+      style={{ maxHeight: Math.round(height * 0.28), flexGrow: 0 }}
+      contentContainerStyle={{ gap: 6, paddingRight: 70 }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={64}
+      onScroll={(e) => {
+        const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+        following.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
+      }}
+      onContentSizeChange={() => {
+        if (!following.current) return;
+        ref.current?.scrollToEnd({ animated: placed.current });
+        placed.current = true;
+      }}
+      accessibilityLabel={t('live.comments')}>
+      {lines.map((l) => {
         const name = l.username || t('live.someone');
-        const style = { opacity: 0.45 + (0.55 * (i + 1)) / Math.max(1, lines.length) };
         const words = (
-          <Text numberOfLines={3} style={{ color: '#fff', fontSize: 14.5, lineHeight: 19, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 }}>
-            <Text style={{ fontWeight: '700', color: 'rgba(255,255,255,0.85)' }}>{name} </Text>
+          <Text numberOfLines={3} style={{ color: '#fff', fontSize: 14.5, lineHeight: 19, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } }}>
+            <Text style={{ fontWeight: '700', color: 'rgba(255,255,255,0.88)' }}>{name} </Text>
             {l.text}
           </Text>
         );
         if (!onRemove || !canRemove?.(l)) {
           return (
-            <View key={l.id} pointerEvents="none" style={style}>
+            <View key={l.id} pointerEvents="none" accessible accessibilityLabel={`${name}: ${l.text}`}>
               {words}
             </View>
           );
@@ -140,12 +167,12 @@ export function ChatLines({ lines, canRemove, onRemove }: { lines: ChatLine[]; c
             onAccessibilityAction={(e) => {
               if (e.nativeEvent.actionName === 'remove') ask(l);
             }}
-            style={({ pressed }) => [style, pressed ? { opacity: 0.6 } : null]}>
+            style={({ pressed }) => (pressed ? { opacity: 0.6 } : null)}>
             {words}
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -176,12 +203,13 @@ export function useHearts() {
   return { hearts, add };
 }
 
-function Heart({ x }: { x: number }) {
+/** One heart. With Reduce Motion on it fades in and out a little way up, without drifting or growing. */
+function Heart({ x, still }: { x: number; still: boolean }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   }, [v]);
-  const drift = (x - 0.5) * 70;
+  const drift = still ? 0 : (x - 0.5) * 70;
   return (
     <Animated.View
       pointerEvents="none"
@@ -191,9 +219,9 @@ function Heart({ x }: { x: number }) {
         bottom: 0,
         opacity: v.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 1, 0.9, 0] }),
         transform: [
-          { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -340] }) },
+          { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, still ? -60 : -340] }) },
           { translateX: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, drift, -drift * 0.4] }) },
-          { scale: v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0.5, 1.15, 0.9] }) },
+          { scale: still ? 1 : v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0.5, 1.15, 0.9] }) },
         ],
       }}>
       <Icon name="heart" size={30} color={LIVE_RED} fill />
@@ -202,10 +230,11 @@ function Heart({ x }: { x: number }) {
 }
 
 export function Hearts({ hearts }: { hearts: HeartItem[] }) {
+  const still = useReduceMotion() === true;
   return (
     <View pointerEvents="none" style={{ position: 'absolute', right: 0, bottom: 0, width: 110, height: 420 }}>
       {hearts.map((h) => (
-        <Heart key={h.id} x={h.x} />
+        <Heart key={h.id} x={h.x} still={still} />
       ))}
     </View>
   );
@@ -295,7 +324,7 @@ export function LiveComposer({ onSend, onHeart, placeholder }: { onSend: (text: 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 }}>
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', paddingLeft: 16, paddingRight: 4, backgroundColor: 'rgba(0,0,0,0.25)' }}>
-        <TextInput value={text} onChangeText={setText} placeholder={placeholder ?? t('live.commentPlaceholder')} placeholderTextColor="rgba(255,255,255,0.7)" style={{ flex: 1, color: '#fff', fontSize: 15, paddingVertical: 0 }} returnKeyType="send" onSubmitEditing={submit} blurOnSubmit={false} maxLength={MAX_COMMENT} keyboardAppearance="dark" accessibilityLabel={t('live.commentLabel')} />
+        <TextInput value={text} onChangeText={setText} placeholder={placeholder ?? t('live.commentPlaceholder')} placeholderTextColor="rgba(255,255,255,0.7)" selectionColor="#ffffff" style={{ flex: 1, color: '#fff', fontSize: 15, paddingVertical: 0 }} returnKeyType="send" onSubmitEditing={submit} submitBehavior="submit" maxLength={MAX_COMMENT} keyboardAppearance="dark" accessibilityLabel={t('live.commentLabel')} />
         {sending ? (
           <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator color="#fff" />
@@ -306,7 +335,7 @@ export function LiveComposer({ onSend, onHeart, placeholder }: { onSend: (text: 
           </Pressable>
         ) : null}
       </View>
-      <Pressable onPress={onHeart} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('live.sendHeart')} style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 1.15 : 1 }] })}>
+      <Pressable onPress={() => { tap('light'); onHeart(); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('live.sendHeart')} style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 1.15 : 1 }] })}>
         <Icon name="heart" size={28} color="#fff" weight={2} />
       </Pressable>
     </View>

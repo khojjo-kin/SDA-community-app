@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { allStoriesSeen, fetchLives, fetchStoryTray } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { useSession } from '../lib/session';
@@ -22,30 +22,67 @@ export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refresh
   // Until the first answer (or failure), empty circles stand where the stories will be. A refresh
   // keeps the circles already shown.
   const [loaded, setLoaded] = useState(false);
+  // Only the latest answer is used, so a slow one can't put back rings that have since been watched.
+  const ask = useRef(0);
+  // Home is the screen in front. While a story is open on top, the tray only updates its rings from
+  // what this phone knows, and loads again from the server once Home is back.
+  const focused = useRef(true);
+  const stale = useRef(false);
+  // A circle was just tapped: a second tap a moment later doesn't open a second viewer.
+  const lastOpen = useRef(0);
 
   const load = useCallback(() => {
+    const asked = ++ask.current;
     fetchStoryTray(me)
-      .then(setGroups)
+      .then((gs) => {
+        if (asked === ask.current) setGroups(gs);
+      })
       .catch(() => {})
-      .finally(() => setLoaded(true));
+      .finally(() => {
+        if (asked === ask.current) setLoaded(true);
+      });
     // Anyone broadcasting right now sits at the front of the tray.
     fetchLives()
-      .then((cards) => setLives(cards.filter((c) => !c.ended_at)))
+      .then((cards) => {
+        if (asked === ask.current) setLives(cards.filter((c) => !c.ended_at));
+      })
       .catch(() => {});
   }, [me]);
 
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      if (stale.current) {
+        stale.current = false;
+        load();
+      }
+      return () => {
+        focused.current = false;
+      };
+    }, [load]),
+  );
+
   // A story just watched turns its ring grey at once, from what this phone knows, then the tray loads again.
   useEffect(
     () =>
       listen('stories', () => {
         setGroups((gs) => gs.map((g) => (g.seen || !allStoriesSeen(g.stories, me) ? g : { ...g, seen: true })));
-        load();
+        if (focused.current) load();
+        else stale.current = true;
       }),
     [load, me],
   );
+
+  const open = (path: string) => {
+    const now = Date.now();
+    if (now - lastOpen.current < 700) return;
+    lastOpen.current = now;
+    router.push(path);
+  };
 
   const mine = groups.find((g) => g.user_id === me);
   const others = groups.filter((g) => g.user_id !== me);
@@ -56,8 +93,8 @@ export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refresh
   function storyMenu() {
     // Members under 14 cannot broadcast live, so they are only offered a story.
     Alert.alert('Your story', undefined, [
-      { text: 'Add to story', onPress: () => router.push('/add-story') },
-      ...(profile?.restricted ? [] : [{ text: 'Go live', onPress: () => router.push('/go-live') }]),
+      { text: 'Add to story', onPress: () => open('/add-story') },
+      ...(profile?.restricted ? [] : [{ text: 'Go live', onPress: () => open('/go-live') }]),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   }
@@ -73,24 +110,24 @@ export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refresh
       return;
     }
     tap('medium');
-    router.push(`/story/${g.user_id}?quiet=1`);
+    open(`/story/${g.user_id}?quiet=1`);
   }
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 14 }}>
       {myLive ? (
-        <Pressable onPress={() => router.push('/go-live')} accessibilityRole="button" accessibilityLabel="Your live broadcast" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+        <Pressable onPress={() => open('/go-live')} accessibilityRole="button" accessibilityLabel="Your live broadcast" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <LiveAvatar uri={myLive.avatar_url} name={myLive.full_name} size={66} />
           <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, marginTop: 2 }}>You</Text>
         </Pressable>
       ) : null}
       {otherLives.map((l) => (
-        <Pressable key={l.id} onPress={() => router.push(`/live/${l.id}`)} accessibilityRole="button" accessibilityLabel={`${l.username} is live`} style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+        <Pressable key={l.id} onPress={() => open(`/live/${l.id}`)} accessibilityRole="button" accessibilityLabel={`${l.username} is live`} style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <LiveAvatar uri={l.avatar_url} name={l.username} size={66} />
           <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, maxWidth: 76, marginTop: 2 }}>{l.username}</Text>
         </Pressable>
       ))}
-      <Pressable onPress={() => router.push(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+      <Pressable onPress={() => open(mine ? `/story/${me}` : '/add-story')} onLongPress={storyMenu} accessibilityRole="button" accessibilityLabel={mine ? 'View your story' : 'Add to your story'} accessibilityHint="Hold for more options" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
         {/* The same 76 square as a ringed circle, so "Your story" lines up with the names beside it. */}
         <View style={{ width: 76, height: 76, alignItems: 'center', justifyContent: 'center' }}>
           <Avatar uri={profile?.avatar_url} name={profile?.full_name} size={mine ? 66 : 71} ring={mine ? (mine.seen ? 'seen' : 'new') : null} />
@@ -103,7 +140,7 @@ export const StoryTray = React.memo(function StoryTray({ refreshKey }: { refresh
         <Text numberOfLines={1} style={{ color: C.fg, fontSize: 12, marginTop: 2 }}>Your story</Text>
       </Pressable>
       {others.map((g) => (
-        <Pressable key={g.user_id} onPress={() => router.push(`/story/${g.user_id}`)} onLongPress={() => preview(g)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} accessibilityHint="Hold to preview quietly" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+        <Pressable key={g.user_id} onPress={() => open(`/story/${g.user_id}`)} onLongPress={() => preview(g)} accessibilityRole="button" accessibilityLabel={`${g.username}'s story`} accessibilityHint="Hold to preview quietly" style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <Avatar uri={g.avatar_url} name={g.username} size={66} ring={g.seen ? 'seen' : g.close ? 'close' : 'new'} />
           <Text numberOfLines={1} style={{ color: g.seen ? C.fg2 : C.fg, fontSize: 12, maxWidth: 76, marginTop: 2 }}>{g.username}</Text>
         </Pressable>
