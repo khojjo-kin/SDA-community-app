@@ -1522,4 +1522,42 @@ export const ee: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Ma wò post gbãtɔ',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Biabiawo',
+  'inbox.requestsCount': 'Biabiawo ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Gbedasi biabiawo',
+  'requests.empty': 'Gbedasi biabia aɖeke meli o',
+  'requests.deleteQuestion': 'Àtutu biabia sia?',
+  'requests.deleted': 'Wotutu biabia la',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Tsi gbeɖiɖi',
+  'mute.unmute': 'Ʋu gbeɖiɖi',
+  // Read out for each switch.
+  'mute.postsFrom': 'Tsi {username} ƒe postwo ƒe gbeɖiɖi',
+  'mute.storiesFrom': 'Tsi {username} ƒe storywo ƒe gbeɖiɖi',
+  'mute.muted': 'Ètsi {username} ƒe gbeɖiɖi',
+  'mute.unmuted': 'Èʋu {username} ƒe gbeɖiɖi',
+  'mute.empty': 'Mètsi ame aɖeke ƒe gbeɖiɖi o',
+  'restrict.restrict': 'Ɖo liƒo',
+  'restrict.unrestrict': 'Ɖe liƒo ɖa',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Àɖo liƒo na {username}?',
+  'restrict.confirm': 'Ɖo liƒo na akɔnta la',
+  'restrict.done': 'Èɖo liƒo na {username}',
+  'restrict.undone': 'Èɖe liƒo ɖa na {username}',
+  'restrict.empty': 'Mèɖo liƒo na ame aɖeke o',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Akɔnta siwo nèɖo liƒo na',
+  'settings.muted': 'Akɔnta siwo ƒe gbeɖiɖi nètsi',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} lɔ̃e',
+  'post.likedByOthers': '{name} kple ame bubuwo lɔ̃e',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Liƒo le eŋu',
+  // ======== end of v24 ========
 };

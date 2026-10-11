@@ -19,7 +19,7 @@ import { OnceToggle, SnapBubble, SnapViewer } from '../../../src/components/Snap
 import { AssistantThinking } from '../../../src/components/ThinkingOrb';
 import { TypingDots } from '../../../src/components/TypingDots';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Loading, RoundButton, Screen, Sheet, SheetRow, useChoices, useToast } from '../../../src/components/ui';
-import { activeLabel, askErhaInThread, askFaq, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage, withTimeout } from '../../../src/lib/api';
+import { acceptMessageRequest, activeLabel, askErhaInThread, askFaq, deleteMessageRequest, ERHA_ID, fetchFaqs, fetchMessages, fetchSavedReplies, fetchTheirLastRead, fetchThread, getProfile, hideThread, isOnline, markThreadRead, openViewOnce, report, sendMessage, sendScreenshotNotice, setBlock, setThreadMuted, uploadAudio, uploadImage, withTimeout } from '../../../src/lib/api';
 import { useCalls } from '../../../src/lib/calls';
 import { tap } from '../../../src/lib/haptics';
 import { type Key, type Vars, useT } from '../../../src/lib/i18n';
@@ -866,6 +866,11 @@ export default function Chat() {
   const lastTheirs = useRef('');
   // You and they follow each other (null until their card has loaded), for explaining a refused message.
   const mutual = useRef<boolean | null>(null);
+  // You have restricted them: your typing isn't sent to them (they can't see when you're active).
+  const restrictedThem = useRef(false);
+  // A message request being accepted, deleted or blocked: one answer at a time.
+  const [answering, setAnswering] = useState(false);
+  const acceptedHere = useRef(false);
   // Likewise read when a message is refused (a ref, so the voice recorder's callback always sees it).
   const suspended = useRef(false);
   suspended.current = !!profile?.suspended;
@@ -910,6 +915,7 @@ export default function Chat() {
 
   /** Tells the other person you are typing, at most once every couple of seconds while the text keeps changing. */
   function tellTyping() {
+    if (restrictedThem.current) return;
     const now = Date.now();
     if (now - typingSentAt.current < TYPING_EVERY_MS) return;
     typingSentAt.current = now;
@@ -1056,6 +1062,8 @@ export default function Chat() {
         getProfile(card.other_id)
           .then((p) => {
             mutual.current = p ? p.is_following && p.follows_me : null;
+            // On someone else's card, `restricted` says whether I have restricted them.
+            restrictedThem.current = p?.restricted === true;
             return p && p.faq_enabled ? fetchFaqs(p.id) : [];
           })
           .then((f) => { if (live) setFaqs(f); })
@@ -1176,7 +1184,8 @@ export default function Chat() {
     const timer = setInterval(() => {
       fetchThread(threadId)
         .then((card) => {
-          if (live && card) setThread((cur) => (cur ? { ...cur, active_at: card.active_at, other_plus: card.other_plus, streak: card.streak } : cur));
+          // A request accepted here stays accepted, even if this answer was asked for just before.
+          if (live && card) setThread((cur) => (cur ? { ...cur, active_at: card.active_at, other_plus: card.other_plus, streak: card.streak, request: acceptedHere.current ? false : card.request } : cur));
         })
         .catch(() => {});
     }, ACTIVE_EVERY_MS);
@@ -1250,6 +1259,8 @@ export default function Chat() {
 
   /** This chat is with Erha, the church assistant: text and emoji only, and she answers in the thread. */
   const isErha = thread?.other_id === ERHA_ID;
+  /** A message request: Accept, Delete and Block take the message box's place until it is answered. */
+  const isRequest = !!thread?.request && !isErha;
 
   /**
    * Erha answers inside this chat: the function puts her reply in the thread as a normal message, so
@@ -1557,6 +1568,49 @@ export default function Chat() {
     ]);
   }
 
+  /** Accepts their message request: the chat moves into Messages, the message box appears, and they can see "Seen". */
+  async function acceptRequest() {
+    if (answering) return;
+    setAnswering(true);
+    tap('medium');
+    try {
+      await acceptMessageRequest(threadId);
+      acceptedHere.current = true;
+      setThread((cur) => (cur ? { ...cur, request: false } : cur));
+      // Read now, so "Seen" is right for them from the start (unless reading quietly).
+      if (!quietRef.current) markThreadRead(me, threadId);
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      setAnswering(false);
+    }
+  }
+
+  /** Deletes their message request, for you only: a new message from them brings it back as a request. */
+  function deleteRequest() {
+    if (answering) return;
+    Alert.alert(t('requests.deleteQuestion'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          setAnswering(true);
+          deleteMessageRequest(threadId)
+            .then(() => {
+              // Nothing of it may show if the chat is opened again.
+              recentChats.delete(outKey);
+              changeOutbox(outKey, () => NO_OUTGOING);
+              toast(t('requests.deleted'));
+              leave();
+            })
+            .catch((e) => toast(errText(e)))
+            .finally(() => setAnswering(false));
+        },
+      },
+    ]);
+  }
+
   function reportThem() {
     if (!thread) return;
     choices.ask({
@@ -1633,7 +1687,7 @@ export default function Chat() {
   // Erha never reads a chat, so nothing of yours is ever marked "Sent" or "Seen" there.
   const rows = useMemo(() => buildRows(messages, outbox, me, theirRead, !isErha).reverse(), [messages, outbox, me, theirRead, isErha]);
   const typing = text.trim().length > 0;
-  const showFaqs = faqs.length > 0 && !!thread && thread.other_id !== me;
+  const showFaqs = faqs.length > 0 && !!thread && thread.other_id !== me && !isRequest;
   const showTyping = theirTyping || (isErha && erhaThinking);
   // Plus: the chosen look behind the messages. Bubbles stay as they are.
   const wallpaper = profile?.plus && prefs.chatWallpaper ? wallpaperById(prefs.chatWallpaper) : null;
@@ -1761,7 +1815,7 @@ export default function Chat() {
         ) : (
           <View style={{ flex: 1 }} />
         )}
-        {thread && status === 'ready' && !isErha ? (
+        {thread && status === 'ready' && !isErha && !isRequest ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', opacity: callsOff ? 0.4 : 1 }} accessibilityState={{ disabled: callsOff }}>
             <IconButton name="phone" size={26} label="Voice call" onPress={() => call('voice')} />
             <IconButton name="video" size={26} label="Video call" onPress={() => call('video')} />
@@ -1823,7 +1877,27 @@ export default function Chat() {
           </View>
         )}
 
-        {status === 'ready' ? (
+        {status === 'ready' && isRequest ? (
+          // A message request, as on Instagram: Block, Delete and Accept where the message box would be.
+          <View style={{ flexDirection: 'row', marginTop: 6, paddingBottom: Math.max(insets.bottom, 8), borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, opacity: answering ? 0.5 : 1 }}>
+            {[
+              { key: 'block', label: t('profile.block'), color: C.like, onPress: block },
+              { key: 'delete', label: t('common.delete'), color: C.like, onPress: deleteRequest },
+              { key: 'accept', label: t('common.accept'), color: C.accent2, onPress: acceptRequest },
+            ].map((b, i) => (
+              <Pressable
+                key={b.key}
+                onPress={b.onPress}
+                disabled={answering}
+                accessibilityRole="button"
+                accessibilityLabel={b.label}
+                accessibilityState={{ disabled: answering }}
+                style={({ pressed }) => ({ flex: 1, height: 54, alignItems: 'center', justifyContent: 'center', borderLeftWidth: i ? StyleSheet.hairlineWidth : 0, borderLeftColor: C.line, opacity: pressed ? 0.55 : 1 })}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: b.color, fontSize: 16.5, fontWeight: b.key === 'accept' ? '700' : '600' }}>{b.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : status === 'ready' ? (
           <View style={{ marginHorizontal: 10, marginTop: 6, marginBottom: keyboardUp ? 8 : Math.max(insets.bottom, 8) + 4 }}>
             {tray ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={{ gap: 6, paddingHorizontal: 6, paddingBottom: 8 }}>

@@ -1458,4 +1458,42 @@ export const sw: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Shiriki chapisho lako la kwanza',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Maombi',
+  'inbox.requestsCount': 'Maombi ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Maombi ya ujumbe',
+  'requests.empty': 'Hakuna maombi ya ujumbe',
+  'requests.deleteQuestion': 'Ungependa kufuta ombi hili?',
+  'requests.deleted': 'Ombi limefutwa',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Nyamazisha',
+  'mute.unmute': 'Acha kunyamazisha',
+  // Read out for each switch.
+  'mute.postsFrom': 'Nyamazisha machapisho ya {username}',
+  'mute.storiesFrom': 'Nyamazisha hadithi za {username}',
+  'mute.muted': 'Umemnyamazisha {username}',
+  'mute.unmuted': 'Umeacha kumnyamazisha {username}',
+  'mute.empty': 'Hujamnyamazisha mtu yeyote',
+  'restrict.restrict': 'Wekea mipaka',
+  'restrict.unrestrict': 'Ondoa mipaka',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Ungependa kumwekea {username} mipaka?',
+  'restrict.confirm': 'Wekea akaunti mipaka',
+  'restrict.done': 'Umemwekea {username} mipaka',
+  'restrict.undone': 'Umemwondolea {username} mipaka',
+  'restrict.empty': 'Hujamwekea mtu yeyote mipaka',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Akaunti zilizowekewa mipaka',
+  'settings.muted': 'Akaunti zilizonyamazishwa',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Imependwa na {name}',
+  'post.likedByOthers': 'Imependwa na {name} na wengine',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Imewekewa mipaka',
+  // ======== end of v24 ========
 };

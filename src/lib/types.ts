@@ -137,8 +137,6 @@ export type Profile = {
   muted_posts?: boolean;
   /** You have muted their stories (they stay off your story tray). */
   muted_stories?: boolean;
-  /** You have restricted them: their comments on your posts only show to them and you, their messages arrive as requests, and they can't see when you're active or have read their messages. */
-  restricted?: boolean;
   has_story: boolean;
   account_type: 'personal' | 'creator';
   category: string;
@@ -180,7 +178,12 @@ export type Profile = {
   ring_color: string;
   /** Plus: the look of this profile page. '' is the plain one. See src/lib/styling.ts. */
   profile_theme: string;
-  /** Your own profile only (null on anyone else's): the under-14 rules apply to you. */
+  /**
+   * Your own profile: the under-14 rules apply to you. Anyone else's (database v24): you have
+   * restricted them, so their comments on your posts only show to them and you, their messages arrive
+   * as requests, and they can't see when you're active or have read their messages. One column, as a
+   * view can't have two of the same name; null on others' cards before v24.
+   */
   restricted: boolean | null;
   /** Your own profile only (null on anyone else's): the app still needs your birth date. */
   needs_birth_date: boolean | null;

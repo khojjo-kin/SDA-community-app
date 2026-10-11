@@ -1522,4 +1522,42 @@ export const ha: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Wallafa rubutunku na farko',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Buƙatu',
+  'inbox.requestsCount': 'Buƙatu ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Buƙatun saƙo',
+  'requests.empty': 'Babu buƙatun saƙo',
+  'requests.deleteQuestion': 'Goge wannan buƙatar?',
+  'requests.deleted': 'An goge buƙatar',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Kashe sauti',
+  'mute.unmute': 'Kunna sauti',
+  // Read out for each switch.
+  'mute.postsFrom': 'Kashe sautin rubuce-rubucen {username}',
+  'mute.storiesFrom': 'Kashe sautin labaran {username}',
+  'mute.muted': 'An kashe sautin {username}',
+  'mute.unmuted': 'An kunna sautin {username}',
+  'mute.empty': 'Ba ku kashe sautin kowa ba',
+  'restrict.restrict': 'Taƙaita',
+  'restrict.unrestrict': 'Cire taƙaitawa',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Taƙaita {username}?',
+  'restrict.confirm': 'Taƙaita asusun',
+  'restrict.done': 'An taƙaita {username}',
+  'restrict.undone': 'An cire taƙaitawar {username}',
+  'restrict.empty': 'Ba ku taƙaita kowa ba',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Asusun da aka taƙaita',
+  'settings.muted': 'Asusun da aka kashe sautinsu',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} ya so wannan',
+  'post.likedByOthers': '{name} da wasu sun so wannan',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'An taƙaita',
+  // ======== end of v24 ========
 };

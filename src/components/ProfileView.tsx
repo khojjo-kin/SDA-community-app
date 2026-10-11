@@ -8,7 +8,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { keepSame } from '../lib/cache';
 import { explainCopyrightReport } from '../lib/copyright-report';
-import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts, withTimeout } from '../lib/api';
+import { acceptFollowRequest, activeLabel, adminSetAccount, fetchFollowAlerts, fetchLives, fetchReposts, fetchStats, fetchUserPosts, fetchUserStories, allStoriesSeen, getProfile, isOnline, openThread, recordProfileView, removeFollowRequest, report, requestFollow, setBlock, setCloseFriend, setFollow, setFollowAlerts, setRestricted, withTimeout } from '../lib/api';
 import { tap } from '../lib/haptics';
 import { en, type Key, tSplit, useT } from '../lib/i18n';
 import { useReduceMotion } from '../lib/motion';
@@ -28,6 +28,7 @@ import { HighlightsRow } from './HighlightsRow';
 import { ScheduledLiveCard } from './LiveSchedule';
 import { Icon, IconName, VerifiedTick } from './Icon';
 import { useLegalSheet } from './LegalDocument';
+import { MuteSheet } from './MuteSheet';
 import { ProfileSkeleton } from './Skeleton';
 import { Avatar, Button, Empty, ErrorNote, IconButton, Screen, Sheet, SheetRow, Toggle, useChoices, useToast } from './ui';
 import { SignatureText } from './WritingText';
@@ -378,7 +379,7 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [sheet, setSheet] = useState<'menu' | 'about' | 'accounts' | null>(null);
+  const [sheet, setSheet] = useState<'menu' | 'about' | 'accounts' | 'mute' | 'restrict' | null>(null);
   // Where the bell is while its menu is open; null when it is shut.
   const [alertsAt, setAlertsAt] = useState<Anchor | null>(null);
   const bellRef = useRef<View>(null);
@@ -611,6 +612,25 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
       await setBlock(me, userId, false);
       toast(t('profile.unblocked', { username: name }));
     });
+  }
+
+  /**
+   * Restricts or unrestricts this person, shown at once and put back if the server says no. On their
+   * card `restricted` says whether I have restricted them (on my own it is the under-14 flag).
+   */
+  async function restrict(next: boolean) {
+    if (!profile) return;
+    const name = profile.username;
+    tap('medium');
+    setSheet(null);
+    setProfile((p) => (p ? { ...p, restricted: next } : p));
+    try {
+      await setRestricted(me, userId, next);
+      toast(next ? t('restrict.done', { username: name }) : t('restrict.undone', { username: name }));
+    } catch (e) {
+      setProfile((p) => (p ? { ...p, restricted: !next } : p));
+      toast(errText(e));
+    }
   }
 
   const later = (fn: () => void) => () => {
@@ -1046,6 +1066,16 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
                 })}
               />
             )}
+            {profile.is_blocked ? null : (
+              <>
+                <SheetRow icon="mute" label={t('mute.mute')} onPress={later(() => setSheet('mute'))} right={<Icon name="right" size={18} color={C.fg2} weight={2} />} />
+                <SheetRow
+                  icon="shield"
+                  label={profile.restricted ? t('restrict.unrestrict') : t('restrict.restrict')}
+                  onPress={profile.restricted ? () => restrict(false) : later(() => setSheet('restrict'))}
+                />
+              </>
+            )}
             <SheetRow
               icon="flag"
               label={t('profile.report')}
@@ -1085,6 +1115,33 @@ export function ProfileView({ userId, isTab }: { userId: string; isTab?: boolean
           </>
         )}
       </Sheet>
+
+      {mine ? null : (
+        <>
+          {/* Mute: their posts, their stories, or both, each switch saved as it is flipped. */}
+          <MuteSheet
+            visible={sheet === 'mute'}
+            onClose={() => setSheet(null)}
+            userId={userId}
+            username={profile.username}
+            current={{ posts: !!profile.muted_posts, stories: !!profile.muted_stories }}
+            onChange={(m) => setProfile((p) => (p ? { ...p, muted_posts: m.posts, muted_stories: m.stories } : p))}
+          />
+          {/* Restrict: asked once, as on Instagram, with their face and name. */}
+          <Sheet visible={sheet === 'restrict'} onClose={() => setSheet(null)}>
+            <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 6, paddingBottom: 20, gap: 14 }}>
+              <Avatar uri={profile.avatar_url} name={profile.full_name || profile.username} size={76} />
+              <Text accessibilityRole="header" numberOfLines={2} style={{ color: C.fg, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>
+                {t('restrict.question', who)}
+              </Text>
+            </View>
+            <View style={{ paddingHorizontal: 16, gap: 10, paddingBottom: 6 }}>
+              <Button label={t('restrict.confirm')} onPress={() => restrict(true)} />
+              <Button kind="ghost" label={t('common.cancel')} onPress={() => setSheet(null)} />
+            </View>
+          </Sheet>
+        </>
+      )}
 
       {/* About this account: when it joined, where it's based, how it was verified and when it was last about. */}
       <Sheet visible={sheet === 'about'} onClose={() => setSheet(null)} title={t('profile.about')}>

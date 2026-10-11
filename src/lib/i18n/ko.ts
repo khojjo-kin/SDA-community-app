@@ -1522,4 +1522,42 @@ export const ko: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': '첫 게시물을 공유해 보세요',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': '요청',
+  'inbox.requestsCount': '요청 ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': '메시지 요청',
+  'requests.empty': '메시지 요청이 없어요',
+  'requests.deleteQuestion': '이 요청을 삭제할까요?',
+  'requests.deleted': '요청을 삭제했어요',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': '숨기기',
+  'mute.unmute': '숨기기 취소',
+  // Read out for each switch.
+  'mute.postsFrom': '{username}님의 게시물 숨기기',
+  'mute.storiesFrom': '{username}님의 스토리 숨기기',
+  'mute.muted': '{username}님을 숨겼어요',
+  'mute.unmuted': '{username}님 숨기기를 취소했어요',
+  'mute.empty': '숨긴 사람이 없어요',
+  'restrict.restrict': '제한하기',
+  'restrict.unrestrict': '제한 풀기',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': '{username}님을 제한할까요?',
+  'restrict.confirm': '계정 제한하기',
+  'restrict.done': '{username}님을 제한했어요',
+  'restrict.undone': '{username}님의 제한을 풀었어요',
+  'restrict.empty': '제한한 사람이 없어요',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': '제한된 계정',
+  'settings.muted': '숨긴 계정',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name}님이 좋아해요',
+  'post.likedByOthers': '{name}님 외 여러 명이 좋아해요',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': '제한됨',
+  // ======== end of v24 ========
 };

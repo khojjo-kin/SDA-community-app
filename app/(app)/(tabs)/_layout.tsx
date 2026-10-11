@@ -29,7 +29,8 @@ function useUnreadThreads(me: string) {
   const [unread, setUnread] = useState(false);
   const check = useCallback(() => {
     fetchThreads()
-      .then((t) => setUnread(t.some((x) => x.unread_count > 0 && x.has_messages && !x.muted)))
+      // Message requests wait in their own folder and don't light the dot; only ordinary chats do.
+      .then((t) => setUnread(t.some((x) => x.unread_count > 0 && x.has_messages && !x.muted && !x.request)))
       .catch(() => {});
   }, []);
   useEffect(() => {

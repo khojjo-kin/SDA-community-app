@@ -1458,4 +1458,42 @@ export const hi: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'अपनी पहली पोस्ट शेयर करें',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'रिक्वेस्ट',
+  'inbox.requestsCount': 'रिक्वेस्ट ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'मैसेज रिक्वेस्ट',
+  'requests.empty': 'कोई मैसेज रिक्वेस्ट नहीं',
+  'requests.deleteQuestion': 'यह रिक्वेस्ट डिलीट करें?',
+  'requests.deleted': 'रिक्वेस्ट डिलीट हो गई',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'म्यूट करें',
+  'mute.unmute': 'अनम्यूट करें',
+  // Read out for each switch.
+  'mute.postsFrom': '{username} की पोस्ट म्यूट करें',
+  'mute.storiesFrom': '{username} की स्टोरीज़ म्यूट करें',
+  'mute.muted': '{username} को म्यूट किया गया',
+  'mute.unmuted': '{username} को अनम्यूट किया गया',
+  'mute.empty': 'आपने किसी को म्यूट नहीं किया है',
+  'restrict.restrict': 'रिस्ट्रिक्ट करें',
+  'restrict.unrestrict': 'अनरिस्ट्रिक्ट करें',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': '{username} को रिस्ट्रिक्ट करें?',
+  'restrict.confirm': 'अकाउंट रिस्ट्रिक्ट करें',
+  'restrict.done': '{username} को रिस्ट्रिक्ट किया गया',
+  'restrict.undone': '{username} को अनरिस्ट्रिक्ट किया गया',
+  'restrict.empty': 'आपने किसी को रिस्ट्रिक्ट नहीं किया है',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'रिस्ट्रिक्ट किए गए अकाउंट',
+  'settings.muted': 'म्यूट किए गए अकाउंट',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} ने लाइक किया',
+  'post.likedByOthers': '{name} और अन्य लोगों ने लाइक किया',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'रिस्ट्रिक्टेड',
+  // ======== end of v24 ========
 };

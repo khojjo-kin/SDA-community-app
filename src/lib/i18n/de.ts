@@ -1458,4 +1458,42 @@ export const de: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Teile deinen ersten Beitrag',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Anfragen',
+  'inbox.requestsCount': 'Anfragen ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Nachrichtenanfragen',
+  'requests.empty': 'Keine Nachrichtenanfragen',
+  'requests.deleteQuestion': 'Diese Anfrage löschen?',
+  'requests.deleted': 'Anfrage gelöscht',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Stummschalten',
+  'mute.unmute': 'Stummschaltung aufheben',
+  // Read out for each switch.
+  'mute.postsFrom': 'Beiträge von {username} stummschalten',
+  'mute.storiesFrom': 'Storys von {username} stummschalten',
+  'mute.muted': '{username} stummgeschaltet',
+  'mute.unmuted': 'Stummschaltung von {username} aufgehoben',
+  'mute.empty': 'Du hast niemanden stummgeschaltet',
+  'restrict.restrict': 'Einschränken',
+  'restrict.unrestrict': 'Einschränkung aufheben',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': '{username} einschränken?',
+  'restrict.confirm': 'Konto einschränken',
+  'restrict.done': '{username} eingeschränkt',
+  'restrict.undone': 'Einschränkung von {username} aufgehoben',
+  'restrict.empty': 'Du hast niemanden eingeschränkt',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Eingeschränkte Konten',
+  'settings.muted': 'Stummgeschaltete Konten',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Gefällt {name}',
+  'post.likedByOthers': 'Gefällt {name} und weiteren Personen',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Eingeschränkt',
+  // ======== end of v24 ========
 };

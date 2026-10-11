@@ -1522,4 +1522,42 @@ export const tw: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Kyɛ wo post a edi kan',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Abisadeɛ',
+  'inbox.requestsCount': 'Abisadeɛ ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Nkra abisadeɛ',
+  'requests.empty': 'Nkra abisadeɛ biara nni hɔ',
+  'requests.deleteQuestion': 'Wopɛ sɛ wopepa saa abisadeɛ yi?',
+  'requests.deleted': 'Wɔapepa abisadeɛ no',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Dum nnyigyei',
+  'mute.unmute': 'Bue nnyigyei',
+  // Read out for each switch.
+  'mute.postsFrom': 'Dum {username} posts nnyigyei',
+  'mute.storiesFrom': 'Dum {username} stories nnyigyei',
+  'mute.muted': 'Woadum {username} nnyigyei',
+  'mute.unmuted': 'Woabue {username} nnyigyei',
+  'mute.empty': 'Wonnum obiara nnyigyei',
+  'restrict.restrict': 'To hyeɛ',
+  'restrict.unrestrict': 'Yi hyeɛ no',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Wopɛ sɛ wode hyeɛ to {username} so?',
+  'restrict.confirm': 'To hyeɛ ma akawnt no',
+  'restrict.done': 'Wode hyeɛ ato {username} so',
+  'restrict.undone': 'Woayi hyeɛ afi {username} so',
+  'restrict.empty': 'Wonnde hyeɛ nto obiara so',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Akawnt a wode hyeɛ ato so',
+  'settings.muted': 'Akawnt a woadum wɔn nnyigyei',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': '{name} ani gye ho',
+  'post.likedByOthers': '{name} ne afoforo ani gye ho',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Hyeɛ wɔ so',
+  // ======== end of v24 ========
 };

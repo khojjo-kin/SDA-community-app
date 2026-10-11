@@ -1522,4 +1522,42 @@ export const ru: Partial<Record<Key, string>> = {
   // On your own profile with nothing posted yet, written as if signed by hand; a tap opens Create.
   'profile.shareFirstPost': 'Поделись первой публикацией',
   // ======== end of v23 ========
+  // ======== Message requests, mute and restrict, Liked by (v24) ========
+  // ---------- v24: messages ----------
+  // Above the chats in Messages, on the right: opens the folder of message requests. {count} is how many.
+  'inbox.requests': 'Запросы',
+  'inbox.requestsCount': 'Запросы ({count})',
+  // The folder of chats started by people you don't follow, waiting for you to accept them.
+  'requests.title': 'Запросы на переписку',
+  'requests.empty': 'Нет запросов на переписку',
+  'requests.deleteQuestion': 'Удалить этот запрос?',
+  'requests.deleted': 'Запрос удалён',
+  // ---------- v24: mute and restrict ----------
+  // In the "…" menu on someone's profile and on their posts; opens a switch for their posts and one for their stories.
+  'mute.mute': 'Скрыть',
+  'mute.unmute': 'Не скрывать',
+  // Read out for each switch.
+  'mute.postsFrom': 'Скрыть публикации {username}',
+  'mute.storiesFrom': 'Скрыть истории {username}',
+  'mute.muted': 'Ты скрыл(а) {username}',
+  'mute.unmuted': '{username} больше не скрыт(а)',
+  'mute.empty': 'Ты никого не скрыл(а)',
+  'restrict.restrict': 'Ограничить',
+  'restrict.unrestrict': 'Снять ограничение',
+  // The title of the sheet that asks before restricting someone, and its button.
+  'restrict.question': 'Ограничить {username}?',
+  'restrict.confirm': 'Ограничить аккаунт',
+  'restrict.done': 'Аккаунт {username} ограничен',
+  'restrict.undone': 'Ограничение для {username} снято',
+  'restrict.empty': 'Ты никого не ограничил(а)',
+  // Settings: the lists of people you have restricted or muted.
+  'settings.restricted': 'Ограниченные аккаунты',
+  'settings.muted': 'Скрытые аккаунты',
+  // ---------- v24: posts and comments ----------
+  // Under a post, with the small picture of someone you follow; {name} is their username, drawn in bold.
+  'post.likedBy': 'Нравится {name}',
+  'post.likedByOthers': 'Нравится {name} и другим',
+  // A small label on a comment from someone you restricted: only you and they can see it.
+  'comments.restricted': 'Ограничен',
+  // ======== end of v24 ========
 };

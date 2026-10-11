@@ -267,13 +267,18 @@ export default function Inbox() {
     ]);
   }
 
+  // Message requests (chats from people you don't follow, not yet answered or accepted) wait in their
+  // own folder, behind the Requests link above the chats; only ordinary chats are listed here.
+  const chats = useMemo(() => threads.filter((th) => !th.request), [threads]);
+  const requestCount = threads.length - chats.length;
   const needle = q.trim().toLowerCase();
   const items = useMemo(() => {
-    const found = needle ? threads.filter((th) => th.username.toLowerCase().includes(needle) || (th.full_name || '').toLowerCase().includes(needle)) : threads;
+    const found = needle ? chats.filter((th) => th.username.toLowerCase().includes(needle) || (th.full_name || '').toLowerCase().includes(needle)) : chats;
     const list: Item[] = found.map((th) => ({ kind: 'thread', t: th }));
     if (offerErha && (!needle || 'erha'.includes(needle))) list.push({ kind: 'erha' });
     return list;
-  }, [threads, needle, offerErha]);
+  }, [chats, needle, offerErha]);
+  const requestsLabel = requestCount ? t('inbox.requestsCount', { count: requestCount }) : t('inbox.requests');
 
   const latest = useRef<RowActions>(null as unknown as RowActions);
   latest.current = {
@@ -356,8 +361,21 @@ export default function Inbox() {
             <Empty icon="send" title={t('inbox.emptyTitle')} action={<Button small label={t('inbox.sendMessage')} onPress={() => { if (navOnce()) router.push('/new-message'); }} style={{ marginTop: 8 }} />} />
           )
         }
-        // Notes sit above the chats and scroll with them; they step aside while you search.
-        ListHeaderComponent={needle ? null : <NotesRow refreshKey={notesKey} />}
+        // Notes sit above the chats and scroll with them, then "Messages" with the Requests folder on the
+        // right, as on Instagram; they step aside while you search.
+        ListHeaderComponent={
+          needle ? null : (
+            <>
+              <NotesRow refreshKey={notesKey} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
+                <Text accessibilityRole="header" style={{ color: C.fg, fontSize: 16.5, fontWeight: '700' }}>{t('tabs.messages')}</Text>
+                <Pressable onPress={() => { if (navOnce()) router.push('/message-requests'); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={requestsLabel} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+                  <Text style={{ color: C.accent2, fontSize: 15.5, fontWeight: '600', fontVariant: ['tabular-nums'] }}>{requestsLabel}</Text>
+                </Pressable>
+              </View>
+            </>
+          )
+        }
         contentContainerStyle={{ paddingBottom: listBottom }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setNotesKey((k) => k + 1); load(true); }} tintColor={C.fg2} />}
         keyboardShouldPersistTaps="handled"
