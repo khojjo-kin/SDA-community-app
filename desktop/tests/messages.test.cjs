@@ -571,7 +571,8 @@ async function newPage(browser, errors, as, opts = {}) {
     await map.getByRole('button', { name: 'Location sharing settings' }).click();
     await map.waitForSelector('.mx-map-settings');
     check('the settings show sharing on, updated just now', (await map.locator('.mx-map-settings').getByRole('switch', { name: 'Share my location' }).getAttribute('aria-checked')) === 'true' && (await map.locator('.mx-map-set-text').innerText()).includes('On · updated just now'));
-    check('and how long it lasts', (await map.locator('.mx-map-how').innerText()).includes('stays on until you turn it off'));
+    // The owner wants plain pages: the settings are the switch and the two choices, with no paragraph explaining them.
+    check('and the two choices of who sees it, with no explanation under them', (await map.locator('.mx-map-settings [role=radio]').count()) === 2 && (await map.locator('.mx-map-how, .mx-map-foot').count()) === 0);
     await map.locator('.mx-map-settings').getByRole('radio', { name: /^Close friends/ }).click();
     await map.waitForTimeout(500);
     check('who can see it changes straight away', (await map.evaluate(() => window.__messagesDemo.T('community_locations').find((l) => l.user_id === 'demo_me')?.audience)) === 'close_friends' && (await map.locator('.mx-map-settings').getByRole('radio', { name: /^Close friends/ }).getAttribute('aria-checked')) === 'true');

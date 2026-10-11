@@ -1,22 +1,26 @@
 // A community or a page, from the iPhone app's group/[id].tsx: its cover and details, join / follow /
-// ask to join (and leave), its members, "Create post" for those who may post in it, its posts as a
-// grid or a feed, and for the people who run it: edit it, and for its owner: delete it.
-import React, { useEffect, useRef, useState } from 'react';
-import { canPostIn, deleteGroup, fetchGroup, fetchGroupPosts, joinGroup, leaveGroup, updateGroup, uploadImage } from 'shared/api';
+// ask to join (and leave), its members, "Create post" (and "Event") for those who may post in it, its
+// next events, its posts as a grid or a feed, and for the people who run it: edit it, and for its
+// owner: delete it.
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { canPostIn, deleteGroup, fetchEvents, fetchGroup, fetchGroupPosts, joinGroup, leaveGroup, updateGroup, uploadImage } from 'shared/api';
 import { listen } from 'shared/store';
 import { errText, fmt } from 'shared/theme';
-import type { Group, Post } from 'shared/types';
+import type { EventCard, Group, Post } from 'shared/types';
 import { openCreate } from '../lib/create';
 import { t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav } from '../lib/router';
 import { ChoiceMenu, Empty, Failed, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { FeedPost, Tile } from '../ui/post';
+import { EventTile, useEventsChanged } from './event-parts';
 import { ChurchSelect, CoverPicker, GroupCover, type Picked, canSee, kindWord, manages, peopleCount } from './group-parts';
 import '../styles/community.css';
 
 type View = 'grid' | 'feed';
 const VIEW_KEY = 'community.groupView';
+/** How many of the community's next events show over its posts. */
+const EVENTS_SHOWN = 6;
 
 /** The last way posts were shown (grid or feed), remembered on this computer. */
 function savedView(): View {
@@ -43,6 +47,22 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
   const [editing, setEditing] = useState(false);
   const loadingMore = useRef(false);
   const end = useRef<HTMLDivElement>(null);
+  const [events, setEvents] = useState<EventCard[]>([]);
+  const [eventsTick, setEventsTick] = useState(0);
+  useEventsChanged(useCallback(() => setEventsTick((n) => n + 1), []));
+
+  // The community's next events, once they may be seen. The strip is extra: if it can't load, the page goes without it.
+  useEffect(() => {
+    if (!group || !visible) {
+      setEvents([]);
+      return;
+    }
+    let alive = true;
+    fetchEvents({ groupId: id, limit: EVENTS_SHOWN }).then((list) => alive && setEvents(list), () => {});
+    return () => {
+      alive = false;
+    };
+  }, [id, group?.id, visible, eventsTick]);
 
   // A post made in Create, or joining and leaving anywhere, announce 'feed': show it here at once.
   useEffect(
@@ -252,6 +272,11 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
               <Icon name="plus" size={16} stroke={2.2} /> {t('d.community.createPost')}
             </button>
           ) : null}
+          {canPostIn(group) && me.restricted !== true ? (
+            <button className="btn quiet ev-group-event" onClick={() => nav('/events/new?group=' + group.id)}>
+              <Icon name="calendar" size={16} stroke={2} /> {t('events.event')}
+            </button>
+          ) : null}
           {manager ? (
             <button className="icon-btn" aria-label={t('profile.moreOptions')} onClick={() => setMenu(true)}>
               <Icon name="more" size={24} />
@@ -259,6 +284,22 @@ export function GroupPage({ id, openPost }: { id: string; openPost: (id: string,
           ) : null}
         </div>
       </section>
+
+      {visible && events.length ? (
+        <section className="ev-section in-group" aria-label={t('events.title')}>
+          <div className="ev-section-head">
+            <h3>{t('events.title')}</h3>
+            <Link to={'/events?group=' + group.id} className="link-btn">
+              {t('events.seeAll')}
+            </Link>
+          </div>
+          <div className="ev-tiles">
+            {events.map((ev) => (
+              <EventTile key={ev.id} ev={ev} to={`/events/${ev.id}?group=${group.id}`} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {visible && posts?.length ? (
         <div className="cm-tabs" role="tablist" aria-label={t('d.community.showPostsAs')}>

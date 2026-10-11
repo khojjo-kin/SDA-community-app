@@ -20,17 +20,14 @@
 .mx-map-status .spinner { width: 18px; height: 18px; flex: none; }
 .btn.mx-map-cta { margin: 12px 16px 0; width: auto; height: 38px; }
 .mx-map-problem { margin: 10px 16px 0; color: var(--like); font-size: 13px; line-height: 18px; }
-.mx-map-note { display: flex; align-items: center; gap: 8px; margin: 12px 16px 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--fg2); font-size: 13px; line-height: 18px; }
-.mx-map-note svg { flex: none; }
+.mx-map-note { margin: 12px 20px 0; color: var(--fg2); font-size: 13px; line-height: 18px; }
 .mx-map-sub { padding: 24px 20px 6px; font-weight: 700; font-size: 15px; }
 .mx-map-list { display: flex; flex-direction: column; }
-.mx-map-empty { padding: 6px 20px; color: var(--fg2); font-size: 13.5px; line-height: 19px; }
 .mx-map-row { display: flex; align-items: center; gap: 4px; padding-right: 12px; }
 .mx-map-row:hover, .mx-map-row.on { background: var(--hover); }
 .mx-map-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 4px 8px 20px; text-align: left; }
 .mx-map-row .row-text > b { display: flex; align-items: center; gap: 4px; }
 .mx-map-row .row-text > span { font-size: 12.5px; }
-.mx-map-foot { margin-top: auto; padding: 18px 20px 22px; color: var(--fg3); font-size: 12px; line-height: 17px; }
 
 /* ---------- the map ---------- */
 .mx-map { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg2); }
@@ -84,7 +81,80 @@
 .mx-map-who.off { opacity: 0.45; }
 .mx-map-who .nt-aud .row-text > b { font-weight: 600; }
 .mx-map-edit { align-self: flex-start; padding: 4px 0; }
-.mx-map-how { color: var(--fg2); font-size: 12.5px; line-height: 18px; }
 
 /* Narrow windows: the list gets narrower. */
 @media (max-width: 1000px) { .mx-map-side { width: 300px; } }
+
+/* ---------- the four layers: Friends · Nearby · Churches · Events ---------- */
+.mx-map-tabs { display: flex; gap: 4px; margin: 0 16px 14px; padding: 3px; border-radius: 12px; background: var(--surface); }
+.mx-map-tabs button { flex: 1; min-width: 0; height: 32px; padding: 0 6px; border-radius: 9px; color: var(--fg2); font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-map-tabs button:hover:not(.on) { color: var(--fg); }
+.mx-map-tabs button.on { background: var(--surface2); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+/* Off Friends there is no settings button: the title keeps its place. */
+.mx-map-head > h2:last-child { margin-right: 40px; }
+
+/* Nearby's switch, the one line under it, and why it can't go on. */
+.mx-near-switch { padding: 2px 20px 10px; }
+.mx-near-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
+.mx-near-row b { flex: 1; font-size: 16px; font-weight: 600; }
+.mx-near-row input { position: absolute; opacity: 0; pointer-events: none; }
+.mx-near-row input:disabled + .switch { opacity: 0.5; }
+.mx-near-row .spinner { width: 18px; height: 18px; }
+.mx-near-privacy { color: var(--fg2); font-size: 13px; line-height: 18px; }
+.mx-near-note { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: 13.5px; line-height: 19px; font-weight: 600; }
+.mx-near-note.quiet { font-weight: 400; color: var(--fg2); }
+.mx-near-note .link-btn { font-size: 13.5px; }
+
+/* The heading over a layer's list, and its rows. */
+.mx-layer-head { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 12px 20px 8px; text-align: left; border-top: 1px solid var(--line); }
+.mx-map-tabs + .mx-layer-head { border-top: 0; padding-top: 2px; }
+.mx-layer-head b { font-size: 16px; font-weight: 700; }
+.mx-layer-head span { color: var(--fg2); font-size: 13px; }
+.mx-layer-head.retry span { color: var(--accent2); font-weight: 600; }
+.mx-layer-head .spinner { margin: 6px 0; }
+.mx-layer-list { display: flex; flex-direction: column; padding-bottom: 16px; }
+.mx-layer-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 20px; text-align: left; }
+.mx-layer-row:hover, .mx-layer-row.on { background: var(--hover); }
+.mx-layer-row .row-text > b { display: flex; align-items: center; gap: 4px; }
+.mx-layer-row .row-text > span { font-size: 13px; }
+.mx-layer-row .row-text > .mx-layer-going { color: var(--accent2); font-weight: 600; }
+.mx-layer-icon { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--accent2); }
+.mx-layer-km { flex: none; color: var(--fg2); font-size: 13px; }
+.mx-layer-row .ev-date { width: 44px; flex: none; }
+
+/* Where you are, as a blue dot (on Nearby, Churches and Events). */
+.mx-here { position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #2f7bf6; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(47, 123, 246, 0.22), 0 1px 4px rgba(0, 0, 0, 0.35); z-index: 1; pointer-events: none; }
+
+/* People in Nearby (a face in a white ring), churches (a white disc) and events (a calendar leaf).
+   They sit on the map picture, so they keep the same light look in both themes, as the faces do. */
+.mx-mark { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; z-index: 1; }
+.mx-mark.on { z-index: 2; }
+.mx-mark.person { width: 96px; margin: -25px 0 0 -48px; }
+.mx-mark-face { display: inline-flex; padding: 2px; border-radius: 50%; background: #fff; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); transition: transform 0.12s; }
+.mx-mark.person:hover .mx-mark-face { transform: scale(1.06); }
+.mx-mark.person.on .mx-mark-face { transform: scale(1.14); border-color: var(--accent); }
+/* (The pins are placed with an inline transform, so they light up with a ring rather than grow.) */
+.mx-mark.church { width: 36px; height: 36px; margin: -18px 0 0 -18px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #1a9a4b; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+.mx-mark.church:hover { box-shadow: 0 0 0 3px rgba(31, 191, 90, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35); }
+.mx-mark.church.on { background: var(--accent); color: #fff; box-shadow: 0 0 0 4px rgba(31, 191, 90, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4); }
+.mx-mark.event { margin: -21px 0 0 -21px; border-radius: 10px; border: 2px solid #fff; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+.mx-mark.event:hover { box-shadow: 0 0 0 3px rgba(31, 191, 90, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35); }
+.mx-mark.event.on { box-shadow: 0 0 0 4px var(--accent), 0 4px 12px rgba(0, 0, 0, 0.4); }
+.mx-mark.event .ev-date { width: 38px; height: 38px; border-radius: 8px; overflow: hidden; background: #fff; gap: 0; padding: 0; }
+.mx-mark.event .ev-date-month { width: 100%; padding: 1px 0; background: var(--accent); color: #fff; font-size: 9px; letter-spacing: 0.5px; }
+.mx-mark.event .ev-date-day { color: #0f1419; font-size: 16px; line-height: 22px; }
+
+/* A chosen person, church or event: what it is, and two ways on. */
+.mx-pick-card { position: absolute; z-index: 3; left: 50%; bottom: 28px; transform: translateX(-50%); width: min(440px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; padding: 14px 10px 14px 14px; border-radius: 20px; background: var(--pop); border: 1px solid var(--pop-line); box-shadow: var(--shadow); animation: zoom 0.15s ease; }
+.mx-pick-top { display: flex; align-items: center; gap: 12px; }
+.mx-pick-top .row-text > b { display: flex; align-items: center; gap: 4px; font-size: 15.5px; white-space: normal; }
+.mx-pick-top .row-text > span { font-size: 13px; }
+.mx-pick-top .row-text > .mx-pick-accent { color: var(--accent2); font-weight: 600; }
+.mx-pick-top .ev-date { width: 48px; flex: none; }
+.mx-pick-icon { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--accent2); }
+.mx-pick-actions { display: flex; gap: 8px; padding-right: 4px; }
+.mx-pick-actions .btn { flex: 1; height: 34px; }
+
+/* A small map of one place (an event's page and its editor): no dragging, a pin in the middle. */
+.mx-mini { position: relative; overflow: hidden; background-color: var(--bg2); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); }
+:root:not([data-theme='white']) .mx-mini .mx-map-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.88) saturate(0.55); }

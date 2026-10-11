@@ -3,20 +3,33 @@
 // the verse of the day, a chapter to read, or your highlights and notes.
 //
 // Reading: click a verse to choose it, shift-click to choose a run of verses. A bar then offers the
-// five highlight colours, a note, copy, send to people and post. Highlights and notes are private
-// and kept in the database (community_bible_marks), so they follow you to the iPhone app.
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchBibleMarks, peopleToMessage, sendToPeople, setBibleColor, setBibleNote } from 'shared/api';
-import { BOOKS, TRANSLATIONS, type BibleSettings, type Chapter, type TranslationId, cachedChapters, fetchChapter, loadBibleSettings, parseReference, saveBibleSettings, verseRef } from 'shared/bible';
+// five highlight colours, a note, copy, send to people, a verse card and post. Highlights and notes
+// are private and kept in the database (community_bible_marks), so they follow you to the iPhone app.
+//
+// The home page has the reading streak beside the verse of the day: days in a row with a chapter read,
+// and the last seven days. A chapter counts once it has really been read (twenty seconds on it, or most
+// of a long one scrolled through), once a day, through the shared code the iPhone app uses.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fetchBibleMarks, localDay, peopleToMessage, sendToPeople, setBibleColor, setBibleNote, uploadImage } from 'shared/api';
+import { BOOKS, TRANSLATIONS, type BibleSettings, type Chapter, type TranslationId, cachedChapters, chapterCounted, fetchChapter, loadBibleSettings, loadStreak, noteChapterRead, parseReference, peekStreak, saveBibleSettings, verseRef } from 'shared/bible';
 import { setPrefs, usePrefs } from 'shared/prefs';
 import { ago } from 'shared/theme';
-import type { BibleMark, BibleMarkColor, Profile } from 'shared/types';
+import type { BibleMark, BibleMarkColor, Profile, ReadingStreak } from 'shared/types';
 import { type CreateRequest, openCreate } from '../lib/create';
 import { dateLocale, t, tn } from '../lib/i18n';
 import { useMe } from '../lib/me';
 import { nav, useRoute } from '../lib/router';
 import { Avatar, Empty, Failed, Icon, Modal, Spinner, ask, toast, toastError, useLoad, useOutside } from '../ui/kit';
+import { VerseCardDialog, type VersePick } from '../ui/verse-card';
 import '../styles/church.css';
+import '../styles/events.css';
+
+declare const __DEMO__: boolean;
+
+/** A chapter counts towards the reading streak after this long on it (the demo's tests may ask for less)… */
+const READ_MS = (__DEMO__ && typeof window !== 'undefined' && Number((window as { __bibleReadMs?: number }).__bibleReadMs)) || 20000;
+/** …or once most of a long chapter has been scrolled through, after at least this long. */
+const SKIM_MS = 8000;
 
 /* ---------- highlight colours ---------- */
 
@@ -79,12 +92,13 @@ export function verseFor(date: Date): DailyVerse {
   return { book, chapter, from, to, ref: `${spoken(book)} ${chapter}:${from}${to > from ? `–${to}` : ''}` };
 }
 
-function VerseCard({ translation }: { translation: TranslationId }) {
+function VerseOfTheDay({ translation }: { translation: TranslationId }) {
   const verse = verseFor(new Date());
   const [text, setText] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [menu, setMenu] = useState(false);
   const [send, setSend] = useState(false);
+  const [card, setCard] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useOutside(menuRef, () => setMenu(false), menu);
   // The words come from the app's own Bible, in the reader's translation.
@@ -137,6 +151,9 @@ function VerseCard({ translation }: { translation: TranslationId }) {
         {text ? <span> {translation.toUpperCase()}</span> : null}
       </p>
       <div className="ch-votd-actions">
+        <button className="ch-chip-btn" disabled={!text} onClick={() => setCard(true)}>
+          <Icon name="image" size={16} /> {t('verseCard.make')}
+        </button>
         <button className="ch-chip-btn" disabled={!text} onClick={() => setSend(true)}>
           <Icon name="send" size={16} /> {t('common.share')}
         </button>
@@ -145,20 +162,33 @@ function VerseCard({ translation }: { translation: TranslationId }) {
         </button>
       </div>
       {send ? <SendText title={t('d.church.sendVerse')} text={quote} onClose={() => setSend(false)} /> : null}
+      {card ? <CardMaker pick={{ book: verse.book, chapter: verse.chapter, verses: Array.from({ length: verse.to - verse.from + 1 }, (_, i) => verse.from + i), translation }} onClose={() => setCard(false)} /> : null}
     </section>
   );
 }
 
+/** The verse card maker for a few verses, then (if its picture is shared) the people to send it to. */
+function CardMaker({ pick, onClose }: { pick: VersePick; onClose: () => void }) {
+  const [sending, setSending] = useState<File | null>(null);
+  if (sending) return <SendText title={t('verseCard.title')} text="" picture={sending} onClose={onClose} />;
+  return <VerseCardDialog pick={pick} onClose={onClose} onShare={(file) => setSending(file)} />;
+}
+
 /* ---------- sending words to people (verses, a post's link, a track) ---------- */
 
-/** Sends `text` to the people you choose, one chat each, with an optional message after it. */
-export function SendText({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+/**
+ * Sends `text` (or a `picture`: a verse card) to the people you choose, one chat each, with an
+ * optional message after it. A picture is uploaded once, when Send is clicked.
+ */
+export function SendText({ title, text, picture, onClose }: { title: string; text: string; picture?: File; onClose: () => void }) {
   const { me } = useMe();
   const [people, setPeople] = useState<Profile[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [q, setQ] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const preview = useMemo(() => (picture ? URL.createObjectURL(picture) : ''), [picture]);
+  useEffect(() => () => (preview ? URL.revokeObjectURL(preview) : undefined), [preview]);
   useEffect(() => {
     peopleToMessage(me.id).then(setPeople, (e) => {
       toastError(e);
@@ -170,7 +200,10 @@ export function SendText({ title, text, onClose }: { title: string; text: string
   const send = async () => {
     setBusy(true);
     try {
-      await sendToPeople(me.id, picked, { text });
+      if (picture) {
+        const url = (await uploadImage(me.id, preview, 1080, 1080)).url;
+        await sendToPeople(me.id, picked, { media: [url] });
+      } else await sendToPeople(me.id, picked, { text });
       if (note.trim()) await sendToPeople(me.id, picked, { text: note });
       toast(tn('d.church.sent', picked.length));
       onClose();
@@ -181,7 +214,7 @@ export function SendText({ title, text, onClose }: { title: string; text: string
   };
   return (
     <Modal onClose={onClose} title={title} className="share">
-      <p className="ch-send-preview">{text}</p>
+      {preview ? <img className="ev-send-picture" src={preview} alt="" /> : <p className="ch-send-preview">{text}</p>}
       <div className="share-search">
         <span>{t('d.church.to')}</span>
         <input autoFocus placeholder={t('d.church.searchDots')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('createFlow.searchPeople')} />
@@ -341,25 +374,106 @@ export function Bible({ book, chapter }: { book?: string; chapter?: string }) {
   );
 }
 
-/* ---------- home: verse of the day, continue reading ---------- */
+/* ---------- the reading streak ---------- */
+
+/** "M", "T"… for a day, in the app's language. */
+function weekdayLetter(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat(dateLocale(), { weekday: 'narrow' }).format(d);
+  } catch {
+    return 'SMTWTFS'[d.getDay()];
+  }
+}
+
+/** A small flame: green while there is a streak, filled once today's chapter is read. */
+function Flame({ lit, warm }: { lit: boolean; warm: boolean }) {
+  return (
+    <svg className={'ev-flame' + (warm ? ' warm' : '')} width="30" height="30" viewBox="0 0 24 24" fill={lit ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2.5c.6 3.2 2.6 5.1 4.3 7 1.4 1.6 2.4 3.3 2.4 5.6A6.7 6.7 0 0 1 12 21.5a6.7 6.7 0 0 1-6.7-6.4c0-2.2.9-3.9 2.2-5.2.2 1.6 1 2.8 2.2 3.5-.3-3.9.6-7.6 2.3-10.9Z" />
+    </svg>
+  );
+}
+
+/**
+ * Days in a row with a chapter read, the best run, and the last seven days. Fetched each time the page
+ * is shown, so a chapter just read shows here on coming back. Clicking it carries on reading.
+ */
+function Streak({ onContinue }: { onContinue: () => void }) {
+  const { me } = useMe();
+  const [streak, setStreak] = useState<ReadingStreak | null>(() => peekStreak(me.id));
+  const [failed, setFailed] = useState(false);
+  const today = localDay();
+  useEffect(() => {
+    let live = true;
+    loadStreak(me.id).then(
+      (s) => live && setStreak(s),
+      () => live && setFailed(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  const week = useMemo(() => {
+    const read = new Set(streak?.last_days ?? []);
+    const [y, m, d] = today.split('-').map((n) => parseInt(n, 10));
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(y, m - 1, d - (6 - i));
+      const id = localDay(day);
+      return { id, letter: weekdayLetter(day), read: read.has(id), today: i === 6 };
+    });
+  }, [streak, today]);
+  if (!streak) return failed ? null : <div className="ev-streak loading" aria-hidden="true" />;
+  const current = streak.current_streak;
+  const best = streak.best_streak;
+  const title = current > 0 ? t('bible.streakDays', { n: current }) : t('bible.streakStart');
+  const status = streak.read_today ? t('bible.readToday') : t('bible.readAChapter');
+  return (
+    <button className="ev-streak" onClick={onContinue} aria-label={`${title}. ${status}. ${t('bible.continueReading')}`}>
+      <span className="ev-streak-top">
+        <Flame lit={streak.read_today} warm={current > 0} />
+        <span className="ev-streak-text">
+          <b>{title}</b>
+          <span>
+            <em className={streak.read_today ? 'done' : ''}>{status}</em>
+            {best > 0 ? <span className="ev-streak-best">{` · ${t('bible.bestStreak', { n: best })}`}</span> : null}
+          </span>
+        </span>
+      </span>
+      <span className="ev-streak-week">
+        {week.map((day) => (
+          <span key={day.id} className={'ev-streak-day' + (day.read ? ' read' : '') + (day.today ? ' today' : '')} data-day={day.id}>
+            <span>{day.letter}</span>
+            <i>{day.read ? <Icon name="check" size={14} stroke={2.8} /> : null}</i>
+          </span>
+        ))}
+      </span>
+    </button>
+  );
+}
+
+/* ---------- home: verse of the day, the streak, continue reading ---------- */
 
 function BibleHome({ settings, dailyVerse }: { settings: BibleSettings; dailyVerse: boolean }) {
-  const last = settings.last;
+  // Carry on where the member left off; before anything has been read, today's verse's chapter.
+  const today = verseFor(new Date());
+  const resume = settings.last ?? { book: today.book, chapter: today.chapter };
+  const carryOn = () => nav(bibleLink(resume.book, resume.chapter));
   return (
-    <div className="ch-home">
-      {dailyVerse ? <VerseCard translation={settings.translation} /> : null}
-      {last ? (
-        <button className="ch-card-row" onClick={() => nav(bibleLink(last.book, last.chapter))}>
-          <Icon name="bookmark" size={22} className="ch-accent" />
-          <span className="row-text">
-            <span>{t('d.church.continueReading')}</span>
-            <b>
-              {last.book} {last.chapter}
-            </b>
-          </span>
-          <Icon name="right" size={16} />
-        </button>
-      ) : null}
+    <div className="ch-home ev-bible-home">
+      <div className={'ev-home-top' + (dailyVerse ? '' : ' single')}>
+        {dailyVerse ? <VerseOfTheDay translation={settings.translation} /> : null}
+        <Streak onContinue={carryOn} />
+      </div>
+      <button className="ch-card-row" onClick={carryOn}>
+        <Icon name="bookmark" size={22} className="ch-accent" />
+        <span className="row-text">
+          <span>{t('bible.continueReading')}</span>
+          <b>
+            {resume.book} {resume.chapter}
+          </b>
+        </span>
+        <Icon name="right" size={16} />
+      </button>
       <button className="ch-card-row" onClick={() => nav('/bible/marks')}>
         <Icon name="compose" size={22} className="ch-accent" />
         <span className="row-text">
@@ -388,10 +502,41 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
   const [marks, setMarks] = useState<Marks>({});
   const [noteFor, setNoteFor] = useState<number | null>(null);
   const [sending, setSending] = useState<string | null>(null);
+  const [card, setCard] = useState<VersePick | null>(null);
   const [flash, setFlash] = useState<number | null>(null);
   const meta = BOOKS.find((b) => b.name === book)!;
   // Opened from Highlights & notes or a verse link (?v=16): scroll to it and mark it for a moment.
   const target = Number(new URLSearchParams(route.split('?')[1] ?? '').get('v')) || 0;
+
+  /* ----- the reading streak: a chapter counts once it has really been read, once a day ----- */
+
+  const readSince = useRef(0);
+  const counted = useRef(false);
+  const countRead = useCallback(() => {
+    if (counted.current) return;
+    counted.current = true;
+    // In the background: reading never waits on it, and a failure is simply not counted.
+    noteChapterRead(me.id, book, chapter).then((streak) => {
+      if (streak) toast(t('bible.streakDay', { n: streak.current_streak }));
+    });
+  }, [me.id, book, chapter]);
+  useEffect(() => {
+    readSince.current = 0;
+    if (!text || chapterCounted(me.id, book, chapter)) return;
+    readSince.current = Date.now();
+    const timer = setTimeout(countRead, READ_MS);
+    // Most of a long chapter scrolled through, at reading pace rather than a flick to the end, counts too.
+    const el = page.current;
+    const scrolled = () => {
+      if (!el || !readSince.current || Date.now() - readSince.current < SKIM_MS) return;
+      if (el.scrollHeight > el.clientHeight * 1.5 && el.scrollTop + el.clientHeight >= el.scrollHeight * 0.8) countRead();
+    };
+    el?.addEventListener('scroll', scrolled, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      el?.removeEventListener('scroll', scrolled);
+    };
+  }, [text, countRead]);
 
   useEffect(() => {
     let live = true;
@@ -525,6 +670,11 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
     setSelected([]);
     openCreate({ mode: 'post', text: q });
   };
+  // The chosen verses as a designed picture, in the card maker.
+  const makeCard = () => {
+    setCard({ book, chapter, verses: [...selected].sort((a, b) => a - b), translation: settings.translation });
+    setSelected([]);
+  };
   const note = () => {
     if (selected.length !== 1) {
       toast(t('bibleMarks.oneVerse'));
@@ -619,15 +769,16 @@ function Reader({ book, chapter, settings, onSettings, page }: { book: string; c
           {nextRef ? (nextRef.book === book ? t('d.church.chapter', { number: nextRef.chapter }) : `${nextRef.book} ${nextRef.chapter}`) : t('d.church.next')} →
         </button>
       </div>
-      {selected.length && text ? <MarkBar reference={verseRef(book, chapter, selected)} active={active} single={selected.length === 1} onColor={colour} onNote={note} onCopy={copy} onShare={share} onPost={post} onClose={() => setSelected([])} /> : null}
+      {selected.length && text ? <MarkBar reference={verseRef(book, chapter, selected)} active={active} single={selected.length === 1} onColor={colour} onNote={note} onCopy={copy} onShare={share} onCard={makeCard} onPost={post} onClose={() => setSelected([])} /> : null}
       {noteFor !== null ? <NoteDialog reference={verseRef(book, chapter, [noteFor])} verseText={noteVerse?.text ?? ''} initial={markOf(noteFor)?.note ?? ''} onClose={() => setNoteFor(null)} onSave={(n) => saveNote(noteFor, n)} /> : null}
       {sending ? <SendText title={t('d.church.sendVerses')} text={sending} onClose={() => setSending(null)} /> : null}
+      {card ? <CardMaker pick={card} onClose={() => setCard(null)} /> : null}
     </article>
   );
 }
 
-/** The bar that rises while verses are chosen: the colours, then Note, Copy, Share and Post. */
-function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onPost: () => void; onClose: () => void }) {
+/** The bar that rises while verses are chosen: the colours, then Note, Copy, Share, Card and Post. */
+function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, onCard, onPost, onClose }: { reference: string; active: BibleMarkColor | null; single: boolean; onColor: (c: BibleMarkColor) => void; onNote: () => void; onCopy: () => void; onShare: () => void; onCard: () => void; onPost: () => void; onClose: () => void }) {
   return (
     <div className="ch-markbar" role="toolbar" aria-label={t('d.church.chosenVerses', { reference })}>
       <div className="ch-markbar-top">
@@ -652,6 +803,9 @@ function MarkBar({ reference, active, single, onColor, onNote, onCopy, onShare, 
         </button>
         <button className="ch-bar-action" onClick={onShare}>
           <Icon name="send" size={18} /> {t('common.share')}
+        </button>
+        <button className="ch-bar-action" onClick={onCard}>
+          <Icon name="image" size={18} /> {t('verseCard.card')}
         </button>
         <button className="ch-bar-action" onClick={onPost}>
           <Icon name="pluscircle" size={18} /> {t('bibleMarks.post')}
