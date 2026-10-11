@@ -1,8 +1,8 @@
 // A church's page, from the iPhone app's church/[id].tsx: where it is and when it meets, "This is my
-// church" (or leave it), its members on Community, and for admins: approve or turn down a church
-// waiting for review, correct its details, or delete it.
-import React, { useState } from 'react';
-import { decideChurch, deleteChurch, fetchChurchMembers, updateChurch, updateProfile } from 'shared/api';
+// church" (or leave it), its next events, its members on Community, and for admins: approve or turn
+// down a church waiting for review, correct its details, or delete it.
+import React, { useCallback, useRef, useState } from 'react';
+import { decideChurch, deleteChurch, fetchChurchMembers, fetchEvents, updateChurch, updateProfile } from 'shared/api';
 import { announce } from 'shared/store';
 import { ago, errText, fmt } from 'shared/theme';
 import type { Church } from 'shared/types';
@@ -12,8 +12,12 @@ import { nav } from '../lib/router';
 import { ChoiceMenu, Icon, Link, Modal, Spinner, ask, toast, toastError, useLoad } from '../ui/kit';
 import { profileOnce } from '../ui/post-data';
 import { type ChurchForm, ChurchFields, cleanSite, mapsUrl, placeOf, siteOf } from './church-parts';
+import { EventTile, useEventsChanged } from './event-parts';
 import { PersonRow } from './group-parts';
 import '../styles/community.css';
+
+/** How many of the church's next events its page shows. */
+const EVENTS_SHOWN = 6;
 
 /** "2 days ago", "just now": when a church was suggested, in the app's language. */
 function agoWords(iso: string): string {
@@ -26,6 +30,11 @@ function agoWords(iso: string): string {
 export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => void }) {
   const { me, refresh } = useMe();
   const members = useLoad(() => fetchChurchMembers(c.id), [c.id]);
+  // The church's next few events. The section is extra: if it can't load, the page goes without it.
+  const events = useLoad(() => fetchEvents({ churchId: c.id, limit: EVENTS_SHOWN }).catch(() => []), [c.id]);
+  const reloadEvents = useRef(events.reload);
+  reloadEvents.current = events.reload;
+  useEventsChanged(useCallback(() => reloadEvents.current(), []));
   // Who suggested it, for admins deciding on a church waiting for review.
   const author = useLoad(() => (c.created_by && c.status !== 'approved' ? profileOnce(c.created_by) : Promise.resolve(null)), [c.created_by, c.status]);
   const [busy, setBusy] = useState(false);
@@ -38,6 +47,9 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
   const pending = c.status === 'pending';
   const rejected = c.status === 'rejected';
   const place = placeOf(c);
+  // Members 14 and over can post an event for a listed church; the section shows when there's something in it.
+  const canAddEvent = !rejected && me.restricted !== true;
+  const showEvents = events.loading || (events.data?.length ?? 0) > 0 || canAddEvent;
   const site = siteOf(c);
   const times = (c.service_times ?? '').trim();
   // "Suggested by <name> · 2 days ago", with the name drawn as a link.
@@ -108,8 +120,6 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
                 <Link to={'/u/' + author.data.username}>{author.data.username}</Link>
                 {suggested[1]}
               </span>
-            ) : !admin && pending ? (
-              <span>{t('d.community.pendingForYou')}</span>
             ) : null}
           </div>
           {admin ? (
@@ -192,6 +202,31 @@ export function ChurchDetail({ c, onChanged }: { c: Church; onChanged: () => voi
           </div>
         ) : null}
       </div>
+
+      {showEvents ? (
+        <section className="ev-section" aria-label={t('events.title')}>
+          <div className="ev-section-head">
+            <h3>{t('events.title')}</h3>
+            {events.data?.length ? (
+              <Link to={'/events?church=' + c.id} className="link-btn">
+                {t('events.seeAll')}
+              </Link>
+            ) : null}
+          </div>
+          {events.data?.length ? (
+            <div className="ev-tiles">
+              {events.data.map((ev) => (
+                <EventTile key={ev.id} ev={ev} to={`/events/${ev.id}?church=${c.id}`} />
+              ))}
+            </div>
+          ) : null}
+          {canAddEvent ? (
+            <button className="ev-add" onClick={() => nav('/events/new?church=' + c.id)}>
+              <Icon name="pluscircle" size={22} /> {t('events.addEvent')}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       <h3 className="cm-h">{t('d.community.churchMembersCount', { count: fmt(members.data?.length ?? 0) })}</h3>
       {members.loading && !members.data ? <Spinner /> : null}
