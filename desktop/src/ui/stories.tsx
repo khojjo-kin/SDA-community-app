@@ -7,7 +7,7 @@
 // text background or collage, then drawing, caption, text, emoji and @mentions on top.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { allStoriesSeen, coverOf, deleteStory, fetchStoryViewersDetailed, markStorySeen, noteStorySeen, openThread, sendMessage } from 'shared/api';
+import { allStoriesSeen, coverOf, deleteStory, fetchStoryViewersDetailed, getProfile, markStorySeen, noteStorySeen, openThread, sendMessage, setMute } from 'shared/api';
 import { announce, listen } from 'shared/store';
 import { ago, fmt } from 'shared/theme';
 import type { LiveCard, Overlay, Story, StoryGroup, StoryItem, StoryViewer as Viewer } from 'shared/types';
@@ -664,9 +664,17 @@ export function StoryViewer({ groups: given, start, onClose, onChanged, highligh
           onSettings={() => setSheet('settings')}
           onReport={() => setSheet('report')}
           onAbout={() => setSheet('about')}
-          onMuted={(on) => {
+          onMuted={async (on) => {
+            // Muting is kept on the account (database v24), as on the iPhone, so their stories leave
+            // the tray on every device; the list on this computer keeps the tray in order meanwhile.
             setStoriesMuted(group.user_id, on);
-            toast(t(on ? 'd.stories.mutedToEnd' : 'd.stories.unmutedBack', { username: group.username }));
+            try {
+              const them = await getProfile(group.user_id);
+              await setMute(me.id, group.user_id, { posts: !!them?.muted_posts, stories: on });
+            } catch (e) {
+              toastError(e);
+            }
+            toast(t(on ? 'mute.muted' : 'mute.unmuted', { username: group.username }));
             if (on) next();
           }}
         />

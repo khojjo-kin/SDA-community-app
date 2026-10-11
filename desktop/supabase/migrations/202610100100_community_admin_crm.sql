@@ -113,39 +113,10 @@ grant select on public.community_bans to authenticated;
 grant select on public.community_admin_audit to authenticated;
 grant select, insert, update, delete on public.community_announcements to authenticated;
 
--- ---------- the profile guard: let the system itself suspend (banned addresses) ----------
-
-create or replace function public.community_profile_guard()
- returns trigger
- language plpgsql
- security definer
- set search_path to ''
-as $function$
-declare me text := auth.jwt()->>'sub'; admin boolean := private.community_is_admin();
-begin
-  if auth.jwt() is null or coalesce(auth.jwt()->>'role', '') = 'service_role'
-     or coalesce(current_setting('community.system', true), '') = 'on' then
-    return new;
-  end if;
-  if (new.verified is distinct from old.verified
-      or new.plus_until is distinct from old.plus_until
-      or new.suspended is distinct from old.suspended
-      or new.admin_note is distinct from old.admin_note) and not admin then
-    raise exception 'Only an admin can change that';
-  end if;
-  if new.id <> me and admin and (
-      new.username is distinct from old.username or new.full_name is distinct from old.full_name
-      or new.avatar_url is distinct from old.avatar_url or new.bio is distinct from old.bio
-      or new.website is distinct from old.website or new.pronouns is distinct from old.pronouns
-      or new.gender is distinct from old.gender or new.contact_email is distinct from old.contact_email
-      or new.contact_phone is distinct from old.contact_phone or new.church_id is distinct from old.church_id
-      or new.account_type is distinct from old.account_type or new.category is distinct from old.category
-      or new.show_view_counts is distinct from old.show_view_counts or new.story_replies is distinct from old.story_replies
-      or new.faq_enabled is distinct from old.faq_enabled) then
-    raise exception 'An admin cannot edit someone else''s profile';
-  end if;
-  return new;
-end $function$;
+-- ---------- the profile guard ----------
+-- The iPhone app's guard (newest version, v22/v23) stays as it is. When an address is blocked, the
+-- database suspends the account itself by setting community.trusted, which that guard already
+-- honours (the same switch the iPhone app's own trusted functions use).
 
 -- ---------- audit: admin changes made anywhere (iPhone or desktop) are written down ----------
 
@@ -250,11 +221,11 @@ begin
     end;
   end if;
   if banned then
-    perform set_config('community.system', 'on', true);
+    perform set_config('community.trusted', 'on', true);
     update public.community_profiles set suspended = true,
       admin_note = left('Suspended automatically: signed in from a blocked address. ' || coalesce(admin_note, ''), 500)
       where id = me and not suspended;
-    perform set_config('community.system', '', true);
+    perform set_config('community.trusted', 'off', true);
     insert into public.community_security_events (kind, severity, user_id, ip, detail)
     values ('blocked_address', 'high', me, v_ip, 'Sign-in from a blocked address; the account was suspended');
   end if;
