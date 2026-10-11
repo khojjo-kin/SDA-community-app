@@ -55,6 +55,11 @@ export type Post = {
   comment_count: number;
   repost_count: number;
   liked: boolean;
+  /** Someone you follow who liked this post (the most recent), for "Liked by … and others". Null when none. */
+  liked_by_username?: string | null;
+  liked_by_avatar_url?: string | null;
+  /** You have muted the author's posts: kept off your feeds. */
+  author_muted?: boolean;
   saved: boolean;
   reposted: boolean;
   following_author: boolean;
@@ -128,6 +133,12 @@ export type Profile = {
   is_following: boolean;
   follows_me: boolean;
   is_blocked: boolean;
+  /** You have muted their posts (they stay off your feeds; their profile still shows them). */
+  muted_posts?: boolean;
+  /** You have muted their stories (they stay off your story tray). */
+  muted_stories?: boolean;
+  /** You have restricted them: their comments on your posts only show to them and you, their messages arrive as requests, and they can't see when you're active or have read their messages. */
+  restricted?: boolean;
   has_story: boolean;
   account_type: 'personal' | 'creator';
   category: string;
@@ -327,6 +338,8 @@ export type Comment = {
   like_count: number;
   liked: boolean;
   verified: boolean;
+  /** The post's owner has restricted the writer: only the two of them see this comment. */
+  restricted?: boolean;
 };
 
 export type Audience = 'everyone' | 'close_friends';
@@ -342,6 +355,8 @@ export type Story = {
   avatar_url: string;
   seen: boolean;
   in_tray: boolean;
+  /** You have muted this person's stories: kept off your story tray. */
+  author_muted?: boolean;
   view_count: number;
   audience: Audience;
   story_replies: StoryReplies;
@@ -384,6 +399,11 @@ export type Thread = {
   active_at: string | null;
   /** They have Plus: screenshots of the chat are announced to them. */
   other_plus: boolean;
+  /**
+   * A message request: they wrote first, you haven't written back or accepted, and you don't
+   * follow them (or you have restricted them). Requests live in their own folder of the inbox.
+   */
+  request?: boolean;
 };
 
 /** A short line above the inbox for 24 hours, seen by mutual followers or close friends. */
