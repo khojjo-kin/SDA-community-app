@@ -1,0 +1,51 @@
+name: Community for Mac on TestFlight
+
+# Builds the desktop app (desktop/) for the Mac App Store and uploads it to TestFlight, as the
+# macOS version of the same App Store Connect app as the iPhone app (Kojo.SDAAPPGEMINI). Runs when
+# the desktop-testflight branch is pushed (push the desktop branch there to send a build).
+# The App Store Connect key and the distribution certificate are the iPhone build's, read from the
+# community-app branch.
+on:
+  push:
+    branches: [desktop-testflight]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-testflight
+  cancel-in-progress: true
+
+env:
+  ASC_KEY_ID: PD6DWK7T4C
+  ASC_ISSUER_ID: 232fdb99-c796-444e-8430-34452fd67484
+
+jobs:
+  testflight:
+    name: Mac App Store build
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Collect the Apple key and certificate
+        run: |
+          git fetch --quiet --depth 1 origin community-app
+          mkdir -p "$RUNNER_TEMP/signing"
+          git show FETCH_HEAD:ios/fastlane/AuthKey_PD6DWK7T4C.p8 > "$RUNNER_TEMP/signing/key.p8"
+          git show FETCH_HEAD:ios/PRZR6A95J9.p12 > "$RUNNER_TEMP/signing/dist.key" || true
+          git show FETCH_HEAD:ios/PRZR6A95J9.cer > "$RUNNER_TEMP/signing/dist.cer" || true
+          chmod 600 "$RUNNER_TEMP"/signing/*
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/signing/key.p8" >> "$GITHUB_ENV"
+          echo "SIGN_DIR=$RUNNER_TEMP/signing" >> "$GITHUB_ENV"
+          pip3 install --quiet --break-system-packages pyjwt cryptography || pip3 install --quiet pyjwt cryptography
+      - name: What App Store Connect has
+        run: python3 scripts/mas-probe.py
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/signing"

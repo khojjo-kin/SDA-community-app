@@ -27,3 +27,9 @@ export function Modal({ visible, children }: { visible: boolean; children?: Reac
   if (!visible) return null;
   return createPortal(<div className="call-layer">{children}</div>, document.body);
 }
+
+/** A computer doesn't vibrate when a call rings: the ringtone and the call screen are enough. */
+export const Vibration = {
+  vibrate(_pattern?: number | number[], _repeat?: boolean) {},
+  cancel() {},
+};

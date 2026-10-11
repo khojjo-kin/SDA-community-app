@@ -55,6 +55,7 @@ const define = {
 const shim = (name) => path.join(here, 'src/shims', name);
 const alias = {
   shared: path.join(root, 'src/lib'),
+  'expo-audio': shim('expo-audio.ts'),
   'expo-crypto': shim('expo-crypto.ts'),
   'expo-file-system': shim('expo-file-system.ts'),
   'expo-image-manipulator': shim('expo-image-manipulator.ts'),
